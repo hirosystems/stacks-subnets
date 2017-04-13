@@ -49,6 +49,7 @@ import subprocess
 from jsonschema import ValidationError
 from schemas import *
 
+import backend.blockchain as backend_blockchain
 from types import ModuleType
 import keylib
 from keylib import *
@@ -414,9 +415,8 @@ class BlockstackAPIEndpointHandler(SimpleHTTPRequestHandler):
             return False
 
         auth_parts = auth_header.split(" ", 1)
-        if auth_parts[0].lower() != 'basic':
-            # need basic auth
-            log.debug("Not 'basic' auth")
+        if auth_parts[0].lower() != 'bearer':
+            log.debug("Not 'bearer' auth")
             return False
 
         if auth_parts[1] != self.server.api_pass:
@@ -2156,6 +2156,78 @@ class BlockstackAPIEndpointHandler(SimpleHTTPRequestHandler):
         return
 
 
+    def GET_blockchain_unspents( self, ses, path_info, blockchain_name, address ):
+        """
+        Handle GET /blockchains/:blockchainID/:address/unspents
+        Takes min_confirmations= as a query-string arg.
+
+        Reply 200 and the list of unspent outputs or current address states
+        Reply 401 if the blockchain is not known
+        Reply 503 on failure to contact the requisite back-end services
+        """
+        if blockchain_name != 'bitcoin':
+            # not supported
+            return self._reply_json({'error': 'Unsupported blockchain'}, status_code=401)
+
+        # make sure we have the right encoding
+        new_addr = virtualchain.address_reencode(str(address))
+        if new_addr != address:
+            log.debug("Re-encode {} to {}".format(new_addr, address))
+            address = new_addr
+
+        min_confirmations = path_info['qs_values'].get('min_confirmations', '{}'.format(TX_MIN_CONFIRMATIONS)) 
+        try:
+            min_confirmations = int(min_confirmations)
+        except:
+            return self._reply_json({'error': 'Invalid min_confirmations value: expected int'}, status_code=401)
+
+        res = backend_blockchain.get_utxos(address, config_path=self.server.config_path, min_confirmations=min_confirmations)
+        if 'error' in res:
+            return self._reply_json({'error': 'Failed to query backend UTXO service: {}'.format(res['error'])}, status_code=503)
+
+        return self._reply_json(res)
+
+
+    def POST_broadcast_tx( self, ses, path_info, blockchain_name ):
+        """
+        Handle POST /blockchains/:blockchainID/tx
+        Reads {'tx': ...} as JSON from the request.
+
+        Reply 200 and the transaction hash as {'status': True, 'tx_hash': ...} on success
+        Reply 401 if the blockchain is not known
+        Reply 503 on failure to contact the requisite back-end services
+        """
+        if blockchain_name != 'bitcoin':
+            # not supported
+            return self._reply_json({'error': 'Unsupported blockchain'}, status_code=401)
+
+        tx_schema = {
+            'type': 'object',
+            'properties': {
+                'tx': {
+                    'type': 'string',
+                    'pattern': OP_HEX_PATTERN,
+                },
+            },
+            'additionalProperties': False,
+            'required': [
+                'tx'
+            ],
+        }
+
+        tx_req = None
+        tx_req = self._read_json(tx_schema)
+        if tx_req is None:
+            return self._reply_json({'error': 'Failed to parse request.  Expected {}'.format(json.dumps(tx_schema))}, status_code=401)
+
+        # broadcast!
+        res = backend_blockchain.broadcast_tx(tx_req['tx'], config_path=self.server.config_path)
+        if 'error' in res:
+            return self._reply_json({'error': 'Failed to sent transaction: {}'.format(res['error'])}, status_code=503)
+        
+        return self._reply_json(res)
+
+
     def GET_ping(self, session, path_info):
         """
         ping
@@ -2257,6 +2329,34 @@ class BlockstackAPIEndpointHandler(SimpleHTTPRequestHandler):
                         'desc': 'get current consensus hash',
                         'auth_session': False,
                         'auth_pass': False,
+                        'need_data_key': False,
+                    },
+                },
+            },
+            r'^/v1/blockchains/({})/({})/unspent$'.format(URLENCODING_CLASS, BASE58CHECK_CLASS): {
+                'routes': {
+                    'GET': self.GET_blockchain_unspents,
+                },
+                'whitelist': {
+                    'GET': {
+                        'name': 'blockchain',
+                        'desc': 'get most-recent state of any address our account',
+                        'auth_session': True,
+                        'auth_pass': True,
+                        'need_data_key': False,
+                    },
+                },
+            },
+            r'^/v1/blockchains/({})/txs$'.format(URLENCODING_CLASS): {
+                'routes': {
+                    'POST': self.POST_broadcast_tx,
+                },
+                'whitelist': {
+                    'POST': {
+                        'name': 'blockchain',
+                        'desc': 'send a transaction through this node',
+                        'auth_session': True,
+                        'auth_pass': True,
                         'need_data_key': False,
                     },
                 },
@@ -2945,7 +3045,12 @@ class BlockstackAPIEndpointHandler(SimpleHTTPRequestHandler):
         log.debug("\nfull path: {}\nmethod: {}\npath: {}\nqs: {}\nheaders:\n {}\n".format(self.path, method_name, path_info['path'], qs_values, '\n'.join( '{}: {}'.format(k, v) for (k, v) in self.headers.items() )))
 
         have_password = self.verify_password()
-        session = self.verify_session(qs_values)
+        session = None
+        try:
+            session = self.verify_session(qs_values)
+        except:
+            log.debug("No or invalid session given")
+
         authorized = False
 
         # sanity check: this API only works if we have a data key
@@ -3185,7 +3290,7 @@ class BlockstackAPIEndpointClient(object):
         }
 
         if self.api_pass:
-            headers['Authorization'] = 'basic {}'.format(self.api_pass)
+            headers['Authorization'] = 'bearer {}'.format(self.api_pass)
         
         elif self.session:
             headers['Authorization'] = 'bearer {}'.format(self.session)
