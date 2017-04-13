@@ -819,6 +819,7 @@ def get_config(path=CONFIG_PATH, interactive=False):
     """
 
     try:
+        log.debug("Load config from {}".format(path))
         opts = configure(config_file=path, interactive=interactive)
     except Exception as e:
         log.exception(e)
