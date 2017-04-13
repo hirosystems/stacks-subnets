@@ -29,17 +29,19 @@ import logging
 import json
 import traceback
 from .blockstack_utxo import BlockstackUTXOClient
+from .blockstack_core import BlockstackCoreUTXOClient
 
 DEBUG = True
 FIRST_BLOCK_MAINNET = 373601        # well-known value for blockstack-server; doesn't ever change
 
 
-SUPPORTED_UTXO_PROVIDERS = [ "blockcypher", "blockchain_info", "bitcoind_utxo", "blockstack_utxo", "mock_utxo" ]
+SUPPORTED_UTXO_PROVIDERS = [ "blockcypher", "blockchain_info", "bitcoind_utxo", "blockstack_core", "blockstack_utxo", "mock_utxo" ]
 SUPPORTED_UTXO_PARAMS = {
     "blockcypher": ["api_token"],
     "blockchain_info": ["api_token"],
     "bitcoind_utxo": ["rpc_username", "rpc_password", "server", "port", "use_https", "version_byte"],
-    "blockstack_utxo": ["server", "port"],
+    "blockstack_core": ["server", "port"],
+    "blockstack_utxo": [],
     "mock_utxo": []
 }
 
@@ -58,11 +60,14 @@ def default_utxo_provider_opts( utxo_provider, config_file=None ):
    elif utxo_provider == "bitcoind_utxo":
        return default_bitcoind_utxo_opts( config_file=config_file )
 
-   elif utxo_provider == "blockstack_utxo":
-       return default_blockstack_utxo_opts( config_file=config_file )
+   elif utxo_provider == "blockstack_core":
+       return default_blockstack_core_opts( config_file=config_file )
 
    elif utxo_provider == "mock_utxo":
        return default_mock_utxo_opts( config_file=config_file )
+
+   elif utxo_provider == "blockstack_utxo":
+       return default_blockstack_utxo_opts( config_file=config_file )
 
    else:
        raise Exception("Unsupported UTXO provider '%s'" % utxo_provider)
@@ -233,9 +238,9 @@ def default_bitcoind_utxo_opts( config_file=None ):
    return bitcoind_utxo_opts
 
 
-def default_blockstack_utxo_opts( config_file=None ):
+def default_blockstack_core_opts( config_file=None ):
    """
-   Get our default Blockstack UTXO proxy options from a config file.
+   Get our default Blockstack Core UTXO proxy options from a config file.
    """
 
    if config_file is None:
@@ -244,12 +249,12 @@ def default_blockstack_utxo_opts( config_file=None ):
    parser = SafeConfigParser()
    parser.read( config_file )
 
-   blockstack_utxo_opts = {}
+   blockstack_core_opts = {}
 
    server = None
    port = None
 
-   provider_secs = find_service_provider_sections(config_file, 'blockstack_utxo')
+   provider_secs = find_service_provider_sections(config_file, 'blockstack_core')
    if len(provider_secs) > 0:
        provider_sec = provider_secs[0]
 
@@ -259,18 +264,25 @@ def default_blockstack_utxo_opts( config_file=None ):
        if parser.has_option(provider_sec, "port"):
            port = int(parser.get(provider_sec, "port"))
 
-   blockstack_utxo_opts = {
+   blockstack_core_opts = {
        "server": server,
        "port": port
    }
 
    # strip Nones
-   for (k, v) in blockstack_utxo_opts.items():
+   for (k, v) in blockstack_core_opts.items():
       if v is None:
-         del blockstack_utxo_opts[k]
+         del blockstack_core_opts[k]
 
-   blockstack_utxo_opts['utxo_provider'] = 'blockstack_utxo'
-   return blockstack_utxo_opts
+   blockstack_core_opts['utxo_provider'] = 'blockstack_core'
+   return blockstack_core_opts
+
+
+def default_blockstack_utxo_opts(config_file=None):
+    """
+    Get our default Blockstack UTXO service proxy options
+    """
+    return {'utxo_provider': 'blockstack_utxo'}
 
 
 def default_mock_utxo_opts( config_file=None ):
@@ -391,8 +403,11 @@ def connect_utxo_provider( utxo_opts ):
    elif utxo_provider == "bitcoind_utxo":
        return pybitcoin.BitcoindClient( utxo_opts['rpc_username'], utxo_opts['rpc_password'], use_https=utxo_opts['use_https'], server=utxo_opts['server'], port=utxo_opts['port'], version_byte=utxo_opts['version_byte'] )
 
+   elif utxo_provider == "blockstack_core":
+       return BlockstackCoreUTXOClient( utxo_opts['server'], utxo_opts['port'] )
+
    elif utxo_provider == "blockstack_utxo":
-       return BlockstackUTXOClient( utxo_opts['server'], utxo_opts['port'] )
+       return BlockstackUTXOClient()
 
    elif utxo_provider == "mock_utxo":
        # requires blockstack tests to be installed

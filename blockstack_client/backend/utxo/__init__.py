@@ -22,5 +22,6 @@
     along with Blockstack-client. If not, see <http://www.gnu.org/licenses/>.
 """
 
+import blockstack_core
 import blockstack_utxo
 from utxo import *
