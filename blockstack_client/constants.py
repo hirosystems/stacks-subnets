@@ -58,6 +58,8 @@ DEFAULT_BLOCKSTACKD_SERVER = 'node.blockstack.org'
 
 DEFAULT_API_PORT = 6270  # RPC endpoint port
 
+LOG_NETWORK_PORT = 8333 # send Portal log messages
+
 # initialize to default settings
 BLOCKSTACKD_SERVER = DEFAULT_BLOCKSTACKD_SERVER
 BLOCKSTACKD_PORT = DEFAULT_BLOCKSTACKD_PORT

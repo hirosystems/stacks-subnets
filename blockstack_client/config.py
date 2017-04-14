@@ -30,6 +30,9 @@ import logging
 import traceback
 import uuid
 import urllib2
+import time
+import requests
+
 from binascii import hexlify
 from ConfigParser import SafeConfigParser
 
@@ -37,12 +40,116 @@ import virtualchain
 from .backend.utxo import *
 from .constants import *
 
+
+class NetworkLogFormatter( logging.Formatter ):
+    """
+    Log formatter for network endpoints, such as Blockstack Portal
+    """
+    level_names = {
+        logging.DEBUG: 'DEBUG',
+        logging.INFO: 'INFO',
+        logging.WARN: 'WARN',
+        logging.ERROR: 'ERROR',
+        logging.FATAL: 'FATAL'
+    }
+
+    def format(self, record):
+        data = {
+            'time': int(time.time()),
+            'level': NetworkLogFormatter.level_names.get(record.levelno, 'TRACE'),
+            'category': os.path.basename(record.pathname),
+            'message': record.msg,
+        }
+        return data
+
+
+class NetworkLogHandler( logging.Handler ):
+    """
+    Log handler for network endpoints, such as Blockstack Portal
+    """
+    def config(self, url, authorization):
+        self.authorization = authorization
+        self.url = url
+
+    def emit(self, record):
+        log_entry = self.format(record)
+        headers = {
+            'Authorization': self.authorization
+        }
+
+        try:
+            requests.post(self.url, json=log_entry, headers=headers, timeout=1.0)
+        except Exception as e:
+            traceback.print_exc()
+            pass
+
+
+def get_network_log_handler(api_password=None, name=None, scheme="http", host="localhost", port=LOG_NETWORK_PORT):
+    """
+    Get a log handler to sending messages over the network.
+    """
+
+    level = logging.CRITICAL
+    if DEBUG:
+        logging.disable(logging.NOTSET)
+        level = logging.DEBUG
+
+    if name is None:
+        name = "<unknown>"
+        level = logging.CRITICAL
+
+    if api_password is None:
+        api_password = os.environ.get("BLOCKSTACK_API_PASSWORD", None)
+
+    if api_password is None:
+        # extract...
+        p = SafeConfigParser()
+        try:
+            p.read(CONFIG_PATH)
+        except:
+            print("Failed to read config path {}".format(CONFIG_PATH))
+            return None
+
+        try:
+            if p.has_section('blockstack-client'):
+                if p.get('blockstack-client', 'api_password') is not None:
+                    api_password = p.get('blockstack-client', 'api_password')
+        except:
+            print("Failed to parse config file")
+            return None
+
+    if not api_password:
+        print("No API password from {}".format(CONFIG_PATH))
+        return None
+
+    url = "{}://{}:{}".format(scheme, host, port)
+    authorization = 'bearer {}'.format(api_password)
+    network = NetworkLogHandler()
+    network.config(url, authorization)
+    network.setLevel( level )
+    formatter = NetworkLogFormatter()
+    network.setFormatter(formatter)
+    network.propagate = False
+
+    return network
+
+
 def get_logger(name="blockstack-client", debug=DEBUG):
     logger = virtualchain.get_logger(name)
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
+   
+    if not BLOCKSTACK_TEST:
+        network_logger = get_network_log_handler(name=name)
+        if network_logger:
+            logger.addHandler(network_logger)
+        else:
+            print("Failed to get network logger")
+
     return logger
 
+
 log = get_logger('blockstack-client')
+
 
 # NOTE: duplicated from blockstack-core and streamlined.
 def op_get_opcode_name(op_string):
@@ -817,12 +924,10 @@ def get_config(path=CONFIG_PATH, interactive=False):
     Return our flattened configuration (as a dict) on success.
     Return None on error
     """
-
+    
     try:
-        log.debug("Load config from {}".format(path))
         opts = configure(config_file=path, interactive=interactive)
     except Exception as e:
-        log.exception(e)
         return None
 
     # flatten
@@ -1095,3 +1200,4 @@ def configure_zonefile(name, zonefile, data_pubkey ):
         log.debug("zonefile is now:\n{}".format(json.dumps(zonefile, indent=4, sort_keys=True)))
 
     return zonefile
+
