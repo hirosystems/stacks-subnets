@@ -3620,6 +3620,11 @@ def local_api_action(command, password=None, api_pass=None, config_dir=blockstac
     if api_pass:
         env['BLOCKSTACK_API_PASSWORD'] = api_pass
 
+    if command == 'start-foreground':
+        # start API server the foreground
+        rc = local_api_start(port=api_port, config_dir=config_dir, api_pass=api_pass, password=password, foreground=True)
+        return rc
+
     p = subprocess.Popen(argv, cwd=config_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True, env=env)
     out, err = p.communicate()
     res = p.wait()
