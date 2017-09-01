@@ -27,6 +27,7 @@ import re
 import json
 import collections
 import logging
+import subprocess
 
 from flask import Flask, make_response, jsonify, abort, request
 from flask import Blueprint
@@ -34,7 +35,7 @@ from flask_crossdomain import crossdomain
 
 from time import time
 
-from blockstack_proofs import profile_to_proofs, profile_v3_to_proofs
+from blockstack_proofs import profile_to_proofs
 
 import blockstack_client.profile
 import blockstack_client.subdomains
@@ -89,16 +90,39 @@ def site_data_to_fixed_proof_url(account, zonefile):
     if proof:
         account['proofUrl'] = proof
 
+def blockstackjs_proofs(profile, username):
+    """ Attempts to call out to nodejs to
+        use blockstack.js to check profile proofs
+    """
+    js_cmd = ("b=require('blockstack');" +
+              "fs=require('fs');" +
+              "b.validateProofs(JSON.parse(fs.readFileSync('/dev/stdin')), '{}')" +
+              ".then(x => console.log(JSON.stringify(x))).catch(console.error)")
+    if not is_valid_fqa(username):
+        raise Exception("Invalid username {}".format(username))
+    p = None
+    try:
+        p = subprocess.Popen(
+            ["node", "-e", js_cmd.format(username)], stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout_data = p.communicate(input=json.dumps(profile))[0]
+    except:
+        if p and p.returncode is None:
+            p.kill()
+        raise
+    log.debug("Got proofs: {}".format(stdout_data))
+    proofs = json.loads(stdout_data)
+    return proofs
 
-def fetch_proofs(profile, username, profile_ver=2, zonefile = None, refresh=False):
+def fetch_proofs(profile, fqa, profile_ver=2, zonefile = None, refresh=False):
     """ Get proofs for a profile and:
         a) check cached entries
         b) check which version of profile we're using
     """
 
     if MEMCACHED_ENABLED and not refresh:
-        log.debug("Memcache get proofs: %s" % username)
-        proofs_cache_reply = mc.get("proofs_" + str(username))
+        log.debug("Memcache get proofs: %s" % fqa)
+        proofs_cache_reply = mc.get("proofs_" + str(fqa))
     else:
         proofs_cache_reply = None
 
@@ -113,13 +137,14 @@ def fetch_proofs(profile, username, profile_ver=2, zonefile = None, refresh=Fals
     if proofs_cache_reply is None:
 
         if profile_ver == 3:
-            proofs = profile_v3_to_proofs(profile, username)
+            proofs = blockstackjs_proofs(profile, fqa)
         else:
+            username = fqa.split(".")[0]
             proofs = profile_to_proofs(profile, username)
 
         if MEMCACHED_ENABLED or refresh:
-            log.debug("Memcache set proofs: %s" % username)
-            mc.set("proofs_" + str(username), json.dumps(proofs),
+            log.debug("Memcache set proofs: %s" % fqa)
+            mc.set("proofs_" + str(fqa), json.dumps(proofs),
                    int(time() + MEMCACHED_TIMEOUT))
     else:
 
@@ -170,12 +195,8 @@ def format_profile(profile, fqa, zone_file, refresh=False):
 
     data = {'profile' : profile,
             'zone_file' : zone_file}
+    ns = fqa.split('.')[-1]
 
-    try:
-        username, ns = fqa.split(".")
-    except:
-        data = {'error' : "Failed to split fqa into name and namespace."}
-        return data
     if ns != 'id':
         data['verifications'] = ["No verifications for non-id namespaces."]
         return data
@@ -183,13 +204,13 @@ def format_profile(profile, fqa, zone_file, refresh=False):
     profile_in_legacy_format = is_profile_in_legacy_format(profile)
 
     if not profile_in_legacy_format:
-        data['verifications'] = fetch_proofs(data['profile'], username,
+        data['verifications'] = fetch_proofs(data['profile'], fqa,
                                              profile_ver=3, zonefile=zone_file,
                                              refresh=refresh)
     else:
         if type(profile) is not dict:
             data['profile'] = json.loads(profile)
-        data['verifications'] = fetch_proofs(data['profile'], username,
+        data['verifications'] = fetch_proofs(data['profile'], fqa,
                                              refresh=refresh)
 
     return data
@@ -247,15 +268,15 @@ def get_profile(fqa, refresh=False):
             zonefile = res['zonefile']
         except Exception as e:
             log.exception(e)
-            abort(500, "Connection to blockstack-server %s:%s timed out" % 
+            abort(500, "Connection to blockstack-server %s:%s timed out" %
                   (BLOCKSTACKD_IP, BLOCKSTACKD_PORT))
 
         if profile is None or 'error' in zonefile:
             log.error("{}".format(zonefile))
             abort(404)
-            
+
         prof_data = {'response' : profile}
-     
+
         if MEMCACHED_ENABLED or refresh:
             log.debug("Memcache set DHT: %s" % fqa)
             mc.set("dht_" + str(fqa), json.dumps(data),
@@ -272,9 +293,9 @@ def get_all_users():
     """ Return all users in the .id namespace
     """
 
-    # aaron: hardcode a non-response for the time being -- 
+    # aaron: hardcode a non-response for the time being --
     #  the previous code was trying to load a non-existent file
-    #  anyways. 
+    #  anyways.
     return {}
 
 # aaron note: do we need to support multiple users in a query?
