@@ -109,7 +109,7 @@ impl fmt::Display for CheckError {
             CheckErrors::TypeError(ref t1, ref t2) => {
                 if let TypeSignature::Atom(AtomTypeIdentifier::OptionalType(ref inner_type)) = t2 {
                     if t1.admits_type(inner_type) {
-                        write!(f, "Type Error: Expected {}, found optional type. You may need to unpack the option value using, e.g., (expects! ...) or (default-to ...).",
+                        write!(f, "Type Error: Expected {}, found optional type. You may need to unpack the option value, e.g., using (expects! ...) or (default-to ...)",
                                t1)
                     } else {
                         write!(f, "Type Error: Expected {}, Found {}", t1, t2)
@@ -147,9 +147,15 @@ mod tests {
         let tests = ["(+ 1 (some 4))",
                      "(+ 2 (some 'true))",
                      "(+ 1 'true)"];
-        for test in tests.iter() {
-            println!("{}", type_check_program(test).unwrap_err())
+        let expectations = [
+            "Type Error: Expected int, found optional type. You may need to unpack the option value",
+            "Type Error: Expected int, Found (optional bool)",
+            "Type Error: Expected int, Found bool"];
+
+        for (test, expectation) in tests.iter().zip(expectations.iter()) {
+            let result = format!("{}", type_check_program(test).unwrap_err());
+            println!("{} =? {}", result, expectation);
+            assert!(result.starts_with(expectation))
         }
-        panic!("")
     }
 }
