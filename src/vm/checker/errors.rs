@@ -1,5 +1,5 @@
 use vm::representations::SymbolicExpression;
-use vm::types::TypeSignature;
+use vm::types::{TypeSignature, AtomTypeIdentifier};
 use std::error;
 use std::fmt;
 
@@ -103,7 +103,18 @@ impl CheckError {
 impl fmt::Display for CheckError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.err {
-            CheckErrors::TypeError(ref t1, ref t2) => write!(f, "Type Error: Expected {}, Found {}", t1, t2),
+            CheckErrors::TypeError(ref t1, ref t2) => {
+                if let TypeSignature::Atom(AtomTypeIdentifier::OptionalType(ref inner_type)) = t2 {
+                    if t1.admits_type(inner_type) {
+                        write!(f, "Type Error: Expected {}, found optional type. You may need to unpack the option value using, e.g., (expects! ...) or (default-to ...).",
+                               t1)
+                    } else {
+                        write!(f, "Type Error: Expected {}, Found {}", t1, t2)
+                    }
+                } else {
+                    write!(f, "Type Error: Expected {}, Found {}", t1, t2)
+                }
+            },
             _ =>  write!(f, "{:?}", self.err)
         }?;
 
@@ -120,5 +131,22 @@ impl error::Error for CheckError {
         match self.err {
             _ => None
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use vm::checker::typecheck::tests::type_check_program;
+
+    #[test]
+    fn test_optional_unwrap() {
+        let tests = ["(+ 1 (some 4))",
+                     "(+ 2 (some 'true))",
+                     "(+ 1 'true)"];
+        for test in tests.iter() {
+            println!("{}", type_check_program(test).unwrap_err())
+        }
+        panic!("")
     }
 }

@@ -72,7 +72,7 @@ impl <'a> AnalysisDatabase <'a> {
             savepoint: sp }
     }
 
-    pub fn roll_back(&mut self) {
+    pub fn _roll_back(&mut self) {
         self.savepoint.rollback()
             .expect(SQL_FAIL_MESSAGE);
     }

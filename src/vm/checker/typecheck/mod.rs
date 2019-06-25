@@ -18,7 +18,7 @@ pub use super::errors::{CheckResult, CheckError, CheckErrors};
 
 
 #[cfg(test)]
-mod tests;
+pub mod tests;
 
 /*
 

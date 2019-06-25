@@ -10,6 +10,12 @@ use vm::types::{Value, PrincipalData};
 
 mod contracts;
 
+pub fn type_check_program(p: &str) -> TypeResult {
+    let mut parsed = parse(p).unwrap();
+    identity_pass::identity_pass(&mut parsed).unwrap();
+    type_check_helper(&parsed[0])
+}
+
 fn type_check_helper(exp: &SymbolicExpression) -> TypeResult {
     let mut analysis_conn = AnalysisDatabaseConnection::memory();
     let analysis_db = analysis_conn.begin_save_point();
