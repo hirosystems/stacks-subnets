@@ -16,7 +16,6 @@ pub struct TupleTypeSignature {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AtomTypeIdentifier {
-    AnyType,
     NoType,
     IntType,
     BoolType,
@@ -194,7 +193,7 @@ impl Hash for TupleData {
     }
 }
 
-const NONE: Value = Value::Optional(OptionalData { data: None });
+pub const NONE: Value = Value::Optional(OptionalData { data: None });
 
 impl Value {
     pub fn deserialize(json: &str) -> Value {
@@ -275,7 +274,6 @@ impl fmt::Display for AtomTypeIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::AtomTypeIdentifier::*;
         match self {
-            AnyType => write!(f, "AnyType"),
             NoType => write!(f, "NoType"),
             IntType => write!(f, "int"),
             BoolType => write!(f, "bool"),
@@ -314,7 +312,7 @@ impl fmt::Display for OptionalData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.data {
             Some(ref x) => write!(f, "(some {})", x),
-            None => write!(f, "(none)")
+            None => write!(f, "none")
         }
     }
 }
@@ -369,9 +367,8 @@ impl fmt::Display for PrincipalData {
 impl AtomTypeIdentifier {
     pub fn size(&self) -> Result<i128> {
         match self {
-            // AnyType/NoType should _never_ be asked for size. It is only ever used
+            // NoType should _never_ be asked for size. It is only ever used
             //   in type checking native functions.
-            AtomTypeIdentifier::AnyType => Err(RuntimeErrorType::BadTypeConstruction.into()),
             AtomTypeIdentifier::NoType => Err(RuntimeErrorType::BadTypeConstruction.into()),
             AtomTypeIdentifier::IntType => Ok(16),
             AtomTypeIdentifier::BoolType => Ok(1),
@@ -425,8 +422,18 @@ impl AtomTypeIdentifier {
 
     fn admits(&self, other: &AtomTypeIdentifier) -> bool {
         match self {
-            AtomTypeIdentifier::AnyType => {
-                true
+            AtomTypeIdentifier::OptionalType(ref my_inner_type) => {
+                if let AtomTypeIdentifier::OptionalType(other_inner_type) = other {
+                    // Option types will always admit a "NoType" OptionalType -- which
+                    //   can only be a None
+                    if other_inner_type.is_no_type() {
+                        true
+                    } else {
+                        my_inner_type.admits_type(other_inner_type)
+                    }
+                } else {
+                    false
+                }
             },
             AtomTypeIdentifier::BufferType(ref my_len) => {
                 if let AtomTypeIdentifier::BufferType(ref other_len) = other {
@@ -524,7 +531,7 @@ impl TupleTypeSignature {
 }
 
 impl TupleData {
-    fn from_data(mut data: Vec<(String, Value)>) -> Result<TupleData> {
+    pub fn from_data(mut data: Vec<(String, Value)>) -> Result<TupleData> {
         let mut type_map = BTreeMap::new();
         let mut data_map = BTreeMap::new();
         for (name, value) in data.drain(..) {
@@ -639,12 +646,36 @@ impl TypeSignature {
                     .ok_or_else(|| (a.clone(), b.clone()))
             }
 
-        if a.admits_type(&b) {
-            Ok(a)
-        } else if b.admits_type(&a) {
-            Ok(b)
-        } else {
-            Err((a,b))
+        // same goes for the option type
+        // this little monster is an attempt to avoid an unneccessary clone
+        //   I'm not sure there's a better way to do this. I think _maybe_
+        //     a match statement would work, but I think that'd be nasty too.
+        let short_return_optional = 
+            if let (TypeSignature::Atom(AtomTypeIdentifier::OptionalType(ref opt_type_a)),
+                    TypeSignature::Atom(AtomTypeIdentifier::OptionalType(ref opt_type_b))) = (&a, &b) {
+                if opt_type_b.is_no_type() {
+                    Some(0)
+                } else if opt_type_a.is_no_type() {
+                    Some(1)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+        match short_return_optional {
+            Some(0) => Ok(a),
+            Some(1) => Ok(b),
+            _ => {
+                if a.admits_type(&b) {
+                    Ok(a)
+                } else if b.admits_type(&a) {
+                    Ok(b)
+                } else {
+                    Err((a,b))
+                }
+            }
         }
     }
 
@@ -977,7 +1008,16 @@ impl TypeSignature {
         }
     }
 
-    fn parse_type_repr(x: &SymbolicExpression, allow_list: bool) -> Result<TypeSignature> {
+    fn parse_optional_type_repr(type_args: &[SymbolicExpression]) -> Result<TypeSignature> {
+        if type_args.len() != 1 {
+            return Err(RuntimeErrorType::InvalidTypeDescription.into())
+        }
+        let inner_type = TypeSignature::parse_type_repr(&type_args[0], true)?;
+        Ok(TypeSignature::Atom(AtomTypeIdentifier::OptionalType(
+            Box::new(inner_type))))
+    }
+
+    pub fn parse_type_repr(x: &SymbolicExpression, allow_list: bool) -> Result<TypeSignature> {
         match x.expr {
             SymbolicExpressionType::Atom(ref atom_type_str) => {
                 let atomic_type = TypeSignature::parse_atom_type(atom_type_str)?;
@@ -996,6 +1036,7 @@ impl TypeSignature {
                             },
                         "buff" => TypeSignature::parse_buff_type_repr(rest),
                         "tuple" => TypeSignature::parse_tuple_type_repr(rest),
+                        "optional" => TypeSignature::parse_optional_type_repr(rest),
                         _ => Err(RuntimeErrorType::InvalidTypeDescription.into())
                     }
                 } else {
