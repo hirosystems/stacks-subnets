@@ -103,6 +103,7 @@ impl CheckError {
 impl fmt::Display for CheckError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.err {
+            CheckErrors::TypeError(ref t1, ref t2) => write!(f, "Type Error: Expected {}, Found {}", t1, t2),
             _ =>  write!(f, "{:?}", self.err)
         }?;
 
