@@ -114,10 +114,13 @@ impl fmt::Display for SymbolicExpression {
         match self.expr {
             SymbolicExpressionType::List(ref list) => {
                 write!(f, "(")?;
+                let mut list_prefix = "";
                 for item in list.iter() {
-                    write!(f, " {}", item)?;
+                    write!(f, "{}", list_prefix)?;
+                    write!(f, "{}", item)?;
+                    list_prefix = " ";
                 }
-                write!(f, " )")?;
+                write!(f, ")")?;
             },
             SymbolicExpressionType::Atom(ref value) => {
                 write!(f, "{}", value)?;

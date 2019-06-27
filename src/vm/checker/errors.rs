@@ -118,11 +118,16 @@ impl fmt::Display for CheckError {
                     write!(f, "Type Error: Expected {}, Found {}", t1, t2)
                 }
             },
+            
             _ =>  write!(f, "{:?}", self.err)
         }?;
 
         if let Some(ref e) = self.expression {
-            write!(f, "\nNear:\n{}", e)?;
+            let mut expression_str = e.to_string();
+            if expression_str.len() > 15 {
+                expression_str = format!("{:.12}...", expression_str);
+            }
+            write!(f, "\nAt line: {}, near: {}", e.line_number, expression_str)?;
         }
 
         Ok(())
@@ -155,7 +160,7 @@ mod tests {
         for (test, expectation) in tests.iter().zip(expectations.iter()) {
             let result = format!("{}", type_check_program(test).unwrap_err());
             println!("{} =? {}", result, expectation);
-            assert!(result.starts_with(expectation))
+            assert!(result.starts_with(expectation));
         }
     }
 }
