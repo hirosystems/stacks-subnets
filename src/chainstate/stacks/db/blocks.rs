@@ -760,7 +760,7 @@ impl StacksChainState {
     /// Returns Ok(Some(blockheader)) if found.
     /// Returns Ok(None) if this block was found, but is known to be invalid 
     /// Returns Err(...) on not found or I/O error
-    pub fn load_block_header(blocks_dir: &String, burn_header_hash: &BurnchainHeaderHash, block_hash: &BlockHeaderHash) -> Result<Option<StacksBlockHeader>, Error> {
+    pub fn load_block_header(blocks_dir: &str, burn_header_hash: &BurnchainHeaderHash, block_hash: &BlockHeaderHash) -> Result<Option<StacksBlockHeader>, Error> {
         let block_path = StacksChainState::get_block_path(blocks_dir, burn_header_hash, block_hash)?;
         let sz = StacksChainState::get_file_size(&block_path)?;
         if sz == 0 {

@@ -62,6 +62,7 @@ use burnchains::{
     BurnchainTransaction
 };
 
+use chainstate::stacks::Error as ChainstateError;
 use chainstate::stacks::StacksAddress;
 use chainstate::stacks::StacksPublicKey;
 use chainstate::stacks::*;
@@ -759,6 +760,78 @@ impl BurnDB {
         }
     }
 
+    pub fn has_pox_anchor_block(ic: &BurnDBConn, block_burn_hash: &BurnchainHeaderHash) -> Result<Option<(BurnchainHeaderHash, BlockHeaderHash)>, ChainstateError> {
+        let my_height = match BurnDB::get_block_height(ic.deref(), &block_burn_hash)? {
+            Some(h) => h,
+            None => return Ok(None)
+        };
+
+        let POX_PREPARE_LENGTH = 240;
+        let POX_REWARD_LENGTH = 1000;
+        let POX_ANCHOR_THRESHOLD = 240 * 4 / 5;
+
+        // there can be either 1 or 0 PoX anchors.
+        assert!(POX_ANCHOR_THRESHOLD > (POX_PREPARE_LENGTH / 2));
+
+        let prepare_end = my_height - (my_height % POX_REWARD_LENGTH);
+        let prepare_begin = prepare_end - POX_PREPARE_LENGTH;
+
+        let mut candidate_anchors = HashMap::new();
+        let mut memoized_candidates: HashMap<_, (BurnchainHeaderHash, BlockHeaderHash, u32)> = HashMap::new();
+
+        // iterate over every sortition winner in the prepare phase
+        //   looking for their highest ancestor _before_ prepare_begin.
+        for (winner_burn_bh, winner_stacks_bh) in BurnDB::get_sortition_winners_in_fork(ic, prepare_begin, prepare_end, block_burn_hash)?.into_iter() {
+            let winner_block_height = BurnDB::get_block_height(ic.deref(), &winner_burn_bh)?
+                .expect(&format!("CORRUPTION: Sortition winner selected in {}, but not found in BurnDB", winner_burn_bh));
+            let mut current_block = (winner_burn_bh.clone(), winner_stacks_bh.clone(), winner_block_height);
+            while current_block.2 >= prepare_begin {
+                // check if we've already discovered the highest ancestor for this block
+                let current_hashes = (current_block.0, current_block.1);
+                if let Some(ancestor) = memoized_candidates.get(&current_hashes) {
+                    current_block = ancestor.clone();
+                } else {
+                    // load the parent
+                    current_block = BurnDB::load_parent_block_hashes(ic, &current_hashes.0, &current_hashes.1)?;
+                }
+            }
+            memoized_candidates.insert((winner_burn_bh, winner_stacks_bh), current_block.clone());
+            let highest_ancestor = (current_block.0, current_block.1);
+            if let Some(x) = candidate_anchors.get_mut(&highest_ancestor) {
+                *x += 1;
+            } else {
+                candidate_anchors.insert(highest_ancestor, 1u32);
+            }
+        }
+
+        // did any candidate receive > F*w?
+        for (candidate, confirmed_by) in candidate_anchors.into_iter() {
+            if confirmed_by > POX_ANCHOR_THRESHOLD {
+                return Ok(Some(candidate))
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Returns the parent's burn_header_hash, stacks_header_hash, and burn_height
+    ///   Should only ever be called on a sortition winning block (will panic if not the case)
+    pub fn load_parent_block_hashes(burn_ic: &BurnDBConn,
+                                    burn_header_hash: &BurnchainHeaderHash,
+                                    stacks_block_hash: &BlockHeaderHash) -> Result<(BurnchainHeaderHash, BlockHeaderHash, u32), ChainstateError> {
+        let my_block_snapshot = BurnDB::get_block_snapshot(burn_ic, burn_header_hash)?
+            .expect("FAIL: Block has processed sortition, but no block snapshot found");
+        assert_eq!(stacks_block_hash, &my_block_snapshot.winning_stacks_block_hash);
+        let my_block_commit = BurnDB::get_block_commit(burn_ic, &my_block_snapshot.winning_block_txid, burn_header_hash)?
+            .expect("FAIL: Block has processed sortition, but no block commit found");
+
+        let parent_commit = BurnDB::get_block_commit_parent(
+            burn_ic, my_block_commit.parent_block_ptr as u64, my_block_commit.parent_vtxindex as u32, burn_header_hash)?
+            .expect("FAIL: Block has processed sortition, but no parent block commit found");
+
+        Ok((parent_commit.burn_header_hash, parent_commit.block_header_hash, my_block_commit.parent_block_ptr))
+    }
+
     /// Mark an existing snapshot's stacks block as accepted at a particular burn chain tip, and calculate and store its arrival index.
     /// If this Stacks block extends the canonical stacks chain tip, then also update the memoized canonical
     /// stacks chain tip metadata on the burn chain tip.
@@ -1338,6 +1411,21 @@ impl BurnDB {
             }
         }
     }
+
+    /// Return a vec of sortition winner's burn header hash and stacks header hash, ordered by
+    ///   increasing block height.
+    pub fn get_sortition_winners_in_fork(ic: &BurnDBConn, block_height_begin: u32, block_height_end: u32,
+                                         tip_block_hash: &BurnchainHeaderHash) -> Result<Vec<(BurnchainHeaderHash, BlockHeaderHash)>,  ChainstateError> {
+        let mut result = vec![];
+        for height in block_height_begin..block_height_end {
+            let snapshot = BurnDB::get_ancestor_snapshot(ic, height as u64, tip_block_hash)?
+                .ok_or_else(|| ChainstateError::NoSuchBlockError)?;
+            if snapshot.sortition {
+                result.push((snapshot.burn_header_hash, snapshot.winning_stacks_block_hash));
+            }
+        }
+        Ok(result)
+    }
     
     /// Get a snapshot for an existing block in a particular fork, given its tip
     pub fn get_block_snapshot_in_fork<'a>(ic: &BurnDBConn<'a>, block_height: u64, tip_block_hash: &BurnchainHeaderHash) -> Result<Option<BlockSnapshot>, db_error> {
@@ -1522,6 +1610,12 @@ impl BurnDB {
                       SELECT winning_block_txid FROM snapshots WHERE burn_header_hash = ?2 LIMIT 1) LIMIT 1";
         let args: &[&dyn ToSql] = &[block_hash, block_hash];
         conn.query_row(qry, args, |row| row.get(0)).optional()
+            .map_err(db_error::from)
+    }
+
+    pub fn get_block_height(conn: &Connection, block_hash: &BurnchainHeaderHash) -> Result<Option<u32>, db_error> {
+        let qry = "SELECT block_height FROM snapshots WHERE burn_header_hash = ?2 LIMIT 1) LIMIT 1";
+        conn.query_row(qry, &[block_hash], |row| row.get(0)).optional()
             .map_err(db_error::from)
     }
     
