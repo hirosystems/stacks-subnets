@@ -25,6 +25,7 @@ pub mod events;
 pub mod index;
 pub mod miner;
 pub mod transaction;
+pub mod pox;
 
 use std::fmt;
 use std::error;

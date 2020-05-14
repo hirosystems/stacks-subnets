@@ -224,6 +224,8 @@ impl BlockSnapshot {
         let last_sortition_hash = parent_snapshot.sortition_hash.clone();
         let last_burn_total = parent_snapshot.total_burn;
         
+        // is this block the start of a reward cycle?
+
         // next sortition hash
         let next_sortition_hash = last_sortition_hash.mix_burn_header(&block_hash);
         
