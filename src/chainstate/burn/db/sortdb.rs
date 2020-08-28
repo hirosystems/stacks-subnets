@@ -979,8 +979,7 @@ impl SortitionDB {
             return Err(db_error::ReadOnly);
         }
 
-        let tx = tx_begin_immediate(&mut self.conn)?;
-        let index_tx = SortitionDBTx::new(tx, &mut self.marf,
+        let index_tx = SortitionDBTx::new(&mut self.marf,
                                           SortitionDBTxContext { first_block_height: self.first_block_height });
         Ok(index_tx)
     }

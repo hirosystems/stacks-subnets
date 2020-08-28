@@ -64,7 +64,8 @@ use chainstate::stacks::index::node::{
 };
 
 use chainstate::stacks::index::storage::{
-    TrieFileStorage, TrieStorageConnection
+    TrieFileStorage, TrieStorageConnection,
+    TrieStorageTransaction
 };
 
 use chainstate::stacks::index::{
@@ -78,6 +79,8 @@ use chainstate::stacks::index::{
 use chainstate::stacks::index::trie::{
     Trie,
 };
+
+use rusqlite::Transaction;
 
 use chainstate::stacks::index::Error as Error;
 
@@ -94,10 +97,87 @@ pub struct MARF<T: MarfTrieId> {
     open_chain_tip: Option<WriteChainTip<T>>,
 }
 
+pub struct MarfTransaction<'a, T: MarfTrieId> {
+    storage: TrieStorageTransaction<'a, T>,
+    open_chain_tip: &'a mut Option<WriteChainTip<T>>,
+}
+
 #[derive(Clone)]
 struct WriteChainTip<T> {
     block_hash: T,
     height: u32
+}
+
+impl <'a, T: MarfTrieId> MarfTransaction <'a, T> {
+    pub fn sqlite_tx(&self) -> &Transaction<'a> {
+        self.storage.sqlite_tx()
+    }
+
+    pub fn get_block_height(&mut self, ancestor_id: &T,  tip: &T) -> Result<Option<u64>, Error> {
+        self.storage.as_conn(|conn| {
+            MARF::get_block_height(conn, ancestor_id, tip)
+                .map(|opt_result| opt_result.map(|height_u32| height_u32 as u64))
+        })
+    }
+
+    pub fn get_block_at_height(&mut self, block_height: u32, tip: &T) -> Result<Option<T>, Error> {
+        self.storage.as_conn(|conn| {
+            MARF::get_block_at_height(conn, block_height, tip)
+        })
+    }
+
+    /// Finish writing the next trie in the MARF.  This persists all changes.
+    /// Works for both confirmed and unconfirmed tries
+    pub fn commit(mut self) -> Result<(), Error> {
+        if self.storage.readonly() {
+            return Err(Error::ReadOnlyError);
+        }
+        if let Some(_tip) = self.open_chain_tip.take() {
+            self.storage.flush()?;
+        }
+        self.storage.commit();
+
+        Ok(())
+    }
+
+    /// Finish writing the next trie in the MARF -- this is used by miners
+    ///   to commit the mined block, but write it to the mined_block table,
+    ///   rather than out to the marf_data table (this prevents the
+    ///   miner's block from getting stepped on after the sortition).
+    pub fn commit_mined(mut self, bhh: &T) -> Result<(), Error> {
+        if self.storage.readonly() {
+            return Err(Error::ReadOnlyError);
+        }
+        if self.storage.unconfirmed() {
+            return Err(Error::UnconfirmedError);
+        }
+        if let Some(_tip) = self.open_chain_tip.take() {
+            self.storage.flush_mined(bhh)?;
+        }
+
+        self.storage.commit();
+
+        Ok(())
+    }
+
+    /// Finish writing the next trie in the MARF, but change the hash of the current Trie's 
+    /// block hash to something other than what we opened it as.  This persists all changes.
+    pub fn commit_to(mut self, real_bhh: &T) -> Result<(), Error> {
+        if self.storage.readonly() {
+            return Err(Error::ReadOnlyError);
+        }
+        if self.storage.unconfirmed() {
+            return Err(Error::UnconfirmedError);
+        }
+        if let Some(_tip) = self.open_chain_tip.take() {
+            self.storage.flush_to(real_bhh)?;
+        }
+
+        self.storage.commit();
+
+        Ok(())
+    }
+
 }
 
 // static methods
@@ -411,6 +491,7 @@ impl <T: MarfTrieId> MARF <T> {
         return Err(Error::CorruptionError("Trie has a cycle".to_string()));
     }
 
+    #[cfg(test)]
     pub fn format(storage: &mut TrieStorageConnection<T>, first_block_hash: &T) -> Result<(), Error> {
         if storage.readonly() {
             return Err(Error::ReadOnlyError);
@@ -649,6 +730,13 @@ impl <T: MarfTrieId> MARF <T> {
 
 // instance methods
 impl <T: MarfTrieId> MARF<T> {
+    /// begin a transaction with the underlying data storage
+    pub fn marf_tx<'a>(&'a mut self) -> MarfTransaction<'a, T> {
+        MarfTransaction {
+            storage: self.storage.tx(),
+            open_chain_tip: &mut self.open_chain_tip
+        }
+    }
 
     /// Resolve a key from the MARF to a MARFValue with respect to the given block height.
     pub fn get(&mut self, block_hash: &T, key: &str) -> Result<Option<MARFValue>, Error> {
@@ -884,11 +972,8 @@ impl <T: MarfTrieId> MARF<T> {
     ///   changes in the block, and closes the current chain tip.
     pub fn drop_current(&mut self) {
         if !self.storage.readonly() {
-            let mut conn = self.storage.connection();
-            conn.drop_extending_trie();
+            self.storage.drop_extending_trie();
             self.open_chain_tip = None;
-            conn.open_block(&T::sentinel())
-                .expect("BUG: should never fail to open the block sentinel");
         }
     }
 
@@ -896,10 +981,7 @@ impl <T: MarfTrieId> MARF<T> {
     pub fn drop_unconfirmed(&mut self) {
         if !self.storage.readonly() && self.storage.unconfirmed() {
             if let Some(tip) = self.open_chain_tip.take() {
-                let mut conn = self.storage.connection();
-                conn.drop_unconfirmed_trie(&tip.block_hash);
-                conn.open_block(&T::sentinel())
-                    .expect("BUG: should never fail to open the block sentinel");
+                self.storage.drop_unconfirmed_trie(&tip.block_hash);
             }
         }
     }
@@ -907,16 +989,8 @@ impl <T: MarfTrieId> MARF<T> {
     /// Finish writing the next trie in the MARF.  This persists all changes.
     /// Works for both confirmed and unconfirmed tries
     pub fn commit(&mut self) -> Result<(), Error> {
-        if self.storage.readonly() {
-            return Err(Error::ReadOnlyError);
-        }
-        match self.open_chain_tip.take() {
-            Some(_tip) => {
-                self.storage.connection().flush()?;
-            },
-            None => {}
-        };
-        Ok(())
+        let tx = self.marf_tx();
+        tx.commit()
     }
 
     /// Finish writing the next trie in the MARF -- this is used by miners
@@ -924,37 +998,15 @@ impl <T: MarfTrieId> MARF<T> {
     ///   rather than out to the marf_data table (this prevents the
     ///   miner's block from getting stepped on after the sortition).
     pub fn commit_mined(&mut self, bhh: &T) -> Result<(), Error> {
-        if self.storage.readonly() {
-            return Err(Error::ReadOnlyError);
-        }
-        if self.storage.unconfirmed() {
-            return Err(Error::UnconfirmedError);
-        }
-        match self.open_chain_tip.take() {
-            Some(_tip) => {
-                self.storage.connection().flush_mined(bhh)?;
-            },
-            None => {}
-        };
-        Ok(())
+        let tx = self.marf_tx();
+        tx.commit_mined(bhh)
     }
     
     /// Finish writing the next trie in the MARF, but change the hash of the current Trie's 
     /// block hash to something other than what we opened it as.  This persists all changes.
     pub fn commit_to(&mut self, real_bhh: &T) -> Result<(), Error> {
-        if self.storage.readonly() {
-            return Err(Error::ReadOnlyError);
-        }
-        if self.storage.unconfirmed() {
-            return Err(Error::UnconfirmedError);
-        }
-        match self.open_chain_tip.take() {
-            Some(_tip) => {
-                self.storage.connection().flush_to(real_bhh)?;
-            },
-            None => {}
-        };
-        Ok(())
+        let tx = self.marf_tx();
+        tx.commit_to(real_bhh)
     }
 
     pub fn get_block_height_of(&mut self, bhh: &T, current_block_hash: &T) -> Result<Option<u32>, Error> {

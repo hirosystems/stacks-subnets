@@ -84,6 +84,7 @@ use chainstate::stacks::index::node::{
 
 use rusqlite::{
     Connection, OptionalExtension,
+    Transaction,
     types::{ FromSql,
              ToSql },
     NO_PARAMS,
@@ -596,6 +597,15 @@ pub struct TrieStorageConnection <'a, T: MarfTrieId> {
     pub test_genesis_block: &'a mut Option<T>,
 }
 
+pub struct TrieStorageTransaction <'a, T: MarfTrieId> {
+    tx: Transaction<'a>,
+    data: &'a mut TrieStorageTransientData<T>,
+    // used in testing in order to short-circuit block-height lookups
+    //   when the trie struct is tested outside of marf.rs usage
+    #[cfg(test)]
+    pub test_genesis_block: &'a mut Option<T>,
+}
+
 struct TrieStorageTransientData <T: MarfTrieId> {
     last_extended: Option<(T, TrieRAM<T>)>,
 
@@ -637,10 +647,145 @@ pub struct TrieFileStorage <T: MarfTrieId> {
     pub test_genesis_block: Option<T>,
 }
 
+impl <'a, T: MarfTrieId> TrieStorageTransaction <'a, T> {
+    pub fn as_conn<F, R>(&mut self, to_exec: F) -> R
+    where F: FnOnce(&mut TrieStorageConnection<T>) -> R {
+        let mut conn = TrieStorageConnection {
+            db: &self.tx,
+            data: &mut self.data,
+
+            #[cfg(test)]
+            test_genesis_block: &mut self.test_genesis_block,
+        };
+
+        to_exec(&mut conn)
+    }
+
+    pub fn commit(self) {
+        self.tx.commit()
+            .expect("CORRUPTION: Failed to commit transaction");
+    }
+
+    fn clear_cached_ancestor_hashes_bytes(&mut self) {
+        self.data.trie_ancestor_hash_bytes_cache = None;
+    }
+
+    fn inner_flush(&mut self, flush_options: FlushOptions<'_, T>) -> Result<(), Error> {
+        // save the currently-bufferred Trie to disk, and atomically put it into place (possibly to
+        // a different block than the one opened, as indicated by final_bhh).
+        // Runs once -- subsequent calls are no-ops.
+        // Panics on a failure to rename the Trie file into place (i.e. if the the actual commitment
+        // fails).
+        // TODO: this needs to be more robust.  Also fsync the parent directory itself, before and
+        // after.  Turns out rename(2) isn't crash-consistent, and turns out syscalls can get
+        // reordered.
+        self.clear_cached_ancestor_hashes_bytes();
+        if self.data.readonly {
+            return Err(Error::ReadOnlyError);
+        }
+        if let Some((ref bhh, ref mut trie_ram)) = self.data.last_extended.take() {
+            trace!("Buffering block flush started.");
+            let mut buffer = Cursor::new(Vec::new());
+            trie_ram.dump(&mut buffer, bhh)?;
+            // consume the cursor, get the buffer
+            let buffer = buffer.into_inner();
+            trace!("Buffering block flush finished.");
+
+            debug!("Flush: {} to {}", bhh, flush_options);
+  
+            let block_id = match flush_options {
+                FlushOptions::CurrentHeader => {
+                    if self.data.unconfirmed {
+                        return Err(Error::UnconfirmedError);
+                    }
+                    trie_sql::write_trie_blob(&self.tx, bhh, &buffer)?
+                },
+                FlushOptions::NewHeader(real_bhh) => {
+                    // If we opened a block with a given hash, but want to store it as a block with a *different*
+                    // hash, then call this method to update the internal storage state to make it so.  This is
+                    // necessary for validating blocks in the blockchain, since the miner will always build a
+                    // block whose hash is all 0's (since it can't know the final block hash).  As such, a peer
+                    // will process a block as if it's hash is all 0's (in order to validate the state root), and
+                    // then use this method to switch over the block hash to the "real" block hash.
+                    if self.data.unconfirmed {
+                        return Err(Error::UnconfirmedError);
+                    }
+                    if real_bhh != bhh {
+                        // note: this was moved from the block_retarget function
+                        //  to avoid stepping on the borrow checker.
+                        debug!("Retarget block {} to {}", bhh, real_bhh);
+                        // switch over state
+                        self.data.cur_block = real_bhh.clone();
+                    }
+                    trie_sql::write_trie_blob(&self.tx, real_bhh, &buffer)?
+                },
+                FlushOptions::MinedTable(real_bhh) => {
+                    if self.data.unconfirmed {
+                        return Err(Error::UnconfirmedError);
+                    }
+                    trie_sql::write_trie_blob_to_mined(&self.tx, real_bhh, &buffer)?
+                },
+                FlushOptions::UnconfirmedTable => {
+                    if !self.data.unconfirmed {
+                        return Err(Error::UnconfirmedError);
+                    }
+                    trie_sql::write_trie_blob_to_unconfirmed(&self.tx, bhh, &buffer)?
+                }
+            };
+
+            trie_sql::drop_lock(&self.tx, bhh)?;
+
+            debug!("Flush: identifier of {} is {}", flush_options, block_id);
+        }
+
+        Ok(())
+    }
+
+    pub fn flush(&mut self) -> Result<(), Error> {
+        if self.data.unconfirmed {
+            self.inner_flush(FlushOptions::UnconfirmedTable)
+        }
+        else {
+            self.inner_flush(FlushOptions::CurrentHeader)
+        }
+    }
+
+    pub fn flush_to(&mut self, bhh: &T) -> Result<(), Error> {
+        self.inner_flush(FlushOptions::NewHeader(bhh))
+    }
+
+    pub fn flush_mined(&mut self, bhh: &T) -> Result<(), Error> {
+        self.inner_flush(FlushOptions::MinedTable(bhh))
+    }
+
+    pub fn sqlite_tx(&self) -> &Transaction<'a> {
+        &self.tx
+    }
+
+    pub fn readonly(&self) -> bool {
+        self.data.readonly
+    }
+
+    pub fn unconfirmed(&self) -> bool {
+        self.data.unconfirmed
+    }
+}
+
 impl <T: MarfTrieId> TrieFileStorage <T> {
     pub fn connection<'a>(&'a mut self) -> TrieStorageConnection<'a, T> {
         TrieStorageConnection {
             db: &self.db,
+            data: &mut self.data,
+
+            #[cfg(test)]
+            test_genesis_block: &mut self.test_genesis_block,
+        }
+    }
+
+    pub fn tx<'a>(&'a mut self) -> TrieStorageTransaction<'a, T> {
+        TrieStorageTransaction {
+            tx: tx_begin_immediate(&mut self.db)
+                .expect("ERROR: failed to begin transaction on database"),
             data: &mut self.data,
 
             #[cfg(test)]
@@ -798,6 +943,46 @@ impl <T: MarfTrieId> TrieFileStorage <T> {
         };
 
         Ok(ret)
+    }
+
+    pub fn drop_extending_trie(&mut self) {
+        let mut tx = self.tx();
+        tx.as_conn(|conn| {
+            conn.clear_cached_ancestor_hashes_bytes();
+            if !conn.data.readonly {
+                if let Some((ref bhh, _)) = conn.data.last_extended.take() {
+                    trie_sql::drop_lock(&conn.db, bhh)
+                        .expect("Corruption: Failed to drop the extended trie lock");
+                }
+                conn.data.last_extended = None;
+                conn.data.cur_block_id = None;
+                conn.data.trie_ancestor_hash_bytes_cache = None;
+            }
+            conn.open_block(&T::sentinel())
+                .expect("BUG: should never fail to open the block sentinel");
+        });
+
+        tx.commit();
+    }
+
+    pub fn drop_unconfirmed_trie(&mut self, bhh: &T) {
+        let mut tx = self.tx();
+        tx.as_conn(|conn| {
+            conn.clear_cached_ancestor_hashes_bytes();
+            if !conn.data.readonly && conn.data.unconfirmed {
+                trie_sql::drop_unconfirmed_trie(&conn.db, bhh)
+                    .expect("Corruption: Failed to drop unconfirmed trie");
+                trie_sql::drop_lock(&conn.db, bhh)
+                    .expect("Corruption: Failed to drop the extended trie lock");
+                conn.data.last_extended = None;
+                conn.data.cur_block_id = None;
+                conn.data.trie_ancestor_hash_bytes_cache = None;
+            }
+            conn.open_block(&T::sentinel())
+                .expect("BUG: should never fail to open the block sentinel");
+        });
+
+        tx.commit();
     }
 }
 
@@ -1318,133 +1503,6 @@ impl <'a, T: MarfTrieId> TrieStorageConnection <'a, T> {
 
         let node_type = node.as_trie_node_type();
         self.write_nodetype(ptr, &node_type, hash)
-    }
-    
-    fn inner_flush(&mut self, flush_options: FlushOptions<'_, T>) -> Result<(), Error> {
-        // save the currently-bufferred Trie to disk, and atomically put it into place (possibly to
-        // a different block than the one opened, as indicated by final_bhh).
-        // Runs once -- subsequent calls are no-ops.
-        // Panics on a failure to rename the Trie file into place (i.e. if the the actual commitment
-        // fails).
-        // TODO: this needs to be more robust.  Also fsync the parent directory itself, before and
-        // after.  Turns out rename(2) isn't crash-consistent, and turns out syscalls can get
-        // reordered.
-        self.clear_cached_ancestor_hashes_bytes();
-        if self.data.readonly {
-            return Err(Error::ReadOnlyError);
-        }
-        if let Some((ref bhh, ref mut trie_ram)) = self.data.last_extended.take() {
-            trace!("Buffering block flush started.");
-            let mut buffer = Cursor::new(Vec::new());
-            trie_ram.dump(&mut buffer, bhh)?;
-            // consume the cursor, get the buffer
-            let buffer = buffer.into_inner();
-            trace!("Buffering block flush finished.");
-
-            debug!("Flush: {} to {}", bhh, flush_options);
-  
-            // TX_TODO
-//            let tx = tx_begin_immediate(self.db)?;
-            let block_id = match flush_options {
-                FlushOptions::CurrentHeader => {
-                    if self.data.unconfirmed {
-                        return Err(Error::UnconfirmedError);
-                    }
-                    trie_sql::write_trie_blob(&self.db, bhh, &buffer)?
-                },
-                FlushOptions::NewHeader(real_bhh) => {
-                    // If we opened a block with a given hash, but want to store it as a block with a *different*
-                    // hash, then call this method to update the internal storage state to make it so.  This is
-                    // necessary for validating blocks in the blockchain, since the miner will always build a
-                    // block whose hash is all 0's (since it can't know the final block hash).  As such, a peer
-                    // will process a block as if it's hash is all 0's (in order to validate the state root), and
-                    // then use this method to switch over the block hash to the "real" block hash.
-                    if self.data.unconfirmed {
-                        return Err(Error::UnconfirmedError);
-                    }
-                    if real_bhh != bhh {
-                        // note: this was moved from the block_retarget function
-                        //  to avoid stepping on the borrow checker.
-                        debug!("Retarget block {} to {}", bhh, real_bhh);
-                        // switch over state
-                        self.data.cur_block = real_bhh.clone();
-                    }
-                    trie_sql::write_trie_blob(&self.db, real_bhh, &buffer)?
-                },
-                FlushOptions::MinedTable(real_bhh) => {
-                    if self.data.unconfirmed {
-                        return Err(Error::UnconfirmedError);
-                    }
-                    trie_sql::write_trie_blob_to_mined(&self.db, real_bhh, &buffer)?
-                },
-                FlushOptions::UnconfirmedTable => {
-                    if !self.data.unconfirmed {
-                        return Err(Error::UnconfirmedError);
-                    }
-                    trie_sql::write_trie_blob_to_unconfirmed(&self.db, bhh, &buffer)?
-                }
-            };
-
-            trie_sql::drop_lock(&self.db, bhh)?;
-//            tx.commit()?;
-
-            debug!("Flush: identifier of {} is {}", flush_options, block_id);
-        }
-
-        Ok(())
-    }
-
-    pub fn flush(&mut self) -> Result<(), Error> {
-        if self.data.unconfirmed {
-            self.inner_flush(FlushOptions::UnconfirmedTable)
-        }
-        else {
-            self.inner_flush(FlushOptions::CurrentHeader)
-        }
-    }
-
-    pub fn flush_to(&mut self, bhh: &T) -> Result<(), Error> {
-        self.inner_flush(FlushOptions::NewHeader(bhh))
-    }
-
-    pub fn flush_mined(&mut self, bhh: &T) -> Result<(), Error> {
-        self.inner_flush(FlushOptions::MinedTable(bhh))
-    }
-
-    pub fn drop_extending_trie(&mut self) {
-        self.clear_cached_ancestor_hashes_bytes();
-        if !self.data.readonly {
-            if let Some((ref bhh, _)) = self.data.last_extended.take() {
-                // TX_TODO
-//                let tx = tx_begin_immediate(self.db)
-//                    .expect("Corruption: Failed to obtain db transaction");
-                trie_sql::drop_lock(&self.db, bhh)
-                    .expect("Corruption: Failed to drop the extended trie lock");
-//                tx.commit()
-//                    .expect("Corruption: Failed to drop the extended trie");
-            }
-            self.data.last_extended = None;
-            self.data.cur_block_id = None;
-            self.data.trie_ancestor_hash_bytes_cache = None;
-        }
-    }
-
-    pub fn drop_unconfirmed_trie(&mut self, bhh: &T) {
-        self.clear_cached_ancestor_hashes_bytes();
-        if !self.data.readonly && self.data.unconfirmed {
-            // TX_TODO
-//            let tx = tx_begin_immediate(self.db)
-//                .expect("Corruption: Failed to obtain db transaction");
-            trie_sql::drop_unconfirmed_trie(&self.db, bhh)
-                .expect("Corruption: Failed to drop unconfirmed trie");
-            trie_sql::drop_lock(&self.db, bhh)
-                .expect("Corruption: Failed to drop the extended trie lock");
-//            tx.commit()
-//                .expect("Corruption: Failed to drop the extended trie");
-            self.data.last_extended = None;
-            self.data.cur_block_id = None;
-            self.data.trie_ancestor_hash_bytes_cache = None;
-        }
     }
 
     pub fn last_ptr(&mut self) -> Result<u32, Error> {

@@ -25,6 +25,7 @@ use std::io::Error as IOError;
 use std::path::PathBuf;
 use std::ops::Deref;
 use std::ops::DerefMut;
+use std::convert::TryInto;
 
 use util::hash::to_hex;
 use util::sleep_ms;
@@ -39,11 +40,12 @@ use rusqlite::TransactionBehavior;
 use rusqlite::Transaction;
 use rusqlite::types::{ToSql, ToSqlOutput, FromSql, FromSqlResult, FromSqlError, Value as RusqliteValue, ValueRef as RusqliteValueRef};
 
-use chainstate::stacks::index::marf::MARF;
-use chainstate::stacks::index::TrieHash;
-use chainstate::stacks::index::MARFValue;
-use chainstate::stacks::index::MarfTrieId;
-use chainstate::stacks::index::Error as MARFError;
+use chainstate::stacks::index::marf::{
+    MARF, MarfTransaction
+};
+use chainstate::stacks::index::{
+    TrieHash, MARFValue, MarfTrieId, Error as MARFError
+};
 
 use rand::Rng;
 use rand::RngCore;
@@ -428,15 +430,7 @@ impl <'a, C, T: MarfTrieId> Deref for IndexDBConn<'a, C, T> {
 }
 
 pub struct IndexDBTx<'a, C: Clone, T: MarfTrieId> {
-    _tx: Option<DBTx<'a>>,      // the reason this is Option<..> is because we
-                                // need to implement Drop for this struct, and
-                                // Drop is already implemented for DBTx<'a>.
-                                // Using an Option lets us clear the tx, commit
-                                // it, and when the instance drops, run the
-                                // Drop() method safely.  However, by design,
-                                // _tx is always Some(..) over this struct's 
-                                // lifetime, so .unwrap() is safe.
-    pub index: &'a mut MARF<T>,
+    pub index: MarfTransaction<'a, T>,
     pub context: C,
     block_linkage: Option<(T, T)>
 }
@@ -444,13 +438,7 @@ pub struct IndexDBTx<'a, C: Clone, T: MarfTrieId> {
 impl<'a, C: Clone, T: MarfTrieId> Deref for IndexDBTx<'a, C, T> {
     type Target = DBTx<'a>;
     fn deref(&self) -> &DBTx<'a> {
-        self.tx()
-    }
-}
-
-impl<'a, C: Clone, T: MarfTrieId> DerefMut for IndexDBTx<'a, C, T> {
-    fn deref_mut(&mut self) -> &mut DBTx<'a> {
-        self.tx_mut()
+        self.index.sqlite_tx()
     }
 }
 
@@ -573,23 +561,18 @@ pub fn get_indexed<T: MarfTrieId>(conn: &DBConn, index: &MARF<T>, header_hash: &
 }
 
 impl<'a, C: Clone, T: MarfTrieId> IndexDBTx<'a, C, T> {
-    pub fn new(tx: DBTx<'a>, index: &'a mut MARF<T>, context: C) -> IndexDBTx<'a, C, T> {
+    pub fn new(marf: &'a mut MARF<T>, context: C) -> IndexDBTx<'a, C, T> {
         IndexDBTx {
-            _tx: Some(tx),
-            index: index,
+            index: marf.marf_tx(),
             block_linkage: None,
             context: context
         }
     }
 
     pub fn tx(&self) -> &DBTx<'a> {
-        self._tx.as_ref().unwrap()
+        self.index.sqlite_tx()
     }
     
-    pub fn tx_mut(&mut self) -> &mut DBTx<'a> {
-        self._tx.as_mut().unwrap()
-    }
-
     pub fn instantiate_index(&mut self) -> Result<(), Error> {
         self.tx().execute(r#"
         -- fork-specific key/value storage, indexed via a MARF.
@@ -604,22 +587,16 @@ impl<'a, C: Clone, T: MarfTrieId> IndexDBTx<'a, C, T> {
         Ok(())
     }
 
-    pub fn as_conn<'b> (&'b self) -> IndexDBConn<'b, C, T> {
-        IndexDBConn {
-            conn: self.tx(),
-            index: self.index,
-            context: self.context.clone()
-        }
-    }
-
     /// Get the ancestor block hash of a block of a given height, given a descendent block hash.
     pub fn get_ancestor_block_hash(&mut self, block_height: u64, tip_block_hash: &T) -> Result<Option<T>, Error> {
-        get_ancestor_block_hash(self.index, block_height, tip_block_hash)
+        self.index.get_block_at_height(block_height.try_into().unwrap(), tip_block_hash)
+            .map_err(Error::from)
     }
 
     /// Get the height of an ancestor block, if it is indeed the ancestor.
     pub fn get_ancestor_block_height(&mut self, ancestor_block_hash: &T, tip_block_hash: &T) -> Result<Option<u64>, Error> {
-        get_ancestor_block_height(self.index, ancestor_block_hash, tip_block_hash)
+        self.index.get_block_height(ancestor_block_hash, tip_block_hash)
+            .map_err(Error::from)
     }
 
     /// Store some data to the index storage.
@@ -670,16 +647,8 @@ impl<'a, C: Clone, T: MarfTrieId> IndexDBTx<'a, C, T> {
 
     /// Commit the tx
     pub fn commit(mut self) -> Result<(), Error> {
-        let tx = self._tx.take();
-        debug!("Indexed-commit: storage");
-        tx.unwrap().commit()?;
-        if self.block_linkage.is_some() {
-            // force the issue.
-            sleep_ms(1000);
-            debug!("Indexed-commit: MARF index");
-            self.index.commit()?;
-            self.block_linkage = None;
-        }
+        debug!("Indexed-commit: MARF index");
+        self.index.commit();
         Ok(())
     }
 
@@ -690,6 +659,9 @@ impl<'a, C: Clone, T: MarfTrieId> IndexDBTx<'a, C, T> {
     }
 }
 
+/* 
+TODO: handle drops.
+
 impl<'a, C: Clone, T: MarfTrieId> Drop for IndexDBTx<'a, C, T> {
     fn drop(&mut self) {
         if let Some((ref parent, ref child)) = self.block_linkage {
@@ -697,4 +669,4 @@ impl<'a, C: Clone, T: MarfTrieId> Drop for IndexDBTx<'a, C, T> {
             self.index.drop_current();
         }
     }
-}
+} */
