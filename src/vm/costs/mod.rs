@@ -17,7 +17,7 @@
 pub mod constants;
 pub mod cost_functions;
 
-use chainstate::stacks::boot::boot_code_id;
+use chainstate::stacks::boot::STACKS_BOOT_COST_CONTRACT;
 use regex::internal::Exec;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use std::collections::{BTreeMap, HashMap};
@@ -190,7 +190,7 @@ impl LimitedCostTracker {
         }
     }
     pub fn load_boot_costs(&mut self) {
-        let boot_costs_id = boot_code_id("boot_costs");
+        let boot_costs_id = (*STACKS_BOOT_COST_CONTRACT).clone();
 
         let mut m = HashMap::new();
         for f in ClarityCostFunction::ALL.iter() {
@@ -208,7 +208,7 @@ impl LimitedCostTracker {
         )
         .unwrap();
 
-        self.cost_contracts.insert(boot_costs_id.clone(), ast);
+        self.cost_contracts.insert(boot_costs_id, ast);
     }
     pub fn get_total(&self) -> ExecutionCost {
         self.total.clone()

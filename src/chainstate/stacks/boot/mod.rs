@@ -69,6 +69,7 @@ lazy_static! {
         ("lockup", BOOT_CODE_LOCKUP),
         ("costs", BOOT_CODE_COSTS)
     ];
+    pub static ref STACKS_BOOT_COST_CONTRACT: QualifiedContractIdentifier = boot_code_id("costs");
 }
 
 pub fn boot_code_addr() -> StacksAddress {
