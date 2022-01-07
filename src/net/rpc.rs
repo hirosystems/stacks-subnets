@@ -147,6 +147,8 @@ pub struct ConversationHttp {
     last_response_timestamp: u64, // absolute timestamp of the last time we sent at least 1 byte in a response
     connection_time: u64,         // when this converation was instantiated
 
+    canonical_stacks_tip_height: Option<u64>, // chain tip height of the Stacks blockchain
+
     // ongoing block streams
     reply_streams: VecDeque<(
         ReplyHandleHttp,
@@ -495,6 +497,7 @@ impl ConversationHttp {
             peer_addr: peer_addr,
             outbound_url: outbound_url,
             peer_host: peer_host,
+            canonical_stacks_tip_height: None,
             pending_request: None,
             pending_response: None,
             pending_error_response: None,
@@ -612,8 +615,10 @@ impl ConversationHttp {
         network: &PeerNetwork,
         chainstate: &StacksChainState,
         handler_args: &RPCHandlerArgs,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         let pi = RPCPeerInfoData::from_network(
             network,
             chainstate,
@@ -635,8 +640,10 @@ impl ConversationHttp {
         chainstate: &mut StacksChainState,
         tip: &StacksBlockId,
         burnchain: &Burnchain,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
 
         match RPCPoxInfoData::from_db(sortdb, chainstate, tip, burnchain) {
             Ok(pi) => {
@@ -670,6 +677,7 @@ impl ConversationHttp {
         index_block_hash: &StacksBlockId,
         pages_indexes: &HashSet<u32>,
         _options: &ConnectionOptions,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
         // We are receiving a list of page indexes with a chain tip hash.
         // The amount of pages_indexes is capped by MAX_ATTACHMENT_INV_PAGES_PER_REQUEST (8)
@@ -680,7 +688,8 @@ impl ConversationHttp {
         // we will be handling each page index separately.
         // We could also add the notion of "budget" so that a client could only get a limited number
         // of pages when they are spanning over many blocks.
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         if pages_indexes.len() > MAX_ATTACHMENT_INV_PAGES_PER_REQUEST {
             let msg = format!(
                 "Number of attachment inv pages is limited by {} per request",
@@ -735,8 +744,10 @@ impl ConversationHttp {
         req: &HttpRequestType,
         atlasdb: &mut AtlasDB,
         content_hash: Hash160,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         match atlasdb.find_attachment(&content_hash) {
             Ok(Some(attachment)) => {
                 let content = GetAttachmentResponse { attachment };
@@ -759,10 +770,12 @@ impl ConversationHttp {
         fd: &mut W,
         req: &HttpRequestType,
         network: &PeerNetwork,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
         let epoch = network.get_current_epoch();
 
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         let neighbor_data = RPCNeighborsInfo::from_p2p(
             network.local_peer.network_id,
             epoch.network_epoch,
@@ -810,8 +823,10 @@ impl ConversationHttp {
         tip: &StacksBlockId,
         quantity: u64,
         chainstate: &StacksChainState,
+        canonical_stacks_tip_height: u64,
     ) -> Result<Option<StreamCursor>, net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         if quantity > (MAX_HEADERS as u64) {
             // bad request
             let response = HttpResponseType::BadRequestJSON(
@@ -859,9 +874,11 @@ impl ConversationHttp {
         req: &HttpRequestType,
         index_block_hash: &StacksBlockId,
         chainstate: &StacksChainState,
+        canonical_stacks_tip_height: u64,
     ) -> Result<Option<StreamCursor>, net_error> {
         monitoring::increment_stx_blocks_served_counter();
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
 
         // do we have this block?
         match StacksChainState::has_block_indexed(&chainstate.blocks_path, index_block_hash) {
@@ -902,9 +919,11 @@ impl ConversationHttp {
         req: &HttpRequestType,
         index_anchor_block_hash: &StacksBlockId,
         chainstate: &StacksChainState,
+        canonical_stacks_tip_height: u64,
     ) -> Result<Option<StreamCursor>, net_error> {
         monitoring::increment_stx_confirmed_micro_blocks_served_counter();
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
 
         match chainstate.has_processed_microblocks(index_anchor_block_hash) {
             Ok(true) => {}
@@ -1007,9 +1026,11 @@ impl ConversationHttp {
         req: &HttpRequestType,
         tail_index_microblock_hash: &StacksBlockId,
         chainstate: &StacksChainState,
+        canonical_stacks_tip_height: u64,
     ) -> Result<Option<StreamCursor>, net_error> {
         monitoring::increment_stx_micro_blocks_served_counter();
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
 
         // do we have this processed microblock stream?
         match StacksChainState::has_processed_microblocks_indexed(
@@ -1089,8 +1110,10 @@ impl ConversationHttp {
         http: &mut StacksHttp,
         fd: &mut W,
         req: &HttpRequestType,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
 
         // todo -- need to actually estimate the cost / length for token transfers
         //   right now, it just uses the minimum.
@@ -1110,9 +1133,10 @@ impl ConversationHttp {
         tip: &StacksBlockId,
         account: &PrincipalData,
         with_proof: bool,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
-
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         let response =
             match chainstate.maybe_read_only_clarity_tx(&sortdb.index_conn(), tip, |clarity_tx| {
                 clarity_tx.with_clarity_db_readonly(|clarity_db| {
@@ -1182,8 +1206,10 @@ impl ConversationHttp {
         contract_name: &ContractName,
         var_name: &ClarityName,
         with_proof: bool,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         let contract_identifier =
             QualifiedContractIdentifier::new(contract_addr.clone().into(), contract_name.clone());
 
@@ -1234,8 +1260,10 @@ impl ConversationHttp {
         map_name: &ClarityName,
         key: &Value,
         with_proof: bool,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         let contract_identifier =
             QualifiedContractIdentifier::new(contract_addr.clone().into(), contract_name.clone());
 
@@ -1293,8 +1321,10 @@ impl ConversationHttp {
         sender: &PrincipalData,
         args: &[Value],
         options: &ConnectionOptions,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         let contract_identifier =
             QualifiedContractIdentifier::new(contract_addr.clone().into(), contract_name.clone());
 
@@ -1379,8 +1409,10 @@ impl ConversationHttp {
         contract_addr: &StacksAddress,
         contract_name: &ContractName,
         with_proof: bool,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         let contract_identifier =
             QualifiedContractIdentifier::new(contract_addr.clone().into(), contract_name.clone());
 
@@ -1431,8 +1463,10 @@ impl ConversationHttp {
         contract_addr: &StacksAddress,
         contract_name: &ContractName,
         trait_id: &TraitIdentifier,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         let contract_identifier =
             QualifiedContractIdentifier::new(contract_addr.clone().into(), contract_name.clone());
 
@@ -1485,8 +1519,10 @@ impl ConversationHttp {
         tip: &StacksBlockId,
         contract_addr: &StacksAddress,
         contract_name: &ContractName,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         let contract_identifier =
             QualifiedContractIdentifier::new(contract_addr.clone().into(), contract_name.clone());
 
@@ -1522,8 +1558,10 @@ impl ConversationHttp {
         index_anchor_block_hash: &StacksBlockId,
         min_seq: u16,
         chainstate: &StacksChainState,
+        canonical_stacks_tip_height: u64,
     ) -> Result<Option<StreamCursor>, net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
 
         // do we have this unconfirmed microblock stream?
         match chainstate.has_any_staging_microblock_indexed(index_anchor_block_hash, min_seq) {
@@ -1607,8 +1645,10 @@ impl ConversationHttp {
         chainstate: &StacksChainState,
         mempool: &MemPoolDB,
         txid: &Txid,
+        canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
 
         // present in the unconfirmed state?
         if let Some(ref unconfirmed) = chainstate.unconfirmed_state.as_ref() {
@@ -1674,7 +1714,10 @@ impl ConversationHttp {
                     &tip.anchored_block_hash,
                 ))),
                 None => {
-                    let response_metadata = HttpResponseMetadata::from(req);
+                    let response_metadata = HttpResponseMetadata::from_http_request_type(
+                        req,
+                        Some(canonical_stacks_tip_height),
+                    );
                     warn!("Failed to load Stacks chain tip");
                     let response = HttpResponseType::ServerError(
                         response_metadata,
@@ -1693,6 +1736,7 @@ impl ConversationHttp {
         tip_opt: Option<&StacksBlockId>,
         sortdb: &SortitionDB,
         chainstate: &StacksChainState,
+        canonical_stacks_tip_height: u64,
     ) -> Result<Option<(ConsensusHash, BlockHeaderHash)>, net_error> {
         match tip_opt {
             Some(tip) => match chainstate.get_block_header_hashes(&tip)? {
@@ -1708,7 +1752,8 @@ impl ConversationHttp {
                 None => {}
             },
         }
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         warn!("Failed to load Stacks chain tip");
         let response = HttpResponseType::ServerError(
             response_metadata,
@@ -1726,7 +1771,8 @@ impl ConversationHttp {
         tx: &TransactionPayload,
         estimated_len: u64,
     ) -> Result<(), net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         let tip = SortitionDB::get_canonical_burn_chain_tip(sortdb.conn())?;
         let stacks_epoch = SortitionDB::get_stacks_epoch(sortdb.conn(), tip.block_height)?
                 .ok_or_else(|| {
@@ -1813,9 +1859,11 @@ impl ConversationHttp {
         atlasdb: &mut AtlasDB,
         attachment: Option<Attachment>,
         event_observer: Option<&dyn MemPoolEventDispatcher>,
+        canonical_stacks_tip_height: u64,
     ) -> Result<bool, net_error> {
         let txid = tx.txid();
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         let (response, accepted) = if mempool.has_tx(&txid) {
             debug!("Mempool already has POSTed transaction {}", &txid);
             (
@@ -1823,7 +1871,6 @@ impl ConversationHttp {
                 false,
             )
         } else {
-            let tip = SortitionDB::get_canonical_burn_chain_tip(sortdb.conn())?;
             let stacks_epoch = sortdb
                 .index_conn()
                 .get_stacks_epoch(tip.block_height as u32)
@@ -1886,8 +1933,10 @@ impl ConversationHttp {
         chainstate: &mut StacksChainState,
         consensus_hash: &ConsensusHash,
         block: &StacksBlock,
+        canonical_stacks_tip_height: u64,
     ) -> Result<bool, net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         // is this a consensus hash we recognize?
         let (response, accepted) =
             match SortitionDB::get_sortition_id_by_consensus(&sortdb.conn(), consensus_hash) {
@@ -1990,7 +2039,6 @@ impl ConversationHttp {
                     )
                 }
             };
-
         response.send(http, fd).and_then(|_| Ok(accepted))
     }
 
@@ -2006,8 +2054,10 @@ impl ConversationHttp {
         block_hash: &BlockHeaderHash,
         chainstate: &mut StacksChainState,
         microblock: &StacksMicroblock,
+        canonical_stacks_tip_height: u64,
     ) -> Result<bool, net_error> {
-        let response_metadata = HttpResponseMetadata::from(req);
+        let response_metadata =
+            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
         let (response, accepted) =
             match chainstate.preprocess_streamed_microblock(consensus_hash, block_hash, microblock)
             {
@@ -2060,11 +2110,13 @@ impl ConversationHttp {
         handler_opts: &RPCHandlerArgs,
     ) -> Result<Option<StacksMessageType>, net_error> {
         let mut reply = self.connection.make_relay_handle(self.conn_id)?;
+        let burn_tip = SortitionDB::get_canonical_burn_chain_tip(sortdb.conn())?;
         let keep_alive = req.metadata().keep_alive;
         let mut ret = None;
 
         let stream_opt = match req {
             HttpRequestType::GetInfo(ref _md) => {
+                // self.canonical_stacks_tip_height = _md.
                 ConversationHttp::handle_getinfo(
                     &mut self.connection.protocol,
                     &mut reply,
@@ -2072,6 +2124,7 @@ impl ConversationHttp {
                     network,
                     chainstate,
                     handler_opts,
+                    burn_tip.canonical_stacks_tip_height,
                 )?;
                 None
             }
@@ -2092,6 +2145,7 @@ impl ConversationHttp {
                         chainstate,
                         &tip,
                         &network.burnchain,
+                        burn_tip.canonical_stacks_tip_height,
                     )?;
                 }
                 None
@@ -2102,6 +2156,7 @@ impl ConversationHttp {
                     &mut reply,
                     &req,
                     network,
+                    burn_tip.canonical_stacks_tip_height,
                 )?;
                 None
             }
@@ -2121,6 +2176,7 @@ impl ConversationHttp {
                         &tip,
                         *quantity,
                         chainstate,
+                        burn_tip.canonical_stacks_tip_height,
                     )?
                 } else {
                     None
@@ -2133,6 +2189,7 @@ impl ConversationHttp {
                     &req,
                     index_block_hash,
                     chainstate,
+                    burn_tip.canonical_stacks_tip_height,
                 )?
             }
             HttpRequestType::GetMicroblocksIndexed(ref _md, ref index_head_hash) => {
@@ -2142,6 +2199,7 @@ impl ConversationHttp {
                     &req,
                     index_head_hash,
                     chainstate,
+                    burn_tip.canonical_stacks_tip_height,
                 )?
             }
             HttpRequestType::GetMicroblocksConfirmed(ref _md, ref anchor_index_block_hash) => {
@@ -2151,6 +2209,7 @@ impl ConversationHttp {
                     &req,
                     anchor_index_block_hash,
                     chainstate,
+                    burn_tip.canonical_stacks_tip_height,
                 )?
             }
             HttpRequestType::GetMicroblocksUnconfirmed(
@@ -2164,6 +2223,7 @@ impl ConversationHttp {
                 index_anchor_block_hash,
                 *min_seq,
                 chainstate,
+                burn_tip.canonical_stacks_tip_height,
             )?,
             HttpRequestType::GetTransactionUnconfirmed(ref _md, ref txid) => {
                 ConversationHttp::handle_gettransaction_unconfirmed(
@@ -2173,6 +2233,7 @@ impl ConversationHttp {
                     chainstate,
                     mempool,
                     txid,
+                    burn_tip.canonical_stacks_tip_height,
                 )?;
                 None
             }
@@ -2194,6 +2255,7 @@ impl ConversationHttp {
                         &tip,
                         principal,
                         *with_proof,
+                        burn_tip.canonical_stacks_tip_height,
                     )?;
                 }
                 None
@@ -2225,6 +2287,7 @@ impl ConversationHttp {
                         contract_name,
                         var_name,
                         *with_proof,
+                        burn_tip.canonical_stacks_tip_height,
                     )?;
                 }
                 None
@@ -2258,6 +2321,7 @@ impl ConversationHttp {
                         map_name,
                         key,
                         *with_proof,
+                        burn_tip.canonical_stacks_tip_height,
                     )?;
                 }
                 None
@@ -2267,6 +2331,7 @@ impl ConversationHttp {
                     &mut self.connection.protocol,
                     &mut reply,
                     &req,
+                    burn_tip.canonical_stacks_tip_height,
                 )?;
                 None
             }
@@ -2293,6 +2358,7 @@ impl ConversationHttp {
                         &tip,
                         contract_addr,
                         contract_name,
+                        burn_tip.canonical_stacks_tip_height,
                     )?;
                 }
                 None
@@ -2339,6 +2405,7 @@ impl ConversationHttp {
                         as_sender,
                         args,
                         &self.connection.options,
+                        burn_tip.canonical_stacks_tip_height,
                     )?;
                 }
                 None
@@ -2368,6 +2435,7 @@ impl ConversationHttp {
                         contract_addr,
                         contract_name,
                         *with_proof,
+                        burn_tip.canonical_stacks_tip_height,
                     )?;
                 }
                 None
@@ -2388,6 +2456,7 @@ impl ConversationHttp {
                             &mut network.atlasdb,
                             attachment.clone(),
                             handler_opts.event_observer.as_deref(),
+                            burn_tip.canonical_stacks_tip_height,
                         )?;
                         if accepted {
                             // forward to peer network
@@ -2395,7 +2464,10 @@ impl ConversationHttp {
                         }
                     }
                     None => {
-                        let response_metadata = HttpResponseMetadata::from(&req);
+                        let response_metadata = HttpResponseMetadata::from_http_request_type(
+                            &req,
+                            Some(burn_tip.canonical_stacks_tip_height),
+                        );
                         warn!("Failed to load Stacks chain tip");
                         let response = HttpResponseType::ServerError(
                             response_metadata,
@@ -2413,6 +2485,7 @@ impl ConversationHttp {
                     &req,
                     &mut network.atlasdb,
                     content_hash.clone(),
+                    burn_tip.canonical_stacks_tip_height,
                 )?;
                 None
             }
@@ -2429,6 +2502,7 @@ impl ConversationHttp {
                     &index_block_hash,
                     pages_indexes,
                     &self.connection.options,
+                    burn_tip.canonical_stacks_tip_height,
                 )?;
                 None
             }
@@ -2441,6 +2515,7 @@ impl ConversationHttp {
                     chainstate,
                     consensus_hash,
                     block,
+                    burn_tip.canonical_stacks_tip_height,
                 )?;
                 if accepted {
                     // inform the peer network so it can announce its presence
@@ -2459,6 +2534,7 @@ impl ConversationHttp {
                         tip_opt.as_ref(),
                         sortdb,
                         chainstate,
+                        burn_tip.canonical_stacks_tip_height,
                     )?
                 {
                     let accepted = ConversationHttp::handle_post_microblock(
@@ -2469,6 +2545,7 @@ impl ConversationHttp {
                         &block_hash,
                         chainstate,
                         mblock,
+                        burn_tip.canonical_stacks_tip_height,
                     )?;
                     if accepted {
                         // forward to peer network
@@ -2483,7 +2560,10 @@ impl ConversationHttp {
                 None
             }
             HttpRequestType::OptionsPreflight(ref _md, ref _path) => {
-                let response_metadata = HttpResponseMetadata::from(&req);
+                let response_metadata = HttpResponseMetadata::from_http_request_type(
+                    &req,
+                    Some(burn_tip.canonical_stacks_tip_height),
+                );
                 let response = HttpResponseType::OptionsPreflight(response_metadata);
                 response
                     .send(&mut self.connection.protocol, &mut reply)
@@ -2515,12 +2595,16 @@ impl ConversationHttp {
                         contract_addr,
                         contract_name,
                         trait_id,
+                        burn_tip.canonical_stacks_tip_height,
                     )?;
                 }
                 None
             }
             HttpRequestType::ClientError(ref _md, ref err) => {
-                let response_metadata = HttpResponseMetadata::from(&req);
+                let response_metadata = HttpResponseMetadata::from_http_request_type(
+                    &req,
+                    Some(burn_tip.canonical_stacks_tip_height),
+                );
                 let response = match err {
                     ClientError::Message(s) => HttpResponseType::BadRequestJSON(
                         response_metadata,
@@ -2823,6 +2907,7 @@ impl ConversationHttp {
                 StacksHttpMessage::Response(resp) => {
                     // Is there someone else waiting for this message?  If so, pass it along.
                     // (this _should_ be our pending_request handle)
+                    self.canonical_stacks_tip_height = resp.metadata().canonical_stacks_tip_height;
                     match self
                         .connection
                         .fulfill_request(StacksHttpMessage::Response(resp))
