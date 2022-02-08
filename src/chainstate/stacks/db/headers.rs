@@ -54,6 +54,8 @@ impl FromRow<StacksBlockHeader> for StacksBlockHeader {
         let microblock_pubkey_hash = Hash160::from_column(row, "microblock_pubkey_hash")?;
 
         let block_hash = BlockHeaderHash::from_column(row, "block_hash")?;
+        let message_signatures = BlockHeaderHash::from_column(row, "block_hash")?;
+        let miner_signatures:Vec<MessageSignature> = vec![MessageSignature::from_column(row, "block_hash")?];
 
         let total_burn = total_burn_str
             .parse::<u64>()
@@ -75,6 +77,7 @@ impl FromRow<StacksBlockHeader> for StacksBlockHeader {
             tx_merkle_root,
             state_index_root,
             microblock_pubkey_hash,
+            miner_signatures,
         };
 
         if block_hash != FIRST_STACKS_BLOCK_HASH && header.block_hash() != block_hash {
@@ -91,7 +94,7 @@ impl FromRow<StacksMicroblockHeader> for StacksMicroblockHeader {
         let sequence: u16 = row.get_unwrap("sequence");
         let prev_block = BlockHeaderHash::from_column(row, "prev_block")?;
         let tx_merkle_root = Sha512Trunc256Sum::from_column(row, "tx_merkle_root")?;
-        let signature = MessageSignature::from_column(row, "signature")?;
+        let miner_signature = MessageSignature::from_column(row, "signature")?;
 
         let microblock_hash = BlockHeaderHash::from_column(row, "microblock_hash")?;
 
@@ -100,7 +103,7 @@ impl FromRow<StacksMicroblockHeader> for StacksMicroblockHeader {
             sequence,
             prev_block,
             tx_merkle_root,
-            signature,
+            miner_signatures: vec![miner_signature],
         };
 
         if microblock_hash != microblock_header.block_hash() {

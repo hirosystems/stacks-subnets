@@ -626,6 +626,7 @@ impl StacksBlockBuilder {
             total_work,
             proof,
             &pubkh,
+            &vec![],
         );
 
         let mut header_bytes = vec![];
