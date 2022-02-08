@@ -133,6 +133,7 @@ pub enum MemPoolRejection {
     ContractAlreadyExists(QualifiedContractIdentifier),
     PoisonMicroblocksDoNotConflict,
     NoAnchorBlockWithPubkeyHash(Hash160),
+    NoAnchorBlockWithPubkeyHashes(Vec<Hash160>),
     InvalidMicroblocks,
     BadAddressVersionByte,
     NoCoinbaseViaMempool,
@@ -228,6 +229,7 @@ impl MemPoolRejection {
             ),
             PoisonMicroblocksDoNotConflict => ("PoisonMicroblocksDoNotConflict", None),
             NoAnchorBlockWithPubkeyHash(_h) => ("PoisonMicroblockHasUnknownPubKeyHash", None),
+            NoAnchorBlockWithPubkeyHashes(_h) => ("PoisonMicroblockHasUnknownPubKeyHashes", None),
             InvalidMicroblocks => ("PoisonMicroblockIsInvalid", None),
             BadAddressVersionByte => ("BadAddressVersionByte", None),
             NoCoinbaseViaMempool => ("NoCoinbaseViaMempool", None),
@@ -1000,9 +1002,10 @@ impl StacksChainState {
 
     fn has_blocks_with_microblock_pubkh(
         block_conn: &DBConn,
-        pubkey_hash: &Hash160,
+        pubkey_hashes: &Vec<Hash160>,
         minimum_block_height: i64,
     ) -> bool {
+        let pubkey_hash = pubkey_hashes.last().unwrap();
         let sql = "SELECT 1 FROM staging_blocks WHERE microblock_pubkey_hash = ?1 AND height >= ?2";
         let args: &[&dyn ToSql] = &[pubkey_hash, &minimum_block_height];
         block_conn
@@ -5583,7 +5586,7 @@ impl StacksChainState {
                 }
 
                 if !has_microblock_pubkey {
-                    return Err(MemPoolRejection::NoAnchorBlockWithPubkeyHash(
+                    return Err(MemPoolRejection::NoAnchorBlockWithPubkeyHashes(
                         microblock_pkh_1,
                     ));
                 }

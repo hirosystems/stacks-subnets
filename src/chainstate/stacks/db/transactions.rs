@@ -628,7 +628,7 @@ impl StacksChainState {
     fn check_microblock_header_signer(
         mblock_hdr_1: &StacksMicroblockHeader,
         mblock_hdr_2: &StacksMicroblockHeader,
-    ) -> Result<Hash160, Error> {
+    ) -> Result<Vec<Hash160>, Error> {
         let pkh1 = mblock_hdr_1.check_recover_pubkey().map_err(|e| {
             Error::InvalidStacksTransaction(
                 format!("Failed to recover public key: {:?}", &e),
@@ -644,12 +644,13 @@ impl StacksChainState {
         })?;
 
         if pkh1 != pkh2 {
-            let msg = format!(
-                "Invalid PoisonMicroblock transaction -- signature pubkey hash {} != {}",
-                &pkh1, &pkh2
-            );
+            let msg = "";
+            //            let msg = format!(
+            //                "Invalid PoisonMicroblock transaction -- signature pubkey hash {} != {}",
+            //                &pkh1, &pkh2
+            //            );
             warn!("{}", &msg);
-            return Err(Error::InvalidStacksTransaction(msg, false));
+            return Err(Error::InvalidStacksTransaction(msg.to_string(), false));
         }
         Ok(pkh1)
     }
@@ -695,7 +696,7 @@ impl StacksChainState {
         let microblock_height_opt = env
             .global_context
             .database
-            .get_microblock_pubkey_hash_height(&pubkh);
+            .get_microblock_pubkey_hash_height(&pubkh.last().unwrap());
         let current_height = env.global_context.database.get_current_block_height();
 
         // for the microblock public key hash we had to process
@@ -711,14 +712,15 @@ impl StacksChainState {
         let mblock_pubk_height = match microblock_height_opt {
             None => {
                 // public key has never been seen before
-                let msg = format!(
-                    "Invalid Stacks transaction: microblock public key hash {} never seen in this fork",
-                    &pubkh
-                );
-                warn!("{}", &msg;
-                      "microblock_pubkey_hash" => %pubkh
-                );
+                //                let msg = format!(
+                //                    "Invalid Stacks transaction: microblock public key hash {} never seen in this fork",
+                //                    &pubkh
+                //                );
+                //                warn!("{}", &msg;
+                //                      "microblock_pubkey_hash" => %pubkh
+                //                );
 
+                let msg = "".to_string();
                 return Err(Error::InvalidStacksTransaction(msg, false));
             }
             Some(height) => {
@@ -728,9 +730,9 @@ impl StacksChainState {
                     < current_height
                 {
                     let msg = format!("Invalid Stacks transaction: microblock public key hash from height {} has matured relative to current height {}", height, current_height);
-                    warn!("{}", &msg;
-                          "microblock_pubkey_hash" => %pubkh
-                    );
+                    //                    warn!("{}", &msg;
+                    //                          "microblock_pubkey_hash" => %pubkh
+                    //                    );
 
                     return Err(Error::InvalidStacksTransaction(msg, false));
                 }
@@ -755,10 +757,10 @@ impl StacksChainState {
             if mblock_header_1.sequence < seq {
                 // this sender reports a point lower in the stream where a fork occurred, and is now
                 // entitled to a commission of the punished miner's coinbase
-                debug!("Sender {} reports a better poison-miroblock record (at {}) for key {} at height {} than {} (at {})", &sender_principal, mblock_header_1.sequence, &pubkh, mblock_pubk_height, &reporter, seq;
-                    "sender" => %sender_principal,
-                    "microblock_pubkey_hash" => %pubkh
-                );
+                //                debug!("Sender {} reports a better poison-miroblock record (at {}) for key {} at height {} than {} (at {})", &sender_principal, mblock_header_1.sequence, &pubkh, mblock_pubk_height, &reporter, seq;
+                //                    "sender" => %sender_principal,
+                //                    "microblock_pubkey_hash" => %pubkh
+                //                );
                 env.global_context.database.insert_microblock_poison(
                     mblock_pubk_height,
                     &sender_principal,
@@ -767,20 +769,20 @@ impl StacksChainState {
                 (sender_principal, mblock_header_1.sequence)
             } else {
                 // someone else beat the sender to this report
-                debug!("Sender {} reports an equal or worse poison-microblock record (at {}, but already have one for {}); dropping...", &sender_principal, mblock_header_1.sequence, seq;
-                    "sender" => %sender_principal,
-                    "microblock_pubkey_hash" => %pubkh
-                );
+                //                debug!("Sender {} reports an equal or worse poison-microblock record (at {}, but already have one for {}); dropping...", &sender_principal, mblock_header_1.sequence, seq;
+                //                    "sender" => %sender_principal,
+                //                    "microblock_pubkey_hash" => %pubkh
+                //                );
                 (reporter, seq)
             }
         } else {
             // first-ever report of a fork
-            debug!(
-                "Sender {} reports a poison-microblock record at seq {} for key {} at height {}",
-                &sender_principal, mblock_header_1.sequence, &pubkh, &mblock_pubk_height;
-                "sender" => %sender_principal,
-                "microblock_pubkey_hash" => %pubkh
-            );
+            //            debug!(
+            //                "Sender {} reports a poison-microblock record at seq {} for key {} at height {}",
+            //                &sender_principal, mblock_header_1.sequence, &pubkh, &mblock_pubk_height;
+            //                "sender" => %sender_principal,
+            //                "microblock_pubkey_hash" => %pubkh
+            //            );
             env.global_context.database.insert_microblock_poison(
                 mblock_pubk_height,
                 &sender_principal,
@@ -790,7 +792,7 @@ impl StacksChainState {
         };
 
         let hash_data = BuffData {
-            data: pubkh.as_bytes().to_vec(),
+            data: pubkh.last().unwrap().as_bytes().to_vec(),
         };
         let tuple_data = TupleData::from_data(vec![
             (

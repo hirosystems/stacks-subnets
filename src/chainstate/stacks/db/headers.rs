@@ -54,8 +54,8 @@ impl FromRow<StacksBlockHeader> for StacksBlockHeader {
         let microblock_pubkey_hash = Hash160::from_column(row, "microblock_pubkey_hash")?;
 
         let block_hash = BlockHeaderHash::from_column(row, "block_hash")?;
-        let message_signatures = BlockHeaderHash::from_column(row, "block_hash")?;
-        let miner_signatures:Vec<MessageSignature> = vec![MessageSignature::from_column(row, "block_hash")?];
+        let miner_signatures: Vec<MessageSignature> =
+            vec![MessageSignature::from_column(row, "block_hash")?];
 
         let total_burn = total_burn_str
             .parse::<u64>()

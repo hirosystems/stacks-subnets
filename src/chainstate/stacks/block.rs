@@ -116,7 +116,7 @@ impl StacksMessageCodec for StacksBlockHeader {
         let tx_merkle_root: Sha512Trunc256Sum = read_next(fd)?;
         let state_index_root: TrieHash = read_next(fd)?;
         let pubkey_hash_buf: Hash160 = read_next(fd)?;
-        let miner_signatures:Vec<MessageSignature> = read_next(fd)?;
+        let miner_signatures: Vec<MessageSignature> = read_next(fd)?;
 
         Ok(StacksBlockHeader {
             version,
@@ -236,7 +236,7 @@ impl StacksBlockHeader {
             &Sha512Trunc256Sum([0u8; 32]),
             &TrieHash([0u8; 32]),
             microblock_pubkey_hash,
-            &vec![],
+            miner_signatures,
         )
     }
 
@@ -592,12 +592,12 @@ impl StacksMessageCodec for StacksMicroblockHeader {
         let tx_merkle_root: Sha512Trunc256Sum = read_next(fd)?;
         let miner_signatures: Vec<MessageSignature> = read_next(fd)?;
 
-//        // miner_signatures must be well-formed
-//        let _ = miner_signatures
-//            .to_secp256k1_recoverable()
-//            .ok_or(codec_error::DeserializeError(
-//                "Failed to parse miner_signatures".to_string(),
-//            ))?;
+        //        // miner_signatures must be well-formed
+        //        let _ = miner_signatures
+        //            .to_secp256k1_recoverable()
+        //            .ok_or(codec_error::DeserializeError(
+        //                "Failed to parse miner_signatures".to_string(),
+        //            ))?;
 
         Ok(StacksMicroblockHeader {
             version,
@@ -643,7 +643,7 @@ impl StacksMicroblockHeader {
         Ok(())
     }
 
-    pub fn check_recover_pubkey(&self) -> Result<Hash160, net_error> {
+    pub fn check_recover_pubkey(&self) -> Result<Vec<Hash160>, net_error> {
         let mut digest_bits = [0u8; 32];
         let mut sha2 = Sha512Trunc256::new();
 
@@ -651,7 +651,7 @@ impl StacksMicroblockHeader {
             .expect("BUG: failed to serialize to a vec");
         digest_bits.copy_from_slice(sha2.result().as_slice());
 
-        let miner_signature:MessageSignature = panic!("oh no");
+        let miner_signature: MessageSignature = panic!("oh no");
         let mut pubk =
             StacksPublicKey::recover_to_pubkey(&digest_bits, &miner_signature).map_err(|_ve| {
                 test_debug!(
@@ -665,21 +665,23 @@ impl StacksMicroblockHeader {
             })?;
 
         pubk.set_compressed(true);
-        Ok(StacksBlockHeader::pubkey_hash(&pubk))
+        Ok(vec![StacksBlockHeader::pubkey_hash(&pubk)])
     }
 
     pub fn verify(&self, pubk_hash: &Hash160) -> Result<(), net_error> {
-        let pubkh = self.check_recover_pubkey()?;
+        let pubkh_vec = self.check_recover_pubkey()?;
 
-        if pubkh != *pubk_hash {
-            test_debug!(
-                "Failed to verify miner_signatures: public key did not recover to hash {}",
-                &pubkh.to_hex()
-            );
-            return Err(net_error::VerifyingError(format!(
-                "Failed to verify miner_signatures: public key did not recover to expected hash {}",
-                pubkh.to_hex()
-            )));
+        for pubkh in pubkh_vec {
+            if pubkh != *pubk_hash {
+                test_debug!(
+                    "Failed to verify miner_signatures: public key did not recover to hash {}",
+                    &pubkh.to_hex()
+                );
+                return Err(net_error::VerifyingError(format!(
+                    "Failed to verify miner_signatures: public key did not recover to expected hash {}",
+                    pubkh.to_hex()
+                )));
+            }
         }
 
         Ok(())
