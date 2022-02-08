@@ -116,6 +116,7 @@ impl StacksMessageCodec for StacksBlockHeader {
         let tx_merkle_root: Sha512Trunc256Sum = read_next(fd)?;
         let state_index_root: TrieHash = read_next(fd)?;
         let pubkey_hash_buf: Hash160 = read_next(fd)?;
+        let miner_signatures:Vec<MessageSignature> = read_next(fd)?;
 
         Ok(StacksBlockHeader {
             version,
@@ -127,6 +128,7 @@ impl StacksMessageCodec for StacksBlockHeader {
             tx_merkle_root,
             state_index_root,
             microblock_pubkey_hash: pubkey_hash_buf,
+            miner_signatures,
         })
     }
 }
@@ -147,6 +149,7 @@ impl StacksBlockHeader {
             tx_merkle_root: Sha512Trunc256Sum([0u8; 32]),
             state_index_root: TrieHash([0u8; 32]),
             microblock_pubkey_hash: Hash160([0u8; 20]),
+            miner_signatures: vec![],
         }
     }
 
@@ -196,6 +199,7 @@ impl StacksBlockHeader {
         tx_merkle_root: &Sha512Trunc256Sum,
         state_index_root: &TrieHash,
         microblock_pubkey_hash: &Hash160,
+        miner_signatures: &Vec<MessageSignature>,
     ) -> StacksBlockHeader {
         let (parent_microblock, parent_microblock_sequence) = match parent_microblock_header {
             Some(header) => (header.block_hash(), header.sequence),
@@ -212,6 +216,7 @@ impl StacksBlockHeader {
             tx_merkle_root: tx_merkle_root.clone(),
             state_index_root: state_index_root.clone(),
             microblock_pubkey_hash: microblock_pubkey_hash.clone(),
+            miner_signatures: miner_signatures.clone(),
         }
     }
 
