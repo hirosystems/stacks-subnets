@@ -598,7 +598,8 @@ impl StacksMessageCodec for StacksMicroblockHeader {
                 .to_secp256k1_recoverable()
                 .ok_or(codec_error::DeserializeError(
                     "Failed to parse signature".to_string(),
-                )).expect("Fix this")
+                ))
+                .expect("Fix this")
         });
 
         Ok(StacksMicroblockHeader {
@@ -655,16 +656,17 @@ impl StacksMicroblockHeader {
 
         let mut hashes = vec![];
         for signature in &self.miner_signatures {
-            let mut pubk = StacksPublicKey::recover_to_pubkey(&digest_bits, &signature).map_err(|_ve| {
-                test_debug!(
-                    "Failed to verify signature: failed to recover public key from {:?}: {:?}",
-                    &self.signature,
-                    &_ve
-                );
-                net_error::VerifyingError(
-                    "Failed to verify signature: failed to recover public key".to_string(),
-                )
-            })?;
+            let mut pubk =
+                StacksPublicKey::recover_to_pubkey(&digest_bits, &signature).map_err(|_ve| {
+                    test_debug!(
+                        "Failed to verify signature: failed to recover public key from {:?}: {:?}",
+                        &signature,
+                        &_ve
+                    );
+                    net_error::VerifyingError(
+                        "Failed to verify signature: failed to recover public key".to_string(),
+                    )
+                })?;
 
             pubk.set_compressed(true);
             hashes.push(StacksBlockHeader::pubkey_hash(&pubk));
@@ -937,6 +939,7 @@ mod test {
             tx_merkle_root: Sha512Trunc256Sum([2u8; 32]),
             state_index_root: TrieHash([3u8; 32]),
             microblock_pubkey_hash: Hash160([4u8; 20]),
+            miner_signatures: vec![],
         };
 
         let header_bytes = vec![
@@ -977,7 +980,7 @@ mod test {
             sequence: 0x34,
             prev_block: EMPTY_MICROBLOCK_PARENT_HASH.clone(),
             tx_merkle_root: Sha512Trunc256Sum([1u8; 32]),
-            miner_signatures: MessageSignature([2u8; 65]),
+            miner_signatures: vec![MessageSignature([2u8; 65])],
         };
 
         let header_bytes = vec![
@@ -1070,7 +1073,7 @@ mod test {
             sequence: 0x34,
             prev_block: BlockHeaderHash([0x0au8; 32]),
             tx_merkle_root: Sha512Trunc256Sum([0x0bu8; 32]),
-            miner_signatures: MessageSignature([0x0cu8; 65]),
+            miner_signatures: vec![MessageSignature([0x0cu8; 65])],
         };
 
         let mut block = make_codec_test_block(100000000);
@@ -1171,13 +1174,13 @@ mod test {
                 sequence: 0x34,
                 prev_block: EMPTY_MICROBLOCK_PARENT_HASH.clone(),
                 tx_merkle_root: tx_merkle_root,
-                miner_signatures: MessageSignature([
+                miner_signatures: vec![MessageSignature([
                     0x00, 0x35, 0x44, 0x45, 0xa1, 0xdc, 0x98, 0xa1, 0xbd, 0x27, 0x98, 0x4d, 0xbe,
                     0x69, 0x97, 0x9a, 0x5c, 0xd7, 0x78, 0x86, 0xb4, 0xd9, 0x13, 0x4a, 0xf5, 0xc4,
                     0x0e, 0x63, 0x4d, 0x96, 0xe1, 0xcb, 0x44, 0x5b, 0x97, 0xde, 0x5b, 0x63, 0x25,
                     0x82, 0xd3, 0x17, 0x04, 0xf8, 0x67, 0x06, 0xa7, 0x80, 0x88, 0x6e, 0x6e, 0x38,
                     0x1b, 0xfe, 0xd6, 0x52, 0x28, 0x26, 0x73, 0x58, 0x26, 0x2d, 0x20, 0x3f, 0xe6,
-                ]),
+                ])],
             };
 
             let mut block_bytes = vec![
@@ -1223,7 +1226,7 @@ mod test {
             sequence: 0x34,
             prev_block: EMPTY_MICROBLOCK_PARENT_HASH.clone(),
             tx_merkle_root: Sha512Trunc256Sum([0u8; 32]),
-            miner_signatures: MessageSignature::empty(),
+            miner_signatures: vec![MessageSignature::empty()],
         };
 
         let pubk = StacksPublicKey::from_private(&privk);
@@ -1244,7 +1247,7 @@ mod test {
             sequence: 0x34,
             prev_block: EMPTY_MICROBLOCK_PARENT_HASH.clone(),
             tx_merkle_root: Sha512Trunc256Sum([0u8; 32]),
-            miner_signatures: MessageSignature::empty(),
+            miner_signatures: vec![MessageSignature::empty()],
         };
 
         let mut pubk = StacksPublicKey::from_private(&privk);
@@ -1276,6 +1279,7 @@ mod test {
             tx_merkle_root: Sha512Trunc256Sum([7u8; 32]),
             state_index_root: TrieHash([8u8; 32]),
             microblock_pubkey_hash: Hash160([9u8; 20]),
+            miner_signatures: vec![],
         };
 
         let mut burn_chain_tip = BlockSnapshot::initial(122, &BurnchainHeaderHash([3u8; 32]), 0);
@@ -1323,6 +1327,7 @@ mod test {
             tx_merkle_root: Sha512Trunc256Sum([7u8; 32]),
             state_index_root: TrieHash([8u8; 32]),
             microblock_pubkey_hash: Hash160([9u8; 20]),
+            miner_signatures: vec![],
         };
 
         let privk = StacksPrivateKey::from_hex(
@@ -1456,7 +1461,7 @@ mod test {
             sequence: 0x34,
             prev_block: EMPTY_MICROBLOCK_PARENT_HASH.clone(),
             tx_merkle_root: Sha512Trunc256Sum([0u8; 32]),
-            miner_signatures: MessageSignature::empty(),
+            miner_signatures: vec![MessageSignature::empty()],
         };
 
         let privk = StacksPrivateKey::from_hex(

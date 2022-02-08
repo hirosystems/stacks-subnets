@@ -5668,6 +5668,7 @@ pub mod test {
             tx_merkle_root: Sha512Trunc256Sum([7u8; 32]),
             state_index_root: TrieHash([8u8; 32]),
             microblock_pubkey_hash: Hash160([9u8; 20]),
+            miner_signatures: vec![],
         };
 
         let parent_microblock_header = StacksMicroblockHeader {
@@ -5675,7 +5676,7 @@ pub mod test {
             sequence: 0x34,
             prev_block: BlockHeaderHash([0x0au8; 32]),
             tx_merkle_root: Sha512Trunc256Sum([0x0bu8; 32]),
-            signature: MessageSignature([0x0cu8; 65]),
+            miner_signatures: vec![MessageSignature([0x0cu8; 65])],
         };
 
         let mblock_pubkey_hash =
@@ -5761,6 +5762,7 @@ pub mod test {
             tx_merkle_root: Sha512Trunc256Sum([7u8; 32]),
             state_index_root: TrieHash([8u8; 32]),
             microblock_pubkey_hash: Hash160([9u8; 20]),
+            miner_signatures: vec![],
         };
 
         let parent_microblock_header = StacksMicroblockHeader {
@@ -5768,7 +5770,7 @@ pub mod test {
             sequence: 0x34,
             prev_block: BlockHeaderHash([0x0au8; 32]),
             tx_merkle_root: Sha512Trunc256Sum([0x0bu8; 32]),
-            signature: MessageSignature([0x0cu8; 65]),
+            miner_signatures: vec![MessageSignature([0x0cu8; 65])],
         };
 
         let mblock_pubkey_hash =
@@ -5854,7 +5856,7 @@ pub mod test {
                 sequence: initial_seq + (i as u16),
                 prev_block: prev_block,
                 tx_merkle_root: tx_merkle_root,
-                signature: MessageSignature([0u8; 65]),
+                miner_signatures: vec![MessageSignature([0u8; 65])],
             };
 
             let mut mblock = StacksMicroblock {
@@ -5881,7 +5883,7 @@ pub mod test {
         privk: &StacksPrivateKey,
     ) -> BlockHeaderHash {
         for i in 0..microblocks.len() {
-            microblocks[i].header.signature = MessageSignature([0u8; 65]);
+            microblocks[i].header.miner_signatures = vec![MessageSignature([0u8; 65])];
             microblocks[i].sign(privk).unwrap();
             if i + 1 < microblocks.len() {
                 microblocks[i + 1].header.prev_block = microblocks[i].block_hash();
@@ -7219,6 +7221,7 @@ pub mod test {
             tx_merkle_root: Sha512Trunc256Sum([7u8; 32]),
             state_index_root: TrieHash([8u8; 32]),
             microblock_pubkey_hash: Hash160([9u8; 20]),
+            miner_signatures: vec![],
         };
 
         // contiguous, non-empty stream
@@ -7397,7 +7400,7 @@ pub mod test {
             let mut new_child_block_header = child_block_header.clone();
 
             for i in 0..broken_microblocks.len() {
-                broken_microblocks[i].header.signature = MessageSignature([0u8; 65]);
+                broken_microblocks[i].header.miner_signatures = vec![MessageSignature([0u8; 65])];
                 broken_microblocks[i].sign(&privk).unwrap();
                 if i + 1 < broken_microblocks.len() {
                     if i != num_mblocks / 2 {
@@ -7423,7 +7426,8 @@ pub mod test {
         // nonempty string, but bad signature
         {
             let mut broken_microblocks = microblocks.clone();
-            broken_microblocks[num_mblocks / 2].header.signature = MessageSignature([1u8; 65]);
+            broken_microblocks[num_mblocks / 2].header.miner_signatures =
+                vec![MessageSignature([1u8; 65])];
 
             let res = StacksChainState::validate_parent_microblock_stream(
                 &block.header,
@@ -7443,7 +7447,7 @@ pub mod test {
             let mut conflicting_microblock = microblocks[0].clone();
 
             for i in 0..broken_microblocks.len() {
-                broken_microblocks[i].header.signature = MessageSignature([0u8; 65]);
+                broken_microblocks[i].header.miner_signatures = vec![MessageSignature([0u8; 65])];
                 broken_microblocks[i].sign(&privk).unwrap();
                 if i + 1 < broken_microblocks.len() {
                     broken_microblocks[i + 1].header.prev_block =

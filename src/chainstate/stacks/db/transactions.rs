@@ -7168,7 +7168,7 @@ pub mod test {
                 sequence: seq,
                 prev_block: parent_block,
                 tx_merkle_root: tx_merkle_root,
-                signature: MessageSignature([0u8; 65]),
+                miner_signatures: vec![MessageSignature([0u8; 65])],
             },
             txs: txs,
         };

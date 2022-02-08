@@ -84,6 +84,7 @@ fn make_block_receipt(tx_receipts: Vec<StacksTransactionReceipt>) -> StacksEpoch
                 tx_merkle_root: Sha512Trunc256Sum([0; 32]),
                 state_index_root: TrieHash([0; 32]),
                 microblock_pubkey_hash: Hash160([0; 20]),
+                miner_signatures: vec![],
             },
             microblock_tail: None,
             block_height: 1,
