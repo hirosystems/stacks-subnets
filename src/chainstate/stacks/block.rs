@@ -592,12 +592,14 @@ impl StacksMessageCodec for StacksMicroblockHeader {
         let tx_merkle_root: Sha512Trunc256Sum = read_next(fd)?;
         let miner_signatures: Vec<MessageSignature> = read_next(fd)?;
 
-        //        // miner_signatures must be well-formed
-        //        let _ = miner_signatures
-        //            .to_secp256k1_recoverable()
-        //            .ok_or(codec_error::DeserializeError(
-        //                "Failed to parse miner_signatures".to_string(),
-        //            ))?;
+        // signature must be well-formed
+        let _ = miner_signatures.iter().map(|signature| {
+            signature
+                .to_secp256k1_recoverable()
+                .ok_or(codec_error::DeserializeError(
+                    "Failed to parse signature".to_string(),
+                )).expect("Fix this")
+        });
 
         Ok(StacksMicroblockHeader {
             version,
@@ -651,21 +653,23 @@ impl StacksMicroblockHeader {
             .expect("BUG: failed to serialize to a vec");
         digest_bits.copy_from_slice(sha2.result().as_slice());
 
-        let miner_signature: MessageSignature = panic!("oh no");
-        let mut pubk =
-            StacksPublicKey::recover_to_pubkey(&digest_bits, &miner_signature).map_err(|_ve| {
+        let mut hashes = vec![];
+        for signature in &self.miner_signatures {
+            let mut pubk = StacksPublicKey::recover_to_pubkey(&digest_bits, &signature).map_err(|_ve| {
                 test_debug!(
-                    "Failed to verify miner_signatures: failed to recover public key from {:?}: {:?}",
-                    &self.miner_signatures,
+                    "Failed to verify signature: failed to recover public key from {:?}: {:?}",
+                    &self.signature,
                     &_ve
                 );
                 net_error::VerifyingError(
-                    "Failed to verify miner_signatures: failed to recover public key".to_string(),
+                    "Failed to verify signature: failed to recover public key".to_string(),
                 )
             })?;
 
-        pubk.set_compressed(true);
-        Ok(vec![StacksBlockHeader::pubkey_hash(&pubk)])
+            pubk.set_compressed(true);
+            hashes.push(StacksBlockHeader::pubkey_hash(&pubk));
+        }
+        Ok(hashes)
     }
 
     pub fn verify(&self, pubk_hash: &Hash160) -> Result<(), net_error> {
