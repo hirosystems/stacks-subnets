@@ -157,6 +157,8 @@ pub struct StacksBlockHeader {
     pub tx_merkle_root: Sha512Trunc256Sum,
     pub state_index_root: TrieHash,
     pub microblock_pubkey_hash: Hash160, // we'll get the public key back from the first signature (note that this is the Hash160 of the _compressed_ public key)
+    /// Miners that have signed this block.
+    pub miner_signatures: Vec<MessageSignature>,
 }
 
 pub struct StacksBlockId(pub [u8; 32]);
@@ -173,7 +175,8 @@ pub struct StacksMicroblockHeader {
     pub sequence: u16,
     pub prev_block: BlockHeaderHash,
     pub tx_merkle_root: Sha512Trunc256Sum,
-    pub signature: MessageSignature,
+    /// Miners that have signed this micro block.
+    pub miner_signatures: Vec<MessageSignature>,
 }
 
 /// Structure that holds the actual data in a MARF leaf node.
