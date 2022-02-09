@@ -1073,14 +1073,6 @@ mod test {
         block.header.version = 0x24;
         */
 
-        let parent_microblock_header = StacksMicroblockHeader {
-            version: 0x12,
-            sequence: 0x34,
-            prev_block: BlockHeaderHash([0x0au8; 32]),
-            tx_merkle_root: Sha512Trunc256Sum([0x0bu8; 32]),
-            miner_signatures: MessageSignatureList::from_single(MessageSignature([0x0cu8; 65])),
-        };
-
         let mut block = make_codec_test_block(100000000);
         block.header.version = 0x24;
 
@@ -1121,6 +1113,8 @@ mod test {
             // public key hash buf
             pk[0], pk[1], pk[2], pk[3], pk[4], pk[5], pk[6], pk[7], pk[8], pk[9], pk[10], pk[11],
             pk[12], pk[13], pk[14], pk[15], pk[16], pk[17], pk[18], pk[19],
+            // signature list
+            0x00, 0x00, 0x00, 0x00,
         ];
 
         check_codec_and_corruption::<StacksBlockHeader>(&block.header, &block_bytes);
