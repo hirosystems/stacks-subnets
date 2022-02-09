@@ -40,6 +40,7 @@ use vm::costs::ExecutionCost;
 use crate::types::chainstate::{
     StacksBlockHeader, StacksBlockId, StacksMicroblockHeader, StacksWorkScore,
 };
+use types::chainstate::MessageSignatureList;
 
 impl FromColumn<Vec<MessageSignature>> for Vec<MessageSignature> {
     fn from_column<'a>(row: &'a Row, column_name: &str) -> Result<Vec<MessageSignature>, db_error> {
@@ -61,8 +62,7 @@ impl FromRow<StacksBlockHeader> for StacksBlockHeader {
         let microblock_pubkey_hash = Hash160::from_column(row, "microblock_pubkey_hash")?;
 
         let block_hash = BlockHeaderHash::from_column(row, "block_hash")?;
-        let miner_signatures: Vec<MessageSignature> =
-            Vec::<MessageSignature>::from_column(row, "miner_signatures")?;
+        let miner_signatures = MessageSignatureList::from_column(row, "miner_signatures")?;
 
         let total_burn = total_burn_str
             .parse::<u64>()
@@ -110,7 +110,7 @@ impl FromRow<StacksMicroblockHeader> for StacksMicroblockHeader {
             sequence,
             prev_block,
             tx_merkle_root,
-            miner_signatures: vec![miner_signature],
+            miner_signatures: MessageSignatureList::from_single(miner_signature),
         };
 
         if microblock_hash != microblock_header.block_hash() {
@@ -118,12 +118,6 @@ impl FromRow<StacksMicroblockHeader> for StacksMicroblockHeader {
         }
 
         Ok(microblock_header)
-    }
-}
-
-impl ToSql for Vec<MessageSignature> {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
-        panic!("not implemented")
     }
 }
 

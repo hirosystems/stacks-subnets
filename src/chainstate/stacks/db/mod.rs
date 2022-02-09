@@ -969,7 +969,7 @@ impl StacksChainState {
         let mut receipts = vec![];
 
         {
-        info!("check");
+            info!("check");
             let mut clarity_tx = chainstate.genesis_block_begin(
                 &NULL_BURN_STATE_DB,
                 &BURNCHAIN_BOOT_CONSENSUS_HASH,
@@ -977,22 +977,22 @@ impl StacksChainState {
                 &FIRST_BURNCHAIN_CONSENSUS_HASH,
                 &FIRST_STACKS_BLOCK_HASH,
             );
-        info!("check");
+            info!("check");
             let boot_code = if mainnet {
                 *boot::STACKS_BOOT_CODE_MAINNET
             } else {
                 *boot::STACKS_BOOT_CODE_TESTNET
             };
-        info!("check");
+            info!("check");
             for (boot_code_name, boot_code_contract) in boot_code.iter() {
-        info!("check");
+                info!("check");
                 debug!(
                     "Instantiate boot code contract '{}' ({} bytes)...",
                     boot_code_name,
                     boot_code_contract.len()
                 );
 
-        info!("check");
+                info!("check");
                 let smart_contract = TransactionPayload::SmartContract(TransactionSmartContract {
                     name: ContractName::try_from(boot_code_name.to_string())
                         .expect("FATAL: invalid boot-code contract name"),
@@ -1000,14 +1000,14 @@ impl StacksChainState {
                         .expect("FATAL: invalid boot code body"),
                 });
 
-        info!("check");
+                info!("check");
                 let boot_code_smart_contract = StacksTransaction::new(
                     tx_version.clone(),
                     boot_code_auth.clone(),
                     smart_contract,
                 );
 
-        info!("check");
+                info!("check");
                 let tx_receipt = clarity_tx.connection().as_transaction(|clarity| {
                     StacksChainState::process_transaction_payload(
                         clarity,
@@ -1020,7 +1020,7 @@ impl StacksChainState {
                 boot_code_account.nonce += 1;
             }
 
-        info!("check");
+            info!("check");
             let mut allocation_events: Vec<StacksTransactionEvent> = vec![];
             if boot_data.initial_balances.len() > 0 {
                 warn!(
@@ -1028,9 +1028,9 @@ impl StacksChainState {
                     boot_data.initial_balances.len()
                 );
             }
-        info!("check");
+            info!("check");
             for (address, amount) in boot_data.initial_balances.iter() {
-        info!("check");
+                info!("check");
                 clarity_tx.connection().as_transaction(|clarity| {
                     StacksChainState::account_genesis_credit(clarity, address, (*amount).into())
                 });
@@ -1046,12 +1046,12 @@ impl StacksChainState {
                 allocation_events.push(mint_event);
             }
 
-        info!("check");
+            info!("check");
             clarity_tx.connection().as_transaction(|clarity| {
-        info!("check");
+                info!("check");
                 // Balances
                 if let Some(get_balances) = boot_data.get_bulk_initial_balances.take() {
-        info!("check");
+                    info!("check");
                     info!("Importing accounts from Stacks 1.0");
                     let mut balances_count = 0;
                     let initial_balances = get_balances();
@@ -1078,11 +1078,11 @@ impl StacksChainState {
                     info!("Seeding {} balances coming from chain dump", balances_count);
                 }
 
-        info!("check");
+                info!("check");
                 // Lockups
                 if let Some(get_schedules) = boot_data.get_bulk_initial_lockups.take() {
                     info!("Initializing chain with lockups");
-        info!("check");
+                    info!("check");
                     let mut lockups_per_block: BTreeMap<u64, Vec<Value>> = BTreeMap::new();
                     let initial_lockups = get_schedules();
                     for schedule in initial_lockups {
@@ -1106,11 +1106,11 @@ impl StacksChainState {
                         };
                     }
 
-        info!("check");
+                    info!("check");
                     let lockup_contract_id = boot_code_id("lockup", mainnet);
                     clarity
                         .with_clarity_db(|db| {
-        info!("check");
+                            info!("check");
                             for (block_height, schedule) in lockups_per_block.into_iter() {
                                 let key = Value::UInt(block_height.into());
                                 let value = Value::list_from(schedule).unwrap();
@@ -1128,13 +1128,13 @@ impl StacksChainState {
 
                 // BNS Namespace
                 let bns_contract_id = boot_code_id("bns", mainnet);
-        info!("check");
+                info!("check");
                 if let Some(get_namespaces) = boot_data.get_bulk_initial_namespaces.take() {
-        info!("check");
+                    info!("check");
                     info!("Initializing chain with namespaces");
                     clarity
                         .with_clarity_db(|db| {
-        info!("check");
+                            info!("check");
                             let initial_namespaces = get_namespaces();
                             for entry in initial_namespaces {
                                 let namespace = {
@@ -1152,7 +1152,7 @@ impl StacksChainState {
                                     );
                                     Value::Principal(address)
                                 };
-        info!("check");
+                                info!("check");
 
                                 let revealed_at = Value::UInt(0);
                                 let launched_at = Value::UInt(0);
@@ -1192,7 +1192,7 @@ impl StacksChainState {
                                     ])
                                     .unwrap(),
                                 );
-        info!("check");
+                                info!("check");
 
                                 db.insert_entry_unknown_descriptor(
                                     &bns_contract_id,
@@ -1205,11 +1205,11 @@ impl StacksChainState {
                         })
                         .unwrap();
                 }
-        info!("check");
+                info!("check");
 
                 // BNS Names
                 if let Some(get_names) = boot_data.get_bulk_initial_names.take() {
-        info!("check");
+                    info!("check");
                     info!("Initializing chain with names");
                     clarity
                         .with_clarity_db(|db| {
@@ -1288,7 +1288,7 @@ impl StacksChainState {
                                     fqn.clone(),
                                     name_props,
                                 )?;
-        info!("check");
+                                info!("check");
 
                                 db.insert_entry_unknown_descriptor(
                                     &bns_contract_id,
@@ -1335,7 +1335,7 @@ impl StacksChainState {
                 Value::UInt(pox_constants.reward_cycle_length as u128),
                 Value::UInt(pox_constants.pox_rejection_fraction as u128),
             ];
-        info!("check");
+            info!("check");
             clarity_tx.connection().as_transaction(|conn| {
                 conn.run_contract_call(
                     &sender,
@@ -1347,7 +1347,7 @@ impl StacksChainState {
                 .expect("Failed to set burnchain parameters in PoX contract");
             });
 
-        info!("check");
+            info!("check");
             clarity_tx
                 .connection()
                 .as_transaction(|tx| {
@@ -1364,7 +1364,7 @@ impl StacksChainState {
         info!("check");
         // verify that genesis root hash is as expected
         {
-        info!("check");
+            info!("check");
             let genesis_root_hash = chainstate.clarity_state.with_marf(|marf| {
                 let index_block_hash = StacksBlockHeader::make_index_block_hash(
                     &FIRST_BURNCHAIN_CONSENSUS_HASH,
@@ -1395,7 +1395,7 @@ impl StacksChainState {
                 &FIRST_STACKS_BLOCK_HASH,
             );
 
-        info!("check");
+            info!("check");
             test_debug!(
                 "Boot code headers index_put_begin {}-{}",
                 &parent_hash,
@@ -1405,7 +1405,7 @@ impl StacksChainState {
             tx.put_indexed_begin(&parent_hash, &first_index_hash)?;
             let first_root_hash = tx.put_indexed_all(&vec![], &vec![])?;
 
-        info!("check");
+            info!("check");
             test_debug!(
                 "Boot code headers index_commit {}-{}",
                 &parent_hash,
@@ -1419,7 +1419,7 @@ impl StacksChainState {
                 boot_data.first_burnchain_block_timestamp as u64,
             );
 
-        info!("check");
+            info!("check");
             StacksChainState::insert_stacks_block_header(
                 &mut tx,
                 &parent_hash,
@@ -1570,13 +1570,13 @@ impl StacksChainState {
         let mut receipts = vec![];
         match (init_required, boot_data) {
             (true, Some(boot_data)) => {
-        info!("check");
+                info!("check");
                 let mut res =
                     StacksChainState::install_boot_code(&mut chainstate, mainnet, boot_data)?;
                 receipts.append(&mut res);
             }
             (true, None) => {
-        info!("check");
+                info!("check");
                 panic!(
                     "StacksChainState initialization is required, but boot_data was not passed."
                 );

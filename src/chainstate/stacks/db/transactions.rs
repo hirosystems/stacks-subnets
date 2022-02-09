@@ -56,6 +56,7 @@ use vm::types::{
 };
 
 use crate::types::chainstate::StacksMicroblockHeader;
+use types::chainstate::MessageSignatureList;
 
 // make it possible to have a set of Values
 impl std::hash::Hash for Value {
@@ -7168,7 +7169,7 @@ pub mod test {
                 sequence: seq,
                 prev_block: parent_block,
                 tx_merkle_root: tx_merkle_root,
-                miner_signatures: vec![MessageSignature([0u8; 65])],
+                miner_signatures: MessageSignatureList::from_single(MessageSignature([0u8; 65])),
             },
             txs: txs,
         };

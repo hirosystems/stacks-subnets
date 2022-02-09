@@ -51,6 +51,7 @@ use crate::types::chainstate::BurnchainHeaderHash;
 use crate::types::chainstate::{BlockHeaderHash, StacksAddress, StacksWorkScore};
 use crate::types::chainstate::{StacksBlockHeader, StacksBlockId, StacksMicroblockHeader};
 use crate::types::proof::TrieHash;
+use types::chainstate::MessageSignatureList;
 
 #[derive(Debug, Clone)]
 pub struct BlockBuilderSettings {
@@ -626,7 +627,7 @@ impl StacksBlockBuilder {
             total_work,
             proof,
             &pubkh,
-            &vec![],
+            &MessageSignatureList::empty(),
         );
 
         let mut header_bytes = vec![];
