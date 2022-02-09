@@ -103,6 +103,7 @@ impl StacksMessageCodec for StacksBlockHeader {
         write_next(fd, &self.tx_merkle_root)?;
         write_next(fd, &self.state_index_root)?;
         write_next(fd, &self.microblock_pubkey_hash)?;
+        write_next(fd, &self.miner_signatures)?;
         Ok(())
     }
 
@@ -614,7 +615,7 @@ impl StacksMessageCodec for StacksMicroblockHeader {
 
 impl StacksMicroblockHeader {
     pub fn sign(&mut self, privk: &StacksPrivateKey) -> Result<(), net_error> {
-        self.miner_signatures = vec![MessageSignature::empty()];
+        self.miner_signatures = vec![];
         let mut bytes = vec![];
         self.consensus_serialize(&mut bytes)
             .expect("BUG: failed to serialize to a vec");
@@ -639,7 +640,8 @@ impl StacksMicroblockHeader {
         write_next(fd, &self.prev_block)?;
         write_next(fd, &self.tx_merkle_root)?;
         if empty_sig {
-            write_next(fd, &MessageSignature::empty())?;
+            let v:Vec<MessageSignature> = vec![];
+            write_next(fd, &v)?;
         } else {
             write_next(fd, &self.miner_signatures)?;
         }
@@ -711,7 +713,7 @@ impl StacksMicroblockHeader {
             sequence: 0,
             prev_block: parent_block_hash.clone(),
             tx_merkle_root: tx_merkle_root.clone(),
-            miner_signatures: vec![MessageSignature::empty()],
+            miner_signatures: vec![],
         }
     }
 
@@ -739,7 +741,7 @@ impl StacksMicroblockHeader {
             sequence: next_sequence,
             prev_block: parent_header.block_hash(),
             tx_merkle_root: tx_merkle_root.clone(),
-            miner_signatures: vec![MessageSignature::empty()],
+            miner_signatures: vec![],
         })
     }
 }

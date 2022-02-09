@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use rusqlite::types::ToSqlOutput;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
@@ -40,6 +41,12 @@ use crate::types::chainstate::{
     StacksBlockHeader, StacksBlockId, StacksMicroblockHeader, StacksWorkScore,
 };
 
+impl FromColumn<Vec<MessageSignature>> for Vec<MessageSignature> {
+    fn from_column<'a>(row: &'a Row, column_name: &str) -> Result<Vec<MessageSignature>, db_error> {
+        panic!("not implemented")
+    }
+}
+
 impl FromRow<StacksBlockHeader> for StacksBlockHeader {
     fn from_row<'a>(row: &'a Row) -> Result<StacksBlockHeader, db_error> {
         let version: u8 = row.get_unwrap("version");
@@ -55,7 +62,7 @@ impl FromRow<StacksBlockHeader> for StacksBlockHeader {
 
         let block_hash = BlockHeaderHash::from_column(row, "block_hash")?;
         let miner_signatures: Vec<MessageSignature> =
-            vec![MessageSignature::from_column(row, "block_hash")?];
+            Vec::<MessageSignature>::from_column(row, "miner_signatures")?;
 
         let total_burn = total_burn_str
             .parse::<u64>()
@@ -114,6 +121,12 @@ impl FromRow<StacksMicroblockHeader> for StacksMicroblockHeader {
     }
 }
 
+impl ToSql for Vec<MessageSignature> {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
+        panic!("not implemented")
+    }
+}
+
 impl StacksChainState {
     /// Insert a block header that is paired with an already-existing block commit and snapshot
     pub fn insert_stacks_block_header(
@@ -169,6 +182,8 @@ impl StacksChainState {
             anchored_block_cost,
             &block_size_str,
             parent_id,
+            // TODO: is this right?
+            &header.miner_signatures,
         ];
 
         tx.execute("INSERT INTO block_headers \
@@ -192,7 +207,9 @@ impl StacksChainState {
                     index_root,
                     cost,
                     block_size,
-                    parent_block_id) \
+                    parent_block_id, \
+                    miner_signatures \
+                    ) \
                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)", args)
             .map_err(|e| Error::DBError(db_error::SqliteError(e)))?;
 

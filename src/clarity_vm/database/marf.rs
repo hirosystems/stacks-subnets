@@ -67,11 +67,14 @@ impl MarfedKV {
     }
 
     pub fn open(path_str: &str, miner_tip: Option<&StacksBlockId>) -> InterpreterResult<MarfedKV> {
+        info!("check");
         let marf = MarfedKV::setup_db(path_str, false)?;
+        info!("check");
         let chain_tip = match miner_tip {
             Some(ref miner_tip) => *miner_tip.clone(),
             None => StacksBlockId::sentinel(),
         };
+        info!("check");
 
         Ok(MarfedKV { marf, chain_tip })
     }
