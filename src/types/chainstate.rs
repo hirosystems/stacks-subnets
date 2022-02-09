@@ -156,12 +156,6 @@ pub struct MessageSignatureList {
     pub signatures: Vec<MessageSignature>,
 }
 
-impl FromColumn<MessageSignatureList> for MessageSignatureList {
-    fn from_column<'a>(row: &'a Row, column_name: &str) -> Result<MessageSignatureList, db_error> {
-        panic!("not impled")
-    }
-}
-
 impl MessageSignatureList {
     pub fn empty() -> MessageSignatureList {
         MessageSignatureList { signatures: vec![] }
@@ -176,7 +170,8 @@ impl MessageSignatureList {
 
 impl ToSql for MessageSignatureList {
     fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
-        panic!("not implemented")
+        let val = serde_json::to_string(self).expect("FAIL: could not serialize ExecutionCost");
+        Ok(ToSqlOutput::from(val))
     }
 }
 

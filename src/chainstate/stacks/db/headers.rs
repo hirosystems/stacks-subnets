@@ -42,9 +42,12 @@ use crate::types::chainstate::{
 };
 use types::chainstate::MessageSignatureList;
 
-impl FromColumn<Vec<MessageSignature>> for Vec<MessageSignature> {
-    fn from_column<'a>(row: &'a Row, column_name: &str) -> Result<Vec<MessageSignature>, db_error> {
-        panic!("not implemented")
+impl FromColumn<MessageSignatureList> for MessageSignatureList {
+    fn from_column<'a>(row: &'a Row, column_name: &str) -> Result<MessageSignatureList, db_error> {
+        let string_rep: String = row.get_unwrap(column_name);
+        let val: MessageSignatureList = serde_json::from_str(&string_rep)
+            .expect("FAIL: could not deserialize MessageSignatureList");
+        Ok(val)
     }
 }
 
