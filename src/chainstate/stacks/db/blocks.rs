@@ -5690,6 +5690,7 @@ pub mod test {
             &proof,
             &TrieHash([2u8; 32]),
             &mblock_pubkey_hash,
+            &MessageSignatureList::from_single(MessageSignature([0x0cu8; 65])),
         );
         block.header.version = 0x24;
         block
@@ -5784,6 +5785,7 @@ pub mod test {
             &proof,
             &TrieHash([2u8; 32]),
             &mblock_pubkey_hash,
+            &MessageSignatureList::from_single(MessageSignature([0x0cu8; 65])),
         );
         block.header.version = 0x24;
         block

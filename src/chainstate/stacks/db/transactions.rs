@@ -7363,6 +7363,7 @@ pub mod test {
             StacksChainState::process_transaction(&mut conn, &signed_tx_poison_microblock, false)
                 .unwrap_err();
         if let Error::ClarityError(clarity_error::BadTransaction(msg)) = err {
+            info!("{}", msg);
             assert!(msg.find("never seen in this fork").is_some());
         } else {
             assert!(false);
