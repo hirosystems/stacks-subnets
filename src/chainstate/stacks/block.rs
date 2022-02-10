@@ -601,16 +601,12 @@ impl StacksBlock {
     }
 }
 
-impl StacksMessageCodec for StacksMicroblockHeader {
+impl StacksMessageCodec for MessageSignatureList {
     fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
-        self.serialize(fd, false)
+        write_next(fd, self.signatures())
     }
 
-    fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<StacksMicroblockHeader, codec_error> {
-        let version: u8 = read_next(fd)?;
-        let sequence: u16 = read_next(fd)?;
-        let prev_block: BlockHeaderHash = read_next(fd)?;
-        let tx_merkle_root: Sha512Trunc256Sum = read_next(fd)?;
+    fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<MessageSignatureList, codec_error> {
         let signatures: Vec<MessageSignature> = read_next(fd)?;
 
         // signature must be well-formed
@@ -623,15 +619,32 @@ impl StacksMessageCodec for StacksMicroblockHeader {
                 .expect("Fix this")
         });
 
+        Ok(MessageSignatureList::from_vec(signatures))
+    }
+}
+
+impl StacksMessageCodec for StacksMicroblockHeader {
+    fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
+        self.serialize(fd, false)
+    }
+
+    fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<StacksMicroblockHeader, codec_error> {
+        let version: u8 = read_next(fd)?;
+        let sequence: u16 = read_next(fd)?;
+        let prev_block: BlockHeaderHash = read_next(fd)?;
+        let tx_merkle_root: Sha512Trunc256Sum = read_next(fd)?;
+        let miner_signatures: MessageSignatureList = read_next(fd)?;
+
         Ok(StacksMicroblockHeader {
             version,
             sequence,
             prev_block,
             tx_merkle_root,
-            miner_signatures: MessageSignatureList::from_vec(signatures),
+            miner_signatures,
         })
     }
 }
+
 
 impl StacksMicroblockHeader {
     pub fn sign(&mut self, privk: &StacksPrivateKey) -> Result<(), net_error> {
