@@ -620,7 +620,7 @@ impl StacksBlockBuilder {
         total_work: &StacksWorkScore,
         proof: &VRFProof,
         pubkh: Hash160,
-        miner_signatures:&MessageSignatureList,
+        miner_signatures: &MessageSignatureList,
     ) -> StacksBlockBuilder {
         let header = StacksBlockHeader::from_parent_empty(
             &parent_chain_tip.anchored_header,
@@ -667,7 +667,7 @@ impl StacksBlockBuilder {
         total_work: &StacksWorkScore,
         proof: &VRFProof,
         microblock_privkey: &StacksPrivateKey,
-        miner_signatures:&MessageSignatureList,
+        miner_signatures: &MessageSignatureList,
     ) -> StacksBlockBuilder {
         let mut pubk = StacksPublicKey::from_private(microblock_privkey);
         pubk.set_compressed(true);
@@ -693,7 +693,7 @@ impl StacksBlockBuilder {
         genesis_burn_header_timestamp: u64,
         proof: &VRFProof,
         pubkh: Hash160,
-        miner_signatures:&MessageSignatureList,
+        miner_signatures: &MessageSignatureList,
     ) -> StacksBlockBuilder {
         let genesis_chain_tip = StacksHeaderInfo {
             anchored_header: StacksBlockHeader::genesis_block_header(),
@@ -727,7 +727,7 @@ impl StacksBlockBuilder {
         genesis_burn_header_timestamp: u64,
         proof: &VRFProof,
         microblock_privkey: &StacksPrivateKey,
-        miner_signatures:&MessageSignatureList,
+        miner_signatures: &MessageSignatureList,
     ) -> StacksBlockBuilder {
         let mut pubk = StacksPublicKey::from_private(microblock_privkey);
         pubk.set_compressed(true);
@@ -1027,6 +1027,8 @@ impl StacksBlockBuilder {
 
         self.header.tx_merkle_root = tx_merkle_root;
         self.header.state_index_root = state_root_hash;
+
+        self.header.sign(&self.miner_privkey).expect("Failed to sign block header.");
 
         let block = StacksBlock {
             header: self.header.clone(),
@@ -1403,7 +1405,7 @@ impl StacksBlockBuilder {
         proof: VRFProof,
         total_burn: u64,
         pubkey_hash: Hash160,
-        miner_signatures:&MessageSignatureList,
+        miner_signatures: &MessageSignatureList,
     ) -> Result<StacksBlockBuilder, Error> {
         let builder = if stacks_parent_header.consensus_hash == FIRST_BURNCHAIN_CONSENSUS_HASH {
             let (first_block_hash_hex, first_block_height, first_block_ts) = if mainnet {

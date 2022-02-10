@@ -166,6 +166,11 @@ impl MessageSignatureList {
             signatures: vec![signature],
         }
     }
+
+    /// Append to internal list of signatures.
+    pub fn add_signature(&mut self, signature: MessageSignature) {
+        self.signatures.push(signature);
+    }
 }
 
 impl ToSql for MessageSignatureList {

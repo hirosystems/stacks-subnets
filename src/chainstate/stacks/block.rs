@@ -136,6 +136,25 @@ impl StacksMessageCodec for StacksBlockHeader {
 }
 
 impl StacksBlockHeader {
+    pub fn sign(&mut self, privk: &StacksPrivateKey) -> Result<(), net_error> {
+        let mut bytes = vec![];
+        self.consensus_serialize(&mut bytes)
+            .expect("BUG: failed to serialize to a vec");
+
+        let mut digest_bits = [0u8; 32];
+        let mut sha2 = Sha512Trunc256::new();
+
+        sha2.input(&bytes[..]);
+        digest_bits.copy_from_slice(sha2.result().as_slice());
+
+        let sig = privk
+            .sign(&digest_bits)
+            .map_err(|se| net_error::SigningError(se.to_string()))?;
+
+        self.miner_signatures.add_signature(sig);
+        Ok(())
+    }
+
     pub fn pubkey_hash(pubk: &StacksPublicKey) -> Hash160 {
         Hash160::from_node_public_key(pubk)
     }
@@ -617,7 +636,6 @@ impl StacksMessageCodec for StacksMicroblockHeader {
 
 impl StacksMicroblockHeader {
     pub fn sign(&mut self, privk: &StacksPrivateKey) -> Result<(), net_error> {
-        self.miner_signatures = MessageSignatureList::empty();
         let mut bytes = vec![];
         self.consensus_serialize(&mut bytes)
             .expect("BUG: failed to serialize to a vec");
@@ -632,7 +650,7 @@ impl StacksMicroblockHeader {
             .sign(&digest_bits)
             .map_err(|se| net_error::SigningError(se.to_string()))?;
 
-        self.miner_signatures = MessageSignatureList::from_single(sig);
+        self.miner_signatures.add_signature(sig);
         Ok(())
     }
 
