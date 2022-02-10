@@ -104,7 +104,7 @@ impl StacksMessageCodec for StacksBlockHeader {
         write_next(fd, &self.tx_merkle_root)?;
         write_next(fd, &self.state_index_root)?;
         write_next(fd, &self.microblock_pubkey_hash)?;
-        write_next(fd, &self.miner_signatures.signatures)?;
+        write_next(fd, self.miner_signatures.signatures())?;
         Ok(())
     }
 
@@ -130,7 +130,7 @@ impl StacksMessageCodec for StacksBlockHeader {
             tx_merkle_root,
             state_index_root,
             microblock_pubkey_hash: pubkey_hash_buf,
-            miner_signatures: MessageSignatureList { signatures },
+            miner_signatures: MessageSignatureList::from_vec(signatures),
         })
     }
 }
@@ -154,7 +154,6 @@ impl StacksBlockHeader {
         self.miner_signatures.add_signature(sig);
         Ok(())
     }
-
     pub fn pubkey_hash(pubk: &StacksPublicKey) -> Hash160 {
         Hash160::from_node_public_key(pubk)
     }
@@ -629,7 +628,7 @@ impl StacksMessageCodec for StacksMicroblockHeader {
             sequence,
             prev_block,
             tx_merkle_root,
-            miner_signatures: MessageSignatureList { signatures },
+            miner_signatures: MessageSignatureList::from_vec(signatures),
         })
     }
 }
@@ -663,7 +662,7 @@ impl StacksMicroblockHeader {
             let v: Vec<MessageSignature> = vec![];
             write_next(fd, &v)?;
         } else {
-            write_next(fd, &self.miner_signatures.signatures)?;
+            write_next(fd, self.miner_signatures.signatures())?;
         }
         Ok(())
     }
@@ -677,7 +676,7 @@ impl StacksMicroblockHeader {
         digest_bits.copy_from_slice(sha2.result().as_slice());
 
         let mut hashes = vec![];
-        for signature in &self.miner_signatures.signatures {
+        for signature in self.miner_signatures.signatures() {
             let mut pubk =
                 StacksPublicKey::recover_to_pubkey(&digest_bits, &signature).map_err(|_ve| {
                     test_debug!(

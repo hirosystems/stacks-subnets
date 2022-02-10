@@ -153,7 +153,7 @@ pub struct StacksWorkScore {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 /// This struct wraps a vector of signatures, especially to allow `impl` on a foreign type.
 pub struct MessageSignatureList {
-    pub signatures: Vec<MessageSignature>,
+    signatures: Vec<MessageSignature>,
 }
 
 impl MessageSignatureList {
@@ -167,9 +167,19 @@ impl MessageSignatureList {
         }
     }
 
+    pub fn from_vec(signatures: Vec<MessageSignature>) -> MessageSignatureList {
+        MessageSignatureList {
+            signatures,
+        }
+    }
+
     /// Append to internal list of signatures.
     pub fn add_signature(&mut self, signature: MessageSignature) {
         self.signatures.push(signature);
+    }
+
+    pub fn signatures(&self) -> &Vec<MessageSignature> {
+        &self.signatures
     }
 }
 
