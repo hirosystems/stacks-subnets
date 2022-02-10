@@ -95,17 +95,7 @@ impl StacksWorkScore {
 
 impl StacksMessageCodec for StacksBlockHeader {
     fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
-        write_next(fd, &self.version)?;
-        write_next(fd, &self.total_work)?;
-        write_next(fd, &self.proof)?;
-        write_next(fd, &self.parent_block)?;
-        write_next(fd, &self.parent_microblock)?;
-        write_next(fd, &self.parent_microblock_sequence)?;
-        write_next(fd, &self.tx_merkle_root)?;
-        write_next(fd, &self.state_index_root)?;
-        write_next(fd, &self.microblock_pubkey_hash)?;
-        write_next(fd, self.miner_signatures.signatures())?;
-        Ok(())
+        self.serialize(fd, true)
     }
 
     fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<StacksBlockHeader, codec_error> {
@@ -118,7 +108,7 @@ impl StacksMessageCodec for StacksBlockHeader {
         let tx_merkle_root: Sha512Trunc256Sum = read_next(fd)?;
         let state_index_root: TrieHash = read_next(fd)?;
         let pubkey_hash_buf: Hash160 = read_next(fd)?;
-        let signatures: Vec<MessageSignature> = read_next(fd)?;
+        let miner_signatures: MessageSignatureList = read_next(fd)?;
 
         Ok(StacksBlockHeader {
             version,
@@ -130,15 +120,16 @@ impl StacksMessageCodec for StacksBlockHeader {
             tx_merkle_root,
             state_index_root,
             microblock_pubkey_hash: pubkey_hash_buf,
-            miner_signatures: MessageSignatureList::from_vec(signatures),
+            miner_signatures,
         })
     }
 }
 
 impl StacksBlockHeader {
+    /// Serialize the transaction without the other signatures, and sign the result.
     pub fn sign(&mut self, privk: &StacksPrivateKey) -> Result<(), net_error> {
         let mut bytes = vec![];
-        self.consensus_serialize(&mut bytes)
+        self.serialize(&mut bytes, true)
             .expect("BUG: failed to serialize to a vec");
 
         let mut digest_bits = [0u8; 32];
@@ -152,6 +143,23 @@ impl StacksBlockHeader {
             .map_err(|se| net_error::SigningError(se.to_string()))?;
 
         self.miner_signatures.add_signature(sig);
+        Ok(())
+    }
+    fn serialize<W: Write>(&self, fd: &mut W, empty_sig: bool) -> Result<(), codec_error> {
+        write_next(fd, &self.version)?;
+        write_next(fd, &self.total_work)?;
+        write_next(fd, &self.proof)?;
+        write_next(fd, &self.parent_block)?;
+        write_next(fd, &self.parent_microblock)?;
+        write_next(fd, &self.parent_microblock_sequence)?;
+        write_next(fd, &self.tx_merkle_root)?;
+        write_next(fd, &self.state_index_root)?;
+        write_next(fd, &self.microblock_pubkey_hash)?;
+        if empty_sig {
+            write_next(fd, &MessageSignatureList::empty())?;
+        } else {
+            write_next(fd, &self.miner_signatures)?;
+        }
         Ok(())
     }
     pub fn pubkey_hash(pubk: &StacksPublicKey) -> Hash160 {
@@ -603,11 +611,14 @@ impl StacksBlock {
 
 impl StacksMessageCodec for MessageSignatureList {
     fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
-        write_next(fd, self.signatures())
+        let sigs = self.signatures();
+        info!("before:sigs {:?}", &sigs);
+        write_next(fd, sigs)
     }
 
     fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<MessageSignatureList, codec_error> {
         let signatures: Vec<MessageSignature> = read_next(fd)?;
+        info!("after:sigs {:?}", &signatures);
 
         // signature must be well-formed
         let _ = signatures.iter().map(|signature| {
@@ -648,15 +659,19 @@ impl StacksMessageCodec for StacksMicroblockHeader {
 
 impl StacksMicroblockHeader {
     pub fn sign(&mut self, privk: &StacksPrivateKey) -> Result<(), net_error> {
+        let bt = backtrace::Backtrace::new();
+        warn!("sign:bt {:?}", &bt);
         let mut bytes = vec![];
-        self.consensus_serialize(&mut bytes)
+        self.serialize(&mut bytes, true)
             .expect("BUG: failed to serialize to a vec");
+        info!("before bytes {:?}", &bytes);
 
         let mut digest_bits = [0u8; 32];
         let mut sha2 = Sha512Trunc256::new();
 
         sha2.input(&bytes[..]);
         digest_bits.copy_from_slice(sha2.result().as_slice());
+        info!("before digest_bits {:?}", &digest_bits);
 
         let sig = privk
             .sign(&digest_bits)
@@ -672,8 +687,7 @@ impl StacksMicroblockHeader {
         write_next(fd, &self.prev_block)?;
         write_next(fd, &self.tx_merkle_root)?;
         if empty_sig {
-            let v: Vec<MessageSignature> = vec![];
-            write_next(fd, &v)?;
+            write_next(fd, &MessageSignatureList::empty())?;
         } else {
             write_next(fd, self.miner_signatures.signatures())?;
         }
@@ -681,15 +695,26 @@ impl StacksMicroblockHeader {
     }
 
     pub fn check_recover_pubkey(&self) -> Result<Vec<Hash160>, net_error> {
+        let bt = backtrace::Backtrace::new();
+        warn!("recover:bt {:?}", &bt);
+        info!("eyes");
         let mut digest_bits = [0u8; 32];
         let mut sha2 = Sha512Trunc256::new();
 
-        self.serialize(&mut sha2, true)
+        let mut bytes = vec![];
+        info!("eyes");
+        self.serialize(&mut bytes, true)
             .expect("BUG: failed to serialize to a vec");
+        info!("after bytes {:?}", &bytes);
+        sha2.input(&bytes[..]); // new
         digest_bits.copy_from_slice(sha2.result().as_slice());
+        info!("recover digest_bits {:?}", &digest_bits);
 
+        info!("eyes");
         let mut hashes = vec![];
         for signature in self.miner_signatures.signatures() {
+            info!("signature {:?}", &signature);
+        info!("eyes");
             let mut pubk =
                 StacksPublicKey::recover_to_pubkey(&digest_bits, &signature).map_err(|_ve| {
                     test_debug!(
@@ -702,18 +727,23 @@ impl StacksMicroblockHeader {
                     )
                 })?;
 
+        info!("eyes");
             pubk.set_compressed(true);
             hashes.push(StacksBlockHeader::pubkey_hash(&pubk));
         }
+        info!("eyes");
         Ok(hashes)
     }
 
     pub fn verify(&self, pubk_hash: &Hash160) -> Result<(), net_error> {
+        info!("look verify");
         let pubkh_vec = self.check_recover_pubkey()?;
 
+        info!("look pubk_hash {:?}", &pubk_hash);
         for pubkh in pubkh_vec {
+        info!("look pubkh {:?}", &pubkh);
             if pubkh != *pubk_hash {
-                test_debug!(
+                info!(
                     "Failed to verify miner_signatures: public key did not recover to hash {}",
                     &pubkh.to_hex()
                 );

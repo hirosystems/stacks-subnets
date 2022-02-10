@@ -7169,11 +7169,13 @@ pub mod test {
                 sequence: seq,
                 prev_block: parent_block,
                 tx_merkle_root: tx_merkle_root,
-                miner_signatures: MessageSignatureList::from_single(MessageSignature([0u8; 65])),
+                miner_signatures: MessageSignatureList::empty(),
             },
             txs: txs,
         };
+        info!("mblock {:?}", &mblock);
         mblock.sign(block_privk).unwrap();
+        info!("mblock {:?}", &mblock);
         mblock
     }
 
@@ -7342,6 +7344,8 @@ pub mod test {
         let mblock_1 = make_signed_microblock(&privk, &privk, BlockHeaderHash([0x11; 32]), 123);
         let mblock_2 = make_signed_microblock(&privk, &privk, BlockHeaderHash([0x11; 32]), 123);
         assert!(mblock_1 != mblock_2);
+        info!("mblock_1 {:?}", &mblock_1);
+        info!("mblock_2 {:?}", &mblock_2);
 
         // report poison (in the same block)
         let mut tx_poison_microblock = StacksTransaction::new(

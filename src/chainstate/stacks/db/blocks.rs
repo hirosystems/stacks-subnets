@@ -2911,10 +2911,11 @@ impl StacksChainState {
         microblocks: &Vec<StacksMicroblock>,
     ) -> Vec<StacksMicroblock> {
         let mut signed_microblocks = vec![];
+        info!("go through blocks");
         for microblock in microblocks.iter() {
+            info!("microblock {:?}", &microblock);
             let mut dup = microblock.clone();
-            if dup
-                .verify(&parent_anchored_block_header.microblock_pubkey_hash)
+            if dup.verify(&parent_anchored_block_header.microblock_pubkey_hash)
                 .is_err()
             {
                 warn!(
@@ -2945,13 +2946,20 @@ impl StacksChainState {
         microblocks: &Vec<StacksMicroblock>,
         verify_signatures: bool,
     ) -> Option<(usize, Option<TransactionPayload>)> {
+        info!("parent_anchored_block_header {:?}", &parent_anchored_block_header);
+        info!("anchored_block_header {:?}", &anchored_block_header);
+
+        info!("super-check");
         if anchored_block_header.is_first_mined() {
+        info!("super-check");
             // there had better be zero microblocks
             if anchored_block_header.parent_microblock == EMPTY_MICROBLOCK_PARENT_HASH
                 && anchored_block_header.parent_microblock_sequence == 0
             {
+        info!("super-check");
                 return Some((0, None));
             } else {
+        info!("super-check");
                 warn!(
                     "Block {} has no ancestor, and should have no microblock parents",
                     anchored_block_header.block_hash()
@@ -2960,16 +2968,21 @@ impl StacksChainState {
             }
         }
 
+        info!("super-check");
         let signed_microblocks = if verify_signatures {
+        info!("super-check"); // here
             StacksChainState::extract_signed_microblocks(&parent_anchored_block_header, microblocks)
         } else {
+        info!("super-check");
             microblocks.clone()
         };
 
+        info!("super-check");
         if signed_microblocks.len() == 0 {
             if anchored_block_header.parent_microblock == EMPTY_MICROBLOCK_PARENT_HASH
                 && anchored_block_header.parent_microblock_sequence == 0
             {
+        info!("super-check");
                 // expected empty
                 debug!(
                     "No microblocks between {} and {}",
@@ -2978,6 +2991,7 @@ impl StacksChainState {
                 );
                 return Some((0, None));
             } else {
+        info!("super-check");
                 // did not expect empty
                 warn!(
                     "Missing microblocks between {} and {}",
@@ -2989,6 +3003,7 @@ impl StacksChainState {
         }
 
         if signed_microblocks[0].header.sequence != 0 {
+        info!("super-check");
             // discontiguous -- must start with seq 0
             warn!(
                 "Discontiguous stream -- first microblock header sequence is {}",
@@ -2997,14 +3012,18 @@ impl StacksChainState {
             return None;
         }
 
+        info!("super-check");
         if signed_microblocks[0].header.prev_block != parent_anchored_block_header.block_hash() {
+        info!("super-check");
             // discontiguous -- not connected to parent
             warn!("Discontiguous stream -- does not connect to parent");
             return None;
         }
+        info!("super-check");
 
-        // sanity check -- in order by sequence and no sequence duplicates
+        // sanity super-check -- in order by sequence and no sequence duplicates
         for i in 1..signed_microblocks.len() {
+        info!("super-check");
             if signed_microblocks[i - 1].header.sequence > signed_microblocks[i].header.sequence {
                 panic!("BUG: out-of-sequence microblock stream");
             }
@@ -3019,10 +3038,12 @@ impl StacksChainState {
             }
         }
 
-        // sanity check -- all parent block hashes are unique.  If there are duplicates, then the
+        info!("super-check");
+        // sanity super-check -- all parent block hashes are unique.  If there are duplicates, then the
         // miner equivocated.
         let mut parent_hashes: HashMap<BlockHeaderHash, StacksMicroblockHeader> = HashMap::new();
         for i in 0..signed_microblocks.len() {
+        info!("super-check");
             let signed_microblock = &signed_microblocks[i];
             if parent_hashes.contains_key(&signed_microblock.header.prev_block) {
                 debug!(
@@ -3047,12 +3068,15 @@ impl StacksChainState {
             );
         }
 
+        info!("super-check");
         // hashes are contiguous enough -- for each seqnum, there is a microblock with seqnum+1 with the
         // microblock at seqnum as its parent.  There may be more than one.
         for i in 1..signed_microblocks.len() {
+        info!("super-check");
             if signed_microblocks[i - 1].header.sequence == signed_microblocks[i].header.sequence
                 && signed_microblocks[i - 1].block_hash() != signed_microblocks[i].block_hash()
             {
+        info!("super-check");
                 // deliberate microblock fork
                 debug!(
                     "Deliberate microblock fork at sequence {}",
@@ -3086,9 +3110,11 @@ impl StacksChainState {
             return Some((0, None));
         }
 
+        info!("super-check");
         let mut end = 0;
         let mut connects = false;
         for i in 0..signed_microblocks.len() {
+        info!("super-check");
             if signed_microblocks[i].block_hash() == anchored_block_header.parent_microblock {
                 end = i + 1;
                 connects = true;
@@ -3096,7 +3122,9 @@ impl StacksChainState {
             }
         }
 
+        info!("super-check");
         if !connects {
+        info!("super-check");
             // discontiguous
             debug!(
                 "Discontiguous stream: block {} does not connect to tail",
@@ -3105,6 +3133,7 @@ impl StacksChainState {
             return None;
         }
 
+        info!("super-check");
         return Some((end, None));
     }
 
@@ -4438,7 +4467,7 @@ impl StacksChainState {
                 }
             };
 
-            // validation check -- is this microblock public key hash new to this fork?  It must
+            // validation super-check -- is this microblock public key hash new to this fork?  It must
             // be, or this block is invalid.
             match StacksChainState::has_microblock_pubkey_hash(
                 &mut clarity_tx,
@@ -4935,7 +4964,7 @@ impl StacksChainState {
         let block = StacksChainState::extract_stacks_block(&next_staging_block)?;
         let block_size = next_staging_block.block_data.len() as u64;
 
-        // sanity check -- don't process this block again if we already did so
+        // sanity super-check -- don't process this block again if we already did so
         if StacksChainState::has_stored_block(
             chainstate_tx.tx.deref().deref(),
             &blocks_path,
@@ -4961,7 +4990,7 @@ impl StacksChainState {
             return Ok((None, None));
         }
 
-        // validation check -- the block must attach to its accepted parent
+        // validation super-check -- the block must attach to its accepted parent
         if !StacksChainState::check_block_attachment(
             &parent_header_info.anchored_header,
             &block.header,
@@ -4989,7 +5018,7 @@ impl StacksChainState {
             return Err(Error::InvalidStacksBlock(msg));
         }
 
-        // validation check -- validate parent microblocks and find the ones that connect the
+        // validation super-check -- validate parent microblocks and find the ones that connect the
         // block's parent to this block.
         let next_microblocks = StacksChainState::extract_connecting_microblocks(
             &parent_header_info,
@@ -5425,7 +5454,7 @@ impl StacksChainState {
         let (origin, payer) =
             match StacksChainState::check_transaction_nonces(clarity_connection, &tx, true) {
                 Ok(x) => x,
-                // if errored, check if MEMPOOL_TX_CHAINING would admit this TX
+                // if errored, super-check if MEMPOOL_TX_CHAINING would admit this TX
                 Err((e, (origin, payer))) => {
                     // if the nonce is less than expected, then TX_CHAINING would not allow in any case
                     if e.actual < e.expected {
@@ -5516,7 +5545,7 @@ impl StacksChainState {
                     ));
                 }
 
-                // if the payer for the tx is different from owner, check if they can afford fee
+                // if the payer for the tx is different from owner, super-check if they can afford fee
                 if origin != payer {
                     if !payer
                         .stx_balance
@@ -7617,7 +7646,7 @@ pub mod test {
             );
         }
 
-        // process all blocks, and check that processing a parent makes the child attachable
+        // process all blocks, and super-check that processing a parent makes the child attachable
         for (i, (block, consensus_hash)) in blocks.iter().zip(&consensus_hashes).enumerate() {
             // child block is not attachable
             if i + 1 < consensus_hashes.len() {
@@ -7758,7 +7787,7 @@ pub mod test {
             );
         }
 
-        // process all blocks, and check that processing a parent makes the child attachable
+        // process all blocks, and super-check that processing a parent makes the child attachable
         for (i, (block, consensus_hash)) in blocks.iter().zip(&consensus_hashes).enumerate() {
             // child block is not attachable
             if i + 1 < consensus_hashes.len() {
@@ -8820,7 +8849,7 @@ pub mod test {
 
             assert_eq!(staging_mblocks.len(), mblocks[0..(i + 1)].len());
             for j in 0..(i + 1) {
-                test_debug!("check {}", j);
+                test_debug!("super-check {}", j);
                 assert_eq!(staging_mblocks[j], mblocks[j])
             }
 
@@ -8856,7 +8885,7 @@ pub mod test {
 
                 assert_eq!(staging_mblocks.len(), mblocks[k..(i + 1)].len());
                 for j in 0..staging_mblocks.len() {
-                    test_debug!("check {}", j);
+                    test_debug!("super-check {}", j);
                     assert_eq!(staging_mblocks[j], mblocks[k + j])
                 }
             }
@@ -8970,7 +8999,7 @@ pub mod test {
 
             assert_eq!(confirmed_mblocks.len(), mblocks[0..(i + 1)].len());
             for j in 0..(i + 1) {
-                test_debug!("check {}", j);
+                test_debug!("super-check {}", j);
                 assert_eq!(confirmed_mblocks[j], mblocks[j])
             }
         }

@@ -180,18 +180,23 @@ impl Secp256k1PublicKey {
         msg: &[u8],
         sig: &MessageSignature,
     ) -> Result<Secp256k1PublicKey, &'static str> {
+            info!("recover-check");
         _secp256k1.with(|ctx| {
+            info!("recover-check");
             let msg = LibSecp256k1Message::from_slice(msg).map_err(|_e| {
                 "Invalid message: failed to decode data hash: must be a 32-byte hash"
             })?;
+            info!("recover-check");
 
             let secp256k1_sig = sig
                 .to_secp256k1_recoverable()
                 .ok_or("Invalid signature: failed to decode recoverable signature")?;
+            info!("recover-check");
 
             let recovered_pubkey = ctx
                 .recover(&msg, &secp256k1_sig)
                 .map_err(|_e| "Invalid signature: failed to recover public key")?;
+            info!("recover-check");
 
             Ok(Secp256k1PublicKey {
                 key: recovered_pubkey,
