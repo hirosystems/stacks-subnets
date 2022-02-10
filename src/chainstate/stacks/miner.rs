@@ -1032,6 +1032,7 @@ impl StacksBlockBuilder {
             header: self.header.clone(),
             txs: self.txs.clone(),
         };
+        info!("block {:?}", &block);
 
         self.prev_microblock_header = StacksMicroblockHeader::first_unsigned(
             &block.block_hash(),
@@ -1700,6 +1701,7 @@ impl StacksBlockBuilder {
             observer.mempool_txs_dropped(invalidated_txs, MemPoolDropReason::TOO_EXPENSIVE);
         }
 
+        // If error, roll back.
         match result {
             Ok(_) => {}
             Err(e) => {
@@ -1709,16 +1711,13 @@ impl StacksBlockBuilder {
             }
         }
 
-        // the prior do_rebuild logic wasn't necessary
-        // a transaction that caused a budget exception is rolled back in process_transaction
-
-        // save the block so we can build microblocks off of it
+        // Save the block so we can build microblocks off of it.
         let block = builder.mine_anchored_block(&mut epoch_tx);
         let size = builder.bytes_so_far;
         let consumed = builder.epoch_finish(epoch_tx);
-
         let ts_end = get_epoch_time_ms();
 
+        // Maybe observe events.
         if let Some(observer) = event_observer {
             observer.mined_block_event(
                 SortitionDB::get_canonical_burn_chain_tip(burn_dbconn.conn())?.block_height + 1,
