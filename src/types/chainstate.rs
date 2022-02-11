@@ -158,16 +158,24 @@ pub struct MessageSignatureList {
 
 impl MessageSignatureList {
     pub fn empty() -> MessageSignatureList {
+        let bt = backtrace::Backtrace::new();
+        info!("MessageSignatureList::empty");
         MessageSignatureList { signatures: vec![] }
     }
 
     pub fn from_single(signature: MessageSignature) -> MessageSignatureList {
+        info!("MessageSignatureList::from_single {:?}", &signature);
+        let bt = backtrace::Backtrace::new();
+        info!("bt {:?}", &bt);
         MessageSignatureList {
             signatures: vec![signature],
         }
     }
 
     pub fn from_vec(signatures: Vec<MessageSignature>) -> MessageSignatureList {
+        let bt = backtrace::Backtrace::new();
+        info!("MessageSignatureList::from_vec {:?}", &signatures);
+        info!("bt {:?}", &bt);
         MessageSignatureList {
             signatures,
         }
@@ -175,11 +183,19 @@ impl MessageSignatureList {
 
     /// Append to internal list of signatures.
     pub fn add_signature(&mut self, signature: MessageSignature) {
+        let bt = backtrace::Backtrace::new();
+        info!("MessageSignatureList::add_signature {:?}", &signature);
+        info!("bt {:?}", &bt);
         self.signatures.push(signature);
     }
 
     pub fn signatures(&self) -> &Vec<MessageSignature> {
-        &self.signatures
+        let bt = backtrace::Backtrace::new();
+        let r = &self.signatures;
+        info!("MessageSignatureList::signatures {:?}", &self.signatures);
+        info!("bt {:?}", &bt);
+        r
+
     }
 }
 

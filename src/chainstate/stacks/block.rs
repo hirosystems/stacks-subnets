@@ -95,7 +95,7 @@ impl StacksWorkScore {
 
 impl StacksMessageCodec for StacksBlockHeader {
     fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
-        self.serialize(fd, true)
+        self.serialize(fd, false)
     }
 
     fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<StacksBlockHeader, codec_error> {
@@ -664,6 +664,7 @@ impl StacksMicroblockHeader {
         let mut bytes = vec![];
         self.serialize(&mut bytes, true)
             .expect("BUG: failed to serialize to a vec");
+        info!("before microblock {:?}", &self);
         info!("before bytes {:?}", &bytes);
 
         let mut digest_bits = [0u8; 32];
@@ -703,6 +704,7 @@ impl StacksMicroblockHeader {
 
         let mut bytes = vec![];
         info!("eyes");
+        info!("after microblock {:?}", &self);
         self.serialize(&mut bytes, true)
             .expect("BUG: failed to serialize to a vec");
         info!("after bytes {:?}", &bytes);
@@ -712,6 +714,7 @@ impl StacksMicroblockHeader {
 
         info!("eyes");
         let mut hashes = vec![];
+        info!("signatures {:?}", self.miner_signatures.signatures());
         for signature in self.miner_signatures.signatures() {
             info!("signature {:?}", &signature);
         info!("eyes");
@@ -740,6 +743,7 @@ impl StacksMicroblockHeader {
         let pubkh_vec = self.check_recover_pubkey()?;
 
         info!("look pubk_hash {:?}", &pubk_hash);
+        info!("look pubkh_vec {:?}", &pubkh_vec);
         for pubkh in pubkh_vec {
         info!("look pubkh {:?}", &pubkh);
             if pubkh != *pubk_hash {

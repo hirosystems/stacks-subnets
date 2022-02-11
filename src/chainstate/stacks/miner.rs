@@ -310,6 +310,7 @@ impl<'a> StacksMicroblockBuilder<'a> {
             txs: txs,
         };
 
+        info!("microblock {:?}", &microblock);
         info!(
             "Miner: Created microblock block {} (seq={}) off of {}/{}: {} transaction(s)",
             microblock.block_hash(),

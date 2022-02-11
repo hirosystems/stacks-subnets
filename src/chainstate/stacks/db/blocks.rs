@@ -2979,6 +2979,8 @@ impl StacksChainState {
             microblocks.clone()
         };
 
+        info!("signed_microblocks {:?}", &signed_microblocks);
+
         info!("super-check");
         if signed_microblocks.len() == 0 {
             if anchored_block_header.parent_microblock == EMPTY_MICROBLOCK_PARENT_HASH
@@ -3433,6 +3435,7 @@ impl StacksChainState {
         };
 
         let mut dup = microblock.clone();
+        info!("try verify");
         if let Err(e) = dup.verify(&pubkey_hash) {
             let msg = format!(
                 "Invalid microblock {}: failed to verify signature with {}: {:?}",
