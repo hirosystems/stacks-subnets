@@ -917,7 +917,9 @@ impl StacksChainState {
             return Ok(None);
         }
 
+        info!("block_path {:?}", &block_path);
         let block_header: StacksBlockHeader = StacksChainState::consensus_load(&block_path)?;
+        info!("block_header {:?}", &block_header);
         Ok(Some(block_header))
     }
 
@@ -5814,7 +5816,7 @@ pub mod test {
             &proof,
             &TrieHash([2u8; 32]),
             &mblock_pubkey_hash,
-            &MessageSignatureList::from_single(MessageSignature([0x0cu8; 65])),
+            &MessageSignatureList::empty(),
         );
         block.header.version = 0x24;
         block
@@ -9229,12 +9231,15 @@ pub mod test {
 
     #[test]
     fn test_get_parent_block_header() {
+        // make a peer
         let peer_config = TestPeerConfig::new("test_get_parent_block_header", 21313, 21314);
+        info!("peer_config {:?}", &peer_config);
         let mut peer = TestPeer::new(peer_config);
 
         let chainstate_path = peer.chainstate_path.clone();
 
-        let num_blocks = 10;
+        // hwat is this?
+        let num_rounds_to_run = 10;
         let first_stacks_block_height = {
             let sn =
                 SortitionDB::get_canonical_burn_chain_tip(&peer.sortdb.as_ref().unwrap().conn())
@@ -9244,7 +9249,7 @@ pub mod test {
 
         let mut last_block_ch: Option<ConsensusHash> = None;
         let mut last_parent_opt: Option<StacksBlock> = None;
-        for tenure_id in 0..num_blocks {
+        for tenure_id in 0..num_rounds_to_run {
             let tip =
                 SortitionDB::get_canonical_burn_chain_tip(&peer.sortdb.as_ref().unwrap().conn())
                     .unwrap();
@@ -9283,6 +9288,7 @@ pub mod test {
                             .unwrap()
                         }
                     };
+                    info!("parent_tip {:?}", &parent_tip);
 
                     let mut mempool =
                         MemPoolDB::open_test(false, 0x80000000, &chainstate_path).unwrap();
@@ -9301,7 +9307,9 @@ pub mod test {
                         None,
                     )
                     .unwrap();
-                    (anchored_block.0, vec![])
+                    let tenure_result = (anchored_block.0, vec![]);
+                    info!("tenure_result {:?}", &tenure_result);
+                    tenure_result
                 },
             );
 

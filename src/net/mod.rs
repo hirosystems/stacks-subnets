@@ -2411,6 +2411,8 @@ pub mod test {
                 StacksEpoch::unit_test_pre_2_05(config.burnchain.first_block_height)
             });
 
+            info!("gold:config.burnchain.get_db_path() {:?}", &config.burnchain.get_db_path());
+
             let mut sortdb = SortitionDB::connect(
                 &config.burnchain.get_db_path(),
                 config.burnchain.first_block_height,
@@ -3273,6 +3275,7 @@ pub mod test {
             let mut stacks_node = self.stacks_node.take().unwrap();
 
             let parent_block_opt = stacks_node.get_last_anchored_block(&self.miner);
+            info!("see: parent_block_opt {:?}", &parent_block_opt);
             let parent_microblock_header_opt =
                 get_last_microblock_header(&stacks_node, &self.miner, parent_block_opt.as_ref());
 
@@ -3290,6 +3293,7 @@ pub mod test {
                 parent_block_opt.as_ref(),
                 parent_microblock_header_opt.as_ref(),
             );
+            info!("see: stacks_block {:?}", &stacks_block);
 
             let mut block_commit_op = stacks_node.make_tenure_commitment(
                 &mut sortdb,

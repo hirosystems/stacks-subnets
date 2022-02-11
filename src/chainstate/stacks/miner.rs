@@ -1746,6 +1746,8 @@ impl StacksBlockBuilder {
             })
         );
 
+        info!("see: block {:?}", &block);
+
         Ok((block, consumed, size))
     }
 }

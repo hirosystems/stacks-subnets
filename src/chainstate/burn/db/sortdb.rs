@@ -2565,13 +2565,15 @@ impl SortitionDB {
         let result = query_row_panic(conn, qry, &[&ConsensusHash::empty()], || {
             "FATAL: multiple first-block snapshots".into()
         })?;
-        match result {
+        let output = match result {
             None => {
                 // should never happen
                 panic!("FATAL: no first snapshot");
             }
             Some(snapshot) => Ok(snapshot),
-        }
+        };
+        info!("output {:?}", &output);
+        output
     }
 
     pub fn is_pox_active(
