@@ -2641,7 +2641,6 @@ impl PeerNetwork {
 mod test {
     use std::collections::HashMap;
 
-    use burnchains::PoxConstants;
     use chainstate::stacks::*;
     use net::test::*;
     use net::*;

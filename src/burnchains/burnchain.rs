@@ -42,7 +42,7 @@ use burnchains::PublicKey;
 use burnchains::Txid;
 use burnchains::{
     BurnchainBlock, BurnchainBlockHeader, BurnchainParameters, BurnchainRecipient, BurnchainSigner,
-    BurnchainStateTransition, BurnchainTransaction, Error as burnchain_error, PoxConstants,
+    BurnchainStateTransition, BurnchainTransaction, Error as burnchain_error,
 };
 use chainstate::burn::db::sortdb::{SortitionDB, SortitionHandleConn, SortitionHandleTx};
 use chainstate::burn::operations::{

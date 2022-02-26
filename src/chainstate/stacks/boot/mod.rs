@@ -21,7 +21,7 @@ use std::convert::TryInto;
 
 use address::AddressHashMode;
 use burnchains::Burnchain;
-use burnchains::{Address, PoxConstants};
+use burnchains::Address;
 use chainstate::burn::db::sortdb::SortitionDB;
 use chainstate::stacks::db::StacksChainState;
 use chainstate::stacks::index::marf::MarfConnection;

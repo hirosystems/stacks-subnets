@@ -41,7 +41,6 @@ use vm::types::{
 };
 
 use crate::{
-    burnchains::PoxConstants,
     clarity_vm::{clarity::ClarityBlockConnection, database::marf::WritableMarfStore},
     core::StacksEpoch,
 };

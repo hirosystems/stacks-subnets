@@ -38,7 +38,7 @@ use burnchains::BitcoinNetworkType;
 use burnchains::{Address, PublicKey, Txid};
 use burnchains::{
     Burnchain, BurnchainBlockHeader, BurnchainRecipient, BurnchainStateTransition,
-    BurnchainTransaction, BurnchainView, Error as BurnchainError, PoxConstants,
+    BurnchainTransaction, BurnchainView, Error as BurnchainError,
 };
 use chainstate::burn::operations::{
     leader_block_commit::{MissedBlockCommit, RewardSetInfo, OUTPUTS_PER_COMMIT},

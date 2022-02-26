@@ -2004,7 +2004,6 @@ pub mod test {
     use burnchains::BurnchainBlock;
     use burnchains::BurnchainBlockHeader;
     use burnchains::BurnchainView;
-    use burnchains::PoxConstants;
     use burnchains::StacksHyperBlock;
     use chainstate::burn::db::sortdb;
     use chainstate::burn::db::sortdb::*;

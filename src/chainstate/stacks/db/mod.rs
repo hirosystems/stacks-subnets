@@ -29,7 +29,7 @@ use rusqlite::Row;
 use rusqlite::Transaction;
 use rusqlite::NO_PARAMS;
 
-use burnchains::{Address, Burnchain, BurnchainParameters, PoxConstants};
+use burnchains::{Address, Burnchain, BurnchainParameters};
 use chainstate::burn::db::sortdb::BlockHeaderCache;
 use chainstate::burn::db::sortdb::*;
 use chainstate::burn::db::sortdb::{SortitionDB, SortitionDBConn};

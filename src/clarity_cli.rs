@@ -57,7 +57,6 @@ use crate::clarity::{
 };
 use stacks_common::util::log;
 
-use crate::burnchains::PoxConstants;
 use crate::burnchains::Txid;
 use stacks_common::types::chainstate::*;
 
