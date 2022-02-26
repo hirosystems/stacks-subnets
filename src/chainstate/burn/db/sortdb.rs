@@ -1115,14 +1115,6 @@ impl<'a> SortitionHandleConn<'a> {
         SortitionHandleConn::open_reader(connection, &sn.sortition_id)
     }
 
-    #[cfg(test)]
-    pub fn get_last_anchor_block_hash(&self) -> Result<Option<BlockHeaderHash>, db_error> {
-        let anchor_block_hash = SortitionDB::parse_last_anchor_block_hash(
-            self.get_indexed(&self.context.chain_tip, &db_keys::pox_last_anchor())?,
-        );
-        Ok(anchor_block_hash)
-    }
-
     fn get_reward_set_size(&self) -> Result<u16, db_error> {
         self.get_tip_indexed(&db_keys::pox_reward_set_size())
             .map(|x| {
@@ -1130,14 +1122,6 @@ impl<'a> SortitionHandleConn<'a> {
                     &x.expect("CORRUPTION: no current reward set size written"),
                 )
             })
-    }
-
-    pub fn get_pox_id(&self) -> Result<PoxId, db_error> {
-        let pox_id = self
-            .get_tip_indexed(db_keys::pox_identifier())?
-            .map(|s| s.parse().expect("BUG: Bad PoX identifier stored in DB"))
-            .expect("BUG: No PoX identifier stored.");
-        Ok(pox_id)
     }
 
     /// open a reader handle
@@ -1305,33 +1289,6 @@ impl<'a> SortitionHandleConn<'a> {
             }
         }
         Ok(result)
-    }
-
-    /// Return identifying information for a PoX anchor block for the reward cycle that
-    ///   begins the block after `prepare_end_bhh`.
-    /// If a PoX anchor block is chosen, this returns Some, if a PoX anchor block was not
-    ///   selected, return `None`
-    /// `prepare_end_bhh`: this is the burn block which is the last block in the prepare phase
-    ///                 for the corresponding reward cycle
-    pub fn get_chosen_pox_anchor(
-        &self,
-        prepare_end_bhh: &BurnchainHeaderHash,
-        pox_consts: &PoxConstants,
-    ) -> Result<Option<(ConsensusHash, BlockHeaderHash)>, CoordinatorError> {
-        match self.get_chosen_pox_anchor_check_position(prepare_end_bhh, pox_consts, true) {
-            Ok(Ok((c_hash, bh_hash, _))) => Ok(Some((c_hash, bh_hash))),
-            Ok(Err(_)) => Ok(None),
-            Err(e) => Err(e),
-        }
-    }
-
-    pub fn get_chosen_pox_anchor_check_position(
-        &self,
-        _prepare_end_bhh: &BurnchainHeaderHash,
-        _pox_consts: &PoxConstants,
-        _check_position: bool,
-    ) -> Result<Result<(ConsensusHash, BlockHeaderHash, u32), u32>, CoordinatorError> {
-        Ok(Err(0))
     }
 }
 

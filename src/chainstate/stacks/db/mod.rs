@@ -799,7 +799,6 @@ pub struct ChainStateBootData {
     pub first_burnchain_block_height: u32,
     pub first_burnchain_block_timestamp: u32,
     pub initial_balances: Vec<(PrincipalData, u64)>,
-    pub pox_constants: PoxConstants,
     pub post_flight_callback: Option<Box<dyn FnOnce(&mut ClarityTx) -> ()>>,
     pub get_bulk_initial_lockups:
         Option<Box<dyn FnOnce() -> Box<dyn Iterator<Item = ChainstateAccountLockup>>>>,
