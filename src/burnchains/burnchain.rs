@@ -211,6 +211,13 @@ impl Burnchain {
         self.network_id == NETWORK_ID_MAINNET
     }
 
+    pub fn reward_cycle_to_block_height(&self) -> u64 {
+        panic!("not implemented")
+    }
+
+    pub fn block_height_to_reward_cycle(&self) -> Option<u64> {
+        panic!("not implemented")
+    }
     pub fn regtest(working_dir: &str) -> Burnchain {
         let ret =
             Burnchain::new(working_dir, &"bitcoin".to_string(), &"regtest".to_string()).unwrap();
@@ -433,8 +440,8 @@ impl Burnchain {
 
         let sortition_tip = SortitionDB::get_canonical_sortition_tip(db.conn())?;
 
-        db.evaluate_sortition(&header, blockstack_txs, burnchain, &sortition_tip, None)
-            .map(|(snapshot, transition, _)| (snapshot, transition))
+        db.evaluate_sortition(&header, blockstack_txs, burnchain, &sortition_tip)
+            .map(|(snapshot, transition)| (snapshot, transition))
     }
 
     /// Determine if there has been a chain reorg, given our current canonical burnchain tip.

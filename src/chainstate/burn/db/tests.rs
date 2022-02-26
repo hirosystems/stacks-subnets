@@ -110,7 +110,7 @@ pub fn test_append_snapshot(
     sn.consensus_hash = ConsensusHash(Hash160::from_data(&sn.consensus_hash.0).0);
 
     let index_root = tx
-        .append_chain_tip_snapshot(&sn_parent, &sn, block_ops, None, None)
+        .append_chain_tip_snapshot(&sn_parent, &sn, block_ops, None)
         .unwrap();
     sn.index_root = index_root;
 
@@ -1695,7 +1695,7 @@ fn make_fork_run(
         {
             let mut tx = SortitionHandleTx::begin(db, &last_snapshot.sortition_id).unwrap();
             let _index_root = tx
-                .append_chain_tip_snapshot(&last_snapshot, &snapshot, &vec![], None, None)
+                .append_chain_tip_snapshot(&last_snapshot, &snapshot, &vec![], None)
                 .unwrap();
             tx.commit().unwrap();
         }

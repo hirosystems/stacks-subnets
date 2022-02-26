@@ -2893,29 +2893,6 @@ pub mod test {
                     result.confirmed_microblocks.len()
                 );
 
-                peer.with_peer_state(|peer, sortdb, chainstate, mempool| {
-                    for i in 0..(result.blocks.len() + result.confirmed_microblocks.len() + 1) {
-                        peer.coord.handle_new_stacks_block().unwrap();
-
-                        let pox_id = {
-                            let ic = sortdb.index_conn();
-                            let tip_sort_id =
-                                SortitionDB::get_canonical_sortition_tip(sortdb.conn()).unwrap();
-                            let sortdb_reader =
-                                SortitionHandleConn::open_reader(&ic, &tip_sort_id).unwrap();
-                            sortdb_reader.get_pox_id().unwrap()
-                        };
-
-                        test_debug!(
-                            "\n\n{:?}: after stacks block, new tip PoX ID is {:?}\n\n",
-                            &peer.to_neighbor().addr,
-                            &pox_id
-                        );
-                    }
-                    Ok(())
-                })
-                .unwrap();
-
                 assert!(check_breakage(peer));
 
                 let peer_num_burn_blocks = {

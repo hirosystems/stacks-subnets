@@ -265,7 +265,7 @@ impl PeerBlocksInv {
     /// Returns how many bits were dropped.
     pub fn truncate_block_inventories(&mut self, burnchain: &Burnchain, reward_cycle: u64) -> u64 {
         // invalidate all blocks and microblocks that come after this
-        let highest_agreed_block_height = burnchain.reward_cycle_to_block_height(reward_cycle);
+        let highest_agreed_block_height = burnchain.reward_cycle_to_block_height();
 
         assert!(
             highest_agreed_block_height >= self.first_block_height,
@@ -304,7 +304,7 @@ impl PeerBlocksInv {
     /// Invalidate PoX inventories as a result of learning a new reward cycle's status
     /// Returns how many bits were dropped
     pub fn truncate_pox_inventory(&mut self, burnchain: &Burnchain, reward_cycle: u64) -> u64 {
-        let highest_agreed_block_height = burnchain.reward_cycle_to_block_height(reward_cycle);
+        let highest_agreed_block_height = burnchain.reward_cycle_to_block_height();
 
         assert!(
             highest_agreed_block_height >= self.first_block_height,
@@ -500,8 +500,6 @@ impl PeerBlocksInv {
 
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub enum InvWorkState {
-    GetPoxInvBegin,
-    GetPoxInvFinish,
     GetBlocksInvBegin,
     GetBlocksInvFinish,
     Done,
@@ -567,7 +565,7 @@ impl NeighborBlockStats {
             inv: PeerBlocksInv::empty(first_block_height),
             pox_reward_cycle: 0,
             block_reward_cycle: 0,
-            state: InvWorkState::GetPoxInvBegin,
+            state: InvWorkState::GetBlocksInvBegin,
             status: NodeStatus::Online,
             num_blocks_expected: 0,
             target_pox_reward_cycle: 0,
@@ -586,19 +584,6 @@ impl NeighborBlockStats {
 
     pub fn is_peer_online(&self) -> bool {
         self.status == NodeStatus::Online
-    }
-
-    pub fn reset_pox_scan(&mut self, pox_reward_cycle: u64) {
-        self.pox_reward_cycle = pox_reward_cycle;
-        self.request = None;
-        self.pox_inv = None;
-        self.blocks_inv = None;
-        self.state = InvWorkState::GetPoxInvBegin;
-
-        debug!(
-            "Reset {:?} PoX scan height to {}",
-            &self.nk, self.pox_reward_cycle
-        );
     }
 
     pub fn reset_block_scan(&mut self, block_reward_cycle: u64) {
@@ -719,143 +704,6 @@ impl NeighborBlockStats {
             preamble_burn_stable_block_hash,
             is_bootstrap_peer,
         );
-    }
-
-    pub fn getpoxinv_begin(&mut self, request: ReplyHandleP2P, target_pox_reward_cycle: u64) {
-        assert!(!self.done);
-        assert_eq!(self.state, InvWorkState::GetPoxInvBegin);
-
-        self.request = Some(request);
-        self.pox_inv = None;
-        self.target_pox_reward_cycle = target_pox_reward_cycle;
-        self.learned_data = false;
-
-        self.state = InvWorkState::GetPoxInvFinish;
-    }
-
-    /// Determine whether or not a received PoxInv is less certain than the local PoX
-    /// inventory.  Return the lowest reward cycle where the remote node is less certain than us.
-    pub fn check_remote_pox_inv_uncertainty(
-        network: &mut PeerNetwork,
-        target_pox_reward_cycle: u64,
-        poxinv_data: &PoxInvData,
-    ) -> u64 {
-        let mut bit = target_pox_reward_cycle;
-        while bit < (network.pox_id.len() as u64) - 1
-            && (bit - target_pox_reward_cycle) < poxinv_data.bitlen as u64
-            && (bit - target_pox_reward_cycle) < u16::MAX as u64
-        {
-            if network.pox_id.has_ith_anchor_block(bit as usize)
-                && !poxinv_data.has_ith_reward_cycle((bit - target_pox_reward_cycle) as u16)
-            {
-                // the given PoxInvData is less certain than us
-                break;
-            }
-            bit += 1;
-        }
-        return bit;
-    }
-
-    /// Determine whether or not a received PoxInv is more certain as the local PoX
-    /// inventory.  Return the loewst reward cycle where the local nodes is less certain than the
-    /// remote node.
-    pub fn check_local_pox_inv_uncertainty(
-        network: &mut PeerNetwork,
-        target_pox_reward_cycle: u64,
-        poxinv_data: &PoxInvData,
-    ) -> u64 {
-        let mut bit = target_pox_reward_cycle;
-        while bit < (network.pox_id.len() as u64) - 1
-            && (bit - target_pox_reward_cycle) < poxinv_data.bitlen as u64
-            && (bit - target_pox_reward_cycle) < u16::MAX as u64
-        {
-            if !network.pox_id.has_ith_anchor_block(bit as usize)
-                && poxinv_data.has_ith_reward_cycle((bit - target_pox_reward_cycle) as u16)
-            {
-                // the given PoxInvData is more certain than us
-                break;
-            }
-            bit += 1;
-        }
-        return bit;
-    }
-
-    /// Try to finish getting all PoxInvData requests.
-    /// Return true if this method is done -- i.e. all requests have been handled.
-    /// Return false if we're not done.
-    /// Return Err(..) on irrecoverable error.
-    pub fn getpoxinv_try_finish(&mut self, network: &mut PeerNetwork) -> Result<bool, net_error> {
-        assert!(!self.done);
-        assert_eq!(self.state, InvWorkState::GetPoxInvFinish);
-
-        let mut request = self.request.take().expect("BUG: no request set");
-        if let Err(e) = network.saturate_p2p_socket(request.get_event_id(), &mut request) {
-            self.status = NodeStatus::Dead;
-            return Err(e);
-        }
-
-        let next_request = match request.try_send_recv() {
-            Ok(message) => {
-                match message.payload {
-                    StacksMessageType::PoxInv(poxinv_data) => {
-                        debug!(
-                            "Got PoxInv response at reward cycle {} from {:?} at ({},{}): {:?}",
-                            self.target_pox_reward_cycle,
-                            &self.nk,
-                            message.preamble.burn_block_height,
-                            message.preamble.burn_stable_block_height,
-                            &poxinv_data
-                        );
-                        self.pox_inv = Some(poxinv_data);
-                    }
-                    StacksMessageType::Nack(nack_data) => {
-                        debug!("Remote neighbor {:?} nack'ed our GetPoxInv at reward cycle {}: NACK code {}", &self.nk, self.target_pox_reward_cycle, nack_data.error_code);
-                        let is_bootstrap_peer = PeerDB::is_initial_peer(
-                            &network.peerdb.conn(),
-                            self.nk.network_id,
-                            &self.nk.addrbytes,
-                            self.nk.port,
-                        )
-                        .unwrap_or(false);
-                        self.handle_nack(
-                            &network.chain_view,
-                            &message.preamble,
-                            nack_data,
-                            is_bootstrap_peer,
-                        );
-                    }
-                    _ => {
-                        // unexpected reply
-                        debug!(
-                            "Remote neighbor {:?} sent an unexpected reply of '{}'",
-                            &self.nk,
-                            message.get_message_name()
-                        );
-                        self.status = NodeStatus::Broken;
-                        return Err(net_error::InvalidMessage);
-                    }
-                }
-                None
-            }
-            Err(req_res) => match req_res {
-                Ok(same_req) => Some(same_req),
-                Err(e) => {
-                    debug!("Failed to get PoX inventory: {:?}", &e);
-                    self.status = NodeStatus::Dead;
-                    None
-                }
-            },
-        };
-
-        if let Some(next_request) = next_request {
-            // still working
-            self.request = Some(next_request);
-            Ok(false)
-        } else {
-            // done!
-            self.state = InvWorkState::Done;
-            Ok(true)
-        }
     }
 
     /// Proceed to get block inventories
@@ -1238,7 +1086,7 @@ impl InvState {
         match self.block_stats.get_mut(neighbor_key) {
             Some(stats) => {
                 // can't set this if we haven't scanned this remote node's PoX inventory this high
-                let reward_cycle = match burnchain.block_height_to_reward_cycle(sn.block_height) {
+                let reward_cycle = match burnchain.block_height_to_reward_cycle() {
                     Some(rc) => rc,
                     None => {
                         debug!(
@@ -1408,7 +1256,7 @@ impl PeerNetwork {
 
         let target_block_height = self
             .burnchain
-            .reward_cycle_to_block_height(target_pox_reward_cycle);
+            .reward_cycle_to_block_height();
 
         let max_reward_cycle = match self.get_convo(nk) {
             Some(convo) => {
@@ -1428,7 +1276,7 @@ impl PeerNetwork {
                     return Ok(None);
                 }
 
-                let tip_reward_cycle = match self.burnchain.block_height_to_reward_cycle(tip_height)
+                let tip_reward_cycle = match self.burnchain.block_height_to_reward_cycle()
                 {
                     Some(tip_rc) => tip_rc,
                     None => {
@@ -1543,7 +1391,7 @@ impl PeerNetwork {
 
         let target_block_height = self
             .burnchain
-            .reward_cycle_to_block_height(target_block_reward_cycle);
+            .reward_cycle_to_block_height();
         let tip_height = convo.get_burnchain_tip_height();
         let tip_burn_block_hash = convo.get_burnchain_tip_burn_header_hash();
         let stable_tip_height = convo.get_stable_burnchain_tip_height();
@@ -1616,7 +1464,7 @@ max_burn_block_height - target_block_height);
     ) -> Result<Option<GetBlocksInv>, net_error> {
         let target_block_height = self
             .burnchain
-            .reward_cycle_to_block_height(target_block_reward_cycle);
+            .reward_cycle_to_block_height();
 
         let ancestor_sn = match self.get_ancestor_sortition_snapshot(sortdb, target_block_height) {
             Ok(s) => s,
@@ -1645,7 +1493,7 @@ max_burn_block_height - target_block_height);
                 )? {
                     0 => {
                         // cannot ask this peer for any blocks in this reward cycle
-                        debug!("{:?}: no blocks available from {} at cycle {} (which starts at height {})", &self.local_peer, nk, target_block_reward_cycle, self.burnchain.reward_cycle_to_block_height(target_block_reward_cycle));
+                        debug!("{:?}: no blocks available from {} at cycle {} (which starts at height {})", &self.local_peer, nk, target_block_reward_cycle, self.burnchain.reward_cycle_to_block_height());
                         return Ok(None);
                     }
                     x => x,
@@ -1773,7 +1621,7 @@ max_burn_block_height - target_block_height);
 
         let stacks_tip_rc = self
             .burnchain
-            .block_height_to_reward_cycle(stacks_tip_burn_block_height)
+            .block_height_to_reward_cycle()
             .unwrap_or(0);
 
         let start_reward_cycle = cmp::min(
@@ -1788,208 +1636,6 @@ max_burn_block_height - target_block_height);
             highest_remote_reward_cycle.saturating_sub(self.connection_opts.inv_reward_cycles)
         );
         start_reward_cycle
-    }
-
-    /// Start requesting the next batch of PoX inventories
-    fn inv_getpoxinv_begin(
-        &mut self,
-        sortdb: &SortitionDB,
-        nk: &NeighborKey,
-        stats: &mut NeighborBlockStats,
-        request_timeout: u64,
-    ) -> Result<(), net_error> {
-        let (target_pox_reward_cycle, getpoxinv) = match self
-            .make_next_getpoxinv(sortdb, nk, stats)?
-        {
-            Some(x) => x,
-            None => {
-                // proceed to block scan
-                let scan_start_rc = self.get_block_scan_start(
-                    sortdb,
-                    self.burnchain
-                        .block_height_to_reward_cycle(stats.inv.get_block_height())
-                        .unwrap_or(0),
-                );
-
-                debug!("{:?}: cannot make any more GetPoxInv requests for {:?}; proceeding to block inventory scan at reward cycle {}", &self.local_peer, nk, scan_start_rc);
-                stats.reset_block_scan(scan_start_rc);
-                return Ok(());
-            }
-        };
-
-        let payload = StacksMessageType::GetPoxInv(getpoxinv);
-        let message = self.sign_for_peer(nk, payload)?;
-        let request = self
-            .send_message(nk, message, request_timeout)
-            .map_err(|e| {
-                debug!("Failed to send GetPoxInv to {:?}: {:?}", &nk, &e);
-                e
-            })?;
-
-        stats.getpoxinv_begin(request, target_pox_reward_cycle);
-        Ok(())
-    }
-
-    /// Finish requesting the next batch of PoX inventories
-    /// Return true if done.
-    fn inv_getpoxinv_try_finish(
-        &mut self,
-        sortdb: &SortitionDB,
-        nk: &NeighborKey,
-        stats: &mut NeighborBlockStats,
-        ibd: bool,
-    ) -> Result<bool, net_error> {
-        if stats.done {
-            return Ok(true);
-        }
-        if !stats.getpoxinv_try_finish(self)? {
-            // try again
-            return Ok(false);
-        }
-
-        assert_eq!(stats.state, InvWorkState::Done);
-
-        if !stats.is_peer_online() {
-            if stats.status == NodeStatus::Diverged {
-                // remote node diverged from this node's view of the burnchain.
-                // proceed to block download up to the reward cycles up to this one.
-                stats.status = NodeStatus::Online;
-
-                debug!("{:?}: Burnchain/PoX view diverged. Truncate inventories down to reward cycle {} for {:?}", &self.local_peer, stats.target_pox_reward_cycle, nk);
-                stats
-                    .inv
-                    .truncate_pox_inventory(&self.burnchain, stats.target_pox_reward_cycle);
-                stats
-                    .inv
-                    .truncate_block_inventories(&self.burnchain, stats.target_pox_reward_cycle);
-
-                // proceed with block scan.
-                // If we're in IBD, then this is an always-allowed peer and we should
-                // react to divergences by deepening our rescan.
-                let scan_start_rc = self.get_block_scan_start(
-                    sortdb,
-                    self.burnchain
-                        .block_height_to_reward_cycle(stats.inv.get_block_height())
-                        .unwrap_or(0),
-                );
-                debug!(
-                    "{:?}: proceeding to block inventory scan for {:?} (diverged) at reward cycle {} (ibd={})",
-                    &self.local_peer, nk, scan_start_rc, ibd
-                );
-
-                stats.learned_data = true;
-                stats.learned_data_height =
-                    self.burnchain.reward_cycle_to_block_height(scan_start_rc);
-                stats.reset_block_scan(scan_start_rc);
-            }
-            // done with pox inv sync
-            return Ok(true);
-        }
-
-        let pox_inv = stats
-            .pox_inv
-            .take()
-            .expect("BUG: finished getpoxinv without an error but got no poxinv");
-
-        debug!(
-            "{:?}: got PoxInv at reward cycle {} from {:?}: {:?}",
-            &self.local_peer, stats.target_pox_reward_cycle, nk, &pox_inv
-        );
-        let lowest_learned_reward_cycle = stats.inv.merge_pox_inv(
-            &self.burnchain,
-            stats.target_pox_reward_cycle,
-            pox_inv.bitlen as u64,
-            pox_inv.pox_bitvec.clone(),
-            true,
-        );
-
-        if let Some(lowest_learned_reward_cycle) = lowest_learned_reward_cycle.as_ref() {
-            debug!(
-                "{:?}: {:?} has learned about reward cycle {} (total {} reward cycles): {:?}",
-                &self.local_peer,
-                &nk,
-                lowest_learned_reward_cycle,
-                stats.inv.num_reward_cycles,
-                &stats.inv
-            );
-
-            stats.learned_data = true;
-            stats.learned_data_height = cmp::min(
-                stats.learned_data_height,
-                self.burnchain
-                    .reward_cycle_to_block_height(*lowest_learned_reward_cycle),
-            );
-        } else {
-            debug!(
-                "{:?}: have {} total reward cycles for {:?}",
-                &self.local_peer, stats.inv.num_reward_cycles, nk
-            );
-        }
-
-        let remote_uncertain = NeighborBlockStats::check_remote_pox_inv_uncertainty(
-            self,
-            stats.target_pox_reward_cycle,
-            &pox_inv,
-        );
-        let local_uncertain = NeighborBlockStats::check_local_pox_inv_uncertainty(
-            self,
-            stats.target_pox_reward_cycle,
-            &pox_inv,
-        );
-
-        test_debug!(
-            "{:?}: PoX bitlen = {}, remote-uncertain: {}, local-uncertain: {}",
-            &self.local_peer,
-            pox_inv.bitlen,
-            remote_uncertain,
-            local_uncertain
-        );
-
-        if stats.target_pox_reward_cycle >= (self.pox_id.num_inventory_reward_cycles() as u64) ||                                   // did full pass?
-           remote_uncertain != (pox_inv.bitlen as u64) + stats.target_pox_reward_cycle ||                   // remote node is less certain than we are?
-           local_uncertain != (pox_inv.bitlen as u64) + stats.target_pox_reward_cycle
-        {
-            // we are less certain than the remote node?
-            if remote_uncertain != (pox_inv.bitlen as u64) + stats.target_pox_reward_cycle
-                || local_uncertain != (pox_inv.bitlen as u64) + stats.target_pox_reward_cycle
-            {
-                // finished PoX scan -- we have found uncertainty in our neighbor, or we've
-                // fully-synced.
-                let minimum_certainty = cmp::min(remote_uncertain, local_uncertain);
-
-                debug!(
-                    "{:?}: Truncate inventories down to reward cycle {} for {:?}",
-                    &self.local_peer, minimum_certainty, nk
-                );
-                stats
-                    .inv
-                    .truncate_pox_inventory(&self.burnchain, minimum_certainty);
-                stats
-                    .inv
-                    .truncate_block_inventories(&self.burnchain, minimum_certainty);
-            } else {
-                debug!("{:?}: Sync'ed PoX inventory with {:?}, and it is equally certain up to reward cycle {}", &self.local_peer, nk, self.pox_id.num_inventory_reward_cycles());
-            }
-
-            // proceed to block scan.
-            let scan_start = self.get_block_scan_start(
-                sortdb,
-                self.burnchain
-                    .block_height_to_reward_cycle(stats.inv.get_block_height())
-                    .unwrap_or(0),
-            );
-            debug!(
-                "{:?}: proceeding to block inventory scan for {:?} at reward cycle {}",
-                &self.local_peer, nk, scan_start
-            );
-            stats.reset_block_scan(scan_start);
-        } else {
-            // continue with PoX scan.
-            stats.pox_reward_cycle += pox_inv.bitlen as u64;
-            stats.reset_pox_scan(stats.pox_reward_cycle);
-        }
-
-        Ok(true)
     }
 
     /// Start requesting the next batch of block inventories
@@ -2051,7 +1697,7 @@ max_burn_block_height - target_block_height);
                     .saturating_sub(self.connection_opts.inv_reward_cycles);
                 let learned_data_height = self
                     .burnchain
-                    .reward_cycle_to_block_height(stats.block_reward_cycle);
+                    .reward_cycle_to_block_height();
 
                 debug!("{:?}: In initial block download and diverged from always-allowed peer -- schedule an ibd inventory sync for next time, starting at reward cycle {} ({}).", &self.local_peer, stats.block_reward_cycle, learned_data_height);
                 stats.reset_block_scan(stats.block_reward_cycle);
@@ -2075,7 +1721,7 @@ max_burn_block_height - target_block_height);
             .expect("BUG: finished getblocksinv without an error but got no blocksinv");
         let target_block_height = self
             .burnchain
-            .reward_cycle_to_block_height(stats.target_block_reward_cycle);
+            .reward_cycle_to_block_height();
 
         debug!(
             "{:?}: got blocksinv at reward cycle {} (block height {}) from {:?}: {:?}",
@@ -2135,12 +1781,6 @@ max_burn_block_height - target_block_height);
             }
 
             let again = match stats.state {
-                InvWorkState::GetPoxInvBegin => self
-                    .inv_getpoxinv_begin(sortdb, nk, stats, request_timeout)
-                    .and_then(|_| Ok(true))?,
-                InvWorkState::GetPoxInvFinish => {
-                    self.inv_getpoxinv_try_finish(sortdb, nk, stats, ibd)?
-                }
                 InvWorkState::GetBlocksInvBegin => self
                     .inv_getblocksinv_begin(sortdb, nk, stats, request_timeout)
                     .and_then(|_| Ok(true))?,
@@ -2354,12 +1994,7 @@ max_burn_block_height - target_block_height);
 
                 // hint to downloader as to where to begin scanning next time
                 inv_state.block_sortition_start = ibd_diverged_height
-                    .unwrap_or(network.burnchain.reward_cycle_to_block_height(
-                        network.get_block_scan_start(
-                            sortdb,
-                            network.pox_id.num_inventory_reward_cycles() as u64,
-                        ),
-                    ))
+                    .unwrap_or(network.burnchain.reward_cycle_to_block_height())
                     .saturating_sub(sortdb.first_block_height);
 
                 debug!(
@@ -2558,7 +2193,7 @@ max_burn_block_height - target_block_height);
         chainstate: &StacksChainState,
         reward_cycle: u64,
     ) -> Result<BlocksInvData, net_error> {
-        let target_block_height = self.burnchain.reward_cycle_to_block_height(reward_cycle);
+        let target_block_height = self.burnchain.reward_cycle_to_block_height();
 
         // if this succeeds, then we should be able to make a BlocksInv
         let ancestor_sn = self

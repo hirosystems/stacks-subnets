@@ -366,7 +366,6 @@ fn make_genesis_block(
         my_burn,
         vrf_key,
         key_index,
-        None,
     )
 }
 
@@ -421,8 +420,6 @@ fn make_genesis_block_with_recipients(
     let block = builder.mine_anchored_block(&mut epoch_tx);
     builder.epoch_finish(epoch_tx);
 
-    let commit_outs = vec![];
-
     let commit_op = LeaderBlockCommitOp {
         block_header_hash: block.block_hash(),
         txid: next_txid(),
@@ -453,10 +450,10 @@ fn make_stacks_block(
         my_burn,
         vrf_key,
         key_index,
-        None,
     )
 }
 
+/// DO NOT SUBMIT: this fn isn't needed
 /// build a stacks block with just the coinbase off of
 ///  parent_block, in the canonical sortition fork of SortitionDB.
 /// parent_block _must_ be included in the StacksChainState
@@ -470,7 +467,6 @@ fn make_stacks_block_with_recipients(
     my_burn: u64,
     vrf_key: &VRFPrivateKey,
     key_index: u32,
-    recipients: Option<&RewardSetInfo>,
 ) -> (BlockstackOperationType, StacksBlock) {
     make_stacks_block_with_recipients_and_sunset_burn(
         sort_db,
@@ -482,7 +478,6 @@ fn make_stacks_block_with_recipients(
         my_burn,
         vrf_key,
         key_index,
-        recipients,
         0,
         false,
     )
@@ -501,7 +496,6 @@ fn make_stacks_block_with_recipients_and_sunset_burn(
     my_burn: u64,
     vrf_key: &VRFPrivateKey,
     key_index: u32,
-    recipients: Option<&RewardSetInfo>,
     sunset_burn: u64,
     post_sunset_burn: bool,
 ) -> (BlockstackOperationType, StacksBlock) {
@@ -515,7 +509,6 @@ fn make_stacks_block_with_recipients_and_sunset_burn(
         my_burn,
         vrf_key,
         key_index,
-        recipients,
         sunset_burn,
         post_sunset_burn,
         (Txid([0; 32]), 0),
@@ -596,8 +589,6 @@ fn make_stacks_block_with_input(
 
     let block = builder.mine_anchored_block(&mut epoch_tx);
     builder.epoch_finish(epoch_tx);
-
-    let commit_outs = vec![];
 
     let commit_op = LeaderBlockCommitOp {
         block_header_hash: block.block_hash(),

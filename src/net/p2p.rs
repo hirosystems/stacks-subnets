@@ -2630,7 +2630,7 @@ impl PeerNetwork {
         local_blocks_inv: &BlocksInvData,
         block_stats: &NeighborBlockStats,
     ) -> Result<Option<(ConsensusHash, StacksBlock)>, net_error> {
-        let start_block_height = self.burnchain.reward_cycle_to_block_height(reward_cycle);
+        let start_block_height = self.burnchain.reward_cycle_to_block_height();
         if !local_blocks_inv.has_ith_block((height - start_block_height) as u16) {
             return Ok(None);
         }

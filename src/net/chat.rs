@@ -1508,14 +1508,14 @@ impl ConversationP2P {
                         local_peer,
                         sn.block_height,
                         burnchain.first_block_height,
-                        burnchain.pox_constants.reward_cycle_length
+                        MaxBlocksInventoryRequest
                     );
                     return Ok(StacksMessageType::Nack(NackData::new(
                         NackErrorCodes::InvalidPoxFork,
                     )));
                 }
 
-                match burnchain.block_height_to_reward_cycle(sn.block_height) {
+                match burnchain.block_height_to_reward_cycle() {
                     Some(reward_cycle) => {
                         // take a slice of the PoxId
                         let (bitvec, bitlen) =
@@ -2387,7 +2387,7 @@ mod test {
         data_url: UrlString,
         asn4_entries: &Vec<ASEntry4>,
         initial_neighbors: &Vec<Neighbor>,
-    ) -> (PeerDB, SortitionDB, PoxId, StacksChainState) {
+    ) -> (PeerDB, SortitionDB, StacksChainState) {
         let test_path = format!("/tmp/blockstack-test-databases-{}", testname);
         match fs::metadata(&test_path) {
             Ok(_) => {
@@ -2439,14 +2439,7 @@ mod test {
         )
         .unwrap();
 
-        let pox_id = {
-            let ic = sortdb.index_conn();
-            let tip_sort_id = SortitionDB::get_canonical_sortition_tip(sortdb.conn()).unwrap();
-            let sortdb_reader = SortitionHandleConn::open_reader(&ic, &tip_sort_id).unwrap();
-            sortdb_reader.get_pox_id().unwrap()
-        };
-
-        (peerdb, sortdb, pox_id, chainstate)
+        (peerdb, sortdb, chainstate)
     }
 
     fn convo_send_recv(
@@ -2543,7 +2536,7 @@ mod test {
             let mut tx = SortitionHandleTx::begin(sortdb, &prev_snapshot.sortition_id).unwrap();
 
             let next_index_root = tx
-                .append_chain_tip_snapshot(&prev_snapshot, &next_snapshot, &vec![], None, None)
+                .append_chain_tip_snapshot(&prev_snapshot, &next_snapshot, &vec![], None)
                 .unwrap();
             next_snapshot.index_root = next_index_root;
 
@@ -2601,7 +2594,7 @@ mod test {
             };
             chain_view.make_test_data();
 
-            let (mut peerdb_1, mut sortdb_1, pox_id_1, mut chainstate_1) = make_test_chain_dbs(
+            let (mut peerdb_1, mut sortdb_1, mut chainstate_1) = make_test_chain_dbs(
                 "convo_handshake_accept_1",
                 &burnchain,
                 0x9abcdef0,
@@ -2610,7 +2603,7 @@ mod test {
                 &vec![],
                 &vec![],
             );
-            let (mut peerdb_2, mut sortdb_2, pox_id_2, mut chainstate_2) = make_test_chain_dbs(
+            let (mut peerdb_2, mut sortdb_2, mut chainstate_2) = make_test_chain_dbs(
                 "convo_handshake_accept_2",
                 &burnchain,
                 0x9abcdef0,
@@ -2772,7 +2765,7 @@ mod test {
         };
         chain_view.make_test_data();
 
-        let (mut peerdb_1, mut sortdb_1, pox_id_1, mut chainstate_1) = make_test_chain_dbs(
+        let (mut peerdb_1, mut sortdb_1, mut chainstate_1) = make_test_chain_dbs(
             "convo_handshake_reject_1",
             &burnchain,
             0x9abcdef0,
@@ -2781,7 +2774,7 @@ mod test {
             &vec![],
             &vec![],
         );
-        let (mut peerdb_2, mut sortdb_2, pox_id_2, mut chainstate_2) = make_test_chain_dbs(
+        let (mut peerdb_2, mut sortdb_2, mut chainstate_2) = make_test_chain_dbs(
             "convo_handshake_reject_2",
             &burnchain,
             0x9abcdef0,
@@ -2908,7 +2901,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut peerdb_1, mut sortdb_1, pox_id_1, mut chainstate_1) = make_test_chain_dbs(
+        let (mut peerdb_1, mut sortdb_1, mut chainstate_1) = make_test_chain_dbs(
             "convo_handshake_badsignature_1",
             &burnchain,
             0x9abcdef0,
@@ -2917,7 +2910,7 @@ mod test {
             &vec![],
             &vec![],
         );
-        let (mut peerdb_2, mut sortdb_2, pox_id_2, mut chainstate_2) = make_test_chain_dbs(
+        let (mut peerdb_2, mut sortdb_2, mut chainstate_2) = make_test_chain_dbs(
             "convo_handshake_badsignature_2",
             &burnchain,
             0x9abcdef0,
@@ -3042,7 +3035,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut peerdb_1, mut sortdb_1, pox_id_1, mut chainstate_1) = make_test_chain_dbs(
+        let (mut peerdb_1, mut sortdb_1, mut chainstate_1) = make_test_chain_dbs(
             "convo_handshake_self_1",
             &burnchain,
             0x9abcdef0,
@@ -3051,7 +3044,7 @@ mod test {
             &vec![],
             &vec![],
         );
-        let (mut peerdb_2, mut sortdb_2, pox_id_2, mut chainstate_2) = make_test_chain_dbs(
+        let (mut peerdb_2, mut sortdb_2, mut chainstate_2) = make_test_chain_dbs(
             "convo_handshake_self_2",
             &burnchain,
             0x9abcdef0,
@@ -3177,7 +3170,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut peerdb_1, mut sortdb_1, pox_id_1, mut chainstate_1) = make_test_chain_dbs(
+        let (mut peerdb_1, mut sortdb_1, mut chainstate_1) = make_test_chain_dbs(
             "convo_ping_1",
             &burnchain,
             0x9abcdef0,
@@ -3186,7 +3179,7 @@ mod test {
             &vec![],
             &vec![],
         );
-        let (mut peerdb_2, mut sortdb_2, pox_id_2, mut chainstate_2) = make_test_chain_dbs(
+        let (mut peerdb_2, mut sortdb_2, mut chainstate_2) = make_test_chain_dbs(
             "convo_ping_2",
             &burnchain,
             0x9abcdef0,
@@ -3344,7 +3337,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut peerdb_1, mut sortdb_1, pox_id_1, mut chainstate_1) = make_test_chain_dbs(
+        let (mut peerdb_1, mut sortdb_1, mut chainstate_1) = make_test_chain_dbs(
             "convo_handshake_ping_loop_1",
             &burnchain,
             0x9abcdef0,
@@ -3353,7 +3346,7 @@ mod test {
             &vec![],
             &vec![],
         );
-        let (mut peerdb_2, mut sortdb_2, pox_id_2, mut chainstate_2) = make_test_chain_dbs(
+        let (mut peerdb_2, mut sortdb_2, mut chainstate_2) = make_test_chain_dbs(
             "convo_handshake_ping_loop_2",
             &burnchain,
             0x9abcdef0,
@@ -3561,7 +3554,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut peerdb_1, mut sortdb_1, pox_id_1, mut chainstate_1) = make_test_chain_dbs(
+        let (mut peerdb_1, mut sortdb_1, mut chainstate_1) = make_test_chain_dbs(
             "convo_nack_unsolicited_1",
             &burnchain,
             0x9abcdef0,
@@ -3570,7 +3563,7 @@ mod test {
             &vec![],
             &vec![],
         );
-        let (mut peerdb_2, mut sortdb_2, pox_id_2, mut chainstate_2) = make_test_chain_dbs(
+        let (mut peerdb_2, mut sortdb_2, mut chainstate_2) = make_test_chain_dbs(
             "convo_nack_unsolicited_2",
             &burnchain,
             0x9abcdef0,
@@ -3699,7 +3692,7 @@ mod test {
             };
             chain_view.make_test_data();
 
-            let (mut peerdb_1, mut sortdb_1, pox_id_1, mut chainstate_1) = make_test_chain_dbs(
+            let (mut peerdb_1, mut sortdb_1, mut chainstate_1) = make_test_chain_dbs(
                 "convo_handshake_getblocksinv_1",
                 &burnchain,
                 0x9abcdef0,
@@ -3708,7 +3701,7 @@ mod test {
                 &vec![],
                 &vec![],
             );
-            let (mut peerdb_2, mut sortdb_2, pox_id_2, mut chainstate_2) = make_test_chain_dbs(
+            let (mut peerdb_2, mut sortdb_2, mut chainstate_2) = make_test_chain_dbs(
                 "convo_handshake_getblocksinv_2",
                 &burnchain,
                 0x9abcdef0,
@@ -4003,7 +3996,7 @@ mod test {
         )
         .unwrap();
 
-        let (mut peerdb_1, mut sortdb_1, pox_id_1, mut chainstate_1) = make_test_chain_dbs(
+        let (mut peerdb_1, mut sortdb_1, mut chainstate_1) = make_test_chain_dbs(
             "convo_natpunch_1",
             &burnchain,
             0x9abcdef0,
@@ -4012,7 +4005,7 @@ mod test {
             &vec![],
             &vec![],
         );
-        let (mut peerdb_2, mut sortdb_2, pox_id_2, mut chainstate_2) = make_test_chain_dbs(
+        let (mut peerdb_2, mut sortdb_2, mut chainstate_2) = make_test_chain_dbs(
             "convo_natpunch_2",
             &burnchain,
             0x9abcdef0,

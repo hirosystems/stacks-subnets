@@ -2105,7 +2105,6 @@ impl SortitionDB {
         (
             BlockSnapshot,
             BurnchainStateTransition,
-            Option<RewardSetInfo>,
         ),
         BurnchainError,
     > {
@@ -2130,7 +2129,6 @@ impl SortitionDB {
             .sortition_hash
             .mix_burn_header(&parent_snapshot.burn_header_hash);
 
-        let reward_set_info = None;
         //
         // Get any initial mining bonus which would be due to the winner of this block.
         let bonus_remaining =
@@ -2157,7 +2155,7 @@ impl SortitionDB {
 
         // commit everything!
         sortition_db_handle.commit()?;
-        Ok((new_snapshot.0, new_snapshot.1, reward_set_info))
+        Ok((new_snapshot.0, new_snapshot.1))
     }
 
     pub fn is_stacks_block_in_sortition_set(
