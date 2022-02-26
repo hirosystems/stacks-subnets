@@ -147,7 +147,6 @@ pub struct ChainsCoordinator<
     'a,
     T: BlockEventDispatcher,
     N: CoordinatorNotices,
-    R: RewardSetProvider,
     CE: CostEstimator + ?Sized,
     FE: FeeEstimator + ?Sized,
 > {
@@ -162,7 +161,6 @@ pub struct ChainsCoordinator<
     dispatcher: Option<&'a T>,
     cost_estimator: Option<&'a mut CE>,
     fee_estimator: Option<&'a mut FE>,
-    reward_set_provider: R,
     notifier: N,
     atlas_config: AtlasConfig,
 }
@@ -195,17 +193,6 @@ impl From<DBError> for Error {
     fn from(o: DBError) -> Error {
         Error::DBError(o)
     }
-}
-
-pub trait RewardSetProvider {
-    fn get_reward_set(
-        &self,
-        current_burn_height: u64,
-        chainstate: &mut StacksChainState,
-        burnchain: &Burnchain,
-        sortdb: &SortitionDB,
-        block_id: &StacksBlockId,
-    ) -> Result<Vec<StacksAddress>, Error>;
 }
 
 impl<'a, T: BlockEventDispatcher, CE: CostEstimator + ?Sized, FE: FeeEstimator + ?Sized>
@@ -279,15 +266,14 @@ impl<'a, T: BlockEventDispatcher, CE: CostEstimator + ?Sized, FE: FeeEstimator +
     }
 }
 
-impl<'a, T: BlockEventDispatcher, U: RewardSetProvider> ChainsCoordinator<'a, T, (), U, (), ()> {
+impl<'a, T: BlockEventDispatcher> ChainsCoordinator<'a, T, (), (), ()> {
     #[cfg(test)]
     pub fn test_new(
         burnchain: &Burnchain,
         chain_id: u32,
         path: &str,
-        reward_set_provider: U,
         attachments_tx: SyncSender<HashSet<AttachmentInstance>>,
-    ) -> ChainsCoordinator<'a, T, (), U, (), ()> {
+    ) -> ChainsCoordinator<'a, T, (), (), ()> {
         ChainsCoordinator::test_new_with_observer(
             burnchain,
             chain_id,
