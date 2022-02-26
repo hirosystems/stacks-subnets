@@ -2603,7 +2603,6 @@ mod test {
             initial_reward_start_block: 12300,
             first_block_hash: first_burn_hash.clone(),
             first_block_timestamp: 0,
-            pox_constants: PoxConstants::test_default(),
         }
     }
 

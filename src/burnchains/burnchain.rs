@@ -174,20 +174,17 @@ impl Burnchain {
         chain_name: &str,
         network_name: &str,
     ) -> Result<Burnchain, burnchain_error> {
-        let (params, pox_constants, peer_version) = match (chain_name, network_name) {
+        let (params, peer_version) = match (chain_name, network_name) {
             ("bitcoin", "mainnet") => (
                 BurnchainParameters::bitcoin_mainnet(),
-                PoxConstants::mainnet_default(),
                 PEER_VERSION_MAINNET,
             ),
             ("bitcoin", "testnet") => (
                 BurnchainParameters::bitcoin_testnet(),
-                PoxConstants::testnet_default(),
                 PEER_VERSION_TESTNET,
             ),
             ("bitcoin", "regtest") => (
                 BurnchainParameters::bitcoin_regtest(),
-                PoxConstants::regtest_default(),
                 PEER_VERSION_TESTNET,
             ),
             (_, _) => {
@@ -207,7 +204,6 @@ impl Burnchain {
             initial_reward_start_block: params.initial_reward_start_block,
             first_block_hash: params.first_block_hash,
             first_block_timestamp: params.first_block_timestamp,
-            pox_constants,
         })
     }
 
