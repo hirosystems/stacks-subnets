@@ -472,11 +472,11 @@ impl TestBurnchainBlock {
         new_snapshot.0
     }
 
-    pub fn mine_pox<'a, T: BlockEventDispatcher, N: CoordinatorNotices, R: RewardSetProvider>(
+    pub fn mine_pox<'a, T: BlockEventDispatcher, N: CoordinatorNotices>(
         &self,
         db: &mut SortitionDB,
         burnchain: &Burnchain,
-        coord: &mut ChainsCoordinator<'a, T, N, R, (), ()>,
+        coord: &mut ChainsCoordinator<'a, T, N, (), ()>,
     ) -> BlockSnapshot {
         let block_hash = bhh_from_test_data(
             self.block_height,
@@ -588,12 +588,11 @@ impl TestBurnchainFork {
         'a,
         T: BlockEventDispatcher,
         N: CoordinatorNotices,
-        R: RewardSetProvider,
     >(
         &mut self,
         db: &mut SortitionDB,
         burnchain: &Burnchain,
-        coord: &mut ChainsCoordinator<'a, T, N, R, (), ()>,
+        coord: &mut ChainsCoordinator<'a, T, N, (), ()>,
     ) -> BlockSnapshot {
         let mut snapshot = {
             let ic = db.index_conn();

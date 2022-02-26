@@ -23,11 +23,10 @@ use burnchains::{
 };
 use chainstate::burn::db::sortdb::{InitialMiningBonus, SortitionHandleTx};
 use chainstate::burn::operations::{
-    leader_block_commit::{MissedBlockCommit, RewardSetInfo},
+    leader_block_commit::{MissedBlockCommit},
     BlockstackOperationType, Error as OpError,
 };
 use chainstate::burn::BlockSnapshot;
-use chainstate::coordinator::RewardCycleInfo;
 use chainstate::stacks::db::StacksChainState;
 use chainstate::stacks::index::{
     marf::MARF, storage::TrieFileStorage, Error as MARFError, MARFValue, MarfTrieId,
@@ -44,11 +43,10 @@ impl<'a> SortitionHandleTx<'a> {
         &mut self,
         burnchain: &Burnchain,
         blockstack_op: &BlockstackOperationType,
-        reward_info: Option<&RewardSetInfo>,
     ) -> Result<(), BurnchainError> {
         match blockstack_op {
             BlockstackOperationType::LeaderBlockCommit(ref op) => {
-                op.check(burnchain, self, reward_info).map_err(|e| {
+                op.check(burnchain, self).map_err(|e| {
                     warn!(
                         "REJECTED burnchain operation";
                         "op" => "leader_block_commit",
@@ -73,9 +71,6 @@ impl<'a> SortitionHandleTx<'a> {
         parent_snapshot: &BlockSnapshot,
         block_header: &BurnchainBlockHeader,
         this_block_ops: &Vec<BlockstackOperationType>,
-        _next_pox_info: Option<RewardCycleInfo>,
-        _parent_pox: PoxId,
-        reward_info: Option<&RewardSetInfo>,
         initial_mining_bonus_ustx: u128,
     ) -> Result<(BlockSnapshot, BurnchainStateTransition), BurnchainError> {
         let this_block_height = block_header.block_height;
@@ -164,7 +159,6 @@ impl<'a> SortitionHandleTx<'a> {
             parent_snapshot,
             &snapshot,
             &state_transition.accepted_ops,
-            reward_info,
             initialize_bonus,
         )?;
 
@@ -199,9 +193,6 @@ impl<'a> SortitionHandleTx<'a> {
         parent_snapshot: &BlockSnapshot,
         block_header: &BurnchainBlockHeader,
         mut blockstack_txs: Vec<BlockstackOperationType>,
-        next_pox_info: Option<RewardCycleInfo>,
-        parent_pox: PoxId,
-        reward_set_info: Option<&RewardSetInfo>,
         initial_mining_bonus_ustx: u128,
     ) -> Result<(BlockSnapshot, BurnchainStateTransition), BurnchainError> {
         debug!(
@@ -228,7 +219,7 @@ impl<'a> SortitionHandleTx<'a> {
 
         // classify and check each transaction
         blockstack_txs.retain(|blockstack_op| {
-            self.check_transaction(burnchain, blockstack_op, reward_set_info)
+            self.check_transaction(burnchain, blockstack_op)
                 .is_ok()
         });
 
@@ -242,9 +233,6 @@ impl<'a> SortitionHandleTx<'a> {
                 parent_snapshot,
                 block_header,
                 &blockstack_txs,
-                next_pox_info,
-                parent_pox,
-                reward_set_info,
                 initial_mining_bonus_ustx,
             )
             .map_err(|e| {
@@ -267,9 +255,6 @@ impl<'a> SortitionHandleTx<'a> {
         this_block_header: &BurnchainBlockHeader,
         burnchain: &Burnchain,
         blockstack_txs: Vec<BlockstackOperationType>,
-        next_pox_info: Option<RewardCycleInfo>,
-        parent_pox: PoxId,
-        reward_set_info: Option<&RewardSetInfo>,
         initial_mining_bonus_ustx: u128,
     ) -> Result<(BlockSnapshot, BurnchainStateTransition), BurnchainError> {
         assert_eq!(
@@ -286,9 +271,6 @@ impl<'a> SortitionHandleTx<'a> {
             &parent_snapshot,
             &this_block_header,
             blockstack_txs,
-            next_pox_info,
-            parent_pox,
-            reward_set_info,
             initial_mining_bonus_ustx,
         )?;
         Ok(new_snapshot)

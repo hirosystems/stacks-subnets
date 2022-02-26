@@ -306,21 +306,6 @@ pub fn make_coordinator<'a>(
     ChainsCoordinator::test_new(&burnchain, 0x80000000, path, tx)
 }
 
-struct StubbedRewardSetProvider(Vec<StacksAddress>);
-
-impl RewardSetProvider for StubbedRewardSetProvider {
-    fn get_reward_set(
-        &self,
-        _current_burn_height: u64,
-        chainstate: &mut StacksChainState,
-        burnchain: &Burnchain,
-        sortdb: &SortitionDB,
-        block_id: &StacksBlockId,
-    ) -> Result<Vec<StacksAddress>, chainstate::coordinator::Error> {
-        Ok(self.0.clone())
-    }
-}
-
 fn make_reward_set_coordinator<'a>(
     path: &str,
     addrs: Vec<StacksAddress>,
@@ -330,7 +315,6 @@ fn make_reward_set_coordinator<'a>(
         &get_burnchain(path),
         0x80000000,
         path,
-        StubbedRewardSetProvider(addrs),
         tx,
     )
 }

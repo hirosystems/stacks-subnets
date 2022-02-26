@@ -1329,7 +1329,7 @@ impl ConversationP2P {
     ) -> Result<StacksMessageType, net_error> {
         // must not ask for more than a reasonable number of blocks
         if get_blocks_inv.num_blocks == 0
-            || get_blocks_inv.num_blocks as u32 > burnchain.pox_constants.reward_cycle_length
+            || get_blocks_inv.num_blocks as u32 > MaxBlocksInventoryRequest
         {
             return Ok(StacksMessageType::Nack(NackData::new(
                 NackErrorCodes::InvalidMessage,
@@ -1352,31 +1352,6 @@ impl ConversationP2P {
                 )));
             }
         };
-
-        // must be on the main PoX fork
-        if !base_snapshot.pox_valid {
-            debug!(
-                "{:?}: Snapshot for {:?} is not on the valid PoX fork",
-                _local_peer, base_snapshot.consensus_hash
-            );
-            return Ok(StacksMessageType::Nack(NackData::new(
-                NackErrorCodes::InvalidPoxFork,
-            )));
-        }
-
-        // must be aligned to the start of a reward cycle
-        // (note that the first reward cycle bit doesn't count)
-        if base_snapshot.block_height > burnchain.first_block_height + 1
-            && !burnchain.is_reward_cycle_start(base_snapshot.block_height)
-        {
-            warn!(
-                "{:?}: Snapshot for {:?} is at height {}, which is not aligned to a reward cycle",
-                _local_peer, base_snapshot.consensus_hash, base_snapshot.block_height
-            );
-            return Ok(StacksMessageType::Nack(NackData::new(
-                NackErrorCodes::InvalidPoxFork,
-            )));
-        }
 
         // find the tail end of this range on the canonical fork.
         let tip_snapshot = {
@@ -1407,7 +1382,7 @@ impl ConversationP2P {
 
         let block_hashes = {
             let num_headers = cmp::min(
-                burnchain.pox_constants.reward_cycle_length as u64,
+                MaxBlocksInventoryRequest,
                 get_blocks_inv.num_blocks as u64,
             );
 
@@ -1525,7 +1500,7 @@ impl ConversationP2P {
 
                 // must align to reward cycle, or this is an invalid fork
                 if (sn.block_height - burnchain.first_block_height)
-                    % (burnchain.pox_constants.reward_cycle_length as u64)
+                    % MaxBlocksInventoryRequest
                     != 1
                 {
                     test_debug!(

@@ -1185,7 +1185,7 @@ impl PeerNetwork {
         start_sortition_height: u64,
         microblocks: bool,
     ) -> Result<HashMap<u64, VecDeque<BlockRequestKey>>, net_error> {
-        let scan_batch_size = self.burnchain.pox_constants.reward_cycle_length as u64;
+        let scan_batch_size = MaxBlocksInventoryRequest;
         let mut blocks_to_try: HashMap<u64, VecDeque<BlockRequestKey>> = HashMap::new();
 
         debug!(
@@ -1579,7 +1579,7 @@ impl PeerNetwork {
                 }
             };
 
-        let scan_batch_size = self.burnchain.pox_constants.reward_cycle_length as u64;
+        let scan_batch_size = MaxBlocksInventoryRequest;
 
         if need_blocks {
             PeerNetwork::with_downloader_state(self, |ref mut network, ref mut downloader| {
@@ -1837,7 +1837,7 @@ impl PeerNetwork {
                 if downloader.blocks_to_try.len() == 0 {
                     // nothing in this range, so advance sortition range to try for next time
                     next_block_sortition_height = next_block_sortition_height
-                        + (network.burnchain.pox_constants.reward_cycle_length as u64);
+                        + MaxBlocksInventoryRequest;
                     debug!(
                         "{:?}: Pessimistically increase block sortition height to ({})",
                         &network.local_peer, next_block_sortition_height
@@ -1846,7 +1846,7 @@ impl PeerNetwork {
                 if downloader.microblocks_to_try.len() == 0 {
                     // nothing in this range, so advance sortition range to try for next time
                     next_microblock_sortition_height = next_microblock_sortition_height
-                        + (network.burnchain.pox_constants.reward_cycle_length as u64);
+                        + MaxBlocksInventoryRequest;
                     debug!(
                         "{:?}: Pessimistically increase microblock sortition height to ({})",
                         &network.local_peer, next_microblock_sortition_height

@@ -2686,7 +2686,8 @@ impl PeerNetwork {
         local_blocks_inv: &BlocksInvData,
         block_stats: &NeighborBlockStats,
     ) -> Result<Option<(ConsensusHash, BlockHeaderHash, Vec<StacksMicroblock>)>, net_error> {
-        let start_block_height:u128 = assert_eq!(0,1);
+        // DO NOT SUBMIT
+        let start_block_height:u64 = 0;
         if !local_blocks_inv.has_ith_microblock_stream((height - start_block_height) as u16) {
             return Ok(None);
         }
@@ -2885,7 +2886,8 @@ impl PeerNetwork {
             let mut blocks_to_broadcast = HashMap::new();
             let mut microblocks_to_broadcast = HashMap::new();
 
-            let start_block_height:u128 = assert_eq!(0,1);
+            // DO NOT SUBMIT
+            let start_block_height:u128 = 0;
             let highest_snapshot = self.burnchain_tip.clone();
             for nk in neighbor_keys.iter() {
                 if total_blocks_to_broadcast >= self.connection_opts.max_block_push
@@ -2899,7 +2901,8 @@ impl PeerNetwork {
                         let mut local_blocks = vec![];
                         let mut local_microblocks = vec![];
 
-                        let end_height:u128 = assert_eq!(0,1);
+                        // DO NOT SUBMIT
+                        let end_height:u128 = 0;
                         for height in start_block_height
                             ..end_height
                         {
@@ -2910,7 +2913,7 @@ impl PeerNetwork {
                                     .find_next_push_block(
                                         nk,
                                         reward_cycle,
-                                        height,
+                                        height as u64,
                                         sortdb,
                                         chainstate,
                                         &local_blocks_inv,
@@ -2969,7 +2972,7 @@ impl PeerNetwork {
                                     .find_next_push_microblocks(
                                         nk,
                                         reward_cycle,
-                                        height,
+                                        height as u64,
                                         sortdb,
                                         chainstate,
                                         &local_blocks_inv,

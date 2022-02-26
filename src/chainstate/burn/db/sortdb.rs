@@ -47,7 +47,7 @@ use chainstate::burn::operations::{
 };
 use chainstate::burn::Opcodes;
 use chainstate::burn::{BlockSnapshot, ConsensusHash, OpsHash, SortitionHash};
-use chainstate::coordinator::{Error as CoordinatorError, PoxAnchorBlockStatus, RewardCycleInfo};
+use chainstate::coordinator::{Error as CoordinatorError, PoxAnchorBlockStatus};
 use chainstate::stacks::db::{StacksChainState, StacksHeaderInfo};
 use chainstate::stacks::index::marf::MarfConnection;
 use chainstate::stacks::index::marf::MARF;
@@ -2154,9 +2154,6 @@ impl SortitionDB {
             burn_header,
             burnchain,
             ops,
-            next_pox_info,
-            parent_pox,
-            reward_set_info.as_ref(),
             initial_mining_bonus,
         )?;
 

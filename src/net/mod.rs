@@ -2473,7 +2473,7 @@ pub mod test {
         pub relayer: Relayer,
         pub mempool: Option<MemPoolDB>,
         pub chainstate_path: String,
-        pub coord: ChainsCoordinator<'a, TestEventObserver, (), OnChainRewardSetProvider, (), ()>,
+        pub coord: ChainsCoordinator<'a, TestEventObserver, (), (), ()>,
     }
 
     impl<'a> TestPeer<'a> {
@@ -2646,7 +2646,6 @@ pub mod test {
                 &config.burnchain,
                 config.network_id,
                 &test_path,
-                OnChainRewardSetProvider(),
                 tx,
                 observer,
             );

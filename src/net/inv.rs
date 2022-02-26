@@ -1591,19 +1591,9 @@ impl PeerNetwork {
 
         // ask for all blocks in-between target_block_height and max_burn_block_height in this
         // reward cycle, inclusive
-        let num_blocks = if target_block_height
-            + (self.burnchain.pox_constants.reward_cycle_length as u64)
-            <= max_burn_block_height
-        {
-            self.burnchain.pox_constants.reward_cycle_length as u64
-        } else {
-            if target_block_height > max_burn_block_height {
-                debug!("{:?}: will not send GetBlocksInv to {:?}, since we are sync'ed up to its highest sortition block (target block is {}, max burn block is {})", &self.local_peer, nk, target_block_height, max_burn_block_height);
-                0
-            } else {
-                max_burn_block_height - target_block_height + 1
-            }
-        };
+        let num_blocks = cmp::min(
+            MaxBlocksInventoryRequest,
+max_burn_block_height - target_block_height);
 
         if num_blocks == 0 {
             // target_block_height was higher than the highest known height of the remote node
@@ -1644,11 +1634,6 @@ impl PeerNetwork {
             }
         };
 
-        assert!(
-            target_block_reward_cycle == 0
-                || self.burnchain.is_reward_cycle_start(target_block_height)
-        );
-
         let num_blocks = match self.get_convo(nk) {
             Some(convo) => {
                 match self.get_getblocksinv_num_blocks(
@@ -1672,7 +1657,7 @@ impl PeerNetwork {
             }
         };
 
-        assert!(num_blocks <= self.burnchain.pox_constants.reward_cycle_length as u64);
+        assert!(num_blocks <= MaxBlocksInventoryRequest as u64);
 
         debug!(
             "{:?}: Send GetBlocksInv to {:?} for {} blocks at sortition block {} ({}) out of {}",
@@ -2187,7 +2172,7 @@ impl PeerNetwork {
             .as_mut()
             .expect("Unreachable: inv state not initialized");
 
-        let (new_tip_sort_id, new_pox_id, reloaded) = {
+        let (new_tip_sort_id, reloaded) = {
             if self.burnchain_tip.sortition_id != self.tip_sort_id {
                 // reloaded burnchain tip disagrees with our last-considered sortition tip
                 let ic = sortdb.index_conn();
@@ -2195,44 +2180,40 @@ impl PeerNetwork {
                     SortitionHandleConn::open_reader(&ic, &self.burnchain_tip.sortition_id)?;
                 (
                     self.burnchain_tip.sortition_id.clone(),
-                    sortdb_reader.get_pox_id()?,
                     true,
                 )
             } else {
-                (self.tip_sort_id.clone(), self.pox_id.clone(), false)
+                (self.tip_sort_id.clone(), false)
             }
         };
 
         if reloaded {
-            // find the lowest reward cycle whose bit has since changed from a 0 to a 1.
-            let num_reward_cycles = cmp::min(
-                new_pox_id.num_inventory_reward_cycles(),
-                self.pox_id.num_inventory_reward_cycles(),
-            );
-            for i in 0..num_reward_cycles {
-                if !self.pox_id.has_ith_anchor_block(i) && new_pox_id.has_ith_anchor_block(i) {
-                    // we learned of a new anchor block intermittently.  Invalidate all cached state at and after this reward cycle.
-                    inv_state.invalidate_block_inventories(&self.burnchain, i as u64);
-
-                    // also clear block header cache (TODO: this is pessimistic -- only invalidated
-                    // entries need to be cleared)
-                    debug!(
-                        "{:?}: invalidating block header cache in response to PoX bit flip",
-                        &self.local_peer
-                    );
-                    self.header_cache.clear();
-                    break;
-                }
-            }
-
-            // if the PoX bitvector shrinks, then invalidate block inventories that are no longer represented
-            if new_pox_id.num_inventory_reward_cycles() < self.pox_id.num_inventory_reward_cycles()
-            {
-                inv_state.invalidate_block_inventories(&self.burnchain, new_pox_id.len() as u64);
-            }
+            // DO NOT SUBMIT: what should this be?
+//            // find the lowest reward cycle whose bit has since changed from a 0 to a 1.
+//            let num_reward_cycles = cmp::min(
+//                new_pox_id.num_inventory_reward_cycles(),
+//                self.pox_id.num_inventory_reward_cycles(),
+//            );
+//            for i in 0..num_reward_cycles {
+//                if !self.pox_id.has_ith_anchor_block(i) && new_pox_id.has_ith_anchor_block(i) {
+//                    // we learned of a new anchor block intermittently.  Invalidate all cached state at and after this reward cycle.
+//                    inv_state.invalidate_block_inventories(&self.burnchain, i as u64);
+//
+//                    // also clear block header cache (TODO: this is pessimistic -- only invalidated
+//                    // entries need to be cleared)
+//                    debug!(
+//                        "{:?}: invalidating block header cache in response to PoX bit flip",
+//                        &self.local_peer
+//                    );
+//                    self.header_cache.clear();
+//                    break;
+//                }
+//            }
+//
+//            // DO NOT SUBMIT: what should this be?
+//            inv_state.invalidate_block_inventories(&self.burnchain, new_pox_id.len() as u64);
 
             self.tip_sort_id = new_tip_sort_id;
-            self.pox_id = new_pox_id;
         }
 
         debug!(

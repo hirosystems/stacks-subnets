@@ -72,44 +72,6 @@ pub enum PoxAnchorBlockStatus {
     NotSelected,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct RewardCycleInfo {
-    pub anchor_status: PoxAnchorBlockStatus,
-}
-
-impl RewardCycleInfo {
-    pub fn selected_anchor_block(&self) -> Option<&BlockHeaderHash> {
-        use self::PoxAnchorBlockStatus::*;
-        match self.anchor_status {
-            SelectedAndUnknown(ref block) | SelectedAndKnown(ref block, _) => Some(block),
-            NotSelected => None,
-        }
-    }
-    pub fn is_reward_info_known(&self) -> bool {
-        use self::PoxAnchorBlockStatus::*;
-        match self.anchor_status {
-            SelectedAndUnknown(_) => false,
-            SelectedAndKnown(_, _) | NotSelected => true,
-        }
-    }
-    pub fn known_selected_anchor_block(&self) -> Option<&Vec<StacksAddress>> {
-        use self::PoxAnchorBlockStatus::*;
-        match self.anchor_status {
-            SelectedAndUnknown(_) => None,
-            SelectedAndKnown(_, ref reward_set) => Some(reward_set),
-            NotSelected => None,
-        }
-    }
-    pub fn known_selected_anchor_block_owned(self) -> Option<Vec<StacksAddress>> {
-        use self::PoxAnchorBlockStatus::*;
-        match self.anchor_status {
-            SelectedAndUnknown(_) => None,
-            SelectedAndKnown(_, reward_set) => Some(reward_set),
-            NotSelected => None,
-        }
-    }
-}
-
 pub trait BlockEventDispatcher {
     fn announce_block(
         &self,
@@ -278,7 +240,6 @@ impl<'a, T: BlockEventDispatcher> ChainsCoordinator<'a, T, (), (), ()> {
             burnchain,
             chain_id,
             path,
-            reward_set_provider,
             attachments_tx,
             None,
         )
@@ -289,10 +250,9 @@ impl<'a, T: BlockEventDispatcher> ChainsCoordinator<'a, T, (), (), ()> {
         burnchain: &Burnchain,
         chain_id: u32,
         path: &str,
-        reward_set_provider: U,
         attachments_tx: SyncSender<HashSet<AttachmentInstance>>,
         dispatcher: Option<&'a T>,
-    ) -> ChainsCoordinator<'a, T, (), U, (), ()> {
+    ) -> ChainsCoordinator<'a, T, (), (), ()> {
         let burnchain = burnchain.clone();
 
         let mut boot_data = ChainStateBootData::new(&burnchain, vec![], None);
@@ -321,33 +281,11 @@ impl<'a, T: BlockEventDispatcher> ChainsCoordinator<'a, T, (), (), ()> {
             dispatcher,
             cost_estimator: None,
             fee_estimator: None,
-            reward_set_provider,
             notifier: (),
             attachments_tx,
             atlas_config: AtlasConfig::default(false),
         }
     }
-}
-
-pub fn get_next_recipients<U: RewardSetProvider>(
-    sortition_tip: &BlockSnapshot,
-    chain_state: &mut StacksChainState,
-    sort_db: &mut SortitionDB,
-    burnchain: &Burnchain,
-    provider: &U,
-) -> Result<Option<RewardSetInfo>, Error> {
-    let reward_cycle_info = get_reward_cycle_info(
-        sortition_tip.block_height + 1,
-        &sortition_tip.burn_header_hash,
-        &sortition_tip.sortition_id,
-        burnchain,
-        chain_state,
-        sort_db,
-        provider,
-    )?;
-    sort_db
-        .get_next_block_recipients(burnchain, sortition_tip, reward_cycle_info.as_ref())
-        .map_err(|e| Error::from(e))
 }
 
 struct PaidRewards {
@@ -366,17 +304,8 @@ fn dispatcher_announce_burn_ops<T: BlockEventDispatcher>(
     dispatcher: &T,
     burn_header: &BurnchainBlockHeader,
     paid_rewards: PaidRewards,
-    reward_recipient_info: Option<RewardSetInfo>,
 ) {
-    let recipients = if let Some(recip_info) = reward_recipient_info {
-        recip_info
-            .recipients
-            .into_iter()
-            .map(|(addr, _)| addr)
-            .collect()
-    } else {
-        vec![]
-    };
+    let recipients = vec![] ;
 
     dispatcher.announce_burn_block(
         &burn_header.block_hash,
@@ -391,17 +320,14 @@ impl<
         'a,
         T: BlockEventDispatcher,
         N: CoordinatorNotices,
-        U: RewardSetProvider,
         CE: CostEstimator + ?Sized,
         FE: FeeEstimator + ?Sized,
-    > ChainsCoordinator<'a, T, N, U, CE, FE>
+    > ChainsCoordinator<'a, T, N, CE, FE>
 {
     pub fn handle_new_stacks_block(&mut self) -> Result<(), Error> {
-        if let Some(pox_anchor) = self.process_ready_blocks()? {
-            self.process_new_pox_anchor(pox_anchor)
-        } else {
-            Ok(())
-        }
+        panic!("not implemented");
+        // DO NOT SUBMIT: what should this be?
+        // self.process_ready_blocks()
     }
 
     pub fn handle_new_burnchain_block(&mut self) -> Result<(), Error> {
@@ -463,15 +389,13 @@ impl<
 
             // at this point, we need to figure out if the sortition we are
             //  about to process is the first block in reward cycle.
-            let reward_cycle_info = self.get_reward_cycle_info(&header)?;
-            let (next_snapshot, _, reward_set_info) = self
+            let (next_snapshot, _) = self
                 .sortition_db
                 .evaluate_sortition(
                     &header,
                     ops,
                     &self.burnchain,
                     &last_processed_ancestor,
-                    reward_cycle_info,
                 )
                 .map_err(|e| {
                     error!("ChainsCoordinator: unable to evaluate sortition {:?}", e);
@@ -479,7 +403,7 @@ impl<
                 })?;
 
             if let Some(dispatcher) = self.dispatcher {
-                dispatcher_announce_burn_ops(dispatcher, &header, paid_rewards, reward_set_info);
+                dispatcher_announce_burn_ops(dispatcher, &header, paid_rewards);
             }
 
             let sortition_id = next_snapshot.sortition_id;
@@ -499,37 +423,10 @@ impl<
             self.canonical_sortition_tip = Some(sortition_id.clone());
             last_processed_ancestor = sortition_id;
 
-            if let Some(pox_anchor) = self.process_ready_blocks()? {
-                return self.process_new_pox_anchor(pox_anchor);
-            }
+            self.process_ready_blocks()?;
         }
 
         Ok(())
-    }
-
-    /// returns None if this burnchain block is _not_ the start of a reward cycle
-    ///         otherwise, returns the required reward cycle info for this burnchain block
-    ///                     in our current sortition view:
-    ///           * PoX anchor block
-    ///           * Was PoX anchor block known?
-    pub fn get_reward_cycle_info(
-        &mut self,
-        burn_header: &BurnchainBlockHeader,
-    ) -> Result<Option<RewardCycleInfo>, Error> {
-        let sortition_tip_id = self
-            .canonical_sortition_tip
-            .as_ref()
-            .expect("FATAL: Processing anchor block, but no known sortition tip");
-
-        get_reward_cycle_info(
-            burn_header.block_height,
-            &burn_header.parent_block_hash,
-            sortition_tip_id,
-            &self.burnchain,
-            &mut self.chain_state_db,
-            &self.sortition_db,
-            &self.reward_set_provider,
-        )
     }
 
     ///
@@ -711,54 +608,6 @@ impl<
         }
 
         Ok(None)
-    }
-
-    fn process_new_pox_anchor(&mut self, block_id: BlockHeaderHash) -> Result<(), Error> {
-        // get the last sortition in the prepare phase that chose this anchor block
-        //   that sortition is now the current canonical sortition,
-        //   and now that we have process the anchor block for the corresponding reward phase,
-        //   update the canonical pox bitvector.
-        let sortition_id = self.canonical_sortition_tip.as_ref().expect(
-            "FAIL: processing a new anchor block, but don't have a canonical sortition tip",
-        );
-
-        let mut prep_end = self
-            .sortition_db
-            .get_prepare_end_for(sortition_id, &block_id)?
-            .expect(&format!(
-                "FAIL: expected to get a sortition for a chosen anchor block {}, but not found.",
-                &block_id
-            ));
-
-        // was this block a pox anchor for an even earlier reward cycle?
-        while let Some(older_prep_end) = self
-            .sortition_db
-            .get_prepare_end_for(&prep_end.sortition_id, &block_id)?
-        {
-            prep_end = older_prep_end;
-        }
-
-        info!(
-            "Reprocessing with anchor block information, starting at block height: {}",
-            prep_end.block_height
-        );
-        let mut pox_id = self.sortition_db.get_pox_id(sortition_id)?;
-        pox_id.extend_with_present_block();
-
-        // invalidate all the sortitions > canonical_sortition_tip, in the same burnchain fork
-        self.sortition_db
-            .invalidate_descendants_of(&prep_end.burn_header_hash)?;
-
-        // roll back to the state as of prep_end
-        self.canonical_chain_tip = Some(StacksBlockId::new(
-            &prep_end.consensus_hash,
-            &prep_end.canonical_stacks_tip_hash,
-        ));
-        self.canonical_sortition_tip = Some(prep_end.sortition_id);
-        self.canonical_pox_id = Some(pox_id);
-
-        // Start processing from the beginning of the new PoX reward set
-        self.handle_new_burnchain_block()
     }
 }
 
