@@ -821,7 +821,6 @@ impl ChainStateBootData {
             first_burnchain_block_height: burnchain.first_block_height as u32,
             first_burnchain_block_timestamp: burnchain.first_block_timestamp,
             initial_balances,
-            pox_constants: burnchain.pox_constants.clone(),
             post_flight_callback,
             get_bulk_initial_lockups: None,
             get_bulk_initial_balances: None,

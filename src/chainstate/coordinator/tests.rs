@@ -900,14 +900,6 @@ fn missed_block_commits() {
             .unwrap(),
         Value::UInt(expected_height as u128),
     );
-
-    {
-        let ic = sort_db.index_handle_at_tip();
-        let pox_id = ic.get_pox_id().unwrap();
-        assert_eq!(&pox_id.to_string(),
-                   "111111111111",
-                   "PoX ID should reflect the 5 reward cycles _with_ a known anchor block, plus the 'initial' known reward cycle at genesis");
-    }
 }
 
 #[test]
@@ -994,16 +986,6 @@ fn test_simple_setup() {
         coord.handle_new_burnchain_block().unwrap();
         coord_blind.handle_new_burnchain_block().unwrap();
 
-        let new_burnchain_tip = burnchain.get_canonical_chain_tip().unwrap();
-        if b.is_reward_cycle_start(new_burnchain_tip.block_height) {
-            //
-            let ic = sort_db.index_handle_at_tip();
-            assert!(
-                ic.get_last_anchor_block_hash().unwrap().is_none(),
-                "There should be no anchor blocks selected in stacks-subnets"
-            );
-        }
-
         let tip = SortitionDB::get_canonical_burn_chain_tip(sort_db.conn()).unwrap();
         let blinded_tip = SortitionDB::get_canonical_burn_chain_tip(sort_db_blind.conn()).unwrap();
         if sortition_ids_diverged {
@@ -1053,46 +1035,6 @@ fn test_simple_setup() {
             .unwrap(),
         Value::UInt(50)
     );
-
-    {
-        let ic = sort_db.index_handle_at_tip();
-        let pox_id = ic.get_pox_id().unwrap();
-        assert_eq!(
-            &pox_id.to_string(),
-            "1",
-            "PoX ID remains 1 in stacks-subnets"
-        );
-    }
-
-    {
-        let ic = sort_db_blind.index_handle_at_tip();
-        let pox_id = ic.get_pox_id().unwrap();
-        assert_eq!(
-            &pox_id.to_string(),
-            "1",
-            "PoX ID remains 1 in stacks-subnets"
-        );
-    }
-
-    // now let's start revealing stacks blocks to the blinded coordinator
-    for (sortition_id, block) in stacks_blocks.iter() {
-        reveal_block(
-            path_blinded,
-            &sort_db_blind,
-            &mut coord_blind,
-            sortition_id,
-            block,
-        );
-
-        let pox_id_at_tip = {
-            let ic = sort_db_blind.index_handle_at_tip();
-            ic.get_pox_id().unwrap()
-        };
-
-        let block_hash = block.header.block_hash();
-
-        assert_eq!(pox_id_at_tip.to_string(), "1");
-    }
 }
 
 fn eval_at_chain_tip(chainstate_path: &str, sort_db: &SortitionDB, eval: &str) -> Value {
