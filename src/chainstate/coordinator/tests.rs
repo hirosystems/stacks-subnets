@@ -165,7 +165,6 @@ pub fn setup_states(
     paths: &[&str],
     vrf_keys: &[VRFPrivateKey],
     committers: &[StacksPrivateKey],
-    pox_consts: Option<PoxConstants>,
     initial_balances: Option<Vec<(PrincipalData, u64)>>,
     stacks_epoch_id: StacksEpochId,
 ) {
@@ -678,7 +677,6 @@ fn missed_block_commits() {
         &[path],
         &vrf_keys,
         &committers,
-        pox_consts.clone(),
         Some(initial_balances),
         StacksEpochId::Epoch20,
     );
@@ -927,7 +925,6 @@ fn test_simple_setup() {
         &[path, path_blinded],
         &vrf_keys,
         &committers,
-        None,
         None,
         StacksEpochId::Epoch20,
     );
