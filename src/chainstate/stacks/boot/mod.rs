@@ -1018,10 +1018,7 @@ pub mod test {
 
     #[test]
     fn test_liquid_ustx() {
-        let mut burnchain = Burnchain::default_unittest(0, &BurnchainHeaderHash::zero());
-        burnchain.pox_constants.reward_cycle_length = 5;
-        burnchain.pox_constants.prepare_length = 2;
-        burnchain.pox_constants.anchor_threshold = 1;
+        let burnchain = Burnchain::default_unittest(0, &BurnchainHeaderHash::zero());
 
         let (mut peer, keys) = instantiate_pox_peer(&burnchain, "test-liquid-ustx", 6000);
 
@@ -1203,10 +1200,7 @@ pub mod test {
 
     #[test]
     fn test_hook_special_contract_call() {
-        let mut burnchain = Burnchain::default_unittest(0, &BurnchainHeaderHash::zero());
-        burnchain.pox_constants.reward_cycle_length = 3;
-        burnchain.pox_constants.prepare_length = 1;
-        burnchain.pox_constants.anchor_threshold = 1;
+        let burnchain = Burnchain::default_unittest(0, &BurnchainHeaderHash::zero());
 
         let (mut peer, mut keys) =
             instantiate_pox_peer(&burnchain, "test-hook-special-contract-call", 6007);
@@ -1316,10 +1310,7 @@ pub mod test {
 
     #[test]
     fn test_liquid_ustx_burns() {
-        let mut burnchain = Burnchain::default_unittest(0, &BurnchainHeaderHash::zero());
-        burnchain.pox_constants.reward_cycle_length = 5;
-        burnchain.pox_constants.prepare_length = 2;
-        burnchain.pox_constants.anchor_threshold = 1;
+        let burnchain = Burnchain::default_unittest(0, &BurnchainHeaderHash::zero());
 
         let (mut peer, mut keys) = instantiate_pox_peer(&burnchain, "test-liquid-ustx", 6026);
 
