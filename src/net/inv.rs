@@ -885,7 +885,8 @@ impl InvState {
         for peer in peers.iter() {
             if let Some(stats) = self.block_stats.get_mut(peer) {
                 debug!("Already tracking inventories of peer {:?}", &peer);
-                stats.reset_pox_scan(0);
+                // DO NOT SUBMIT: should this exist?
+                // stats.reset_pox_scan(0);
                 stats.is_bootstrap_peer = bootstrap_peers.contains(&peer);
             } else if self.block_stats.len() < max_neighbors {
                 debug!("Will track inventories of new peer {:?}", &peer);
