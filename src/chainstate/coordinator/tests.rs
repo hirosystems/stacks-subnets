@@ -173,7 +173,7 @@ pub fn setup_states(
     let mut others = vec![];
 
     for path in paths.iter() {
-        let burnchain = get_burnchain(path, pox_consts.clone());
+        let burnchain = get_burnchain(path);
         let epochs = StacksEpoch::unit_test(stacks_epoch_id, burnchain.first_block_height);
         let sortition_db = SortitionDB::connect(
             &burnchain.get_db_path(),
@@ -224,7 +224,7 @@ pub fn setup_states(
 
     let initial_balances = initial_balances.unwrap_or(vec![]);
     for path in paths.iter() {
-        let burnchain = get_burnchain(path, pox_consts.clone());
+        let burnchain = get_burnchain(path);
 
         let mut boot_data = ChainStateBootData::new(&burnchain, initial_balances.clone(), None);
 
@@ -303,7 +303,7 @@ pub fn make_coordinator<'a>(
     burnchain: Option<Burnchain>,
 ) -> ChainsCoordinator<'a, NullEventDispatcher, (), OnChainRewardSetProvider, (), ()> {
     let (tx, _) = sync_channel(100000);
-    let burnchain = burnchain.unwrap_or_else(|| get_burnchain(path, None));
+    let burnchain = burnchain.unwrap_or_else(|| get_burnchain(path));
     ChainsCoordinator::test_new(&burnchain, 0x80000000, path, OnChainRewardSetProvider(), tx)
 }
 
@@ -329,7 +329,7 @@ fn make_reward_set_coordinator<'a>(
 ) -> ChainsCoordinator<'a, NullEventDispatcher, (), StubbedRewardSetProvider, (), ()> {
     let (tx, _) = sync_channel(100000);
     ChainsCoordinator::test_new(
-        &get_burnchain(path, pox_consts),
+        &get_burnchain(path),
         0x80000000,
         path,
         StubbedRewardSetProvider(addrs),
@@ -337,25 +337,23 @@ fn make_reward_set_coordinator<'a>(
     )
 }
 
-pub fn get_burnchain(path: &str, pox_consts: Option<PoxConstants>) -> Burnchain {
-    let mut b = Burnchain::regtest(&format!("{}/burnchain/db/", path));
-    b.pox_constants =
-        pox_consts.unwrap_or_else(|| PoxConstants::new(5, 3, 3, 25, 5, u64::MAX, u64::MAX));
-    b
+pub fn get_burnchain(path: &str) -> Burnchain {
+Burnchain::regtest(&format!("{}/burnchain/db/", path));
+
 }
 
-pub fn get_sortition_db(path: &str, pox_consts: Option<PoxConstants>) -> SortitionDB {
-    let burnchain = get_burnchain(path, pox_consts);
+pub fn get_sortition_db(path: &str) -> SortitionDB {
+    let burnchain = get_burnchain(path);
     SortitionDB::open(&burnchain.get_db_path(), false).unwrap()
 }
 
-pub fn get_rw_sortdb(path: &str, pox_consts: Option<PoxConstants>) -> SortitionDB {
-    let burnchain = get_burnchain(path, pox_consts);
+pub fn get_rw_sortdb(path: &str) -> SortitionDB {
+    let burnchain = get_burnchain(path);
     SortitionDB::open(&burnchain.get_db_path(), true).unwrap()
 }
 
-pub fn get_burnchain_db(path: &str, pox_consts: Option<PoxConstants>) -> BurnchainDB {
-    let burnchain = get_burnchain(path, pox_consts);
+pub fn get_burnchain_db(path: &str) -> BurnchainDB {
+    let burnchain = get_burnchain(path);
     BurnchainDB::open(&burnchain.get_burnchaindb_path(), true).unwrap()
 }
 
@@ -665,7 +663,7 @@ fn missed_block_commits() {
 
     let sunset_ht = 8000;
     let pox_consts = Some(PoxConstants::new(5, 3, 3, 25, 5, 7010, sunset_ht));
-    let burnchain_conf = get_burnchain(path, pox_consts.clone());
+    let burnchain_conf = get_burnchain(path);
 
     let vrf_keys: Vec<_> = (0..50).map(|_| VRFPrivateKey::new()).collect();
     let committers: Vec<_> = (0..50).map(|_| StacksPrivateKey::new()).collect();
@@ -689,7 +687,7 @@ fn missed_block_commits() {
 
     coord.handle_new_burnchain_block().unwrap();
 
-    let sort_db = get_sortition_db(path, pox_consts.clone());
+    let sort_db = get_sortition_db(path);
 
     let tip = SortitionDB::get_canonical_burn_chain_tip(sort_db.conn()).unwrap();
     assert_eq!(tip.block_height, 1);
@@ -699,13 +697,13 @@ fn missed_block_commits() {
     let mut stacks_blocks: Vec<(SortitionId, StacksBlock)> = vec![];
 
     let mut last_input: Option<(Txid, u32)> = None;
-    let b = get_burnchain(path, None);
+    let b = get_burnchain(path);
 
     for ix in 0..vrf_keys.len() {
         let vrf_key = &vrf_keys[ix];
         let miner = &committers[ix];
 
-        let mut burnchain = get_burnchain_db(path, pox_consts.clone());
+        let mut burnchain = get_burnchain_db(path);
         let mut chainstate = get_chainstate(path);
 
         let parent = if ix == 0 {
@@ -724,11 +722,11 @@ fn missed_block_commits() {
         };
 
         let reward_cycle_info = coord.get_reward_cycle_info(&next_mock_header).unwrap();
-        let next_block_recipients = get_rw_sortdb(path, pox_consts.clone())
+        let next_block_recipients = get_rw_sortdb(path)
             .test_get_next_block_recipients(&b, reward_cycle_info.as_ref())
             .unwrap();
 
-        let b = get_burnchain(path, pox_consts.clone());
+        let b = get_burnchain(path);
         let mut ops = vec![];
         if ix % (MINING_COMMITMENT_WINDOW as usize) == 4 {
             let (mut bad_op, _) = make_stacks_block_with_input(
@@ -940,13 +938,13 @@ fn test_simple_setup() {
     coord.handle_new_burnchain_block().unwrap();
     coord_blind.handle_new_burnchain_block().unwrap();
 
-    let sort_db = get_sortition_db(path, None);
+    let sort_db = get_sortition_db(path);
 
     let tip = SortitionDB::get_canonical_burn_chain_tip(sort_db.conn()).unwrap();
     assert_eq!(tip.block_height, 1);
     assert_eq!(tip.sortition, false);
 
-    let sort_db_blind = get_sortition_db(path_blinded, None);
+    let sort_db_blind = get_sortition_db(path_blinded);
 
     let tip = SortitionDB::get_canonical_burn_chain_tip(sort_db_blind.conn()).unwrap();
     assert_eq!(tip.block_height, 1);
@@ -959,11 +957,11 @@ fn test_simple_setup() {
     // process sequential blocks, and their sortitions...
     let mut stacks_blocks = vec![];
     for (ix, (vrf_key, miner)) in vrf_keys.iter().zip(committers.iter()).enumerate() {
-        let mut burnchain = get_burnchain_db(path, None);
+        let mut burnchain = get_burnchain_db(path);
         let mut chainstate = get_chainstate(path);
-        let b = get_burnchain(path, None);
+        let b = get_burnchain(path);
         let burnchain_tip = burnchain.get_canonical_chain_tip().unwrap();
-        let burnchain_blinded = get_burnchain_db(path_blinded, None);
+        let burnchain_blinded = get_burnchain_db(path_blinded);
 
         let (op, block) = if ix == 0 {
             make_genesis_block(
