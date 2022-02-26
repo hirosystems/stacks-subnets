@@ -80,6 +80,7 @@ use util_lib::db::DBConn;
 use util_lib::db::Error as db_error;
 
 use crate::types::chainstate::{BlockHeaderHash, PoxId, SortitionId};
+use burnchains::MaxBlocksInventoryRequest;
 
 #[cfg(not(test))]
 pub const BLOCK_DOWNLOAD_INTERVAL: u64 = 180;

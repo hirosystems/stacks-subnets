@@ -67,6 +67,7 @@ use util_lib::db::Error as db_error;
 
 use crate::types::chainstate::{BlockHeaderHash, PoxId, SortitionId};
 use chainstate::burn::ConsensusHashExtensions;
+use burnchains::MaxBlocksInventoryRequest;
 
 /// This module is responsible for synchronizing block inventories with other peers
 #[cfg(not(test))]

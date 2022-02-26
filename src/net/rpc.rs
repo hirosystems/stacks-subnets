@@ -2779,14 +2779,6 @@ impl ConversationHttp {
         HttpRequestType::GetInfo(HttpRequestMetadata::from_host(self.peer_host.clone()))
     }
 
-    /// Make a new getinfo request to this endpoint
-    pub fn new_getpoxinfo(&self, tip_req: TipRequest) -> HttpRequestType {
-        HttpRequestType::GetPoxInfo(
-            HttpRequestMetadata::from_host(self.peer_host.clone()),
-            tip_req,
-        )
-    }
-
     /// Make a new getneighbors request to this endpoint
     pub fn new_getneighbors(&self) -> HttpRequestType {
         HttpRequestType::GetNeighbors(HttpRequestMetadata::from_host(self.peer_host.clone()))

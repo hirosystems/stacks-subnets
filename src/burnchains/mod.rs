@@ -239,6 +239,9 @@ pub enum BurnchainBlock {
     StacksHyperBlock(StacksHyperBlock),
 }
 
+/// The largest number of blocks that can be requested in an inventory request.
+pub const MaxBlocksInventoryRequest:u64 = 1000;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct BurnchainBlockHeader {
     pub block_height: u64,
