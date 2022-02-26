@@ -82,7 +82,7 @@ use chainstate::stacks::index::{ClarityMarfTrieId, MARFValue};
 use stacks_common::types::chainstate::StacksAddress;
 use stacks_common::types::chainstate::TrieHash;
 use stacks_common::types::chainstate::{
-    BlockHeaderHash, BurnchainHeaderHash, PoxId, SortitionId, VRFSeed,
+    BlockHeaderHash, BurnchainHeaderHash, SortitionId, VRFSeed,
 };
 
 const BLOCK_HEIGHT_MAX: u64 = ((1 as u64) << 63) - 1;
@@ -2123,12 +2123,6 @@ impl SortitionDB {
                 BurnchainError::MissingParentBlock
             })?;
 
-        let parent_pox = sortition_db_handle.get_pox_id()?;
-
-        let reward_set_vrf_hash = parent_snapshot
-            .sortition_hash
-            .mix_burn_header(&parent_snapshot.burn_header_hash);
-
         //
         // Get any initial mining bonus which would be due to the winner of this block.
         let bonus_remaining =
@@ -2784,15 +2778,6 @@ impl<'a> SortitionHandleTx<'a> {
         Ok(())
     }
 
-    fn get_pox_id(&mut self) -> Result<PoxId, db_error> {
-        let chain_tip = self.context.chain_tip.clone();
-        let pox_id = self
-            .get_indexed(&chain_tip, db_keys::pox_identifier())?
-            .map(|s| s.parse().expect("BUG: Bad PoX identifier stored in DB"))
-            .expect("BUG: No PoX identifier stored.");
-        Ok(pox_id)
-    }
-
     /// Store a blockstack burnchain operation
     fn store_burnchain_transaction(
         &mut self,
@@ -2965,14 +2950,6 @@ impl<'a> SortitionHandleTx<'a> {
                 values.push(bonus_remaining.to_string());
             }
         }
-
-        // storing null PoX info
-        keys.push(db_keys::pox_identifier().to_string());
-        values.push(PoxId::initial().to_string());
-        keys.push(db_keys::pox_reward_set_size().to_string());
-        values.push(db_keys::reward_set_size_to_string(0));
-        keys.push(db_keys::pox_last_anchor().to_string());
-        values.push("".to_string());
 
         // commit to all newly-arrived blocks
         let (mut block_arrival_keys, mut block_arrival_values) =

@@ -40,7 +40,7 @@ use util::uint::Uint512;
 use util_lib::db::Error as db_error;
 
 use crate::types::chainstate::StacksBlockId;
-use crate::types::chainstate::{BlockHeaderHash, PoxId, SortitionId, VRFSeed};
+use crate::types::chainstate::{BlockHeaderHash, SortitionId, VRFSeed};
 use chainstate::burn::ConsensusHashExtensions;
 use chainstate::stacks::index::ClarityMarfTrieId;
 use chainstate::stacks::index::TrieHashExtension;

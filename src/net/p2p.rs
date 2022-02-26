@@ -83,7 +83,7 @@ use util_lib::db::DBConn;
 use util_lib::db::Error as db_error;
 use vm::database::BurnStateDB;
 
-use crate::types::chainstate::{PoxId, SortitionId};
+use crate::types::chainstate::SortitionId;
 use chainstate::stacks::StacksBlockHeader;
 
 /// inter-thread request to send a p2p message from another thread in this program.
@@ -288,7 +288,6 @@ pub struct PeerNetwork {
     // cached view of PoX database
     // (maintained by the inv state machine)
     pub tip_sort_id: SortitionId,
-    pub pox_id: PoxId,
 
     // cached block header hashes, for handling inventory requests
     // (maintained by the downloader state machine)
@@ -425,7 +424,6 @@ impl PeerNetwork {
             walk_result: NeighborWalkResult::new(),
 
             inv_state: None,
-            pox_id: PoxId::initial(),
             tip_sort_id: SortitionId([0x00; 32]),
             header_cache: BlockHeaderCache::new(),
 
@@ -2527,7 +2525,6 @@ impl PeerNetwork {
         let (
             done,
             at_chain_tip,
-            old_pox_id,
             mut blocks,
             mut microblocks,
             mut broken_http_peers,
@@ -2556,7 +2553,6 @@ impl PeerNetwork {
             }
         };
 
-        network_result.download_pox_id = old_pox_id;
         network_result.blocks.append(&mut blocks);
         network_result
             .confirmed_microblocks
@@ -2834,12 +2830,7 @@ impl PeerNetwork {
             .unwrap_or(vec![]);
 
         if self.antientropy_start_reward_cycle == 0 {
-            debug!(
-                "AntiEntropy: wrap around back to reward cycle {}",
-                self.pox_id.num_inventory_reward_cycles().saturating_sub(1)
-            );
-            self.antientropy_start_reward_cycle =
-                self.pox_id.num_inventory_reward_cycles().saturating_sub(1) as u64;
+            self.antientropy_start_reward_cycle = 064; // DO NOT SUBMIT: what should this be?
         }
 
         let reward_cycle_start = self.antientropy_start_reward_cycle;
@@ -3099,26 +3090,6 @@ impl PeerNetwork {
                     );
                 }
             }
-        }
-
-        // invalidate inventories at and after the affected reward cycles, so we're forced to go
-        // and re-download them (once our block has been received).  This prevents this code from
-        // DDoS'ing remote nodes to death with blocks over and over again, and it prevents this
-        // code from doing needless extra work for remote nodes that always report 0 for their
-        // inventory statuses.
-        for (nk, reward_cycle) in lowest_reward_cycle_with_missing_block.into_iter() {
-            debug!(
-                "{:?}: AntiEntropy: Invalidate inventory for {:?} at and after reward cycle {}",
-                &self.local_peer, &nk, reward_cycle
-            );
-            PeerNetwork::with_inv_state(self, |network, inv_state| {
-                if let Some(block_stats) = inv_state.block_stats.get_mut(&nk) {
-                    block_stats
-                        .inv
-                        .truncate_pox_inventory(&network.burnchain, reward_cycle);
-                }
-                Ok(())
-            })?;
         }
         Ok(())
     }
@@ -3666,24 +3637,8 @@ impl PeerNetwork {
                                             continue;
                                         }
 
-                                        if stats.inv.num_reward_cycles
-                                            >= self.pox_id.num_inventory_reward_cycles() as u64
-                                        {
-                                            // we have fully sync'ed with an always-allowed peer
-                                            debug!(
-                                                "{:?}: Fully-sync'ed PoX inventory from {}",
-                                                &self.local_peer, nk
-                                            );
-                                            finished_always_allowed_inv_sync = true;
-                                        } else {
-                                            // there exists an always-allowed peer that we have not
-                                            // fully sync'ed with
-                                            debug!(
-                                                "{:?}: Have not fully sync'ed with {}",
-                                                &self.local_peer, &nk
-                                            );
-                                            have_unsynced = true;
-                                        }
+                                        // DO NOT SUBMIT: what should this be?
+                                        panic!("what?")
                                     }
                                 }
 
@@ -4935,8 +4890,7 @@ impl PeerNetwork {
             // set up the antientropy protocol to try pushing the latest block
             // (helps if you're a miner who gets temporarily disconnected)
             self.antientropy_last_push_ts = get_epoch_time_secs();
-            self.antientropy_start_reward_cycle =
-                self.pox_id.num_inventory_reward_cycles().saturating_sub(1) as u64;
+            self.antientropy_start_reward_cycle = 0u64; // DO NOT SUBMIT
 
             // update cached burnchain view for /v2/info
             self.chain_view = new_chain_view;

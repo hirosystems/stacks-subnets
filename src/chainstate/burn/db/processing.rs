@@ -35,7 +35,7 @@ use core::INITIAL_MINING_BONUS_WINDOW;
 use util_lib::db::Error as DBError;
 
 use stacks_common::types::chainstate::TrieHash;
-use stacks_common::types::chainstate::{BurnchainHeaderHash, PoxId, SortitionId};
+use stacks_common::types::chainstate::{BurnchainHeaderHash, SortitionId};
 
 impl<'a> SortitionHandleTx<'a> {
     /// Run a blockstack operation's "check()" method and return the result.

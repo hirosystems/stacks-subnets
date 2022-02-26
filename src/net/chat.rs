@@ -63,7 +63,6 @@ use util::secp256k1::Secp256k1PublicKey;
 use util_lib::db::DBConn;
 use util_lib::db::Error as db_error;
 
-use crate::types::chainstate::PoxId;
 use crate::types::StacksPublicKeyBuffer;
 use core::StacksEpoch;
 use burnchains::MaxBlocksInventoryRequest;

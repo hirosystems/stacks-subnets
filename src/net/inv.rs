@@ -65,7 +65,7 @@ use util::secp256k1::Secp256k1PublicKey;
 use util_lib::db::DBConn;
 use util_lib::db::Error as db_error;
 
-use crate::types::chainstate::{BlockHeaderHash, PoxId, SortitionId};
+use crate::types::chainstate::{BlockHeaderHash, SortitionId};
 use chainstate::burn::ConsensusHashExtensions;
 use burnchains::MaxBlocksInventoryRequest;
 
@@ -86,8 +86,6 @@ pub struct PeerBlocksInv {
     pub block_inv: Vec<u8>,
     /// Bitmap of which microblock streams this peer has
     pub microblocks_inv: Vec<u8>,
-    /// Bitmap of PoX anchor block knowledge this peer has
-    pub pox_inv: Vec<u8>,
     /// Number of sortitions we know this peer knows about (after successive
     /// getblocksinv/blocksinv rounds)
     pub num_sortitions: u64,
@@ -104,7 +102,6 @@ impl PeerBlocksInv {
         PeerBlocksInv {
             block_inv: vec![],
             microblocks_inv: vec![],
-            pox_inv: vec![],
             num_sortitions: 0,
             num_reward_cycles: 0,
             last_updated_at: 0,
@@ -126,7 +123,6 @@ impl PeerBlocksInv {
             microblocks_inv: microblocks_inv,
             num_sortitions: num_sortitions,
             num_reward_cycles: num_reward_cycles,
-            pox_inv: pox_inv,
             last_updated_at: get_epoch_time_secs(),
             first_block_height: first_block_height,
         }
@@ -165,22 +161,6 @@ impl PeerBlocksInv {
             false
         } else {
             (self.microblocks_inv[idx] & (1 << bit)) != 0
-        }
-    }
-
-    /// Does this remote neighbor have certainty about the ith PoX anchor block?
-    pub fn has_ith_anchor_block(&self, reward_cycle: u64) -> bool {
-        if self.num_reward_cycles <= reward_cycle {
-            return false;
-        }
-
-        let idx = (reward_cycle / 8) as usize;
-        let bit = reward_cycle % 8;
-
-        if idx >= self.pox_inv.len() {
-            false
-        } else {
-            (self.pox_inv[idx] & (1 << bit)) != 0
         }
     }
 
@@ -302,95 +282,6 @@ impl PeerBlocksInv {
         }
     }
 
-    /// Invalidate PoX inventories as a result of learning a new reward cycle's status
-    /// Returns how many bits were dropped
-    pub fn truncate_pox_inventory(&mut self, burnchain: &Burnchain, reward_cycle: u64) -> u64 {
-        let highest_agreed_block_height = burnchain.reward_cycle_to_block_height();
-
-        assert!(
-            highest_agreed_block_height >= self.first_block_height,
-            "BUG: highest agreed block height is lower than the first-ever block"
-        );
-
-        if reward_cycle < self.num_reward_cycles {
-            // clear pox inventories
-            let num_bits = self.num_reward_cycles - reward_cycle;
-            let mut zeros: Vec<u8> = Vec::with_capacity((num_bits / 8 + 1) as usize);
-            for _i in 0..(num_bits / 8 + 1) {
-                zeros.push(0x00);
-            }
-
-            self.merge_pox_inv(burnchain, reward_cycle, num_bits, zeros, true);
-            let diff = self.num_reward_cycles - reward_cycle;
-            self.num_reward_cycles = reward_cycle;
-            diff
-        } else {
-            0
-        }
-    }
-
-    /// Merge a remote peer's PoX bitvector into our view of its PoX bitvector.
-    /// If we flip a 0 to a 1, then invalidate the block/microblock bits for that reward cycle _and
-    /// all subsequent reward cycles_.
-    /// Returns the lowest reward cycle number that changed from a 0 to a 1, if such a flip happens
-    pub fn merge_pox_inv(
-        &mut self,
-        burnchain: &Burnchain,
-        reward_cycle: u64,
-        bitlen: u64,
-        pox_bitvec: Vec<u8>,
-        clear_bits: bool,
-    ) -> Option<u64> {
-        self.num_reward_cycles = if self.num_reward_cycles < reward_cycle + bitlen {
-            reward_cycle + bitlen
-        } else {
-            self.num_reward_cycles
-        };
-
-        let mut insert_index = reward_cycle;
-        let mut reward_cycle_flipped = None;
-
-        // add each bit in, growing the pox inv as needed
-        for i in 0..bitlen {
-            let idx = (i / 8) as usize;
-            let bit = i % 8;
-            let anchor_block_set = (pox_bitvec[idx] & (1 << bit)) != 0;
-
-            let set_idx = (insert_index / 8) as usize;
-            let set_bit = insert_index % 8;
-            if set_idx >= self.pox_inv.len() {
-                self.pox_inv.resize(set_idx + 1, 0);
-            }
-
-            if anchor_block_set {
-                if self.pox_inv[set_idx] & (1 << set_bit) == 0 {
-                    // we didn't know about this bit
-                    if reward_cycle_flipped.is_none() {
-                        reward_cycle_flipped = Some(insert_index);
-                    }
-                }
-
-                self.pox_inv[set_idx] |= 1 << set_bit;
-            } else if clear_bits {
-                // unset
-                self.pox_inv[set_idx] &= !(1 << set_bit);
-            }
-
-            insert_index += 1;
-        }
-
-        if let Some(flipped_reward_cycle) = reward_cycle_flipped.as_ref() {
-            self.truncate_block_inventories(burnchain, *flipped_reward_cycle);
-        }
-
-        self.last_updated_at = get_epoch_time_secs();
-
-        assert!(insert_index / 8 <= self.pox_inv.len() as u64);
-        assert!(self.num_reward_cycles / 8 <= self.pox_inv.len() as u64);
-
-        reward_cycle_flipped
-    }
-
     /// Set a block's bit as available.
     /// Return whether or not the block bit was flipped to 1.
     pub fn set_block_bit(&mut self, block_height: u64) -> bool {
@@ -416,13 +307,6 @@ impl PeerBlocksInv {
         self.merge_blocks_inv(microblock_height, 1, vec![0x00], vec![0x01], true);
     }
 
-    /// Set a confirmed anchor block detection.
-    /// Return whether or not the bit was flipped to 1
-    pub fn set_pox_bit(&mut self, burnchain: &Burnchain, reward_cycle: u64) -> bool {
-        let bits_set = self.merge_pox_inv(burnchain, reward_cycle, 1, vec![0x01], true);
-        bits_set.unwrap_or(0) != 0
-    }
-
     /// Count up the number of blocks represented
     pub fn num_blocks(&self) -> u64 {
         let mut total = 0;
@@ -443,49 +327,6 @@ impl PeerBlocksInv {
             }
         }
         total
-    }
-
-    /// Count up the number of anchor blocks represented
-    pub fn num_pox_anchor_blocks(&self) -> u64 {
-        let mut total = 0;
-        for i in 0..self.num_reward_cycles {
-            if self.has_ith_anchor_block(i) {
-                total += 1;
-            }
-        }
-        total
-    }
-
-    /// Determine the lowest reward cycle that this pox inv disagrees with a given pox id
-    /// Returns (disagreed reward cycle, my-inv-bit, poxid-inv-bit)
-    /// If one is longer than the other, there will be disagreement
-    pub fn pox_inv_cmp(&self, pox_id: &PoxId) -> Option<(u64, bool, bool)> {
-        let min = cmp::min((pox_id.len() as u64) - 1, self.num_reward_cycles);
-        for i in 0..min {
-            let my_bit = self.has_ith_anchor_block(i);
-            let pox_bit = pox_id.has_ith_anchor_block(i as usize);
-            if my_bit != pox_bit {
-                return Some((i, my_bit, pox_bit));
-            }
-        }
-        if (pox_id.len() as u64) - 1 == self.num_reward_cycles {
-            // all agreed
-            None
-        } else if (pox_id.len() as u64) - 1 < self.num_reward_cycles {
-            // pox inv is longer
-            Some((
-                (pox_id.len() as u64) - 1,
-                self.has_ith_anchor_block((pox_id.len() as u64) - 1),
-                false,
-            ))
-        } else {
-            // our inv is longer
-            Some((
-                self.num_reward_cycles,
-                false,
-                pox_id.has_ith_anchor_block(self.num_reward_cycles as usize),
-            ))
-        }
     }
 
     /// What's the block height represented here?
@@ -521,8 +362,6 @@ pub struct NeighborBlockStats {
     pub nk: NeighborKey,
     /// What blocks do we know this peer has?
     pub inv: PeerBlocksInv,
-    /// Current scan height for PoX (in reward cycles)
-    pub pox_reward_cycle: u64,
     /// Scan height for block invs (in reward cycles)
     pub block_reward_cycle: u64,
     /// Scan state
@@ -564,7 +403,6 @@ impl NeighborBlockStats {
         NeighborBlockStats {
             nk: nk,
             inv: PeerBlocksInv::empty(first_block_height),
-            pox_reward_cycle: 0,
             block_reward_cycle: 0,
             state: InvWorkState::GetBlocksInvBegin,
             status: NodeStatus::Online,
@@ -1230,123 +1068,6 @@ impl PeerNetwork {
         }
     }
 
-    /// Try to make a GetPoxInv request for the target reward cycle for this peer.
-    /// The resulting GetPoxInv, if Some(..), will request a segment of the remote peer's PoX
-    /// bitvector starting from target_pox_reward_cycle, and fetching up to GETPOXINV_MAX_BITLEN bits.
-    /// The target_pox_reward_cycle will be the _lowest_ reward cycle requested.
-    fn make_getpoxinv(
-        &self,
-        sortdb: &SortitionDB,
-        nk: &NeighborKey,
-        target_pox_reward_cycle: u64,
-    ) -> Result<Option<GetPoxInv>, net_error> {
-        if target_pox_reward_cycle >= self.pox_id.num_inventory_reward_cycles() as u64 {
-            debug!("{:?}: target reward cycle for neighbor {:?} is {}, which is equal to or higher than our PoX bit vector length {}", &self.local_peer, nk, target_pox_reward_cycle, self.pox_id.num_inventory_reward_cycles());
-            return Ok(None);
-        }
-
-        let target_block_height = self
-            .burnchain
-            .reward_cycle_to_block_height();
-
-        let max_reward_cycle = match self.get_convo(nk) {
-            Some(convo) => {
-                // only proceed if the remote neighbor has this reward cycle
-                let tip_height = convo.get_burnchain_tip_height();
-                let tip_burn_block_hash = convo.get_burnchain_tip_burn_header_hash();
-
-                debug!(
-                    "{:?}: chain view of {:?} is ({},{})",
-                    &self.local_peer, nk, tip_height, &tip_burn_block_hash
-                );
-
-                if target_block_height > tip_height {
-                    // this peer is behind us
-                    debug!("{:?}: remote neighbor {:?}'s burnchain view tip is {}-{:?}, which is lower than our target reward cycle {} (height {})",
-                            &self.local_peer, nk, tip_height, &tip_burn_block_hash, target_pox_reward_cycle, target_block_height);
-                    return Ok(None);
-                }
-
-                let tip_reward_cycle = match self.burnchain.block_height_to_reward_cycle()
-                {
-                    Some(tip_rc) => tip_rc,
-                    None => {
-                        // peer is behind the first block, which should never happen if the peer
-                        // is behaving correctly
-                        debug!(
-                            "{:?}: remote neighbor {:?} is behind the first-ever block",
-                            &self.local_peer, nk
-                        );
-                        return Ok(None);
-                    }
-                };
-
-                let max_reward_cycle = cmp::min(
-                    self.pox_id.num_inventory_reward_cycles() as u64,
-                    tip_reward_cycle,
-                );
-                test_debug!(
-                    "{:?}: request up to reward cycle min({},{}) = {}",
-                    &self.local_peer,
-                    self.pox_id.num_inventory_reward_cycles(),
-                    tip_reward_cycle,
-                    max_reward_cycle
-                );
-                max_reward_cycle
-            }
-            None => {
-                debug!("{:?}: no conversation open for {}", &self.local_peer, nk);
-                return Ok(None);
-            }
-        };
-
-        // ask for all PoX bits in-between target_reward_cyle and highest_reward_cycle, inclusive
-        let num_reward_cycles =
-            if target_pox_reward_cycle + GETPOXINV_MAX_BITLEN <= max_reward_cycle {
-                GETPOXINV_MAX_BITLEN
-            } else {
-                cmp::max(1, max_reward_cycle - target_pox_reward_cycle)
-            };
-
-        if num_reward_cycles == 0 {
-            debug!("{:?}: will not send GetPoxInv to {:?}, since we are sync'ed up to its highest reward cycle (our target was {}, our max len is {})", &self.local_peer, nk, target_pox_reward_cycle, self.pox_id.num_inventory_reward_cycles());
-            return Ok(None);
-        }
-        assert!(num_reward_cycles <= GETPOXINV_MAX_BITLEN);
-
-        // make sure the remote node has the same chain tip view as us
-        let ancestor_sn = match self.get_ancestor_sortition_snapshot(sortdb, target_block_height) {
-            Ok(s) => s,
-            Err(net_error::NotFoundError) => {
-                // we're not caught up to target_block_height
-                debug!("{:?}: Will not send GetPoxInv to {:?}, since we are not caught up to block height {}", &self.local_peer, nk, target_block_height);
-                return Ok(None);
-            }
-            Err(e) => {
-                warn!(
-                    "{:?}: failed to get ancestor sortition snapshot: {:?}",
-                    &self.local_peer, &e
-                );
-                return Err(e);
-            }
-        };
-
-        let getpoxinv = GetPoxInv {
-            consensus_hash: ancestor_sn.consensus_hash,
-            num_cycles: num_reward_cycles as u16,
-        };
-
-        debug!(
-            "{:?}: Send GetPoxInv to {:?} for {} reward cycles starting at {} ({})",
-            &self.local_peer,
-            nk,
-            num_reward_cycles,
-            target_pox_reward_cycle,
-            &getpoxinv.consensus_hash
-        );
-        Ok(Some(getpoxinv))
-    }
-
     /// Determine how many blocks to ask for in a GetBlocksInv request to a given neighbor.
     /// Possibly ask for no blocks -- for example, the neighbor may not have sync'ed the burnchain,
     /// or may not agree on our PoX view.
@@ -1358,28 +1079,7 @@ impl PeerNetwork {
         stats: &NeighborBlockStats,
         convo: &ConversationP2P,
     ) -> Result<u64, net_error> {
-        if target_block_reward_cycle >= (self.pox_id.num_inventory_reward_cycles() as u64) {
-            debug!(
-                "{:?}: target reward cycle {} >= our max reward cycle {}",
-                &self.local_peer,
-                target_block_reward_cycle,
-                self.pox_id.num_inventory_reward_cycles()
-            );
-            return Ok(0);
-        }
-
         // does the peer agree with our PoX view up to this reward cycle?
-        match stats.inv.pox_inv_cmp(&self.pox_id) {
-            Some((disagreed, _, _)) => {
-                if disagreed < target_block_reward_cycle {
-                    // can't proceed
-                    debug!("{:?}: remote neighbor {:?} disagrees with our PoX inventory at reward cycle {} (asked for {})", &self.local_peer, nk, disagreed, target_block_reward_cycle);
-                    return Ok(0);
-                }
-            }
-            None => {}
-        }
-
         let target_block_height = self
             .burnchain
             .reward_cycle_to_block_height();
@@ -1544,41 +1244,6 @@ max_burn_block_height - target_block_height);
         }
     }
 
-    /// Make a possible GetPoxInv request for this neighbor.
-    /// Returns Some((target-reward-cycle, getpoxinv-request)) if we are to request a PoX
-    /// inventory for this node.
-    fn make_next_getpoxinv(
-        &self,
-        sortdb: &SortitionDB,
-        nk: &NeighborKey,
-        stats: &NeighborBlockStats,
-    ) -> Result<Option<(u64, GetPoxInv)>, net_error> {
-        if stats.inv.num_reward_cycles < self.pox_id.num_inventory_reward_cycles() as u64 {
-            // We don't yet know all of the PoX bits for this node
-            debug!("{:?}: PoX inventory not sync'ed with {:?} yet (target {} < our tip {}); make GetPoxInv based at {}", &self.local_peer, nk, stats.inv.num_reward_cycles, self.pox_id.num_inventory_reward_cycles(), stats.inv.num_reward_cycles);
-            match self.make_getpoxinv(sortdb, nk, stats.inv.num_reward_cycles)? {
-                Some(request) => Ok(Some((stats.inv.num_reward_cycles, request))),
-                None => {
-                    debug!("{:?}: will not fetch PoX inventory from {:?} even though target reward cycle {} < our tip {}", &self.local_peer, nk, stats.inv.num_reward_cycles, self.pox_id.num_inventory_reward_cycles());
-                    Ok(None)
-                }
-            }
-        } else {
-            // We do know all of this node's PoX bits, but proceed to rescan anyway
-            debug!(
-                "{:?}: PoX inventory sync'ed with {:?}, but rescan at reward cycle {}",
-                &self.local_peer, nk, stats.pox_reward_cycle
-            );
-            match self.make_getpoxinv(sortdb, nk, stats.pox_reward_cycle)? {
-                Some(request) => Ok(Some((stats.pox_reward_cycle, request))),
-                None => {
-                    debug!("{:?}: will not fetch PoX inventory from {:?} even though rescan reward cycle {} >= our tip {}", &self.local_peer, nk, stats.pox_reward_cycle, self.pox_id.num_inventory_reward_cycles());
-                    Ok(None)
-                }
-            }
-        }
-    }
-
     /// Make the next GetBlocksInv for a peer
     fn make_next_getblocksinv(
         &self,
@@ -1736,21 +1401,22 @@ max_burn_block_height - target_block_height);
 
         assert_eq!(stats.state, InvWorkState::Done);
 
-        if stats.target_block_reward_cycle < self.pox_id.num_inventory_reward_cycles() as u64
-            && stats.block_reward_cycle < self.pox_id.num_inventory_reward_cycles() as u64
-        {
-            // ask for more blocks
-            stats.block_reward_cycle += 1;
-            stats.reset_block_scan(stats.block_reward_cycle);
-        } else {
-            // we're done scanning!  proceed to rescan
-            stats.last_rescan_timestamp = get_epoch_time_secs();
-            debug!(
-                "{:?}: finished inv sync with {}: reached remote chain tip",
-                &self.local_peer, &nk
-            );
-            stats.done = true;
-        }
+        // DO NOT SUBMIT: what should this be?
+//        if stats.target_block_reward_cycle < self.pox_id.num_inventory_reward_cycles() as u64
+//            && stats.block_reward_cycle < self.pox_id.num_inventory_reward_cycles() as u64
+//        {
+//            // ask for more blocks
+//            stats.block_reward_cycle += 1;
+//            stats.reset_block_scan(stats.block_reward_cycle);
+//        } else {
+//            // we're done scanning!  proceed to rescan
+//            stats.last_rescan_timestamp = get_epoch_time_secs();
+//            debug!(
+//                "{:?}: finished inv sync with {}: reached remote chain tip",
+//                &self.local_peer, &nk
+//            );
+//            stats.done = true;
+//        }
 
         Ok(true)
     }
@@ -1847,11 +1513,6 @@ max_burn_block_height - target_block_height);
             self.tip_sort_id = new_tip_sort_id;
         }
 
-        debug!(
-            "{:?}: PoX bit vector is {:?} (reloaded={})",
-            &self.local_peer, &self.pox_id, reloaded
-        );
-
         Ok(())
     }
 
@@ -1897,12 +1558,10 @@ max_burn_block_height - target_block_height);
 
             for (nk, stats) in inv_state.block_stats.iter_mut() {
                 debug!(
-                    "{:?}: inv state-machine for {:?} is in state {:?}, at PoX {},target={}; blocks {},target={}; status {:?}, done={}",
+                "{:?}: inv state-machine for {:?} is in state {:?}, blocks {},target={}; status {:?}, done={}",
                     &network.local_peer,
                     nk,
                     &stats.state,
-                    stats.pox_reward_cycle,
-                    stats.target_pox_reward_cycle,
                     stats.block_reward_cycle,
                     stats.target_block_reward_cycle,
                     stats.status,
@@ -1961,18 +1620,9 @@ max_burn_block_height - target_block_height);
                         }
                     }
 
+                    // DO NOT SUBMIT: what should this be?
                     if stats.done
-                        && stats.inv.num_reward_cycles
-                            >= network.pox_id.num_inventory_reward_cycles() as u64
                     {
-                        debug!(
-                            "{:?}: synchronized {} >= {} reward cycles for {:?}",
-                            &network.local_peer,
-                            stats.inv.num_reward_cycles,
-                            network.pox_id.num_inventory_reward_cycles(),
-                            &nk
-                        );
-
                         fully_synced_peers.insert(nk.clone());
                     }
                 }
@@ -3693,220 +3343,220 @@ mod test {
         })
     }
 
-    #[test]
-    #[ignore]
-    fn test_sync_inv_2_peers_unstable() {
-        with_timeout(600, || {
-            let mut peer_1_config =
-                TestPeerConfig::new("test_sync_inv_2_peers_unstable", 31996, 41997);
-            let mut peer_2_config =
-                TestPeerConfig::new("test_sync_inv_2_peers_unstable", 31997, 41998);
-
-            let stable_confs = peer_1_config.burnchain.stable_confirmations as u64;
-
-            peer_1_config.add_neighbor(&peer_2_config.to_neighbor());
-            peer_2_config.add_neighbor(&peer_1_config.to_neighbor());
-
-            let mut peer_1 = TestPeer::new(peer_1_config);
-            let mut peer_2 = TestPeer::new(peer_2_config);
-
-            let num_blocks = (GETPOXINV_MAX_BITLEN * 2) as u64;
-
-            let first_stacks_block_height = {
-                let sn = SortitionDB::get_canonical_burn_chain_tip(
-                    &peer_1.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                sn.block_height + 1
-            };
-
-            // only peer 2 makes progress after the point of stability.
-            for i in 0..num_blocks {
-                let (mut burn_ops, stacks_block, microblocks) = peer_2.make_default_tenure();
-
-                let (_, burn_header_hash, consensus_hash) =
-                    peer_2.next_burnchain_block(burn_ops.clone());
-                peer_2.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-
-                TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
-
-                // NOTE: the nodes only differ by one block -- they agree on the same PoX vector
-                if i + 1 < num_blocks {
-                    peer_1.next_burnchain_block_raw(burn_ops.clone());
-                    peer_1.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-                } else {
-                    // peer 1 diverges
-                    test_debug!("Peer 1 diverges at {}", i + first_stacks_block_height);
-                    peer_1.next_burnchain_block(vec![]);
-                }
-            }
-
-            // tips must differ
-            {
-                let sn1 = SortitionDB::get_canonical_burn_chain_tip(
-                    peer_1.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                let sn2 = SortitionDB::get_canonical_burn_chain_tip(
-                    peer_2.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                assert_ne!(sn1.burn_header_hash, sn2.burn_header_hash);
-            }
-
-            let num_stable_blocks = num_blocks - stable_confs;
-
-            let num_burn_blocks = {
-                let sn = SortitionDB::get_canonical_burn_chain_tip(
-                    peer_1.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                sn.block_height + 1
-            };
-
-            let mut round = 0;
-            let mut inv_1_count = 0;
-            let mut inv_2_count = 0;
-
-            let mut peer_1_pox_cycle_start = false;
-            let mut peer_1_block_cycle_start = false;
-            let mut peer_2_pox_cycle_start = false;
-            let mut peer_2_block_cycle_start = false;
-
-            let mut peer_1_pox_cycle = false;
-            let mut peer_1_block_cycle = false;
-            let mut peer_2_pox_cycle = false;
-            let mut peer_2_block_cycle = false;
-
-            while inv_1_count < num_stable_blocks || inv_2_count < num_stable_blocks {
-                let _ = peer_1.step();
-                let _ = peer_2.step();
-
-                inv_1_count = match peer_1.network.inv_state {
-                    Some(ref inv) => inv.get_inv_num_blocks(&peer_2.to_neighbor().addr),
-                    None => 0,
-                };
-
-                inv_2_count = match peer_2.network.inv_state {
-                    Some(ref inv) => inv.get_inv_num_blocks(&peer_1.to_neighbor().addr),
-                    None => 0,
-                };
-
-                match peer_1.network.inv_state {
-                    Some(ref inv) => {
-                        info!("Peer 1 stats: {:?}", &inv.block_stats);
-                        assert_eq!(inv.get_broken_peers().len(), 0);
-                        assert_eq!(inv.get_dead_peers().len(), 0);
-                        assert_eq!(inv.get_diverged_peers().len(), 0);
-
-                        if let Some(stats) = inv.get_stats(&peer_2.to_neighbor().addr) {
-                            if stats.target_pox_reward_cycle > 0 {
-                                peer_1_pox_cycle_start = true;
-                            }
-                            if stats.target_block_reward_cycle > 0 {
-                                peer_1_block_cycle_start = true;
-                            }
-                            if stats.target_pox_reward_cycle == 0 && peer_1_pox_cycle_start {
-                                peer_1_pox_cycle = true;
-                            }
-                            if stats.target_block_reward_cycle == 0 && peer_1_block_cycle_start {
-                                peer_1_block_cycle = true;
-                            }
-                        }
-                    }
-                    None => {}
-                }
-
-                match peer_2.network.inv_state {
-                    Some(ref inv) => {
-                        info!("Peer 2 stats: {:?}", &inv.block_stats);
-                        assert_eq!(inv.get_broken_peers().len(), 0);
-                        assert_eq!(inv.get_dead_peers().len(), 0);
-                        assert_eq!(inv.get_diverged_peers().len(), 0);
-
-                        if let Some(stats) = inv.get_stats(&peer_1.to_neighbor().addr) {
-                            if stats.target_pox_reward_cycle > 0 {
-                                peer_2_pox_cycle_start = true;
-                            }
-                            if stats.target_block_reward_cycle > 0 {
-                                peer_2_block_cycle_start = true;
-                            }
-                            if stats.target_pox_reward_cycle == 0 && peer_2_pox_cycle_start {
-                                peer_2_pox_cycle = true;
-                            }
-                            if stats.target_block_reward_cycle == 0 && peer_2_block_cycle_start {
-                                peer_2_block_cycle = true;
-                            }
-                        }
-                    }
-                    None => {}
-                }
-
-                round += 1;
-
-                test_debug!(
-                    "\n\ninv_1_count = {}, inv_2_count = {}, num_stable_blocks = {}\n\n",
-                    inv_1_count,
-                    inv_2_count,
-                    num_stable_blocks
-                );
-            }
-
-            info!("Completed walk round {} step(s)", round);
-
-            peer_1.dump_frontier();
-            peer_2.dump_frontier();
-
-            let peer_2_inv = peer_1
-                .network
-                .inv_state
-                .as_ref()
-                .unwrap()
-                .block_stats
-                .get(&peer_2.to_neighbor().addr)
-                .unwrap()
-                .inv
-                .clone();
-            test_debug!("peer 1's view of peer 2: {:?}", &peer_2_inv);
-
-            let peer_1_inv = peer_2
-                .network
-                .inv_state
-                .as_ref()
-                .unwrap()
-                .block_stats
-                .get(&peer_1.to_neighbor().addr)
-                .unwrap()
-                .inv
-                .clone();
-            test_debug!("peer 2's view of peer 1: {:?}", &peer_1_inv);
-
-            assert_eq!(peer_2_inv.num_sortitions, num_burn_blocks - stable_confs);
-            assert_eq!(peer_1_inv.num_sortitions, num_burn_blocks - stable_confs);
-
-            // only 8 reward cycles -- we couldn't agree on the 9th
-            assert_eq!(peer_1_inv.pox_inv, vec![255]);
-            assert_eq!(peer_2_inv.pox_inv, vec![255]);
-
-            // peer 1 should have learned that peer 2 has all the blocks, up to the point of
-            // instability
-            for i in 0..(num_blocks - stable_confs) {
-                assert!(peer_2_inv.has_ith_block(i + first_stacks_block_height));
-                if i > 0 {
-                    assert!(peer_2_inv.has_ith_microblock_stream(i + first_stacks_block_height));
-                } else {
-                    assert!(!peer_2_inv.has_ith_microblock_stream(i + first_stacks_block_height));
-                }
-            }
-
-            for i in 0..(num_blocks - stable_confs) {
-                assert!(peer_1_inv.has_ith_block(i + first_stacks_block_height));
-            }
-
-            assert!(!peer_2_inv.has_ith_block(num_blocks - stable_confs));
-            assert!(!peer_2_inv.has_ith_microblock_stream(num_blocks - stable_confs));
-        })
-    }
+//    #[test]
+//    #[ignore]
+//    fn test_sync_inv_2_peers_unstable() {
+//        with_timeout(600, || {
+//            let mut peer_1_config =
+//                TestPeerConfig::new("test_sync_inv_2_peers_unstable", 31996, 41997);
+//            let mut peer_2_config =
+//                TestPeerConfig::new("test_sync_inv_2_peers_unstable", 31997, 41998);
+//
+//            let stable_confs = peer_1_config.burnchain.stable_confirmations as u64;
+//
+//            peer_1_config.add_neighbor(&peer_2_config.to_neighbor());
+//            peer_2_config.add_neighbor(&peer_1_config.to_neighbor());
+//
+//            let mut peer_1 = TestPeer::new(peer_1_config);
+//            let mut peer_2 = TestPeer::new(peer_2_config);
+//
+//            let num_blocks = (GETPOXINV_MAX_BITLEN * 2) as u64;
+//
+//            let first_stacks_block_height = {
+//                let sn = SortitionDB::get_canonical_burn_chain_tip(
+//                    &peer_1.sortdb.as_ref().unwrap().conn(),
+//                )
+//                .unwrap();
+//                sn.block_height + 1
+//            };
+//
+//            // only peer 2 makes progress after the point of stability.
+//            for i in 0..num_blocks {
+//                let (mut burn_ops, stacks_block, microblocks) = peer_2.make_default_tenure();
+//
+//                let (_, burn_header_hash, consensus_hash) =
+//                    peer_2.next_burnchain_block(burn_ops.clone());
+//                peer_2.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+//
+//                TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
+//
+//                // NOTE: the nodes only differ by one block -- they agree on the same PoX vector
+//                if i + 1 < num_blocks {
+//                    peer_1.next_burnchain_block_raw(burn_ops.clone());
+//                    peer_1.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+//                } else {
+//                    // peer 1 diverges
+//                    test_debug!("Peer 1 diverges at {}", i + first_stacks_block_height);
+//                    peer_1.next_burnchain_block(vec![]);
+//                }
+//            }
+//
+//            // tips must differ
+//            {
+//                let sn1 = SortitionDB::get_canonical_burn_chain_tip(
+//                    peer_1.sortdb.as_ref().unwrap().conn(),
+//                )
+//                .unwrap();
+//                let sn2 = SortitionDB::get_canonical_burn_chain_tip(
+//                    peer_2.sortdb.as_ref().unwrap().conn(),
+//                )
+//                .unwrap();
+//                assert_ne!(sn1.burn_header_hash, sn2.burn_header_hash);
+//            }
+//
+//            let num_stable_blocks = num_blocks - stable_confs;
+//
+//            let num_burn_blocks = {
+//                let sn = SortitionDB::get_canonical_burn_chain_tip(
+//                    peer_1.sortdb.as_ref().unwrap().conn(),
+//                )
+//                .unwrap();
+//                sn.block_height + 1
+//            };
+//
+//            let mut round = 0;
+//            let mut inv_1_count = 0;
+//            let mut inv_2_count = 0;
+//
+//            let mut peer_1_pox_cycle_start = false;
+//            let mut peer_1_block_cycle_start = false;
+//            let mut peer_2_pox_cycle_start = false;
+//            let mut peer_2_block_cycle_start = false;
+//
+//            let mut peer_1_pox_cycle = false;
+//            let mut peer_1_block_cycle = false;
+//            let mut peer_2_pox_cycle = false;
+//            let mut peer_2_block_cycle = false;
+//
+//            while inv_1_count < num_stable_blocks || inv_2_count < num_stable_blocks {
+//                let _ = peer_1.step();
+//                let _ = peer_2.step();
+//
+//                inv_1_count = match peer_1.network.inv_state {
+//                    Some(ref inv) => inv.get_inv_num_blocks(&peer_2.to_neighbor().addr),
+//                    None => 0,
+//                };
+//
+//                inv_2_count = match peer_2.network.inv_state {
+//                    Some(ref inv) => inv.get_inv_num_blocks(&peer_1.to_neighbor().addr),
+//                    None => 0,
+//                };
+//
+//                match peer_1.network.inv_state {
+//                    Some(ref inv) => {
+//                        info!("Peer 1 stats: {:?}", &inv.block_stats);
+//                        assert_eq!(inv.get_broken_peers().len(), 0);
+//                        assert_eq!(inv.get_dead_peers().len(), 0);
+//                        assert_eq!(inv.get_diverged_peers().len(), 0);
+//
+//                        if let Some(stats) = inv.get_stats(&peer_2.to_neighbor().addr) {
+//                            if stats.target_pox_reward_cycle > 0 {
+//                                peer_1_pox_cycle_start = true;
+//                            }
+//                            if stats.target_block_reward_cycle > 0 {
+//                                peer_1_block_cycle_start = true;
+//                            }
+//                            if stats.target_pox_reward_cycle == 0 && peer_1_pox_cycle_start {
+//                                peer_1_pox_cycle = true;
+//                            }
+//                            if stats.target_block_reward_cycle == 0 && peer_1_block_cycle_start {
+//                                peer_1_block_cycle = true;
+//                            }
+//                        }
+//                    }
+//                    None => {}
+//                }
+//
+//                match peer_2.network.inv_state {
+//                    Some(ref inv) => {
+//                        info!("Peer 2 stats: {:?}", &inv.block_stats);
+//                        assert_eq!(inv.get_broken_peers().len(), 0);
+//                        assert_eq!(inv.get_dead_peers().len(), 0);
+//                        assert_eq!(inv.get_diverged_peers().len(), 0);
+//
+//                        if let Some(stats) = inv.get_stats(&peer_1.to_neighbor().addr) {
+//                            if stats.target_pox_reward_cycle > 0 {
+//                                peer_2_pox_cycle_start = true;
+//                            }
+//                            if stats.target_block_reward_cycle > 0 {
+//                                peer_2_block_cycle_start = true;
+//                            }
+//                            if stats.target_pox_reward_cycle == 0 && peer_2_pox_cycle_start {
+//                                peer_2_pox_cycle = true;
+//                            }
+//                            if stats.target_block_reward_cycle == 0 && peer_2_block_cycle_start {
+//                                peer_2_block_cycle = true;
+//                            }
+//                        }
+//                    }
+//                    None => {}
+//                }
+//
+//                round += 1;
+//
+//                test_debug!(
+//                    "\n\ninv_1_count = {}, inv_2_count = {}, num_stable_blocks = {}\n\n",
+//                    inv_1_count,
+//                    inv_2_count,
+//                    num_stable_blocks
+//                );
+//            }
+//
+//            info!("Completed walk round {} step(s)", round);
+//
+//            peer_1.dump_frontier();
+//            peer_2.dump_frontier();
+//
+//            let peer_2_inv = peer_1
+//                .network
+//                .inv_state
+//                .as_ref()
+//                .unwrap()
+//                .block_stats
+//                .get(&peer_2.to_neighbor().addr)
+//                .unwrap()
+//                .inv
+//                .clone();
+//            test_debug!("peer 1's view of peer 2: {:?}", &peer_2_inv);
+//
+//            let peer_1_inv = peer_2
+//                .network
+//                .inv_state
+//                .as_ref()
+//                .unwrap()
+//                .block_stats
+//                .get(&peer_1.to_neighbor().addr)
+//                .unwrap()
+//                .inv
+//                .clone();
+//            test_debug!("peer 2's view of peer 1: {:?}", &peer_1_inv);
+//
+//            assert_eq!(peer_2_inv.num_sortitions, num_burn_blocks - stable_confs);
+//            assert_eq!(peer_1_inv.num_sortitions, num_burn_blocks - stable_confs);
+//
+//            // only 8 reward cycles -- we couldn't agree on the 9th
+//            assert_eq!(peer_1_inv.pox_inv, vec![255]);
+//            assert_eq!(peer_2_inv.pox_inv, vec![255]);
+//
+//            // peer 1 should have learned that peer 2 has all the blocks, up to the point of
+//            // instability
+//            for i in 0..(num_blocks - stable_confs) {
+//                assert!(peer_2_inv.has_ith_block(i + first_stacks_block_height));
+//                if i > 0 {
+//                    assert!(peer_2_inv.has_ith_microblock_stream(i + first_stacks_block_height));
+//                } else {
+//                    assert!(!peer_2_inv.has_ith_microblock_stream(i + first_stacks_block_height));
+//                }
+//            }
+//
+//            for i in 0..(num_blocks - stable_confs) {
+//                assert!(peer_1_inv.has_ith_block(i + first_stacks_block_height));
+//            }
+//
+//            assert!(!peer_2_inv.has_ith_block(num_blocks - stable_confs));
+//            assert!(!peer_2_inv.has_ith_microblock_stream(num_blocks - stable_confs));
+//        })
+//    }
 
     // #[test]
     // #[ignore]

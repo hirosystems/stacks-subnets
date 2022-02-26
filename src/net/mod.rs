@@ -85,7 +85,6 @@ use chainstate::stacks::StacksBlockHeader;
 use crate::codec::BURNCHAIN_HEADER_HASH_ENCODED_SIZE;
 use crate::cost_estimates::FeeRateEstimate;
 use crate::types::chainstate::BlockHeaderHash;
-use crate::types::chainstate::PoxId;
 use crate::types::chainstate::{BurnchainHeaderHash, StacksAddress, StacksBlockId};
 use crate::types::StacksPublicKeyBuffer;
 use crate::util::hash::Sha256Sum;
@@ -1823,7 +1822,6 @@ pub const DENY_MIN_BAN_DURATION: u64 = 2;
 
 /// Result of doing network work
 pub struct NetworkResult {
-    pub download_pox_id: Option<PoxId>, // PoX ID as it was when we begin downloading blocks (set if we have downloaded new blocks)
     pub unhandled_messages: HashMap<NeighborKey, Vec<StacksMessage>>,
     pub blocks: Vec<(ConsensusHash, StacksBlock, u64)>, // blocks we downloaded, and time taken
     pub confirmed_microblocks: Vec<(ConsensusHash, Vec<StacksMicroblock>, u64)>, // confiremd microblocks we downloaded, and time taken
@@ -1848,7 +1846,6 @@ impl NetworkResult {
     ) -> NetworkResult {
         NetworkResult {
             unhandled_messages: HashMap::new(),
-            download_pox_id: None,
             blocks: vec![],
             confirmed_microblocks: vec![],
             pushed_transactions: HashMap::new(),

@@ -79,7 +79,7 @@ use util::secp256k1::Secp256k1PublicKey;
 use util_lib::db::DBConn;
 use util_lib::db::Error as db_error;
 
-use crate::types::chainstate::{BlockHeaderHash, PoxId, SortitionId};
+use crate::types::chainstate::{BlockHeaderHash, SortitionId};
 use burnchains::MaxBlocksInventoryRequest;
 
 #[cfg(not(test))]
@@ -195,7 +195,6 @@ pub enum BlockDownloaderState {
 #[derive(Debug)]
 pub struct BlockDownloader {
     state: BlockDownloaderState,
-    pox_id: PoxId,
 
     /// Sortition height at which to attempt to fetch blocks
     block_sortition_height: u64,
@@ -260,7 +259,6 @@ impl BlockDownloader {
     ) -> BlockDownloader {
         BlockDownloader {
             state: BlockDownloaderState::DNSLookupBegin,
-            pox_id: PoxId::initial(),
 
             block_sortition_height: 0,
             microblock_sortition_height: 0,
@@ -332,14 +330,12 @@ impl BlockDownloader {
 
     pub fn dns_lookups_begin(
         &mut self,
-        pox_id: &PoxId,
         dns_client: &mut DNSClient,
         mut urls: Vec<UrlString>,
     ) -> Result<(), net_error> {
         assert_eq!(self.state, BlockDownloaderState::DNSLookupBegin);
 
         // optimistic concurrency control: remember the current PoX Id
-        self.pox_id = pox_id.clone();
         self.dns_lookups.clear();
         for url_str in urls.drain(..) {
             if url_str.len() == 0 {
@@ -1884,7 +1880,7 @@ impl PeerNetwork {
                 urls.push(url);
             }
 
-            downloader.dns_lookups_begin(&network.pox_id, dns_client, urls)
+            downloader.dns_lookups_begin(dns_client, urls)
         })
     }
 
@@ -2117,7 +2113,6 @@ impl PeerNetwork {
         (
             bool,
             bool,
-            Option<PoxId>,
             Vec<(ConsensusHash, StacksBlock, u64)>,
             Vec<(ConsensusHash, Vec<StacksMicroblock>, u64)>,
         ),
@@ -2127,7 +2122,6 @@ impl PeerNetwork {
         let mut microblocks = vec![];
         let mut done = false;
         let mut at_chain_tip = false;
-        let mut old_pox_id = None;
 
         let now = get_epoch_time_secs();
 
@@ -2310,9 +2304,6 @@ impl PeerNetwork {
 
                     at_chain_tip = true;
                 }
-
-                // propagate PoX ID as it was when we started
-                old_pox_id = Some(downloader.pox_id.clone());
             } else {
                 // still have different URLs to try for failed blocks.
                 done = false;
@@ -2355,7 +2346,7 @@ impl PeerNetwork {
                 downloader.state = BlockDownloaderState::GetBlocksBegin;
             }
 
-            Ok((done, at_chain_tip, old_pox_id, blocks, microblocks))
+            Ok((done, at_chain_tip, blocks, microblocks))
         })
     }
 
@@ -2394,7 +2385,6 @@ impl PeerNetwork {
         (
             bool,
             bool,
-            Option<PoxId>,
             Vec<(ConsensusHash, StacksBlock, u64)>,
             Vec<(ConsensusHash, Vec<StacksMicroblock>, u64)>,
             Vec<usize>,
@@ -2448,7 +2438,7 @@ impl PeerNetwork {
                             &self.local_peer,
                             downloader.finished_scan_at + downloader.download_interval
                         );
-                        return Ok((true, true, None, vec![], vec![], vec![], vec![]));
+                        return Ok((true, true, vec![], vec![], vec![], vec![]));
                     } else {
                         // start a rescan -- we've waited long enough
                         debug!(
@@ -2473,7 +2463,6 @@ impl PeerNetwork {
 
         let mut blocks = vec![];
         let mut microblocks = vec![];
-        let mut old_pox_id = None;
 
         let mut done_cycle = false;
         while !done_cycle {
@@ -2505,12 +2494,10 @@ impl PeerNetwork {
                     let (
                         blocks_done,
                         full_pass,
-                        downloader_pox_id,
                         mut successful_blocks,
                         mut successful_microblocks,
                     ) = self.finish_downloads(sortdb, chainstate)?;
 
-                    old_pox_id = downloader_pox_id;
                     blocks.append(&mut successful_blocks);
                     microblocks.append(&mut successful_microblocks);
                     done = blocks_done;
@@ -2543,7 +2530,6 @@ impl PeerNetwork {
         Ok((
             done,
             at_chain_tip,
-            old_pox_id,
             blocks,
             microblocks,
             broken_http_peers,

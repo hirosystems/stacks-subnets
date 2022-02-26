@@ -53,7 +53,7 @@ use vm::{
 
 use crate::cost_estimates::{CostEstimator, FeeEstimator, PessimisticEstimator};
 use crate::types::chainstate::{
-    BlockHeaderHash, BurnchainHeaderHash, PoxId, SortitionId, StacksAddress, StacksBlockId,
+    BlockHeaderHash, BurnchainHeaderHash, SortitionId, StacksAddress, StacksBlockId,
 };
 use vm::database::BurnStateDB;
 
@@ -114,7 +114,6 @@ pub struct ChainsCoordinator<
 > {
     canonical_sortition_tip: Option<SortitionId>,
     canonical_chain_tip: Option<StacksBlockId>,
-    canonical_pox_id: Option<PoxId>,
     burnchain_blocks_db: BurnchainDB,
     chain_state_db: StacksChainState,
     sortition_db: SortitionDB,
@@ -190,7 +189,6 @@ impl<'a, T: BlockEventDispatcher, CE: CostEstimator + ?Sized, FE: FeeEstimator +
         let mut inst = ChainsCoordinator {
             canonical_chain_tip: None,
             canonical_sortition_tip: Some(canonical_sortition_tip),
-            canonical_pox_id: None,
             burnchain_blocks_db,
             chain_state_db,
             sortition_db,
@@ -273,7 +271,6 @@ impl<'a, T: BlockEventDispatcher> ChainsCoordinator<'a, T, (), (), ()> {
         ChainsCoordinator {
             canonical_chain_tip: None,
             canonical_sortition_tip: Some(canonical_sortition_tip),
-            canonical_pox_id: None,
             burnchain_blocks_db,
             chain_state_db,
             sortition_db,
