@@ -712,21 +712,6 @@ pub struct BlocksInvData {
     pub microblocks_bitvec: Vec<u8>, // bitmap of which confirmed micrblocks the peer has, in sortition order.  microblocks_bitvec[i] & (1 << j) != 0 means that this peer has the microblocks produced by sortition 8*i + j
 }
 
-/// Request for a PoX bitvector range.
-/// Requests bits for [start_reward_cycle, start_reward_cycle + num_anchor_blocks)
-#[derive(Debug, Clone, PartialEq)]
-pub struct GetPoxInv {
-    pub consensus_hash: ConsensusHash,
-    pub num_cycles: u16, // how many bits to expect
-}
-
-/// Response to a GetPoxInv request
-#[derive(Debug, Clone, PartialEq)]
-pub struct PoxInvData {
-    pub bitlen: u16,         // number of bits represented
-    pub pox_bitvec: Vec<u8>, // a bit will be '1' if the node knows for sure the status of its reward cycle's anchor block; 0 if not.
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlocksDatum(pub ConsensusHash, pub StacksBlock);
 
@@ -1023,50 +1008,6 @@ pub struct RPCPeerInfoData {
     pub unanchored_tip: Option<StacksBlockId>,
     pub unanchored_seq: Option<u16>,
     pub exit_at_block_height: Option<u64>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RPCPoxCurrentCycleInfo {
-    pub id: u64,
-    pub min_threshold_ustx: u64,
-    pub stacked_ustx: u64,
-    pub is_pox_active: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RPCPoxNextCycleInfo {
-    pub id: u64,
-    pub min_threshold_ustx: u64,
-    pub min_increment_ustx: u64,
-    pub stacked_ustx: u64,
-    pub prepare_phase_start_block_height: u64,
-    pub blocks_until_prepare_phase: i64,
-    pub reward_phase_start_block_height: u64,
-    pub blocks_until_reward_phase: u64,
-    pub ustx_until_pox_rejection: u64,
-}
-
-/// The data we return on GET /v2/pox
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RPCPoxInfoData {
-    pub contract_id: String,
-    pub pox_activation_threshold_ustx: u64,
-    pub first_burnchain_block_height: u64,
-    pub prepare_phase_block_length: u64,
-    pub reward_phase_block_length: u64,
-    pub reward_slots: u64,
-    pub rejection_fraction: u64,
-    pub total_liquid_supply_ustx: u64,
-    pub current_cycle: RPCPoxCurrentCycleInfo,
-    pub next_cycle: RPCPoxNextCycleInfo,
-
-    // below are included for backwards-compatibility
-    pub min_amount_ustx: u64,
-    pub prepare_cycle_length: u64,
-    pub reward_cycle_id: u64,
-    pub reward_cycle_length: u64,
-    pub rejection_votes_left_required: u64,
-    pub next_reward_cycle_in: u64,
 }
 
 /// Headers response payload
