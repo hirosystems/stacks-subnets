@@ -238,9 +238,9 @@ pub fn setup_states(
                     "set-burnchain-parameters",
                     &[
                         Value::UInt(burnchain.first_block_height as u128),
-                        Value::UInt(burnchain.pox_constants.prepare_length as u128),
-                        Value::UInt(burnchain.pox_constants.reward_cycle_length as u128),
-                        Value::UInt(burnchain.pox_constants.pox_rejection_fraction as u128),
+                        Value::UInt(0u128),
+                        Value::UInt(0u128),
+                        Value::UInt(0u128),
                     ],
                     |_, _| false,
                 )
@@ -337,7 +337,7 @@ fn make_reward_set_coordinator<'a>(
 }
 
 pub fn get_burnchain(path: &str) -> Burnchain {
-Burnchain::regtest(&format!("{}/burnchain/db/", path));
+Burnchain::regtest(&format!("{}/burnchain/db/", path))
 
 }
 
@@ -565,7 +565,6 @@ fn make_stacks_block_with_input(
     my_burn: u64,
     vrf_key: &VRFPrivateKey,
     key_index: u32,
-    recipients: Option<&RewardSetInfo>,
     sunset_burn: u64,
     post_sunset_burn: bool,
     input: (Txid, u32),
@@ -628,23 +627,7 @@ fn make_stacks_block_with_input(
     let block = builder.mine_anchored_block(&mut epoch_tx);
     builder.epoch_finish(epoch_tx);
 
-    let commit_outs = if let Some(recipients) = recipients {
-        let mut commit_outs = recipients
-            .recipients
-            .iter()
-            .map(|(a, _)| a.clone())
-            .collect::<Vec<StacksAddress>>();
-        if commit_outs.len() == 1 {
-            // Padding with burn address if required
-            commit_outs.push(StacksAddress::burn_address(false))
-        }
-        commit_outs
-    } else if post_sunset_burn || burnchain.is_in_prepare_phase(parent_height + 1) {
-        test_debug!("block-commit in {} will burn", parent_height + 1);
-        vec![StacksAddress::burn_address(false)]
-    } else {
-        vec![]
-    };
+    let commit_outs = vec![];
 
     let commit_op = LeaderBlockCommitOp {
         block_header_hash: block.block_hash(),

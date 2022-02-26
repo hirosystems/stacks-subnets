@@ -208,56 +208,8 @@ pub trait RewardSetProvider {
     ) -> Result<Vec<StacksAddress>, Error>;
 }
 
-pub struct OnChainRewardSetProvider();
-
-impl RewardSetProvider for OnChainRewardSetProvider {
-    fn get_reward_set(
-        &self,
-        current_burn_height: u64,
-        chainstate: &mut StacksChainState,
-        burnchain: &Burnchain,
-        sortdb: &SortitionDB,
-        block_id: &StacksBlockId,
-    ) -> Result<Vec<StacksAddress>, Error> {
-        let registered_addrs =
-            chainstate.get_reward_addresses(burnchain, sortdb, current_burn_height, block_id)?;
-
-        let liquid_ustx = chainstate.get_liquid_ustx(block_id);
-
-        let (threshold, participation) = StacksChainState::get_reward_threshold_and_participation(
-            &burnchain.pox_constants,
-            &registered_addrs,
-            liquid_ustx,
-        );
-
-        if !burnchain
-            .pox_constants
-            .enough_participation(participation, liquid_ustx)
-        {
-            info!("PoX reward cycle did not have enough participation. Defaulting to burn";
-                  "burn_height" => current_burn_height,
-                  "participation" => participation,
-                  "liquid_ustx" => liquid_ustx,
-                  "registered_addrs" => registered_addrs.len());
-            return Ok(vec![]);
-        } else {
-            info!("PoX reward cycle threshold computed";
-                  "burn_height" => current_burn_height,
-                  "threshold" => threshold,
-                  "participation" => participation,
-                  "liquid_ustx" => liquid_ustx,
-                  "registered_addrs" => registered_addrs.len());
-        }
-
-        Ok(StacksChainState::make_reward_set(
-            threshold,
-            registered_addrs,
-        ))
-    }
-}
-
 impl<'a, T: BlockEventDispatcher, CE: CostEstimator + ?Sized, FE: FeeEstimator + ?Sized>
-    ChainsCoordinator<'a, T, ArcCounterCoordinatorNotices, OnChainRewardSetProvider, CE, FE>
+    ChainsCoordinator<'a, T, ArcCounterCoordinatorNotices, CE, FE>
 {
     pub fn run(
         chain_state_db: StacksChainState,

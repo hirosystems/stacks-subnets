@@ -2746,32 +2746,9 @@ mod test {
                     }
                 },
                 |num_blocks, ref mut peers| {
-                    let tip = SortitionDB::get_canonical_burn_chain_tip(
-                        &peers[0].sortdb.as_ref().unwrap().conn(),
-                    )
-                    .unwrap();
-                    let this_reward_cycle = peers[0]
-                        .config
-                        .burnchain
-                        .block_height_to_reward_cycle(tip.block_height)
-                        .unwrap();
-
                     // build up block data to replicate
                     let mut block_data = vec![];
                     for _ in 0..num_blocks {
-                        let tip = SortitionDB::get_canonical_burn_chain_tip(
-                            &peers[0].sortdb.as_ref().unwrap().conn(),
-                        )
-                        .unwrap();
-                        if peers[0]
-                            .config
-                            .burnchain
-                            .block_height_to_reward_cycle(tip.block_height)
-                            .unwrap()
-                            != this_reward_cycle
-                        {
-                            continue;
-                        }
                         let (mut burn_ops, stacks_block, microblocks) =
                             peers[0].make_default_tenure();
 

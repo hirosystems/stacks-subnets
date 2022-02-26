@@ -2686,7 +2686,7 @@ impl PeerNetwork {
         local_blocks_inv: &BlocksInvData,
         block_stats: &NeighborBlockStats,
     ) -> Result<Option<(ConsensusHash, BlockHeaderHash, Vec<StacksMicroblock>)>, net_error> {
-        let start_block_height = self.burnchain.reward_cycle_to_block_height(reward_cycle);
+        let start_block_height:u128 = assert_eq!(0,1);
         if !local_blocks_inv.has_ith_microblock_stream((height - start_block_height) as u16) {
             return Ok(None);
         }
@@ -2885,7 +2885,7 @@ impl PeerNetwork {
             let mut blocks_to_broadcast = HashMap::new();
             let mut microblocks_to_broadcast = HashMap::new();
 
-            let start_block_height = self.burnchain.reward_cycle_to_block_height(reward_cycle);
+            let start_block_height:u128 = assert_eq!(0,1);
             let highest_snapshot = self.burnchain_tip.clone();
             for nk in neighbor_keys.iter() {
                 if total_blocks_to_broadcast >= self.connection_opts.max_block_push
@@ -2899,10 +2899,9 @@ impl PeerNetwork {
                         let mut local_blocks = vec![];
                         let mut local_microblocks = vec![];
 
+                        let end_height:u128 = assert_eq!(0,1);
                         for height in start_block_height
-                            ..network
-                                .burnchain
-                                .reward_cycle_to_block_height(reward_cycle + 1)
+                            ..end_height
                         {
                             if total_blocks_to_broadcast < network.connection_opts.max_block_push
                                 && local_blocks.len() < BLOCKS_PUSHED_MAX as usize
@@ -5390,7 +5389,6 @@ mod test {
         .unwrap();
 
         let burnchain = Burnchain {
-            pox_constants: PoxConstants::test_default(),
             peer_version: 0x012345678,
             network_id: 0x9abcdef0,
             chain_name: "bitcoin".to_string(),

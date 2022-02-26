@@ -2078,12 +2078,6 @@ impl SortitionDB {
         Ok(Some(snapshot))
     }
 
-    /// Get the PoX ID at the particular sortition_tip
-    pub fn get_pox_id(&mut self, sortition_tip: &SortitionId) -> Result<PoxId, BurnchainError> {
-        let handle = self.index_handle(sortition_tip);
-        handle.get_pox_id().map_err(BurnchainError::from)
-    }
-
     pub fn get_sortition_result(
         &self,
         id: &SortitionId,
@@ -2140,17 +2134,8 @@ impl SortitionDB {
             .sortition_hash
             .mix_burn_header(&parent_snapshot.burn_header_hash);
 
-        let reward_set_info = if burn_header.block_height >= burnchain.pox_constants.sunset_end {
-            None
-        } else {
-            sortition_db_handle.pick_recipients(
-                burnchain,
-                burn_header.block_height,
-                &reward_set_vrf_hash,
-                next_pox_info.as_ref(),
-            )?
-        };
-
+        let reward_set_info = None;
+        //
         // Get any initial mining bonus which would be due to the winner of this block.
         let bonus_remaining =
             sortition_db_handle.get_initial_mining_bonus_remaining(&parent_sort_id)?;
@@ -2190,30 +2175,6 @@ impl SortitionDB {
     ) -> Result<Option<RewardSetInfo>, BurnchainError> {
         let parent_snapshot = SortitionDB::get_canonical_burn_chain_tip(self.conn())?;
         self.get_next_block_recipients(burnchain, &parent_snapshot, next_pox_info)
-    }
-
-    pub fn get_next_block_recipients(
-        &mut self,
-        burnchain: &Burnchain,
-        parent_snapshot: &BlockSnapshot,
-        next_pox_info: Option<&RewardCycleInfo>,
-    ) -> Result<Option<RewardSetInfo>, BurnchainError> {
-        let reward_set_vrf_hash = parent_snapshot
-            .sortition_hash
-            .mix_burn_header(&parent_snapshot.burn_header_hash);
-
-        let mut sortition_db_handle =
-            SortitionHandleTx::begin(self, &parent_snapshot.sortition_id)?;
-        if parent_snapshot.block_height + 1 >= burnchain.pox_constants.sunset_end {
-            Ok(None)
-        } else {
-            sortition_db_handle.pick_recipients(
-                burnchain,
-                parent_snapshot.block_height + 1,
-                &reward_set_vrf_hash,
-                next_pox_info,
-            )
-        }
     }
 
     pub fn is_stacks_block_in_sortition_set(
