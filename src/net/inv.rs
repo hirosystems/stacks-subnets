@@ -1160,18 +1160,7 @@ impl InvState {
 
     /// Invalidate all block inventories at and after a given reward cycle
     pub fn invalidate_block_inventories(&mut self, burnchain: &Burnchain, reward_cycle: u64) {
-        for (nk, stats) in self.block_stats.iter_mut() {
-            debug!("Truncate PoX inventory for {:?} to {}", nk, reward_cycle);
-            let pox_dropped = stats.inv.truncate_pox_inventory(burnchain, reward_cycle);
-            let blocks_dropped = stats
-                .inv
-                .truncate_block_inventories(burnchain, reward_cycle);
-
-            if pox_dropped > 0 || blocks_dropped > 0 {
-                // re-start synchronization at this height
-                stats.reset_pox_scan(reward_cycle);
-            }
-        }
+        // DO NOT SUBMIT: what should this be?
     }
 }
 
