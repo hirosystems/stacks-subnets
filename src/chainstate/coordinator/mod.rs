@@ -413,67 +413,6 @@ pub fn get_next_recipients<U: RewardSetProvider>(
         .map_err(|e| Error::from(e))
 }
 
-/// returns None if this burnchain block is _not_ the start of a reward cycle
-///         otherwise, returns the required reward cycle info for this burnchain block
-///                     in our current sortition view:
-///           * PoX anchor block
-///           * Was PoX anchor block known?
-pub fn get_reward_cycle_info<U: RewardSetProvider>(
-    burn_height: u64,
-    parent_bhh: &BurnchainHeaderHash,
-    sortition_tip: &SortitionId,
-    burnchain: &Burnchain,
-    chain_state: &mut StacksChainState,
-    sort_db: &SortitionDB,
-    provider: &U,
-) -> Result<Option<RewardCycleInfo>, Error> {
-    if burnchain.is_reward_cycle_start(burn_height) {
-        if burn_height >= burnchain.pox_constants.sunset_end {
-            return Ok(Some(RewardCycleInfo {
-                anchor_status: PoxAnchorBlockStatus::NotSelected,
-            }));
-        }
-
-        debug!("Beginning reward cycle";
-              "burn_height" => burn_height,
-              "reward_cycle_length" => burnchain.pox_constants.reward_cycle_length,
-              "prepare_phase_length" => burnchain.pox_constants.prepare_length);
-
-        let reward_cycle_info = {
-            let ic = sort_db.index_handle(sortition_tip);
-            ic.get_chosen_pox_anchor(&parent_bhh, &burnchain.pox_constants)
-        }?;
-        if let Some((consensus_hash, stacks_block_hash)) = reward_cycle_info {
-            info!("Anchor block selected: {}", stacks_block_hash);
-            let anchor_block_known = StacksChainState::is_stacks_block_processed(
-                &chain_state.db(),
-                &consensus_hash,
-                &stacks_block_hash,
-            )?;
-            let anchor_status = if anchor_block_known {
-                let block_id = StacksBlockId::new(&consensus_hash, &stacks_block_hash);
-                let reward_set = provider.get_reward_set(
-                    burn_height,
-                    chain_state,
-                    burnchain,
-                    sort_db,
-                    &block_id,
-                )?;
-                PoxAnchorBlockStatus::SelectedAndKnown(stacks_block_hash, reward_set)
-            } else {
-                PoxAnchorBlockStatus::SelectedAndUnknown(stacks_block_hash)
-            };
-            Ok(Some(RewardCycleInfo { anchor_status }))
-        } else {
-            Ok(Some(RewardCycleInfo {
-                anchor_status: PoxAnchorBlockStatus::NotSelected,
-            }))
-        }
-    } else {
-        Ok(None)
-    }
-}
-
 struct PaidRewards {
     pox: Vec<(StacksAddress, u64)>,
     burns: u64,

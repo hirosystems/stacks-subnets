@@ -211,12 +211,6 @@ impl Burnchain {
         self.network_id == NETWORK_ID_MAINNET
     }
 
-    pub fn reward_cycle_to_block_height(&self, reward_cycle: u64) -> u64 {
-        // NOTE: the `+ 1` is because the height of the first block of a reward cycle is mod 1, not
-        // mod 0.
-        self.first_block_height + reward_cycle * (self.pox_constants.reward_cycle_length as u64) + 1
-    }
-
     pub fn regtest(working_dir: &str) -> Burnchain {
         let ret =
             Burnchain::new(working_dir, &"bitcoin".to_string(), &"regtest".to_string()).unwrap();

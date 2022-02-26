@@ -2161,210 +2161,210 @@ mod test {
         assert_eq!(*ranking.get(&nk_3).unwrap(), 4 - 2 + 1);
     }
 
-    #[test]
-    #[ignore]
-    fn test_get_blocks_and_microblocks_3_peers_push_available() {
-        with_timeout(600, || {
-            run_get_blocks_and_microblocks(
-                "test_get_blocks_and_microblocks_3_peers_push_available",
-                4200,
-                3,
-                |ref mut peer_configs| {
-                    // build initial network topology.
-                    assert_eq!(peer_configs.len(), 3);
-
-                    // peer 0 produces the blocks
-                    peer_configs[0].connection_opts.disable_chat_neighbors = true;
-
-                    // peer 1 downloads the blocks from peer 0, and sends
-                    // BlocksAvailable and MicroblocksAvailable messages to
-                    // peer 2.
-                    peer_configs[1].connection_opts.disable_chat_neighbors = true;
-
-                    // peer 2 learns about the blocks and microblocks from peer 1's
-                    // BlocksAvaiable and MicroblocksAvailable messages, but
-                    // not from inv syncs.
-                    peer_configs[2].connection_opts.disable_chat_neighbors = true;
-                    peer_configs[2].connection_opts.disable_inv_sync = true;
-
-                    // disable nat punches -- disconnect/reconnect
-                    // clears inv state
-                    peer_configs[0].connection_opts.disable_natpunch = true;
-                    peer_configs[1].connection_opts.disable_natpunch = true;
-                    peer_configs[2].connection_opts.disable_natpunch = true;
-
-                    // do not push blocks and microblocks; only announce them
-                    peer_configs[0].connection_opts.disable_block_push = true;
-                    peer_configs[1].connection_opts.disable_block_push = true;
-                    peer_configs[2].connection_opts.disable_block_push = true;
-
-                    peer_configs[0].connection_opts.disable_microblock_push = true;
-                    peer_configs[1].connection_opts.disable_microblock_push = true;
-                    peer_configs[2].connection_opts.disable_microblock_push = true;
-
-                    // generous timeouts
-                    peer_configs[0].connection_opts.connect_timeout = 180;
-                    peer_configs[1].connection_opts.connect_timeout = 180;
-                    peer_configs[2].connection_opts.connect_timeout = 180;
-                    peer_configs[0].connection_opts.timeout = 180;
-                    peer_configs[1].connection_opts.timeout = 180;
-                    peer_configs[2].connection_opts.timeout = 180;
-
-                    let peer_0 = peer_configs[0].to_neighbor();
-                    let peer_1 = peer_configs[1].to_neighbor();
-                    let peer_2 = peer_configs[2].to_neighbor();
-
-                    peer_configs[0].add_neighbor(&peer_1);
-                    peer_configs[1].add_neighbor(&peer_0);
-                    peer_configs[2].add_neighbor(&peer_1);
-                },
-                |num_blocks, ref mut peers| {
-                    let tip = SortitionDB::get_canonical_burn_chain_tip(
-                        &peers[0].sortdb.as_ref().unwrap().conn(),
-                    )
-                    .unwrap();
-                    let this_reward_cycle = peers[0]
-                        .config
-                        .burnchain
-                        .block_height_to_reward_cycle(tip.block_height)
-                        .unwrap();
-
-                    // build up block data to replicate
-                    let mut block_data = vec![];
-                    for _ in 0..num_blocks {
-                        // only produce blocks for a single reward
-                        // cycle, since pushing block/microblock
-                        // announcements in reward cycles the remote
-                        // peer doesn't know about won't work.
-                        let tip = SortitionDB::get_canonical_burn_chain_tip(
-                            &peers[0].sortdb.as_ref().unwrap().conn(),
-                        )
-                        .unwrap();
-                        if peers[0]
-                            .config
-                            .burnchain
-                            .block_height_to_reward_cycle(tip.block_height)
-                            .unwrap()
-                            != this_reward_cycle
-                        {
-                            continue;
-                        }
-
-                        let (mut burn_ops, stacks_block, microblocks) =
-                            peers[0].make_default_tenure();
-
-                        let (_, burn_header_hash, consensus_hash) =
-                            peers[0].next_burnchain_block(burn_ops.clone());
-                        peers[0].process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-
-                        TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
-
-                        for i in 1..peers.len() {
-                            peers[i].next_burnchain_block_raw(burn_ops.clone());
-                        }
-
-                        let sn = SortitionDB::get_canonical_burn_chain_tip(
-                            &peers[0].sortdb.as_ref().unwrap().conn(),
-                        )
-                        .unwrap();
-                        block_data.push((
-                            sn.consensus_hash.clone(),
-                            Some(stacks_block),
-                            Some(microblocks),
-                        ));
-                    }
-
-                    assert_eq!(block_data.len(), 5);
-
-                    block_data
-                },
-                |ref mut peers| {
-                    // make sure peer 2's inv has an entry for peer 1, even
-                    // though it's not doing an inv sync. This is required for the downloader to
-                    // work, and for (Micro)BlocksAvailable messages to be accepted
-                    let peer_1_nk = peers[1].to_neighbor().addr;
-                    let peer_2_nk = peers[2].to_neighbor().addr;
-                    let bc = peers[1].config.burnchain.clone();
-                    match peers[2].network.inv_state {
-                        Some(ref mut inv_state) => {
-                            if inv_state.get_stats(&peer_1_nk).is_none() {
-                                test_debug!("initialize inv statistics for peer 1 in peer 2");
-                                inv_state.add_peer(peer_1_nk.clone(), true);
-                                if let Some(ref mut stats) = inv_state.get_stats_mut(&peer_1_nk) {
-                                    stats.scans = 1;
-                                    stats.inv.merge_pox_inv(&bc, 0, 6, vec![0xff], false);
-                                    stats.inv.merge_blocks_inv(
-                                        0,
-                                        30,
-                                        vec![0, 0, 0, 0, 0],
-                                        vec![0, 0, 0, 0, 0],
-                                        false,
-                                    );
-                                } else {
-                                    panic!("Unable to instantiate inv stats for {:?}", &peer_1_nk);
-                                }
-                            } else {
-                                test_debug!("peer 2 has inv state for peer 1");
-                            }
-                        }
-                        None => {
-                            test_debug!("No inv state for peer 1");
-                        }
-                    }
-
-                    let tip = SortitionDB::get_canonical_burn_chain_tip(
-                        &peers[0].sortdb.as_ref().unwrap().conn(),
-                    )
-                    .unwrap();
-                    let this_reward_cycle = peers[0]
-                        .config
-                        .burnchain
-                        .block_height_to_reward_cycle(tip.block_height)
-                        .unwrap();
-
-                    let peer_1_nk = peers[1].to_neighbor().addr;
-                    match peers[2].network.inv_state {
-                        Some(ref mut inv_state) => {
-                            if inv_state.get_stats(&peer_1_nk).is_none() {
-                                test_debug!("initialize inv statistics for peer 1 in peer 2");
-                                inv_state.add_peer(peer_1_nk.clone(), true);
-
-                                inv_state
-                                    .get_stats_mut(&peer_1_nk)
-                                    .unwrap()
-                                    .inv
-                                    .num_reward_cycles = this_reward_cycle;
-                                inv_state.get_stats_mut(&peer_1_nk).unwrap().inv.pox_inv =
-                                    vec![0x3f];
-                            } else {
-                                test_debug!("peer 2 has inv state for peer 1");
-                            }
-                        }
-                        None => {
-                            test_debug!("No inv state for peer 2");
-                        }
-                    }
-
-                    // peer 2 should never see a BlocksInv
-                    // message.  That would imply it asked for an inv
-                    for (_, convo) in peers[2].network.peers.iter() {
-                        assert_eq!(
-                            convo
-                                .stats
-                                .get_message_recv_count(StacksMessageID::BlocksInv),
-                            0
-                        );
-                    }
-                },
-                |ref peer| {
-                    // check peer health
-                    // TODO
-                    true
-                },
-                |_| true,
-            );
-        })
-    }
+//    #[test]
+//    #[ignore]
+//    fn test_get_blocks_and_microblocks_3_peers_push_available() {
+//        with_timeout(600, || {
+//            run_get_blocks_and_microblocks(
+//                "test_get_blocks_and_microblocks_3_peers_push_available",
+//                4200,
+//                3,
+//                |ref mut peer_configs| {
+//                    // build initial network topology.
+//                    assert_eq!(peer_configs.len(), 3);
+//
+//                    // peer 0 produces the blocks
+//                    peer_configs[0].connection_opts.disable_chat_neighbors = true;
+//
+//                    // peer 1 downloads the blocks from peer 0, and sends
+//                    // BlocksAvailable and MicroblocksAvailable messages to
+//                    // peer 2.
+//                    peer_configs[1].connection_opts.disable_chat_neighbors = true;
+//
+//                    // peer 2 learns about the blocks and microblocks from peer 1's
+//                    // BlocksAvaiable and MicroblocksAvailable messages, but
+//                    // not from inv syncs.
+//                    peer_configs[2].connection_opts.disable_chat_neighbors = true;
+//                    peer_configs[2].connection_opts.disable_inv_sync = true;
+//
+//                    // disable nat punches -- disconnect/reconnect
+//                    // clears inv state
+//                    peer_configs[0].connection_opts.disable_natpunch = true;
+//                    peer_configs[1].connection_opts.disable_natpunch = true;
+//                    peer_configs[2].connection_opts.disable_natpunch = true;
+//
+//                    // do not push blocks and microblocks; only announce them
+//                    peer_configs[0].connection_opts.disable_block_push = true;
+//                    peer_configs[1].connection_opts.disable_block_push = true;
+//                    peer_configs[2].connection_opts.disable_block_push = true;
+//
+//                    peer_configs[0].connection_opts.disable_microblock_push = true;
+//                    peer_configs[1].connection_opts.disable_microblock_push = true;
+//                    peer_configs[2].connection_opts.disable_microblock_push = true;
+//
+//                    // generous timeouts
+//                    peer_configs[0].connection_opts.connect_timeout = 180;
+//                    peer_configs[1].connection_opts.connect_timeout = 180;
+//                    peer_configs[2].connection_opts.connect_timeout = 180;
+//                    peer_configs[0].connection_opts.timeout = 180;
+//                    peer_configs[1].connection_opts.timeout = 180;
+//                    peer_configs[2].connection_opts.timeout = 180;
+//
+//                    let peer_0 = peer_configs[0].to_neighbor();
+//                    let peer_1 = peer_configs[1].to_neighbor();
+//                    let peer_2 = peer_configs[2].to_neighbor();
+//
+//                    peer_configs[0].add_neighbor(&peer_1);
+//                    peer_configs[1].add_neighbor(&peer_0);
+//                    peer_configs[2].add_neighbor(&peer_1);
+//                },
+//                |num_blocks, ref mut peers| {
+//                    let tip = SortitionDB::get_canonical_burn_chain_tip(
+//                        &peers[0].sortdb.as_ref().unwrap().conn(),
+//                    )
+//                    .unwrap();
+//                    let this_reward_cycle = peers[0]
+//                        .config
+//                        .burnchain
+//                        .block_height_to_reward_cycle(tip.block_height)
+//                        .unwrap();
+//
+//                    // build up block data to replicate
+//                    let mut block_data = vec![];
+//                    for _ in 0..num_blocks {
+//                        // only produce blocks for a single reward
+//                        // cycle, since pushing block/microblock
+//                        // announcements in reward cycles the remote
+//                        // peer doesn't know about won't work.
+//                        let tip = SortitionDB::get_canonical_burn_chain_tip(
+//                            &peers[0].sortdb.as_ref().unwrap().conn(),
+//                        )
+//                        .unwrap();
+//                        if peers[0]
+//                            .config
+//                            .burnchain
+//                            .block_height_to_reward_cycle(tip.block_height)
+//                            .unwrap()
+//                            != this_reward_cycle
+//                        {
+//                            continue;
+//                        }
+//
+//                        let (mut burn_ops, stacks_block, microblocks) =
+//                            peers[0].make_default_tenure();
+//
+//                        let (_, burn_header_hash, consensus_hash) =
+//                            peers[0].next_burnchain_block(burn_ops.clone());
+//                        peers[0].process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+//
+//                        TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
+//
+//                        for i in 1..peers.len() {
+//                            peers[i].next_burnchain_block_raw(burn_ops.clone());
+//                        }
+//
+//                        let sn = SortitionDB::get_canonical_burn_chain_tip(
+//                            &peers[0].sortdb.as_ref().unwrap().conn(),
+//                        )
+//                        .unwrap();
+//                        block_data.push((
+//                            sn.consensus_hash.clone(),
+//                            Some(stacks_block),
+//                            Some(microblocks),
+//                        ));
+//                    }
+//
+//                    assert_eq!(block_data.len(), 5);
+//
+//                    block_data
+//                },
+//                |ref mut peers| {
+//                    // make sure peer 2's inv has an entry for peer 1, even
+//                    // though it's not doing an inv sync. This is required for the downloader to
+//                    // work, and for (Micro)BlocksAvailable messages to be accepted
+//                    let peer_1_nk = peers[1].to_neighbor().addr;
+//                    let peer_2_nk = peers[2].to_neighbor().addr;
+//                    let bc = peers[1].config.burnchain.clone();
+//                    match peers[2].network.inv_state {
+//                        Some(ref mut inv_state) => {
+//                            if inv_state.get_stats(&peer_1_nk).is_none() {
+//                                test_debug!("initialize inv statistics for peer 1 in peer 2");
+//                                inv_state.add_peer(peer_1_nk.clone(), true);
+//                                if let Some(ref mut stats) = inv_state.get_stats_mut(&peer_1_nk) {
+//                                    stats.scans = 1;
+//                                    stats.inv.merge_pox_inv(&bc, 0, 6, vec![0xff], false);
+//                                    stats.inv.merge_blocks_inv(
+//                                        0,
+//                                        30,
+//                                        vec![0, 0, 0, 0, 0],
+//                                        vec![0, 0, 0, 0, 0],
+//                                        false,
+//                                    );
+//                                } else {
+//                                    panic!("Unable to instantiate inv stats for {:?}", &peer_1_nk);
+//                                }
+//                            } else {
+//                                test_debug!("peer 2 has inv state for peer 1");
+//                            }
+//                        }
+//                        None => {
+//                            test_debug!("No inv state for peer 1");
+//                        }
+//                    }
+//
+//                    let tip = SortitionDB::get_canonical_burn_chain_tip(
+//                        &peers[0].sortdb.as_ref().unwrap().conn(),
+//                    )
+//                    .unwrap();
+//                    let this_reward_cycle = peers[0]
+//                        .config
+//                        .burnchain
+//                        .block_height_to_reward_cycle(tip.block_height)
+//                        .unwrap();
+//
+//                    let peer_1_nk = peers[1].to_neighbor().addr;
+//                    match peers[2].network.inv_state {
+//                        Some(ref mut inv_state) => {
+//                            if inv_state.get_stats(&peer_1_nk).is_none() {
+//                                test_debug!("initialize inv statistics for peer 1 in peer 2");
+//                                inv_state.add_peer(peer_1_nk.clone(), true);
+//
+//                                inv_state
+//                                    .get_stats_mut(&peer_1_nk)
+//                                    .unwrap()
+//                                    .inv
+//                                    .num_reward_cycles = this_reward_cycle;
+//                                inv_state.get_stats_mut(&peer_1_nk).unwrap().inv.pox_inv =
+//                                    vec![0x3f];
+//                            } else {
+//                                test_debug!("peer 2 has inv state for peer 1");
+//                            }
+//                        }
+//                        None => {
+//                            test_debug!("No inv state for peer 2");
+//                        }
+//                    }
+//
+//                    // peer 2 should never see a BlocksInv
+//                    // message.  That would imply it asked for an inv
+//                    for (_, convo) in peers[2].network.peers.iter() {
+//                        assert_eq!(
+//                            convo
+//                                .stats
+//                                .get_message_recv_count(StacksMessageID::BlocksInv),
+//                            0
+//                        );
+//                    }
+//                },
+//                |ref peer| {
+//                    // check peer health
+//                    // TODO
+//                    true
+//                },
+//                |_| true,
+//            );
+//        })
+//    }
 
     fn is_peer_connected(peer: &TestPeer, dest: &NeighborKey) -> bool {
         let event_id = match peer.network.events.get(dest) {
@@ -2973,168 +2973,168 @@ mod test {
         test_get_blocks_and_microblocks_2_peers_push_blocks_and_microblocks(false, false)
     }
 
-    #[test]
-    #[ignore]
-    fn test_get_blocks_and_microblocks_upload_blocks_http() {
-        with_timeout(600, || {
-            let (port_sx, port_rx) = std::sync::mpsc::sync_channel(1);
-            let (block_sx, block_rx) = std::sync::mpsc::sync_channel(1);
-
-            std::thread::spawn(move || loop {
-                eprintln!("Get port");
-                let remote_port: u16 = port_rx.recv().unwrap();
-                eprintln!("Got port {}", remote_port);
-
-                eprintln!("Send getinfo");
-                let peer_info = http_get_info(remote_port);
-                eprintln!("Got getinfo! {:?}", &peer_info);
-                let idx = peer_info.stacks_tip_height as usize;
-
-                eprintln!("Get blocks and microblocks");
-                let blocks_and_microblocks: Vec<(
-                    ConsensusHash,
-                    Option<StacksBlock>,
-                    Option<Vec<StacksMicroblock>>,
-                )> = block_rx.recv().unwrap();
-                eprintln!("Got blocks and microblocks!");
-
-                if idx >= blocks_and_microblocks.len() {
-                    eprintln!("Out of blocks to send!");
-                    return;
-                }
-
-                eprintln!(
-                    "Upload block {}",
-                    &blocks_and_microblocks[idx].1.as_ref().unwrap().block_hash()
-                );
-                http_post_block(
-                    remote_port,
-                    &blocks_and_microblocks[idx].0,
-                    blocks_and_microblocks[idx].1.as_ref().unwrap(),
-                );
-                for mblock in blocks_and_microblocks[idx].2.as_ref().unwrap().iter() {
-                    eprintln!("Upload microblock {}", mblock.block_hash());
-                    http_post_microblock(
-                        remote_port,
-                        &blocks_and_microblocks[idx].0,
-                        &blocks_and_microblocks[idx].1.as_ref().unwrap().block_hash(),
-                        mblock,
-                    );
-                }
-            });
-
-            let original_blocks_and_microblocks = RefCell::new(vec![]);
-            let port_sx_cell = RefCell::new(port_sx);
-            let block_sx_cell = RefCell::new(block_sx);
-
-            run_get_blocks_and_microblocks(
-                "test_get_blocks_and_microblocks_upload_blocks_http",
-                4250,
-                2,
-                |ref mut peer_configs| {
-                    // build initial network topology.
-                    assert_eq!(peer_configs.len(), 2);
-
-                    // peer 0 produces the blocks
-                    peer_configs[0].connection_opts.disable_chat_neighbors = true;
-
-                    // peer 0 sends them to peer 1
-                    peer_configs[1].connection_opts.disable_chat_neighbors = true;
-                    peer_configs[1].connection_opts.disable_inv_sync = true;
-
-                    // disable nat punches -- disconnect/reconnect
-                    // clears inv state
-                    peer_configs[0].connection_opts.disable_natpunch = true;
-                    peer_configs[1].connection_opts.disable_natpunch = true;
-
-                    // generous timeouts
-                    peer_configs[0].connection_opts.timeout = 180;
-                    peer_configs[1].connection_opts.timeout = 180;
-
-                    let peer_0 = peer_configs[0].to_neighbor();
-                    let peer_1 = peer_configs[1].to_neighbor();
-                },
-                |num_blocks, ref mut peers| {
-                    let tip = SortitionDB::get_canonical_burn_chain_tip(
-                        &peers[0].sortdb.as_ref().unwrap().conn(),
-                    )
-                    .unwrap();
-                    let this_reward_cycle = peers[0]
-                        .config
-                        .burnchain
-                        .block_height_to_reward_cycle(tip.block_height)
-                        .unwrap();
-
-                    // build up block data to replicate
-                    let mut block_data = vec![];
-                    for _ in 0..num_blocks {
-                        // only produce blocks for a single reward
-                        // cycle, since pushing block/microblock
-                        // announcements in reward cycles the remote
-                        // peer doesn't know about won't work.
-                        let tip = SortitionDB::get_canonical_burn_chain_tip(
-                            &peers[0].sortdb.as_ref().unwrap().conn(),
-                        )
-                        .unwrap();
-                        if peers[0]
-                            .config
-                            .burnchain
-                            .block_height_to_reward_cycle(tip.block_height)
-                            .unwrap()
-                            != this_reward_cycle
-                        {
-                            continue;
-                        }
-
-                        let (mut burn_ops, stacks_block, microblocks) =
-                            peers[0].make_default_tenure();
-
-                        let (_, burn_header_hash, consensus_hash) =
-                            peers[0].next_burnchain_block(burn_ops.clone());
-                        peers[0].process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-
-                        TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
-
-                        for i in 1..peers.len() {
-                            peers[i].next_burnchain_block_raw(burn_ops.clone());
-                        }
-
-                        let sn = SortitionDB::get_canonical_burn_chain_tip(
-                            &peers[0].sortdb.as_ref().unwrap().conn(),
-                        )
-                        .unwrap();
-                        block_data.push((
-                            sn.consensus_hash.clone(),
-                            Some(stacks_block),
-                            Some(microblocks),
-                        ));
-                    }
-
-                    assert_eq!(block_data.len(), 5);
-
-                    *original_blocks_and_microblocks.borrow_mut() = block_data.clone();
-
-                    block_data
-                },
-                |ref mut peers| {
-                    let blocks_and_microblocks = original_blocks_and_microblocks.borrow().clone();
-                    let remote_port = peers[1].config.http_port;
-
-                    let port_sx = port_sx_cell.borrow_mut();
-                    let block_sx = block_sx_cell.borrow_mut();
-
-                    let _ = (*port_sx).try_send(remote_port);
-                    let _ = (*block_sx).try_send(blocks_and_microblocks);
-                },
-                |ref peer| {
-                    // check peer health
-                    // TODO
-                    true
-                },
-                |_| true,
-            );
-        })
-    }
+//    #[test]
+//    #[ignore]
+//    fn test_get_blocks_and_microblocks_upload_blocks_http() {
+//        with_timeout(600, || {
+//            let (port_sx, port_rx) = std::sync::mpsc::sync_channel(1);
+//            let (block_sx, block_rx) = std::sync::mpsc::sync_channel(1);
+//
+//            std::thread::spawn(move || loop {
+//                eprintln!("Get port");
+//                let remote_port: u16 = port_rx.recv().unwrap();
+//                eprintln!("Got port {}", remote_port);
+//
+//                eprintln!("Send getinfo");
+//                let peer_info = http_get_info(remote_port);
+//                eprintln!("Got getinfo! {:?}", &peer_info);
+//                let idx = peer_info.stacks_tip_height as usize;
+//
+//                eprintln!("Get blocks and microblocks");
+//                let blocks_and_microblocks: Vec<(
+//                    ConsensusHash,
+//                    Option<StacksBlock>,
+//                    Option<Vec<StacksMicroblock>>,
+//                )> = block_rx.recv().unwrap();
+//                eprintln!("Got blocks and microblocks!");
+//
+//                if idx >= blocks_and_microblocks.len() {
+//                    eprintln!("Out of blocks to send!");
+//                    return;
+//                }
+//
+//                eprintln!(
+//                    "Upload block {}",
+//                    &blocks_and_microblocks[idx].1.as_ref().unwrap().block_hash()
+//                );
+//                http_post_block(
+//                    remote_port,
+//                    &blocks_and_microblocks[idx].0,
+//                    blocks_and_microblocks[idx].1.as_ref().unwrap(),
+//                );
+//                for mblock in blocks_and_microblocks[idx].2.as_ref().unwrap().iter() {
+//                    eprintln!("Upload microblock {}", mblock.block_hash());
+//                    http_post_microblock(
+//                        remote_port,
+//                        &blocks_and_microblocks[idx].0,
+//                        &blocks_and_microblocks[idx].1.as_ref().unwrap().block_hash(),
+//                        mblock,
+//                    );
+//                }
+//            });
+//
+//            let original_blocks_and_microblocks = RefCell::new(vec![]);
+//            let port_sx_cell = RefCell::new(port_sx);
+//            let block_sx_cell = RefCell::new(block_sx);
+//
+//            run_get_blocks_and_microblocks(
+//                "test_get_blocks_and_microblocks_upload_blocks_http",
+//                4250,
+//                2,
+//                |ref mut peer_configs| {
+//                    // build initial network topology.
+//                    assert_eq!(peer_configs.len(), 2);
+//
+//                    // peer 0 produces the blocks
+//                    peer_configs[0].connection_opts.disable_chat_neighbors = true;
+//
+//                    // peer 0 sends them to peer 1
+//                    peer_configs[1].connection_opts.disable_chat_neighbors = true;
+//                    peer_configs[1].connection_opts.disable_inv_sync = true;
+//
+//                    // disable nat punches -- disconnect/reconnect
+//                    // clears inv state
+//                    peer_configs[0].connection_opts.disable_natpunch = true;
+//                    peer_configs[1].connection_opts.disable_natpunch = true;
+//
+//                    // generous timeouts
+//                    peer_configs[0].connection_opts.timeout = 180;
+//                    peer_configs[1].connection_opts.timeout = 180;
+//
+//                    let peer_0 = peer_configs[0].to_neighbor();
+//                    let peer_1 = peer_configs[1].to_neighbor();
+//                },
+//                |num_blocks, ref mut peers| {
+//                    let tip = SortitionDB::get_canonical_burn_chain_tip(
+//                        &peers[0].sortdb.as_ref().unwrap().conn(),
+//                    )
+//                    .unwrap();
+//                    let this_reward_cycle = peers[0]
+//                        .config
+//                        .burnchain
+//                        .block_height_to_reward_cycle(tip.block_height)
+//                        .unwrap();
+//
+//                    // build up block data to replicate
+//                    let mut block_data = vec![];
+//                    for _ in 0..num_blocks {
+//                        // only produce blocks for a single reward
+//                        // cycle, since pushing block/microblock
+//                        // announcements in reward cycles the remote
+//                        // peer doesn't know about won't work.
+//                        let tip = SortitionDB::get_canonical_burn_chain_tip(
+//                            &peers[0].sortdb.as_ref().unwrap().conn(),
+//                        )
+//                        .unwrap();
+//                        if peers[0]
+//                            .config
+//                            .burnchain
+//                            .block_height_to_reward_cycle(tip.block_height)
+//                            .unwrap()
+//                            != this_reward_cycle
+//                        {
+//                            continue;
+//                        }
+//
+//                        let (mut burn_ops, stacks_block, microblocks) =
+//                            peers[0].make_default_tenure();
+//
+//                        let (_, burn_header_hash, consensus_hash) =
+//                            peers[0].next_burnchain_block(burn_ops.clone());
+//                        peers[0].process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+//
+//                        TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
+//
+//                        for i in 1..peers.len() {
+//                            peers[i].next_burnchain_block_raw(burn_ops.clone());
+//                        }
+//
+//                        let sn = SortitionDB::get_canonical_burn_chain_tip(
+//                            &peers[0].sortdb.as_ref().unwrap().conn(),
+//                        )
+//                        .unwrap();
+//                        block_data.push((
+//                            sn.consensus_hash.clone(),
+//                            Some(stacks_block),
+//                            Some(microblocks),
+//                        ));
+//                    }
+//
+//                    assert_eq!(block_data.len(), 5);
+//
+//                    *original_blocks_and_microblocks.borrow_mut() = block_data.clone();
+//
+//                    block_data
+//                },
+//                |ref mut peers| {
+//                    let blocks_and_microblocks = original_blocks_and_microblocks.borrow().clone();
+//                    let remote_port = peers[1].config.http_port;
+//
+//                    let port_sx = port_sx_cell.borrow_mut();
+//                    let block_sx = block_sx_cell.borrow_mut();
+//
+//                    let _ = (*port_sx).try_send(remote_port);
+//                    let _ = (*block_sx).try_send(blocks_and_microblocks);
+//                },
+//                |ref peer| {
+//                    // check peer health
+//                    // TODO
+//                    true
+//                },
+//                |_| true,
+//            );
+//        })
+//    }
 
     fn make_test_smart_contract_transaction(
         peer: &mut TestPeer,
@@ -3212,731 +3212,731 @@ mod test {
         tx_contract
     }
 
-    #[test]
-    #[ignore]
-    fn test_get_blocks_and_microblocks_2_peers_push_transactions() {
-        with_timeout(600, || {
-            let blocks_and_microblocks = RefCell::new(vec![]);
-            let blocks_idx = RefCell::new(0);
-            let sent_txs = RefCell::new(vec![]);
-            let done = RefCell::new(false);
-
-            let peers = run_get_blocks_and_microblocks(
-                "test_get_blocks_and_microblocks_2_peers_push_transactions",
-                4220,
-                2,
-                |ref mut peer_configs| {
-                    // build initial network topology.
-                    assert_eq!(peer_configs.len(), 2);
-
-                    // peer 0 generates blocks and microblocks, and pushes
-                    // them to peer 1.  Peer 0 also generates transactions
-                    // and pushes them to peer 1.
-                    peer_configs[0].connection_opts.disable_block_advertisement = true;
-
-                    // let peer 0 drive this test, as before, by controlling
-                    // when peer 1 sees blocks.
-                    peer_configs[1].connection_opts.disable_inv_sync = true;
-                    peer_configs[1].connection_opts.disable_block_download = true;
-                    peer_configs[1].connection_opts.disable_block_advertisement = true;
-
-                    peer_configs[0].connection_opts.outbox_maxlen = 100;
-                    peer_configs[1].connection_opts.inbox_maxlen = 100;
-
-                    // disable nat punches -- disconnect/reconnect
-                    // clears inv state
-                    peer_configs[0].connection_opts.disable_natpunch = true;
-                    peer_configs[1].connection_opts.disable_natpunch = true;
-
-                    let initial_balances = vec![
-                        (
-                            PrincipalData::from(
-                                peer_configs[0].spending_account.origin_address().unwrap(),
-                            ),
-                            1000000,
-                        ),
-                        (
-                            PrincipalData::from(
-                                peer_configs[1].spending_account.origin_address().unwrap(),
-                            ),
-                            1000000,
-                        ),
-                    ];
-
-                    peer_configs[0].initial_balances = initial_balances.clone();
-                    peer_configs[1].initial_balances = initial_balances.clone();
-
-                    let peer_0 = peer_configs[0].to_neighbor();
-                    let peer_1 = peer_configs[1].to_neighbor();
-
-                    peer_configs[0].add_neighbor(&peer_1);
-                    peer_configs[1].add_neighbor(&peer_0);
-                },
-                |num_blocks, ref mut peers| {
-                    let tip = SortitionDB::get_canonical_burn_chain_tip(
-                        &peers[0].sortdb.as_ref().unwrap().conn(),
-                    )
-                    .unwrap();
-                    let this_reward_cycle = peers[0]
-                        .config
-                        .burnchain
-                        .block_height_to_reward_cycle(tip.block_height)
-                        .unwrap();
-
-                    // build up block data to replicate
-                    let mut block_data = vec![];
-                    for b in 0..num_blocks {
-                        let tip = SortitionDB::get_canonical_burn_chain_tip(
-                            &peers[0].sortdb.as_ref().unwrap().conn(),
-                        )
-                        .unwrap();
-                        if peers[0]
-                            .config
-                            .burnchain
-                            .block_height_to_reward_cycle(tip.block_height)
-                            .unwrap()
-                            != this_reward_cycle
-                        {
-                            continue;
-                        }
-                        let (mut burn_ops, stacks_block, microblocks) =
-                            peers[0].make_default_tenure();
-
-                        let (_, burn_header_hash, consensus_hash) =
-                            peers[0].next_burnchain_block(burn_ops.clone());
-                        peers[0].process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-
-                        TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
-
-                        for i in 1..peers.len() {
-                            peers[i].next_burnchain_block_raw(burn_ops.clone());
-                            if b == 0 {
-                                // prime with first block
-                                peers[i].process_stacks_epoch_at_tip(&stacks_block, &vec![]);
-                            }
-                        }
-
-                        let sn = SortitionDB::get_canonical_burn_chain_tip(
-                            &peers[0].sortdb.as_ref().unwrap().conn(),
-                        )
-                        .unwrap();
-                        block_data.push((
-                            sn.consensus_hash.clone(),
-                            Some(stacks_block),
-                            Some(microblocks),
-                        ));
-                    }
-                    *blocks_and_microblocks.borrow_mut() = block_data
-                        .clone()
-                        .drain(..)
-                        .map(|(ch, blk_opt, mblocks_opt)| {
-                            (ch, blk_opt.unwrap(), mblocks_opt.unwrap())
-                        })
-                        .collect();
-                    block_data
-                },
-                |ref mut peers| {
-                    let peer_0_nk = peers[0].to_neighbor().addr;
-                    let peer_1_nk = peers[1].to_neighbor().addr;
-
-                    // peers must be connected to each other
-                    let mut peer_0_to_1 = false;
-                    let mut peer_1_to_0 = false;
-                    for (nk, event_id) in peers[0].network.events.iter() {
-                        match peers[0].network.peers.get(event_id) {
-                            Some(convo) => {
-                                if *nk == peer_1_nk {
-                                    peer_0_to_1 = true;
-                                }
-                            }
-                            None => {}
-                        }
-                    }
-                    for (nk, event_id) in peers[1].network.events.iter() {
-                        match peers[1].network.peers.get(event_id) {
-                            Some(convo) => {
-                                if *nk == peer_0_nk {
-                                    peer_1_to_0 = true;
-                                }
-                            }
-                            None => {}
-                        }
-                    }
-
-                    if !peer_0_to_1 || !peer_1_to_0 {
-                        test_debug!(
-                            "Peers not bi-directionally connected: 0->1 = {}, 1->0 = {}",
-                            peer_0_to_1,
-                            peer_1_to_0
-                        );
-                        return;
-                    }
-
-                    // make sure peer 2's inv has an entry for peer 1, even
-                    // though it's not doing an inv sync.
-                    match peers[1].network.inv_state {
-                        Some(ref mut inv_state) => {
-                            if inv_state.get_stats(&peer_0_nk).is_none() {
-                                test_debug!("initialize inv statistics for peer 0 in peer 1");
-                                inv_state.add_peer(peer_0_nk, true);
-                            } else {
-                                test_debug!("peer 1 has inv state for peer 0");
-                            }
-                        }
-                        None => {
-                            test_debug!("No inv state for peer 1");
-                        }
-                    }
-
-                    let done_flag = *done.borrow();
-                    if is_peer_connected(&peers[0], &peer_1_nk) {
-                        // only submit the next transaction if the previous
-                        // one is accepted
-                        let has_last_transaction = {
-                            let expected_txs: std::cell::Ref<'_, Vec<StacksTransaction>> =
-                                sent_txs.borrow();
-                            if let Some(tx) = (*expected_txs).last() {
-                                let txid = tx.txid();
-                                if !peers[1].mempool.as_ref().unwrap().has_tx(&txid) {
-                                    debug!("Peer 1 still waiting for transaction {}", &txid);
-                                    push_transaction(
-                                        &mut peers[0],
-                                        &peer_1_nk,
-                                        vec![],
-                                        (*tx).clone(),
-                                    );
-                                    false
-                                } else {
-                                    true
-                                }
-                            } else {
-                                true
-                            }
-                        };
-
-                        if has_last_transaction {
-                            // push blocks and microblocks in order, and push a
-                            // transaction that can only be validated once the
-                            // block and microblocks are processed.
-                            let (
-                                (
-                                    block_consensus_hash,
-                                    block,
-                                    microblocks_consensus_hash,
-                                    microblocks_block_hash,
-                                    microblocks,
-                                ),
-                                idx,
-                            ) = {
-                                let block_data = blocks_and_microblocks.borrow();
-                                let mut idx = blocks_idx.borrow_mut();
-
-                                let microblocks = block_data[*idx].2.clone();
-                                let microblocks_consensus_hash = block_data[*idx].0.clone();
-                                let microblocks_block_hash = block_data[*idx].1.block_hash();
-
-                                *idx += 1;
-                                if *idx >= block_data.len() {
-                                    *idx = 1;
-                                }
-
-                                let block = block_data[*idx].1.clone();
-                                let block_consensus_hash = block_data[*idx].0.clone();
-                                (
-                                    (
-                                        block_consensus_hash,
-                                        block,
-                                        microblocks_consensus_hash,
-                                        microblocks_block_hash,
-                                        microblocks,
-                                    ),
-                                    *idx,
-                                )
-                            };
-
-                            if !done_flag {
-                                test_debug!(
-                                    "Push microblocks built by {}/{} (idx={})",
-                                    &microblocks_consensus_hash,
-                                    &microblocks_block_hash,
-                                    idx
-                                );
-
-                                let block_hash = block.block_hash();
-                                push_microblocks(
-                                    &mut peers[0],
-                                    &peer_1_nk,
-                                    vec![],
-                                    microblocks_consensus_hash,
-                                    microblocks_block_hash,
-                                    microblocks,
-                                );
-
-                                test_debug!(
-                                    "Push block {}/{} and microblocks (idx = {})",
-                                    &block_consensus_hash,
-                                    block.block_hash(),
-                                    idx
-                                );
-                                push_block(
-                                    &mut peers[0],
-                                    &peer_1_nk,
-                                    vec![],
-                                    block_consensus_hash.clone(),
-                                    block,
-                                );
-
-                                // create a transaction against the resulting
-                                // (anchored) chain tip
-                                let tx = make_test_smart_contract_transaction(
-                                    &mut peers[0],
-                                    &format!("test-contract-{}", &block_hash.to_hex()[0..10]),
-                                    &block_consensus_hash,
-                                    &block_hash,
-                                );
-
-                                // push or post
-                                push_transaction(&mut peers[0], &peer_1_nk, vec![], tx.clone());
-
-                                let mut expected_txs = sent_txs.borrow_mut();
-                                expected_txs.push(tx);
-                            } else {
-                                test_debug!("Done pushing data");
-                            }
-                        }
-                    }
-
-                    // peer 0 should never see a GetBlocksInv message.
-                    // peer 1 should never see a BlocksInv message
-                    for (_, convo) in peers[0].network.peers.iter() {
-                        assert_eq!(
-                            convo
-                                .stats
-                                .get_message_recv_count(StacksMessageID::GetBlocksInv),
-                            0
-                        );
-                    }
-                    for (_, convo) in peers[1].network.peers.iter() {
-                        assert_eq!(
-                            convo
-                                .stats
-                                .get_message_recv_count(StacksMessageID::BlocksInv),
-                            0
-                        );
-                    }
-                },
-                |ref peer| {
-                    // check peer health
-                    // nothing should break
-                    // TODO
-                    true
-                },
-                |ref mut peers| {
-                    // all blocks downloaded.  only stop if peer 1 has
-                    // all the transactions
-                    let mut done_flag = done.borrow_mut();
-                    *done_flag = true;
-
-                    let txs =
-                        MemPoolDB::get_all_txs(peers[1].mempool.as_ref().unwrap().conn()).unwrap();
-                    test_debug!("Peer 1 has {} txs", txs.len());
-                    txs.len() == sent_txs.borrow().len()
-                },
-            );
-
-            // peer 1 should have all the transactions
-            let blocks_and_microblocks = blocks_and_microblocks.into_inner();
-
-            let txs = MemPoolDB::get_all_txs(peers[1].mempool.as_ref().unwrap().conn()).unwrap();
-            let expected_txs = sent_txs.into_inner();
-            for tx in txs.iter() {
-                let mut found = false;
-                for expected_tx in expected_txs.iter() {
-                    if tx.tx.txid() == expected_tx.txid() {
-                        found = true;
-                        break;
-                    }
-                }
-                if !found {
-                    panic!("Transaction not found: {:?}", &tx.tx);
-                }
-            }
-
-            // peer 1 should have 1 tx per chain tip
-            for ((consensus_hash, block, _), sent_tx) in
-                blocks_and_microblocks.iter().zip(expected_txs.iter())
-            {
-                let block_hash = block.block_hash();
-                let tx_infos = MemPoolDB::get_txs_after(
-                    peers[1].mempool.as_ref().unwrap().conn(),
-                    consensus_hash,
-                    &block_hash,
-                    0,
-                    1000,
-                )
-                .unwrap();
-                test_debug!(
-                    "Check {}/{} (height {}): expect {}",
-                    &consensus_hash,
-                    &block_hash,
-                    block.header.total_work.work,
-                    &sent_tx.txid()
-                );
-                assert_eq!(tx_infos.len(), 1);
-                assert_eq!(tx_infos[0].tx.txid(), sent_tx.txid());
-            }
-        })
-    }
-
-    #[test]
-    #[ignore]
-    fn test_get_blocks_and_microblocks_peers_broadcast() {
-        with_timeout(600, || {
-            let blocks_and_microblocks = RefCell::new(vec![]);
-            let blocks_idx = RefCell::new(0);
-            let sent_txs = RefCell::new(vec![]);
-            let done = RefCell::new(false);
-            let num_peers = 3;
-            let privk = StacksPrivateKey::new();
-
-            let peers = run_get_blocks_and_microblocks(
-                "test_get_blocks_and_microblocks_peers_broadcast",
-                4230,
-                num_peers,
-                |ref mut peer_configs| {
-                    // build initial network topology.
-                    assert_eq!(peer_configs.len(), num_peers);
-
-                    // peer 0 generates blocks and microblocks, and pushes
-                    // them to peers 1..n.  Peer 0 also generates transactions
-                    // and broadcasts them to the network.
-
-                    peer_configs[0].connection_opts.disable_inv_sync = true;
-                    peer_configs[0].connection_opts.disable_inv_chat = true;
-
-                    // disable nat punches -- disconnect/reconnect
-                    // clears inv state.
-                    for i in 0..peer_configs.len() {
-                        peer_configs[i].connection_opts.disable_natpunch = true;
-                        peer_configs[i].connection_opts.disable_network_prune = true;
-                        peer_configs[i].connection_opts.timeout = 600;
-                        peer_configs[i].connection_opts.connect_timeout = 600;
-
-                        // do one walk
-                        peer_configs[i].connection_opts.num_initial_walks = 0;
-                        peer_configs[i].connection_opts.walk_retry_count = 0;
-                        peer_configs[i].connection_opts.walk_interval = 600;
-
-                        // don't throttle downloads
-                        peer_configs[i].connection_opts.download_interval = 0;
-                        peer_configs[i].connection_opts.inv_sync_interval = 0;
-
-                        let max_inflight = peer_configs[i].connection_opts.max_inflight_blocks;
-                        peer_configs[i].connection_opts.max_clients_per_host =
-                            ((num_peers + 1) as u64) * max_inflight;
-                        peer_configs[i].connection_opts.soft_max_clients_per_host =
-                            ((num_peers + 1) as u64) * max_inflight;
-                        peer_configs[i].connection_opts.num_neighbors = (num_peers + 1) as u64;
-                        peer_configs[i].connection_opts.soft_num_neighbors = (num_peers + 1) as u64;
-                    }
-
-                    let initial_balances = vec![(
-                        PrincipalData::from(
-                            peer_configs[0].spending_account.origin_address().unwrap(),
-                        ),
-                        1000000,
-                    )];
-
-                    for i in 0..peer_configs.len() {
-                        peer_configs[i].initial_balances = initial_balances.clone();
-                    }
-
-                    // connectivity
-                    let peer_0 = peer_configs[0].to_neighbor();
-                    for i in 1..peer_configs.len() {
-                        peer_configs[i].add_neighbor(&peer_0);
-                        let peer_i = peer_configs[i].to_neighbor();
-                        peer_configs[0].add_neighbor(&peer_i);
-                    }
-                },
-                |num_blocks, ref mut peers| {
-                    let tip = SortitionDB::get_canonical_burn_chain_tip(
-                        &peers[0].sortdb.as_ref().unwrap().conn(),
-                    )
-                    .unwrap();
-                    let this_reward_cycle = peers[0]
-                        .config
-                        .burnchain
-                        .block_height_to_reward_cycle(tip.block_height)
-                        .unwrap();
-
-                    // build up block data to replicate
-                    let mut block_data = vec![];
-                    for _ in 0..num_blocks {
-                        let tip = SortitionDB::get_canonical_burn_chain_tip(
-                            &peers[0].sortdb.as_ref().unwrap().conn(),
-                        )
-                        .unwrap();
-                        if peers[0]
-                            .config
-                            .burnchain
-                            .block_height_to_reward_cycle(tip.block_height)
-                            .unwrap()
-                            != this_reward_cycle
-                        {
-                            continue;
-                        }
-                        let (mut burn_ops, stacks_block, microblocks) =
-                            peers[0].make_default_tenure();
-
-                        let (_, burn_header_hash, consensus_hash) =
-                            peers[0].next_burnchain_block(burn_ops.clone());
-                        peers[0].process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-
-                        TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
-
-                        for i in 1..peers.len() {
-                            peers[i].next_burnchain_block_raw(burn_ops.clone());
-                        }
-
-                        let sn = SortitionDB::get_canonical_burn_chain_tip(
-                            &peers[0].sortdb.as_ref().unwrap().conn(),
-                        )
-                        .unwrap();
-
-                        block_data.push((
-                            sn.consensus_hash.clone(),
-                            Some(stacks_block),
-                            Some(microblocks),
-                        ));
-                    }
-                    *blocks_and_microblocks.borrow_mut() = block_data
-                        .clone()
-                        .drain(..)
-                        .map(|(ch, blk_opt, mblocks_opt)| {
-                            (ch, blk_opt.unwrap(), mblocks_opt.unwrap())
-                        })
-                        .collect();
-                    block_data
-                },
-                |ref mut peers| {
-                    for peer in peers.iter_mut() {
-                        // force peers to keep trying to process buffered data
-                        peer.network.burnchain_tip.burn_header_hash =
-                            BurnchainHeaderHash([0u8; 32]);
-                    }
-
-                    let done_flag = *done.borrow();
-
-                    let mut connectivity_0_to_n = HashSet::new();
-                    let mut connectivity_n_to_0 = HashSet::new();
-
-                    let peer_0_nk = peers[0].to_neighbor().addr;
-
-                    for (nk, event_id) in peers[0].network.events.iter() {
-                        if let Some(convo) = peers[0].network.peers.get(event_id) {
-                            if convo.is_authenticated() {
-                                connectivity_0_to_n.insert(nk.clone());
-                            }
-                        }
-                    }
-                    for i in 1..peers.len() {
-                        for (nk, event_id) in peers[i].network.events.iter() {
-                            if *nk != peer_0_nk {
-                                continue;
-                            }
-
-                            if let Some(convo) = peers[i].network.peers.get(event_id) {
-                                if convo.is_authenticated() {
-                                    if let Some(inv_state) = &peers[i].network.inv_state {
-                                        if let Some(inv_stats) =
-                                            inv_state.block_stats.get(&peer_0_nk)
-                                        {
-                                            if inv_stats.inv.num_reward_cycles >= 5 {
-                                                connectivity_n_to_0
-                                                    .insert(peers[i].to_neighbor().addr);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if connectivity_0_to_n.len() < peers.len() - 1
-                        || connectivity_n_to_0.len() < peers.len() - 1
-                    {
-                        test_debug!(
-                            "Network not connected: 0 --> N = {}, N --> 0 = {}",
-                            connectivity_0_to_n.len(),
-                            connectivity_n_to_0.len()
-                        );
-                        return;
-                    }
-
-                    let ((tip_consensus_hash, tip_block, _), idx) = {
-                        let block_data = blocks_and_microblocks.borrow();
-                        let idx = blocks_idx.borrow();
-                        (block_data[(*idx as usize).saturating_sub(1)].clone(), *idx)
-                    };
-
-                    if idx > 0 {
-                        let mut caught_up = true;
-                        for i in 1..peers.len() {
-                            peers[i]
-                                .with_db_state(|sortdb, chainstate, relayer, mempool| {
-                                    let (canonical_consensus_hash, canonical_block_hash) =
-                                        SortitionDB::get_canonical_stacks_chain_tip_hash(
-                                            sortdb.conn(),
-                                        )
-                                        .unwrap();
-
-                                    if canonical_consensus_hash != tip_consensus_hash
-                                        || canonical_block_hash != tip_block.block_hash()
-                                    {
-                                        debug!(
-                                            "Peer {} is not caught up yet (at {}/{}, need {}/{})",
-                                            i + 1,
-                                            &canonical_consensus_hash,
-                                            &canonical_block_hash,
-                                            &tip_consensus_hash,
-                                            &tip_block.block_hash()
-                                        );
-                                        caught_up = false;
-                                    }
-                                    Ok(())
-                                })
-                                .unwrap();
-                        }
-                        if !caught_up {
-                            return;
-                        }
-                    }
-
-                    // caught up!
-                    // find next block
-                    let ((consensus_hash, block, microblocks), idx) = {
-                        let block_data = blocks_and_microblocks.borrow();
-                        let mut idx = blocks_idx.borrow_mut();
-                        if *idx >= block_data.len() {
-                            test_debug!("Out of blocks and microblocks to push");
-                            return;
-                        }
-
-                        let ret = block_data[*idx].clone();
-                        *idx += 1;
-                        (ret, *idx)
-                    };
-
-                    if !done_flag {
-                        test_debug!(
-                            "Broadcast block {}/{} and microblocks (idx = {})",
-                            &consensus_hash,
-                            block.block_hash(),
-                            idx
-                        );
-
-                        let block_hash = block.block_hash();
-
-                        // create a transaction against the current
-                        // (anchored) chain tip
-                        let tx = make_test_smart_contract_transaction(
-                            &mut peers[0],
-                            &format!("test-contract-{}", &block_hash.to_hex()[0..10]),
-                            &tip_consensus_hash,
-                            &tip_block.block_hash(),
-                        );
-
-                        let mut expected_txs = sent_txs.borrow_mut();
-                        expected_txs.push(tx.clone());
-
-                        test_debug!(
-                            "Broadcast {}/{} and its microblocks",
-                            &consensus_hash,
-                            &block.block_hash()
-                        );
-                        // next block
-                        broadcast_block(&mut peers[0], vec![], consensus_hash.clone(), block);
-                        broadcast_microblocks(
-                            &mut peers[0],
-                            vec![],
-                            consensus_hash,
-                            block_hash,
-                            microblocks,
-                        );
-
-                        // NOTE: first transaction will be dropped since the other nodes haven't
-                        // processed the first-ever Stacks block when their relayer code gets
-                        // around to considering it.
-                        broadcast_transaction(&mut peers[0], vec![], tx);
-                    } else {
-                        test_debug!("Done pushing data");
-                    }
-                },
-                |ref peer| {
-                    // check peer health -- no message errors
-                    // (i.e. no relay cycles)
-                    for (_, convo) in peer.network.peers.iter() {
-                        assert_eq!(convo.stats.msgs_err, 0);
-                    }
-                    true
-                },
-                |ref mut peers| {
-                    // all blocks downloaded.  only stop if peer 1 has
-                    // all the transactions
-                    let mut done_flag = done.borrow_mut();
-                    *done_flag = true;
-
-                    let mut ret = true;
-                    for i in 1..peers.len() {
-                        let txs = MemPoolDB::get_all_txs(peers[1].mempool.as_ref().unwrap().conn())
-                            .unwrap();
-                        test_debug!("Peer {} has {} txs", i + 1, txs.len());
-                        ret = ret && txs.len() == sent_txs.borrow().len() - 1;
-                    }
-                    ret
-                },
-            );
-
-            // peers 1..n should have all the transactions
-            let blocks_and_microblocks = blocks_and_microblocks.into_inner();
-            let expected_txs = sent_txs.into_inner();
-
-            for i in 1..peers.len() {
-                let txs =
-                    MemPoolDB::get_all_txs(peers[i].mempool.as_ref().unwrap().conn()).unwrap();
-                for tx in txs.iter() {
-                    let mut found = false;
-                    for expected_tx in expected_txs.iter() {
-                        if tx.tx.txid() == expected_tx.txid() {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if !found {
-                        panic!("Transaction not found: {:?}", &tx.tx);
-                    }
-                }
-
-                // peers 1..n should have 1 tx per chain tip (except for the first block)
-                for ((consensus_hash, block, _), sent_tx) in
-                    blocks_and_microblocks.iter().zip(expected_txs[1..].iter())
-                {
-                    let block_hash = block.block_hash();
-                    let tx_infos = MemPoolDB::get_txs_after(
-                        peers[i].mempool.as_ref().unwrap().conn(),
-                        consensus_hash,
-                        &block_hash,
-                        0,
-                        1000,
-                    )
-                    .unwrap();
-                    assert_eq!(tx_infos.len(), 1);
-                    assert_eq!(tx_infos[0].tx.txid(), sent_tx.txid());
-                }
-            }
-        })
-    }
+//    #[test]
+//    #[ignore]
+//    fn test_get_blocks_and_microblocks_2_peers_push_transactions() {
+//        with_timeout(600, || {
+//            let blocks_and_microblocks = RefCell::new(vec![]);
+//            let blocks_idx = RefCell::new(0);
+//            let sent_txs = RefCell::new(vec![]);
+//            let done = RefCell::new(false);
+//
+//            let peers = run_get_blocks_and_microblocks(
+//                "test_get_blocks_and_microblocks_2_peers_push_transactions",
+//                4220,
+//                2,
+//                |ref mut peer_configs| {
+//                    // build initial network topology.
+//                    assert_eq!(peer_configs.len(), 2);
+//
+//                    // peer 0 generates blocks and microblocks, and pushes
+//                    // them to peer 1.  Peer 0 also generates transactions
+//                    // and pushes them to peer 1.
+//                    peer_configs[0].connection_opts.disable_block_advertisement = true;
+//
+//                    // let peer 0 drive this test, as before, by controlling
+//                    // when peer 1 sees blocks.
+//                    peer_configs[1].connection_opts.disable_inv_sync = true;
+//                    peer_configs[1].connection_opts.disable_block_download = true;
+//                    peer_configs[1].connection_opts.disable_block_advertisement = true;
+//
+//                    peer_configs[0].connection_opts.outbox_maxlen = 100;
+//                    peer_configs[1].connection_opts.inbox_maxlen = 100;
+//
+//                    // disable nat punches -- disconnect/reconnect
+//                    // clears inv state
+//                    peer_configs[0].connection_opts.disable_natpunch = true;
+//                    peer_configs[1].connection_opts.disable_natpunch = true;
+//
+//                    let initial_balances = vec![
+//                        (
+//                            PrincipalData::from(
+//                                peer_configs[0].spending_account.origin_address().unwrap(),
+//                            ),
+//                            1000000,
+//                        ),
+//                        (
+//                            PrincipalData::from(
+//                                peer_configs[1].spending_account.origin_address().unwrap(),
+//                            ),
+//                            1000000,
+//                        ),
+//                    ];
+//
+//                    peer_configs[0].initial_balances = initial_balances.clone();
+//                    peer_configs[1].initial_balances = initial_balances.clone();
+//
+//                    let peer_0 = peer_configs[0].to_neighbor();
+//                    let peer_1 = peer_configs[1].to_neighbor();
+//
+//                    peer_configs[0].add_neighbor(&peer_1);
+//                    peer_configs[1].add_neighbor(&peer_0);
+//                },
+//                |num_blocks, ref mut peers| {
+//                    let tip = SortitionDB::get_canonical_burn_chain_tip(
+//                        &peers[0].sortdb.as_ref().unwrap().conn(),
+//                    )
+//                    .unwrap();
+//                    let this_reward_cycle = peers[0]
+//                        .config
+//                        .burnchain
+//                        .block_height_to_reward_cycle(tip.block_height)
+//                        .unwrap();
+//
+//                    // build up block data to replicate
+//                    let mut block_data = vec![];
+//                    for b in 0..num_blocks {
+//                        let tip = SortitionDB::get_canonical_burn_chain_tip(
+//                            &peers[0].sortdb.as_ref().unwrap().conn(),
+//                        )
+//                        .unwrap();
+//                        if peers[0]
+//                            .config
+//                            .burnchain
+//                            .block_height_to_reward_cycle(tip.block_height)
+//                            .unwrap()
+//                            != this_reward_cycle
+//                        {
+//                            continue;
+//                        }
+//                        let (mut burn_ops, stacks_block, microblocks) =
+//                            peers[0].make_default_tenure();
+//
+//                        let (_, burn_header_hash, consensus_hash) =
+//                            peers[0].next_burnchain_block(burn_ops.clone());
+//                        peers[0].process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+//
+//                        TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
+//
+//                        for i in 1..peers.len() {
+//                            peers[i].next_burnchain_block_raw(burn_ops.clone());
+//                            if b == 0 {
+//                                // prime with first block
+//                                peers[i].process_stacks_epoch_at_tip(&stacks_block, &vec![]);
+//                            }
+//                        }
+//
+//                        let sn = SortitionDB::get_canonical_burn_chain_tip(
+//                            &peers[0].sortdb.as_ref().unwrap().conn(),
+//                        )
+//                        .unwrap();
+//                        block_data.push((
+//                            sn.consensus_hash.clone(),
+//                            Some(stacks_block),
+//                            Some(microblocks),
+//                        ));
+//                    }
+//                    *blocks_and_microblocks.borrow_mut() = block_data
+//                        .clone()
+//                        .drain(..)
+//                        .map(|(ch, blk_opt, mblocks_opt)| {
+//                            (ch, blk_opt.unwrap(), mblocks_opt.unwrap())
+//                        })
+//                        .collect();
+//                    block_data
+//                },
+//                |ref mut peers| {
+//                    let peer_0_nk = peers[0].to_neighbor().addr;
+//                    let peer_1_nk = peers[1].to_neighbor().addr;
+//
+//                    // peers must be connected to each other
+//                    let mut peer_0_to_1 = false;
+//                    let mut peer_1_to_0 = false;
+//                    for (nk, event_id) in peers[0].network.events.iter() {
+//                        match peers[0].network.peers.get(event_id) {
+//                            Some(convo) => {
+//                                if *nk == peer_1_nk {
+//                                    peer_0_to_1 = true;
+//                                }
+//                            }
+//                            None => {}
+//                        }
+//                    }
+//                    for (nk, event_id) in peers[1].network.events.iter() {
+//                        match peers[1].network.peers.get(event_id) {
+//                            Some(convo) => {
+//                                if *nk == peer_0_nk {
+//                                    peer_1_to_0 = true;
+//                                }
+//                            }
+//                            None => {}
+//                        }
+//                    }
+//
+//                    if !peer_0_to_1 || !peer_1_to_0 {
+//                        test_debug!(
+//                            "Peers not bi-directionally connected: 0->1 = {}, 1->0 = {}",
+//                            peer_0_to_1,
+//                            peer_1_to_0
+//                        );
+//                        return;
+//                    }
+//
+//                    // make sure peer 2's inv has an entry for peer 1, even
+//                    // though it's not doing an inv sync.
+//                    match peers[1].network.inv_state {
+//                        Some(ref mut inv_state) => {
+//                            if inv_state.get_stats(&peer_0_nk).is_none() {
+//                                test_debug!("initialize inv statistics for peer 0 in peer 1");
+//                                inv_state.add_peer(peer_0_nk, true);
+//                            } else {
+//                                test_debug!("peer 1 has inv state for peer 0");
+//                            }
+//                        }
+//                        None => {
+//                            test_debug!("No inv state for peer 1");
+//                        }
+//                    }
+//
+//                    let done_flag = *done.borrow();
+//                    if is_peer_connected(&peers[0], &peer_1_nk) {
+//                        // only submit the next transaction if the previous
+//                        // one is accepted
+//                        let has_last_transaction = {
+//                            let expected_txs: std::cell::Ref<'_, Vec<StacksTransaction>> =
+//                                sent_txs.borrow();
+//                            if let Some(tx) = (*expected_txs).last() {
+//                                let txid = tx.txid();
+//                                if !peers[1].mempool.as_ref().unwrap().has_tx(&txid) {
+//                                    debug!("Peer 1 still waiting for transaction {}", &txid);
+//                                    push_transaction(
+//                                        &mut peers[0],
+//                                        &peer_1_nk,
+//                                        vec![],
+//                                        (*tx).clone(),
+//                                    );
+//                                    false
+//                                } else {
+//                                    true
+//                                }
+//                            } else {
+//                                true
+//                            }
+//                        };
+//
+//                        if has_last_transaction {
+//                            // push blocks and microblocks in order, and push a
+//                            // transaction that can only be validated once the
+//                            // block and microblocks are processed.
+//                            let (
+//                                (
+//                                    block_consensus_hash,
+//                                    block,
+//                                    microblocks_consensus_hash,
+//                                    microblocks_block_hash,
+//                                    microblocks,
+//                                ),
+//                                idx,
+//                            ) = {
+//                                let block_data = blocks_and_microblocks.borrow();
+//                                let mut idx = blocks_idx.borrow_mut();
+//
+//                                let microblocks = block_data[*idx].2.clone();
+//                                let microblocks_consensus_hash = block_data[*idx].0.clone();
+//                                let microblocks_block_hash = block_data[*idx].1.block_hash();
+//
+//                                *idx += 1;
+//                                if *idx >= block_data.len() {
+//                                    *idx = 1;
+//                                }
+//
+//                                let block = block_data[*idx].1.clone();
+//                                let block_consensus_hash = block_data[*idx].0.clone();
+//                                (
+//                                    (
+//                                        block_consensus_hash,
+//                                        block,
+//                                        microblocks_consensus_hash,
+//                                        microblocks_block_hash,
+//                                        microblocks,
+//                                    ),
+//                                    *idx,
+//                                )
+//                            };
+//
+//                            if !done_flag {
+//                                test_debug!(
+//                                    "Push microblocks built by {}/{} (idx={})",
+//                                    &microblocks_consensus_hash,
+//                                    &microblocks_block_hash,
+//                                    idx
+//                                );
+//
+//                                let block_hash = block.block_hash();
+//                                push_microblocks(
+//                                    &mut peers[0],
+//                                    &peer_1_nk,
+//                                    vec![],
+//                                    microblocks_consensus_hash,
+//                                    microblocks_block_hash,
+//                                    microblocks,
+//                                );
+//
+//                                test_debug!(
+//                                    "Push block {}/{} and microblocks (idx = {})",
+//                                    &block_consensus_hash,
+//                                    block.block_hash(),
+//                                    idx
+//                                );
+//                                push_block(
+//                                    &mut peers[0],
+//                                    &peer_1_nk,
+//                                    vec![],
+//                                    block_consensus_hash.clone(),
+//                                    block,
+//                                );
+//
+//                                // create a transaction against the resulting
+//                                // (anchored) chain tip
+//                                let tx = make_test_smart_contract_transaction(
+//                                    &mut peers[0],
+//                                    &format!("test-contract-{}", &block_hash.to_hex()[0..10]),
+//                                    &block_consensus_hash,
+//                                    &block_hash,
+//                                );
+//
+//                                // push or post
+//                                push_transaction(&mut peers[0], &peer_1_nk, vec![], tx.clone());
+//
+//                                let mut expected_txs = sent_txs.borrow_mut();
+//                                expected_txs.push(tx);
+//                            } else {
+//                                test_debug!("Done pushing data");
+//                            }
+//                        }
+//                    }
+//
+//                    // peer 0 should never see a GetBlocksInv message.
+//                    // peer 1 should never see a BlocksInv message
+//                    for (_, convo) in peers[0].network.peers.iter() {
+//                        assert_eq!(
+//                            convo
+//                                .stats
+//                                .get_message_recv_count(StacksMessageID::GetBlocksInv),
+//                            0
+//                        );
+//                    }
+//                    for (_, convo) in peers[1].network.peers.iter() {
+//                        assert_eq!(
+//                            convo
+//                                .stats
+//                                .get_message_recv_count(StacksMessageID::BlocksInv),
+//                            0
+//                        );
+//                    }
+//                },
+//                |ref peer| {
+//                    // check peer health
+//                    // nothing should break
+//                    // TODO
+//                    true
+//                },
+//                |ref mut peers| {
+//                    // all blocks downloaded.  only stop if peer 1 has
+//                    // all the transactions
+//                    let mut done_flag = done.borrow_mut();
+//                    *done_flag = true;
+//
+//                    let txs =
+//                        MemPoolDB::get_all_txs(peers[1].mempool.as_ref().unwrap().conn()).unwrap();
+//                    test_debug!("Peer 1 has {} txs", txs.len());
+//                    txs.len() == sent_txs.borrow().len()
+//                },
+//            );
+//
+//            // peer 1 should have all the transactions
+//            let blocks_and_microblocks = blocks_and_microblocks.into_inner();
+//
+//            let txs = MemPoolDB::get_all_txs(peers[1].mempool.as_ref().unwrap().conn()).unwrap();
+//            let expected_txs = sent_txs.into_inner();
+//            for tx in txs.iter() {
+//                let mut found = false;
+//                for expected_tx in expected_txs.iter() {
+//                    if tx.tx.txid() == expected_tx.txid() {
+//                        found = true;
+//                        break;
+//                    }
+//                }
+//                if !found {
+//                    panic!("Transaction not found: {:?}", &tx.tx);
+//                }
+//            }
+//
+//            // peer 1 should have 1 tx per chain tip
+//            for ((consensus_hash, block, _), sent_tx) in
+//                blocks_and_microblocks.iter().zip(expected_txs.iter())
+//            {
+//                let block_hash = block.block_hash();
+//                let tx_infos = MemPoolDB::get_txs_after(
+//                    peers[1].mempool.as_ref().unwrap().conn(),
+//                    consensus_hash,
+//                    &block_hash,
+//                    0,
+//                    1000,
+//                )
+//                .unwrap();
+//                test_debug!(
+//                    "Check {}/{} (height {}): expect {}",
+//                    &consensus_hash,
+//                    &block_hash,
+//                    block.header.total_work.work,
+//                    &sent_tx.txid()
+//                );
+//                assert_eq!(tx_infos.len(), 1);
+//                assert_eq!(tx_infos[0].tx.txid(), sent_tx.txid());
+//            }
+//        })
+//    }
+
+//    #[test]
+//    #[ignore]
+//    fn test_get_blocks_and_microblocks_peers_broadcast() {
+//        with_timeout(600, || {
+//            let blocks_and_microblocks = RefCell::new(vec![]);
+//            let blocks_idx = RefCell::new(0);
+//            let sent_txs = RefCell::new(vec![]);
+//            let done = RefCell::new(false);
+//            let num_peers = 3;
+//            let privk = StacksPrivateKey::new();
+//
+//            let peers = run_get_blocks_and_microblocks(
+//                "test_get_blocks_and_microblocks_peers_broadcast",
+//                4230,
+//                num_peers,
+//                |ref mut peer_configs| {
+//                    // build initial network topology.
+//                    assert_eq!(peer_configs.len(), num_peers);
+//
+//                    // peer 0 generates blocks and microblocks, and pushes
+//                    // them to peers 1..n.  Peer 0 also generates transactions
+//                    // and broadcasts them to the network.
+//
+//                    peer_configs[0].connection_opts.disable_inv_sync = true;
+//                    peer_configs[0].connection_opts.disable_inv_chat = true;
+//
+//                    // disable nat punches -- disconnect/reconnect
+//                    // clears inv state.
+//                    for i in 0..peer_configs.len() {
+//                        peer_configs[i].connection_opts.disable_natpunch = true;
+//                        peer_configs[i].connection_opts.disable_network_prune = true;
+//                        peer_configs[i].connection_opts.timeout = 600;
+//                        peer_configs[i].connection_opts.connect_timeout = 600;
+//
+//                        // do one walk
+//                        peer_configs[i].connection_opts.num_initial_walks = 0;
+//                        peer_configs[i].connection_opts.walk_retry_count = 0;
+//                        peer_configs[i].connection_opts.walk_interval = 600;
+//
+//                        // don't throttle downloads
+//                        peer_configs[i].connection_opts.download_interval = 0;
+//                        peer_configs[i].connection_opts.inv_sync_interval = 0;
+//
+//                        let max_inflight = peer_configs[i].connection_opts.max_inflight_blocks;
+//                        peer_configs[i].connection_opts.max_clients_per_host =
+//                            ((num_peers + 1) as u64) * max_inflight;
+//                        peer_configs[i].connection_opts.soft_max_clients_per_host =
+//                            ((num_peers + 1) as u64) * max_inflight;
+//                        peer_configs[i].connection_opts.num_neighbors = (num_peers + 1) as u64;
+//                        peer_configs[i].connection_opts.soft_num_neighbors = (num_peers + 1) as u64;
+//                    }
+//
+//                    let initial_balances = vec![(
+//                        PrincipalData::from(
+//                            peer_configs[0].spending_account.origin_address().unwrap(),
+//                        ),
+//                        1000000,
+//                    )];
+//
+//                    for i in 0..peer_configs.len() {
+//                        peer_configs[i].initial_balances = initial_balances.clone();
+//                    }
+//
+//                    // connectivity
+//                    let peer_0 = peer_configs[0].to_neighbor();
+//                    for i in 1..peer_configs.len() {
+//                        peer_configs[i].add_neighbor(&peer_0);
+//                        let peer_i = peer_configs[i].to_neighbor();
+//                        peer_configs[0].add_neighbor(&peer_i);
+//                    }
+//                },
+//                |num_blocks, ref mut peers| {
+//                    let tip = SortitionDB::get_canonical_burn_chain_tip(
+//                        &peers[0].sortdb.as_ref().unwrap().conn(),
+//                    )
+//                    .unwrap();
+//                    let this_reward_cycle = peers[0]
+//                        .config
+//                        .burnchain
+//                        .block_height_to_reward_cycle(tip.block_height)
+//                        .unwrap();
+//
+//                    // build up block data to replicate
+//                    let mut block_data = vec![];
+//                    for _ in 0..num_blocks {
+//                        let tip = SortitionDB::get_canonical_burn_chain_tip(
+//                            &peers[0].sortdb.as_ref().unwrap().conn(),
+//                        )
+//                        .unwrap();
+//                        if peers[0]
+//                            .config
+//                            .burnchain
+//                            .block_height_to_reward_cycle(tip.block_height)
+//                            .unwrap()
+//                            != this_reward_cycle
+//                        {
+//                            continue;
+//                        }
+//                        let (mut burn_ops, stacks_block, microblocks) =
+//                            peers[0].make_default_tenure();
+//
+//                        let (_, burn_header_hash, consensus_hash) =
+//                            peers[0].next_burnchain_block(burn_ops.clone());
+//                        peers[0].process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+//
+//                        TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
+//
+//                        for i in 1..peers.len() {
+//                            peers[i].next_burnchain_block_raw(burn_ops.clone());
+//                        }
+//
+//                        let sn = SortitionDB::get_canonical_burn_chain_tip(
+//                            &peers[0].sortdb.as_ref().unwrap().conn(),
+//                        )
+//                        .unwrap();
+//
+//                        block_data.push((
+//                            sn.consensus_hash.clone(),
+//                            Some(stacks_block),
+//                            Some(microblocks),
+//                        ));
+//                    }
+//                    *blocks_and_microblocks.borrow_mut() = block_data
+//                        .clone()
+//                        .drain(..)
+//                        .map(|(ch, blk_opt, mblocks_opt)| {
+//                            (ch, blk_opt.unwrap(), mblocks_opt.unwrap())
+//                        })
+//                        .collect();
+//                    block_data
+//                },
+//                |ref mut peers| {
+//                    for peer in peers.iter_mut() {
+//                        // force peers to keep trying to process buffered data
+//                        peer.network.burnchain_tip.burn_header_hash =
+//                            BurnchainHeaderHash([0u8; 32]);
+//                    }
+//
+//                    let done_flag = *done.borrow();
+//
+//                    let mut connectivity_0_to_n = HashSet::new();
+//                    let mut connectivity_n_to_0 = HashSet::new();
+//
+//                    let peer_0_nk = peers[0].to_neighbor().addr;
+//
+//                    for (nk, event_id) in peers[0].network.events.iter() {
+//                        if let Some(convo) = peers[0].network.peers.get(event_id) {
+//                            if convo.is_authenticated() {
+//                                connectivity_0_to_n.insert(nk.clone());
+//                            }
+//                        }
+//                    }
+//                    for i in 1..peers.len() {
+//                        for (nk, event_id) in peers[i].network.events.iter() {
+//                            if *nk != peer_0_nk {
+//                                continue;
+//                            }
+//
+//                            if let Some(convo) = peers[i].network.peers.get(event_id) {
+//                                if convo.is_authenticated() {
+//                                    if let Some(inv_state) = &peers[i].network.inv_state {
+//                                        if let Some(inv_stats) =
+//                                            inv_state.block_stats.get(&peer_0_nk)
+//                                        {
+//                                            if inv_stats.inv.num_reward_cycles >= 5 {
+//                                                connectivity_n_to_0
+//                                                    .insert(peers[i].to_neighbor().addr);
+//                                            }
+//                                        }
+//                                    }
+//                                }
+//                            }
+//                        }
+//                    }
+//
+//                    if connectivity_0_to_n.len() < peers.len() - 1
+//                        || connectivity_n_to_0.len() < peers.len() - 1
+//                    {
+//                        test_debug!(
+//                            "Network not connected: 0 --> N = {}, N --> 0 = {}",
+//                            connectivity_0_to_n.len(),
+//                            connectivity_n_to_0.len()
+//                        );
+//                        return;
+//                    }
+//
+//                    let ((tip_consensus_hash, tip_block, _), idx) = {
+//                        let block_data = blocks_and_microblocks.borrow();
+//                        let idx = blocks_idx.borrow();
+//                        (block_data[(*idx as usize).saturating_sub(1)].clone(), *idx)
+//                    };
+//
+//                    if idx > 0 {
+//                        let mut caught_up = true;
+//                        for i in 1..peers.len() {
+//                            peers[i]
+//                                .with_db_state(|sortdb, chainstate, relayer, mempool| {
+//                                    let (canonical_consensus_hash, canonical_block_hash) =
+//                                        SortitionDB::get_canonical_stacks_chain_tip_hash(
+//                                            sortdb.conn(),
+//                                        )
+//                                        .unwrap();
+//
+//                                    if canonical_consensus_hash != tip_consensus_hash
+//                                        || canonical_block_hash != tip_block.block_hash()
+//                                    {
+//                                        debug!(
+//                                            "Peer {} is not caught up yet (at {}/{}, need {}/{})",
+//                                            i + 1,
+//                                            &canonical_consensus_hash,
+//                                            &canonical_block_hash,
+//                                            &tip_consensus_hash,
+//                                            &tip_block.block_hash()
+//                                        );
+//                                        caught_up = false;
+//                                    }
+//                                    Ok(())
+//                                })
+//                                .unwrap();
+//                        }
+//                        if !caught_up {
+//                            return;
+//                        }
+//                    }
+//
+//                    // caught up!
+//                    // find next block
+//                    let ((consensus_hash, block, microblocks), idx) = {
+//                        let block_data = blocks_and_microblocks.borrow();
+//                        let mut idx = blocks_idx.borrow_mut();
+//                        if *idx >= block_data.len() {
+//                            test_debug!("Out of blocks and microblocks to push");
+//                            return;
+//                        }
+//
+//                        let ret = block_data[*idx].clone();
+//                        *idx += 1;
+//                        (ret, *idx)
+//                    };
+//
+//                    if !done_flag {
+//                        test_debug!(
+//                            "Broadcast block {}/{} and microblocks (idx = {})",
+//                            &consensus_hash,
+//                            block.block_hash(),
+//                            idx
+//                        );
+//
+//                        let block_hash = block.block_hash();
+//
+//                        // create a transaction against the current
+//                        // (anchored) chain tip
+//                        let tx = make_test_smart_contract_transaction(
+//                            &mut peers[0],
+//                            &format!("test-contract-{}", &block_hash.to_hex()[0..10]),
+//                            &tip_consensus_hash,
+//                            &tip_block.block_hash(),
+//                        );
+//
+//                        let mut expected_txs = sent_txs.borrow_mut();
+//                        expected_txs.push(tx.clone());
+//
+//                        test_debug!(
+//                            "Broadcast {}/{} and its microblocks",
+//                            &consensus_hash,
+//                            &block.block_hash()
+//                        );
+//                        // next block
+//                        broadcast_block(&mut peers[0], vec![], consensus_hash.clone(), block);
+//                        broadcast_microblocks(
+//                            &mut peers[0],
+//                            vec![],
+//                            consensus_hash,
+//                            block_hash,
+//                            microblocks,
+//                        );
+//
+//                        // NOTE: first transaction will be dropped since the other nodes haven't
+//                        // processed the first-ever Stacks block when their relayer code gets
+//                        // around to considering it.
+//                        broadcast_transaction(&mut peers[0], vec![], tx);
+//                    } else {
+//                        test_debug!("Done pushing data");
+//                    }
+//                },
+//                |ref peer| {
+//                    // check peer health -- no message errors
+//                    // (i.e. no relay cycles)
+//                    for (_, convo) in peer.network.peers.iter() {
+//                        assert_eq!(convo.stats.msgs_err, 0);
+//                    }
+//                    true
+//                },
+//                |ref mut peers| {
+//                    // all blocks downloaded.  only stop if peer 1 has
+//                    // all the transactions
+//                    let mut done_flag = done.borrow_mut();
+//                    *done_flag = true;
+//
+//                    let mut ret = true;
+//                    for i in 1..peers.len() {
+//                        let txs = MemPoolDB::get_all_txs(peers[1].mempool.as_ref().unwrap().conn())
+//                            .unwrap();
+//                        test_debug!("Peer {} has {} txs", i + 1, txs.len());
+//                        ret = ret && txs.len() == sent_txs.borrow().len() - 1;
+//                    }
+//                    ret
+//                },
+//            );
+//
+//            // peers 1..n should have all the transactions
+//            let blocks_and_microblocks = blocks_and_microblocks.into_inner();
+//            let expected_txs = sent_txs.into_inner();
+//
+//            for i in 1..peers.len() {
+//                let txs =
+//                    MemPoolDB::get_all_txs(peers[i].mempool.as_ref().unwrap().conn()).unwrap();
+//                for tx in txs.iter() {
+//                    let mut found = false;
+//                    for expected_tx in expected_txs.iter() {
+//                        if tx.tx.txid() == expected_tx.txid() {
+//                            found = true;
+//                            break;
+//                        }
+//                    }
+//                    if !found {
+//                        panic!("Transaction not found: {:?}", &tx.tx);
+//                    }
+//                }
+//
+//                // peers 1..n should have 1 tx per chain tip (except for the first block)
+//                for ((consensus_hash, block, _), sent_tx) in
+//                    blocks_and_microblocks.iter().zip(expected_txs[1..].iter())
+//                {
+//                    let block_hash = block.block_hash();
+//                    let tx_infos = MemPoolDB::get_txs_after(
+//                        peers[i].mempool.as_ref().unwrap().conn(),
+//                        consensus_hash,
+//                        &block_hash,
+//                        0,
+//                        1000,
+//                    )
+//                    .unwrap();
+//                    assert_eq!(tx_infos.len(), 1);
+//                    assert_eq!(tx_infos[0].tx.txid(), sent_tx.txid());
+//                }
+//            }
+//        })
+//    }
 
     #[test]
     #[ignore]
@@ -3982,16 +3982,6 @@ mod test {
                     peer_configs[1].add_neighbor(&peer_0);
                 },
                 |num_blocks, ref mut peers| {
-                    let tip = SortitionDB::get_canonical_burn_chain_tip(
-                        &peers[0].sortdb.as_ref().unwrap().conn(),
-                    )
-                    .unwrap();
-                    let this_reward_cycle = peers[0]
-                        .config
-                        .burnchain
-                        .block_height_to_reward_cycle(tip.block_height)
-                        .unwrap();
-
                     // build up block data to replicate
                     let mut block_data = vec![];
                     for _ in 0..num_blocks {

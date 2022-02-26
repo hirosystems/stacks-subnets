@@ -238,9 +238,9 @@ pub mod test {
         peer_config.setup_code = format!(
             "(contract-call? .pox set-burnchain-parameters u{} u{} u{} u{})",
             burnchain.first_block_height,
-            burnchain.pox_constants.prepare_length,
-            burnchain.pox_constants.reward_cycle_length,
-            burnchain.pox_constants.pox_rejection_fraction
+            0u128,
+            0u128,
+            0u128,
         );
 
         test_debug!("Setup code: '{}'", &peer_config.setup_code);
@@ -661,21 +661,6 @@ pub mod test {
     fn make_pox_reject(key: &StacksPrivateKey, nonce: u64) -> StacksTransaction {
         // (define-public (reject-pox))
         make_pox_contract_call(key, nonce, "reject-pox", vec![])
-    }
-
-    fn get_reward_addresses_with_par_tip(
-        state: &mut StacksChainState,
-        burnchain: &Burnchain,
-        sortdb: &SortitionDB,
-        block_id: &StacksBlockId,
-    ) -> Result<Vec<(StacksAddress, u128)>, Error> {
-        let burn_block_height = get_par_burn_block_height(state, block_id);
-        state
-            .get_reward_addresses(burnchain, sortdb, burn_block_height, block_id)
-            .and_then(|mut addrs| {
-                addrs.sort_by_key(|k| k.0.bytes.0);
-                Ok(addrs)
-            })
     }
 
     pub fn get_parent_tip(

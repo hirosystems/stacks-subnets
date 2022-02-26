@@ -1391,14 +1391,13 @@ impl StacksChainState {
             }
 
             // Setup burnchain parameters for pox contract
-            let pox_constants = &boot_data.pox_constants;
             let contract = boot_code_id("pox", mainnet);
             let sender = PrincipalData::from(contract.clone());
             let params = vec![
-                Value::UInt(boot_data.first_burnchain_block_height as u128),
-                Value::UInt(pox_constants.prepare_length as u128),
-                Value::UInt(pox_constants.reward_cycle_length as u128),
-                Value::UInt(pox_constants.pox_rejection_fraction as u128),
+                Value::UInt(0u128),
+                Value::UInt(0u128),
+                Value::UInt(0u128),
+                Value::UInt(0u128),
             ];
             clarity_tx.connection().as_transaction(|conn| {
                 conn.run_contract_call(
@@ -2209,7 +2208,6 @@ pub mod test {
             first_burnchain_block_hash: BurnchainHeaderHash::zero(),
             first_burnchain_block_height: 0,
             first_burnchain_block_timestamp: 0,
-            pox_constants: PoxConstants::testnet_default(),
             get_bulk_initial_lockups: None,
             get_bulk_initial_balances: None,
             get_bulk_initial_names: None,
