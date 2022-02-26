@@ -2605,154 +2605,154 @@ pub mod test {
         availability
     }
 
-    #[test]
-    fn test_get_block_availability() {
-        with_timeout(600, || {
-            let mut peer_1_config = TestPeerConfig::new("test_get_block_availability", 3210, 3211);
-            let mut peer_2_config = TestPeerConfig::new("test_get_block_availability", 3212, 3213);
-
-            // don't bother downloading blocks
-            peer_1_config.connection_opts.disable_block_download = true;
-            peer_2_config.connection_opts.disable_block_download = true;
-
-            peer_1_config.add_neighbor(&peer_2_config.to_neighbor());
-            peer_2_config.add_neighbor(&peer_1_config.to_neighbor());
-
-            let reward_cycle_length =
-                peer_1_config.burnchain.pox_constants.reward_cycle_length as u64;
-
-            let mut peer_1 = TestPeer::new(peer_1_config);
-            let mut peer_2 = TestPeer::new(peer_2_config);
-
-            let num_blocks = 10;
-            let first_stacks_block_height = {
-                let sn = SortitionDB::get_canonical_burn_chain_tip(
-                    &peer_1.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                sn.block_height
-            };
-
-            let mut block_data = vec![];
-
-            for i in 0..num_blocks {
-                let (mut burn_ops, stacks_block, microblocks) = peer_2.make_default_tenure();
-
-                let (_, burn_header_hash, consensus_hash) =
-                    peer_2.next_burnchain_block(burn_ops.clone());
-                peer_2.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-
-                TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
-
-                peer_1.next_burnchain_block_raw(burn_ops);
-
-                let sn = SortitionDB::get_canonical_burn_chain_tip(
-                    &peer_2.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                block_data.push((sn.consensus_hash.clone(), stacks_block, microblocks));
-            }
-
-            let num_burn_blocks = {
-                let sn = SortitionDB::get_canonical_burn_chain_tip(
-                    peer_1.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                sn.block_height - peer_1.config.burnchain.first_block_height
-            };
-
-            let mut round = 0;
-            let mut inv_1_count = 0;
-            let mut inv_2_count = 0;
-            let mut all_blocks_available = false;
-
-            // can only learn about 1 reward cycle's blocks at a time in PoX
-            while inv_1_count < reward_cycle_length
-                && inv_2_count < reward_cycle_length
-                && !all_blocks_available
-            {
-                let result_1 = peer_1.step();
-                let result_2 = peer_2.step();
-
-                inv_1_count = match peer_1.network.inv_state {
-                    Some(ref inv) => {
-                        let mut count = inv.get_inv_sortitions(&peer_2.to_neighbor().addr);
-
-                        // continue until peer 1 knows that peer 2 has blocks
-                        let peer_1_availability = get_peer_availability(
-                            &mut peer_1,
-                            first_stacks_block_height,
-                            first_stacks_block_height + reward_cycle_length,
-                        );
-
-                        let mut all_availability = true;
-                        for (_, _, neighbors) in peer_1_availability.iter() {
-                            if neighbors.len() != 1 {
-                                // not done yet
-                                count = 0;
-                                all_availability = false;
-                                break;
-                            }
-                            assert_eq!(neighbors[0], peer_2.config.to_neighbor().addr);
-                        }
-
-                        all_blocks_available = all_availability;
-
-                        count
-                    }
-                    None => 0,
-                };
-
-                inv_2_count = match peer_2.network.inv_state {
-                    Some(ref inv) => inv.get_inv_sortitions(&peer_1.to_neighbor().addr),
-                    None => 0,
-                };
-
-                // nothing should break
-                match peer_1.network.inv_state {
-                    Some(ref inv) => {
-                        assert_eq!(inv.get_broken_peers().len(), 0);
-                        assert_eq!(inv.get_diverged_peers().len(), 0);
-                    }
-                    None => {}
-                }
-
-                match peer_2.network.inv_state {
-                    Some(ref inv) => {
-                        assert_eq!(inv.get_broken_peers().len(), 0);
-                        assert_eq!(inv.get_diverged_peers().len(), 0);
-                    }
-                    None => {}
-                }
-
-                round += 1;
-            }
-
-            info!("Completed walk round {} step(s)", round);
-
-            let availability = get_peer_availability(
-                &mut peer_1,
-                first_stacks_block_height,
-                first_stacks_block_height + reward_cycle_length,
-            );
-
-            eprintln!("availability.len() == {}", availability.len());
-            eprintln!("block_data.len() == {}", block_data.len());
-
-            assert_eq!(availability.len() as u64, reward_cycle_length);
-            assert_eq!(block_data.len() as u64, num_blocks);
-
-            for (
-                (sn_consensus_hash, stacks_block, microblocks),
-                (consensus_hash, stacks_block_hash_opt, neighbors),
-            ) in block_data.iter().zip(availability.iter())
-            {
-                assert_eq!(*consensus_hash, *sn_consensus_hash);
-                assert!(stacks_block_hash_opt.is_some());
-                assert_eq!(*stacks_block_hash_opt, Some(stacks_block.block_hash()));
-            }
-        })
-    }
+//    #[test]
+//    fn test_get_block_availability() {
+//        with_timeout(600, || {
+//            let mut peer_1_config = TestPeerConfig::new("test_get_block_availability", 3210, 3211);
+//            let mut peer_2_config = TestPeerConfig::new("test_get_block_availability", 3212, 3213);
+//
+//            // don't bother downloading blocks
+//            peer_1_config.connection_opts.disable_block_download = true;
+//            peer_2_config.connection_opts.disable_block_download = true;
+//
+//            peer_1_config.add_neighbor(&peer_2_config.to_neighbor());
+//            peer_2_config.add_neighbor(&peer_1_config.to_neighbor());
+//
+//            let reward_cycle_length =
+//                peer_1_config.burnchain.pox_constants.reward_cycle_length as u64;
+//
+//            let mut peer_1 = TestPeer::new(peer_1_config);
+//            let mut peer_2 = TestPeer::new(peer_2_config);
+//
+//            let num_blocks = 10;
+//            let first_stacks_block_height = {
+//                let sn = SortitionDB::get_canonical_burn_chain_tip(
+//                    &peer_1.sortdb.as_ref().unwrap().conn(),
+//                )
+//                .unwrap();
+//                sn.block_height
+//            };
+//
+//            let mut block_data = vec![];
+//
+//            for i in 0..num_blocks {
+//                let (mut burn_ops, stacks_block, microblocks) = peer_2.make_default_tenure();
+//
+//                let (_, burn_header_hash, consensus_hash) =
+//                    peer_2.next_burnchain_block(burn_ops.clone());
+//                peer_2.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+//
+//                TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
+//
+//                peer_1.next_burnchain_block_raw(burn_ops);
+//
+//                let sn = SortitionDB::get_canonical_burn_chain_tip(
+//                    &peer_2.sortdb.as_ref().unwrap().conn(),
+//                )
+//                .unwrap();
+//                block_data.push((sn.consensus_hash.clone(), stacks_block, microblocks));
+//            }
+//
+//            let num_burn_blocks = {
+//                let sn = SortitionDB::get_canonical_burn_chain_tip(
+//                    peer_1.sortdb.as_ref().unwrap().conn(),
+//                )
+//                .unwrap();
+//                sn.block_height - peer_1.config.burnchain.first_block_height
+//            };
+//
+//            let mut round = 0;
+//            let mut inv_1_count = 0;
+//            let mut inv_2_count = 0;
+//            let mut all_blocks_available = false;
+//
+//            // can only learn about 1 reward cycle's blocks at a time in PoX
+//            while inv_1_count < reward_cycle_length
+//                && inv_2_count < reward_cycle_length
+//                && !all_blocks_available
+//            {
+//                let result_1 = peer_1.step();
+//                let result_2 = peer_2.step();
+//
+//                inv_1_count = match peer_1.network.inv_state {
+//                    Some(ref inv) => {
+//                        let mut count = inv.get_inv_sortitions(&peer_2.to_neighbor().addr);
+//
+//                        // continue until peer 1 knows that peer 2 has blocks
+//                        let peer_1_availability = get_peer_availability(
+//                            &mut peer_1,
+//                            first_stacks_block_height,
+//                            first_stacks_block_height + reward_cycle_length,
+//                        );
+//
+//                        let mut all_availability = true;
+//                        for (_, _, neighbors) in peer_1_availability.iter() {
+//                            if neighbors.len() != 1 {
+//                                // not done yet
+//                                count = 0;
+//                                all_availability = false;
+//                                break;
+//                            }
+//                            assert_eq!(neighbors[0], peer_2.config.to_neighbor().addr);
+//                        }
+//
+//                        all_blocks_available = all_availability;
+//
+//                        count
+//                    }
+//                    None => 0,
+//                };
+//
+//                inv_2_count = match peer_2.network.inv_state {
+//                    Some(ref inv) => inv.get_inv_sortitions(&peer_1.to_neighbor().addr),
+//                    None => 0,
+//                };
+//
+//                // nothing should break
+//                match peer_1.network.inv_state {
+//                    Some(ref inv) => {
+//                        assert_eq!(inv.get_broken_peers().len(), 0);
+//                        assert_eq!(inv.get_diverged_peers().len(), 0);
+//                    }
+//                    None => {}
+//                }
+//
+//                match peer_2.network.inv_state {
+//                    Some(ref inv) => {
+//                        assert_eq!(inv.get_broken_peers().len(), 0);
+//                        assert_eq!(inv.get_diverged_peers().len(), 0);
+//                    }
+//                    None => {}
+//                }
+//
+//                round += 1;
+//            }
+//
+//            info!("Completed walk round {} step(s)", round);
+//
+//            let availability = get_peer_availability(
+//                &mut peer_1,
+//                first_stacks_block_height,
+//                first_stacks_block_height + reward_cycle_length,
+//            );
+//
+//            eprintln!("availability.len() == {}", availability.len());
+//            eprintln!("block_data.len() == {}", block_data.len());
+//
+//            assert_eq!(availability.len() as u64, reward_cycle_length);
+//            assert_eq!(block_data.len() as u64, num_blocks);
+//
+//            for (
+//                (sn_consensus_hash, stacks_block, microblocks),
+//                (consensus_hash, stacks_block_hash_opt, neighbors),
+//            ) in block_data.iter().zip(availability.iter())
+//            {
+//                assert_eq!(*consensus_hash, *sn_consensus_hash);
+//                assert!(stacks_block_hash_opt.is_some());
+//                assert_eq!(*stacks_block_hash_opt, Some(stacks_block.block_hash()));
+//            }
+//        })
+//    }
 
     fn get_blocks_inventory(
         peer: &mut TestPeer,

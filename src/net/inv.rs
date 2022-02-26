@@ -3083,72 +3083,6 @@ mod test {
     }
 
     #[test]
-    fn test_inv_merge_pox_inv() {
-        let mut burnchain = Burnchain::regtest("unused");
-        burnchain.pox_constants = PoxConstants::new(5, 3, 3, 25, 5, u64::MAX, u64::MAX);
-
-        let mut peer_inv = PeerBlocksInv::new(vec![0x01], vec![0x01], vec![0x01], 1, 1, 0);
-        for i in 0..32 {
-            let bit_flipped = peer_inv
-                .merge_pox_inv(&burnchain, i + 1, 1, vec![0x01], false)
-                .unwrap();
-            assert_eq!(bit_flipped, i + 1);
-            assert_eq!(peer_inv.num_reward_cycles, i + 2);
-        }
-
-        assert_eq!(peer_inv.pox_inv, vec![0xff, 0xff, 0xff, 0xff, 0x01]);
-        assert_eq!(peer_inv.num_reward_cycles, 33);
-    }
-
-    #[test]
-    fn test_inv_truncate_pox_inv() {
-        let mut burnchain = Burnchain::regtest("unused");
-        burnchain.pox_constants = PoxConstants::new(5, 3, 3, 25, 5, u64::MAX, u64::MAX);
-
-        let mut peer_inv = PeerBlocksInv::new(vec![0x01], vec![0x01], vec![0x01], 1, 1, 0);
-        for i in 0..5 {
-            let bit_flipped_opt = peer_inv.merge_pox_inv(&burnchain, i + 1, 1, vec![0x00], false);
-            assert!(bit_flipped_opt.is_none());
-            assert_eq!(peer_inv.num_reward_cycles, i + 2);
-        }
-
-        assert_eq!(peer_inv.pox_inv, vec![0x01]); // 0000 0001
-        assert_eq!(peer_inv.num_reward_cycles, 6);
-
-        for i in 0..(6 * burnchain.pox_constants.reward_cycle_length) {
-            peer_inv.set_block_bit(i as u64);
-            peer_inv.set_microblocks_bit(i as u64);
-        }
-
-        // 30 bits set, since the reward cycle is 5 blocks long
-        assert_eq!(peer_inv.block_inv, vec![0xff, 0xff, 0xff, 0x3f]);
-        assert_eq!(peer_inv.microblocks_inv, vec![0xff, 0xff, 0xff, 0x3f]);
-        assert_eq!(
-            peer_inv.num_sortitions,
-            (6 * burnchain.pox_constants.reward_cycle_length) as u64
-        );
-
-        // PoX bit 3 flipped
-        let bit_flipped = peer_inv
-            .merge_pox_inv(&burnchain, 3, 1, vec![0x01], false)
-            .unwrap();
-        assert_eq!(bit_flipped, 3);
-
-        assert_eq!(peer_inv.pox_inv, vec![0x9]); // 0000 1001
-        assert_eq!(peer_inv.num_reward_cycles, 6);
-
-        // truncate happened -- only reward cycles 0, 1, and 2 remain (3 * 5 = 15 bits)
-        // BUT: reward cycles start on the _first_ block, so the first bit doesn't count!
-        // The expected bit vector (grouped by reward cycle) is actually 1 11111 11111 11111.
-        assert_eq!(peer_inv.block_inv, vec![0xff, 0xff, 0x00, 0x00]);
-        assert_eq!(peer_inv.microblocks_inv, vec![0xff, 0xff, 0x00, 0x00]);
-        assert_eq!(
-            peer_inv.num_sortitions,
-            (3 * burnchain.pox_constants.reward_cycle_length + 1) as u64
-        );
-    }
-
-    #[test]
     fn test_sync_inv_set_blocks_microblocks_available() {
         let mut peer_1_config = TestPeerConfig::new(
             "test_sync_inv_set_blocks_microblocks_available",
@@ -3334,431 +3268,431 @@ mod test {
         }
     }
 
-    #[test]
-    fn test_sync_inv_make_inv_messages() {
-        let peer_1_config = TestPeerConfig::new("test_sync_inv_make_inv_messages", 31985, 41986);
-
-        let reward_cycle_length = peer_1_config.burnchain.pox_constants.reward_cycle_length;
-        let num_blocks = peer_1_config.burnchain.pox_constants.reward_cycle_length * 2;
-
-        assert_eq!(reward_cycle_length, 5);
-
-        let mut peer_1 = TestPeer::new(peer_1_config);
-
-        let first_stacks_block_height = {
-            let sn =
-                SortitionDB::get_canonical_burn_chain_tip(&peer_1.sortdb.as_ref().unwrap().conn())
-                    .unwrap();
-            sn.block_height
-        };
-
-        for i in 0..num_blocks {
-            let (burn_ops, stacks_block, microblocks) = peer_1.make_default_tenure();
-
-            peer_1.next_burnchain_block(burn_ops.clone());
-            peer_1.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-        }
-
-        let (tip, num_burn_blocks) = {
-            let sn =
-                SortitionDB::get_canonical_burn_chain_tip(peer_1.sortdb.as_ref().unwrap().conn())
-                    .unwrap();
-            let num_burn_blocks = sn.block_height - peer_1.config.burnchain.first_block_height;
-            (sn, num_burn_blocks)
-        };
-
-        peer_1
-            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
-                network.refresh_local_peer().unwrap();
-                network
-                    .refresh_burnchain_view(sortdb, chainstate, false)
-                    .unwrap();
-                network.refresh_sortition_view(sortdb).unwrap();
-                Ok(())
-            })
-            .unwrap();
-
-        // simulate a getpoxinv / poxinv for one reward cycle
-        let getpoxinv_request = peer_1
-            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-                let height = network.burnchain.reward_cycle_to_block_height(1);
-                let sn = {
-                    let ic = sortdb.index_conn();
-                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
-                        .unwrap()
-                        .unwrap();
-                    sn
-                };
-                let getpoxinv = GetPoxInv {
-                    consensus_hash: sn.consensus_hash,
-                    num_cycles: 1,
-                };
-                Ok(getpoxinv)
-            })
-            .unwrap();
-
-        test_debug!("\n\nSend {:?}\n\n", &getpoxinv_request);
-
-        let reply = peer_1
-            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-                ConversationP2P::make_getpoxinv_response(
-                    &network.local_peer,
-                    &network.burnchain,
-                    sortdb,
-                    &network.pox_id,
-                    &getpoxinv_request,
-                )
-            })
-            .unwrap();
-
-        test_debug!("\n\nReply {:?}\n\n", &reply);
-
-        match reply {
-            StacksMessageType::PoxInv(poxinv) => {
-                assert_eq!(poxinv.bitlen, 1);
-                assert_eq!(poxinv.pox_bitvec, vec![0x01]);
-            }
-            x => {
-                error!("Did not get PoxInv, but got {:?}", &x);
-                assert!(false);
-            }
-        }
-
-        // simulate a getpoxinv / poxinv for several reward cycles, including more than we have
-        // (10, but only have 7)
-        let getpoxinv_request = peer_1
-            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-                let height = network.burnchain.reward_cycle_to_block_height(1);
-                let sn = {
-                    let ic = sortdb.index_conn();
-                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
-                        .unwrap()
-                        .unwrap();
-                    sn
-                };
-                let getpoxinv = GetPoxInv {
-                    consensus_hash: sn.consensus_hash,
-                    num_cycles: 10,
-                };
-                Ok(getpoxinv)
-            })
-            .unwrap();
-
-        test_debug!("\n\nSend {:?}\n\n", &getpoxinv_request);
-
-        let reply = peer_1
-            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-                ConversationP2P::make_getpoxinv_response(
-                    &network.local_peer,
-                    &network.burnchain,
-                    sortdb,
-                    &network.pox_id,
-                    &getpoxinv_request,
-                )
-            })
-            .unwrap();
-
-        test_debug!("\n\nReply {:?}\n\n", &reply);
-
-        match reply {
-            StacksMessageType::PoxInv(poxinv) => {
-                assert_eq!(poxinv.bitlen, 7); // 2 reward cycles we generated, plus 5 reward cycles when booted up (1 reward cycle = 5 blocks).  1st one is free
-                assert_eq!(poxinv.pox_bitvec, vec![0x7f]);
-            }
-            x => {
-                error!("Did not get PoxInv, but got {:?}", &x);
-                assert!(false);
-            }
-        }
-
-        // ask for a PoX vector off of an unknown consensus hash
-        let getpoxinv_request = peer_1
-            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-                let getpoxinv = GetPoxInv {
-                    consensus_hash: ConsensusHash([0xaa; 20]),
-                    num_cycles: 10,
-                };
-                Ok(getpoxinv)
-            })
-            .unwrap();
-
-        test_debug!("\n\nSend {:?}\n\n", &getpoxinv_request);
-
-        let reply = peer_1
-            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-                ConversationP2P::make_getpoxinv_response(
-                    &network.local_peer,
-                    &network.burnchain,
-                    sortdb,
-                    &network.pox_id,
-                    &getpoxinv_request,
-                )
-            })
-            .unwrap();
-
-        test_debug!("\n\nReply {:?}\n\n", &reply);
-
-        match reply {
-            StacksMessageType::Nack(nack_data) => {
-                assert_eq!(nack_data.error_code, NackErrorCodes::InvalidPoxFork);
-            }
-            x => {
-                error!("Did not get PoxInv, but got {:?}", &x);
-                assert!(false);
-            }
-        }
-
-        // ask for a getblocksinv, aligned on a reward cycle.
-        let getblocksinv_request = peer_1
-            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-                let height = network.burnchain.reward_cycle_to_block_height(
-                    network
-                        .burnchain
-                        .block_height_to_reward_cycle(first_stacks_block_height)
-                        .unwrap(),
-                );
-                let sn = {
-                    let ic = sortdb.index_conn();
-                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
-                        .unwrap()
-                        .unwrap();
-                    sn
-                };
-                let getblocksinv = GetBlocksInv {
-                    consensus_hash: sn.consensus_hash,
-                    num_blocks: reward_cycle_length as u16,
-                };
-                Ok(getblocksinv)
-            })
-            .unwrap();
-
-        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
-
-        let reply = peer_1
-            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
-                ConversationP2P::make_getblocksinv_response(
-                    &network.local_peer,
-                    &network.burnchain,
-                    sortdb,
-                    chainstate,
-                    &mut network.header_cache,
-                    &getblocksinv_request,
-                )
-            })
-            .unwrap();
-
-        test_debug!("\n\nReply {:?}\n\n", &reply);
-
-        match reply {
-            StacksMessageType::BlocksInv(blocksinv) => {
-                assert_eq!(blocksinv.bitlen, reward_cycle_length as u16);
-                assert_eq!(blocksinv.block_bitvec, vec![0x1f]);
-                assert_eq!(blocksinv.microblocks_bitvec, vec![0x1e]);
-            }
-            x => {
-                error!("Did not get BlocksInv, but got {:?}", &x);
-                assert!(false);
-            }
-        };
-
-        // ask for a getblocksinv, right at the first Stacks block height
-        let getblocksinv_request = peer_1
-            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-                let height = network.burnchain.reward_cycle_to_block_height(
-                    network
-                        .burnchain
-                        .block_height_to_reward_cycle(first_stacks_block_height)
-                        .unwrap(),
-                );
-                test_debug!("Ask for inv at height {}", height);
-                let sn = {
-                    let ic = sortdb.index_conn();
-                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
-                        .unwrap()
-                        .unwrap();
-                    sn
-                };
-                let getblocksinv = GetBlocksInv {
-                    consensus_hash: sn.consensus_hash,
-                    num_blocks: reward_cycle_length as u16,
-                };
-                Ok(getblocksinv)
-            })
-            .unwrap();
-
-        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
-
-        let reply = peer_1
-            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
-                ConversationP2P::make_getblocksinv_response(
-                    &network.local_peer,
-                    &network.burnchain,
-                    sortdb,
-                    chainstate,
-                    &mut network.header_cache,
-                    &getblocksinv_request,
-                )
-            })
-            .unwrap();
-
-        test_debug!("\n\nReply {:?}\n\n", &reply);
-
-        match reply {
-            StacksMessageType::BlocksInv(blocksinv) => {
-                assert_eq!(blocksinv.bitlen, reward_cycle_length as u16);
-                assert_eq!(blocksinv.block_bitvec, vec![0x1f]);
-                assert_eq!(blocksinv.microblocks_bitvec, vec![0x1e]);
-            }
-            x => {
-                error!("Did not get Nack, but got {:?}", &x);
-                assert!(false);
-            }
-        };
-
-        // ask for a getblocksinv, prior to the first Stacks block height
-        let getblocksinv_request = peer_1
-            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-                let height = network.burnchain.reward_cycle_to_block_height(
-                    network
-                        .burnchain
-                        .block_height_to_reward_cycle(first_stacks_block_height)
-                        .unwrap()
-                        - 1,
-                );
-                test_debug!("Ask for inv at height {}", height);
-                let sn = {
-                    let ic = sortdb.index_conn();
-                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
-                        .unwrap()
-                        .unwrap();
-                    sn
-                };
-                let getblocksinv = GetBlocksInv {
-                    consensus_hash: sn.consensus_hash,
-                    num_blocks: reward_cycle_length as u16,
-                };
-                Ok(getblocksinv)
-            })
-            .unwrap();
-
-        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
-
-        let reply = peer_1
-            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
-                ConversationP2P::make_getblocksinv_response(
-                    &network.local_peer,
-                    &network.burnchain,
-                    sortdb,
-                    chainstate,
-                    &mut network.header_cache,
-                    &getblocksinv_request,
-                )
-            })
-            .unwrap();
-
-        test_debug!("\n\nReply {:?}\n\n", &reply);
-
-        match reply {
-            StacksMessageType::BlocksInv(blocksinv) => {
-                assert_eq!(blocksinv.bitlen, reward_cycle_length as u16);
-                assert_eq!(blocksinv.block_bitvec, vec![0x0]);
-                assert_eq!(blocksinv.microblocks_bitvec, vec![0x0]);
-            }
-            x => {
-                error!("Did not get BlocksInv, but got {:?}", &x);
-                assert!(false);
-            }
-        };
-
-        // ask for a getblocksinv, unaligned to a reward cycle
-        let getblocksinv_request = peer_1
-            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-                let height = network.burnchain.reward_cycle_to_block_height(
-                    network
-                        .burnchain
-                        .block_height_to_reward_cycle(first_stacks_block_height)
-                        .unwrap(),
-                ) + 1;
-                let sn = {
-                    let ic = sortdb.index_conn();
-                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
-                        .unwrap()
-                        .unwrap();
-                    sn
-                };
-                let getblocksinv = GetBlocksInv {
-                    consensus_hash: sn.consensus_hash,
-                    num_blocks: reward_cycle_length as u16,
-                };
-                Ok(getblocksinv)
-            })
-            .unwrap();
-
-        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
-
-        let reply = peer_1
-            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
-                ConversationP2P::make_getblocksinv_response(
-                    &network.local_peer,
-                    &network.burnchain,
-                    sortdb,
-                    chainstate,
-                    &mut network.header_cache,
-                    &getblocksinv_request,
-                )
-            })
-            .unwrap();
-
-        test_debug!("\n\nReply {:?}\n\n", &reply);
-
-        match reply {
-            StacksMessageType::Nack(nack_data) => {
-                assert_eq!(nack_data.error_code, NackErrorCodes::InvalidPoxFork);
-            }
-            x => {
-                error!("Did not get Nack, but got {:?}", &x);
-                assert!(false);
-            }
-        };
-
-        // ask for a getblocksinv, for an unknown consensus hash
-        let getblocksinv_request = peer_1
-            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-                let getblocksinv = GetBlocksInv {
-                    consensus_hash: ConsensusHash([0xaa; 20]),
-                    num_blocks: reward_cycle_length as u16,
-                };
-                Ok(getblocksinv)
-            })
-            .unwrap();
-
-        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
-
-        let reply = peer_1
-            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
-                ConversationP2P::make_getblocksinv_response(
-                    &network.local_peer,
-                    &network.burnchain,
-                    sortdb,
-                    chainstate,
-                    &mut network.header_cache,
-                    &getblocksinv_request,
-                )
-            })
-            .unwrap();
-
-        test_debug!("\n\nReply {:?}\n\n", &reply);
-
-        match reply {
-            StacksMessageType::Nack(nack_data) => {
-                assert_eq!(nack_data.error_code, NackErrorCodes::NoSuchBurnchainBlock);
-            }
-            x => {
-                error!("Did not get Nack, but got {:?}", &x);
-                assert!(false);
-            }
-        };
-    }
+//    #[test]
+//    fn test_sync_inv_make_inv_messages() {
+//        let peer_1_config = TestPeerConfig::new("test_sync_inv_make_inv_messages", 31985, 41986);
+//
+//        let reward_cycle_length = peer_1_config.burnchain.pox_constants.reward_cycle_length;
+//        let num_blocks = peer_1_config.burnchain.pox_constants.reward_cycle_length * 2;
+//
+//        assert_eq!(reward_cycle_length, 5);
+//
+//        let mut peer_1 = TestPeer::new(peer_1_config);
+//
+//        let first_stacks_block_height = {
+//            let sn =
+//                SortitionDB::get_canonical_burn_chain_tip(&peer_1.sortdb.as_ref().unwrap().conn())
+//                    .unwrap();
+//            sn.block_height
+//        };
+//
+//        for i in 0..num_blocks {
+//            let (burn_ops, stacks_block, microblocks) = peer_1.make_default_tenure();
+//
+//            peer_1.next_burnchain_block(burn_ops.clone());
+//            peer_1.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+//        }
+//
+//        let (tip, num_burn_blocks) = {
+//            let sn =
+//                SortitionDB::get_canonical_burn_chain_tip(peer_1.sortdb.as_ref().unwrap().conn())
+//                    .unwrap();
+//            let num_burn_blocks = sn.block_height - peer_1.config.burnchain.first_block_height;
+//            (sn, num_burn_blocks)
+//        };
+//
+//        peer_1
+//            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
+//                network.refresh_local_peer().unwrap();
+//                network
+//                    .refresh_burnchain_view(sortdb, chainstate, false)
+//                    .unwrap();
+//                network.refresh_sortition_view(sortdb).unwrap();
+//                Ok(())
+//            })
+//            .unwrap();
+//
+//        // simulate a getpoxinv / poxinv for one reward cycle
+//        let getpoxinv_request = peer_1
+//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+//                let height = network.burnchain.reward_cycle_to_block_height(1);
+//                let sn = {
+//                    let ic = sortdb.index_conn();
+//                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
+//                        .unwrap()
+//                        .unwrap();
+//                    sn
+//                };
+//                let getpoxinv = GetPoxInv {
+//                    consensus_hash: sn.consensus_hash,
+//                    num_cycles: 1,
+//                };
+//                Ok(getpoxinv)
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nSend {:?}\n\n", &getpoxinv_request);
+//
+//        let reply = peer_1
+//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+//                ConversationP2P::make_getpoxinv_response(
+//                    &network.local_peer,
+//                    &network.burnchain,
+//                    sortdb,
+//                    &network.pox_id,
+//                    &getpoxinv_request,
+//                )
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nReply {:?}\n\n", &reply);
+//
+//        match reply {
+//            StacksMessageType::PoxInv(poxinv) => {
+//                assert_eq!(poxinv.bitlen, 1);
+//                assert_eq!(poxinv.pox_bitvec, vec![0x01]);
+//            }
+//            x => {
+//                error!("Did not get PoxInv, but got {:?}", &x);
+//                assert!(false);
+//            }
+//        }
+//
+//        // simulate a getpoxinv / poxinv for several reward cycles, including more than we have
+//        // (10, but only have 7)
+//        let getpoxinv_request = peer_1
+//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+//                let height = network.burnchain.reward_cycle_to_block_height(1);
+//                let sn = {
+//                    let ic = sortdb.index_conn();
+//                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
+//                        .unwrap()
+//                        .unwrap();
+//                    sn
+//                };
+//                let getpoxinv = GetPoxInv {
+//                    consensus_hash: sn.consensus_hash,
+//                    num_cycles: 10,
+//                };
+//                Ok(getpoxinv)
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nSend {:?}\n\n", &getpoxinv_request);
+//
+//        let reply = peer_1
+//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+//                ConversationP2P::make_getpoxinv_response(
+//                    &network.local_peer,
+//                    &network.burnchain,
+//                    sortdb,
+//                    &network.pox_id,
+//                    &getpoxinv_request,
+//                )
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nReply {:?}\n\n", &reply);
+//
+//        match reply {
+//            StacksMessageType::PoxInv(poxinv) => {
+//                assert_eq!(poxinv.bitlen, 7); // 2 reward cycles we generated, plus 5 reward cycles when booted up (1 reward cycle = 5 blocks).  1st one is free
+//                assert_eq!(poxinv.pox_bitvec, vec![0x7f]);
+//            }
+//            x => {
+//                error!("Did not get PoxInv, but got {:?}", &x);
+//                assert!(false);
+//            }
+//        }
+//
+//        // ask for a PoX vector off of an unknown consensus hash
+//        let getpoxinv_request = peer_1
+//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+//                let getpoxinv = GetPoxInv {
+//                    consensus_hash: ConsensusHash([0xaa; 20]),
+//                    num_cycles: 10,
+//                };
+//                Ok(getpoxinv)
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nSend {:?}\n\n", &getpoxinv_request);
+//
+//        let reply = peer_1
+//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+//                ConversationP2P::make_getpoxinv_response(
+//                    &network.local_peer,
+//                    &network.burnchain,
+//                    sortdb,
+//                    &network.pox_id,
+//                    &getpoxinv_request,
+//                )
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nReply {:?}\n\n", &reply);
+//
+//        match reply {
+//            StacksMessageType::Nack(nack_data) => {
+//                assert_eq!(nack_data.error_code, NackErrorCodes::InvalidPoxFork);
+//            }
+//            x => {
+//                error!("Did not get PoxInv, but got {:?}", &x);
+//                assert!(false);
+//            }
+//        }
+//
+//        // ask for a getblocksinv, aligned on a reward cycle.
+//        let getblocksinv_request = peer_1
+//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+//                let height = network.burnchain.reward_cycle_to_block_height(
+//                    network
+//                        .burnchain
+//                        .block_height_to_reward_cycle(first_stacks_block_height)
+//                        .unwrap(),
+//                );
+//                let sn = {
+//                    let ic = sortdb.index_conn();
+//                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
+//                        .unwrap()
+//                        .unwrap();
+//                    sn
+//                };
+//                let getblocksinv = GetBlocksInv {
+//                    consensus_hash: sn.consensus_hash,
+//                    num_blocks: reward_cycle_length as u16,
+//                };
+//                Ok(getblocksinv)
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
+//
+//        let reply = peer_1
+//            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
+//                ConversationP2P::make_getblocksinv_response(
+//                    &network.local_peer,
+//                    &network.burnchain,
+//                    sortdb,
+//                    chainstate,
+//                    &mut network.header_cache,
+//                    &getblocksinv_request,
+//                )
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nReply {:?}\n\n", &reply);
+//
+//        match reply {
+//            StacksMessageType::BlocksInv(blocksinv) => {
+//                assert_eq!(blocksinv.bitlen, reward_cycle_length as u16);
+//                assert_eq!(blocksinv.block_bitvec, vec![0x1f]);
+//                assert_eq!(blocksinv.microblocks_bitvec, vec![0x1e]);
+//            }
+//            x => {
+//                error!("Did not get BlocksInv, but got {:?}", &x);
+//                assert!(false);
+//            }
+//        };
+//
+//        // ask for a getblocksinv, right at the first Stacks block height
+//        let getblocksinv_request = peer_1
+//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+//                let height = network.burnchain.reward_cycle_to_block_height(
+//                    network
+//                        .burnchain
+//                        .block_height_to_reward_cycle(first_stacks_block_height)
+//                        .unwrap(),
+//                );
+//                test_debug!("Ask for inv at height {}", height);
+//                let sn = {
+//                    let ic = sortdb.index_conn();
+//                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
+//                        .unwrap()
+//                        .unwrap();
+//                    sn
+//                };
+//                let getblocksinv = GetBlocksInv {
+//                    consensus_hash: sn.consensus_hash,
+//                    num_blocks: reward_cycle_length as u16,
+//                };
+//                Ok(getblocksinv)
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
+//
+//        let reply = peer_1
+//            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
+//                ConversationP2P::make_getblocksinv_response(
+//                    &network.local_peer,
+//                    &network.burnchain,
+//                    sortdb,
+//                    chainstate,
+//                    &mut network.header_cache,
+//                    &getblocksinv_request,
+//                )
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nReply {:?}\n\n", &reply);
+//
+//        match reply {
+//            StacksMessageType::BlocksInv(blocksinv) => {
+//                assert_eq!(blocksinv.bitlen, reward_cycle_length as u16);
+//                assert_eq!(blocksinv.block_bitvec, vec![0x1f]);
+//                assert_eq!(blocksinv.microblocks_bitvec, vec![0x1e]);
+//            }
+//            x => {
+//                error!("Did not get Nack, but got {:?}", &x);
+//                assert!(false);
+//            }
+//        };
+//
+//        // ask for a getblocksinv, prior to the first Stacks block height
+//        let getblocksinv_request = peer_1
+//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+//                let height = network.burnchain.reward_cycle_to_block_height(
+//                    network
+//                        .burnchain
+//                        .block_height_to_reward_cycle(first_stacks_block_height)
+//                        .unwrap()
+//                        - 1,
+//                );
+//                test_debug!("Ask for inv at height {}", height);
+//                let sn = {
+//                    let ic = sortdb.index_conn();
+//                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
+//                        .unwrap()
+//                        .unwrap();
+//                    sn
+//                };
+//                let getblocksinv = GetBlocksInv {
+//                    consensus_hash: sn.consensus_hash,
+//                    num_blocks: reward_cycle_length as u16,
+//                };
+//                Ok(getblocksinv)
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
+//
+//        let reply = peer_1
+//            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
+//                ConversationP2P::make_getblocksinv_response(
+//                    &network.local_peer,
+//                    &network.burnchain,
+//                    sortdb,
+//                    chainstate,
+//                    &mut network.header_cache,
+//                    &getblocksinv_request,
+//                )
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nReply {:?}\n\n", &reply);
+//
+//        match reply {
+//            StacksMessageType::BlocksInv(blocksinv) => {
+//                assert_eq!(blocksinv.bitlen, reward_cycle_length as u16);
+//                assert_eq!(blocksinv.block_bitvec, vec![0x0]);
+//                assert_eq!(blocksinv.microblocks_bitvec, vec![0x0]);
+//            }
+//            x => {
+//                error!("Did not get BlocksInv, but got {:?}", &x);
+//                assert!(false);
+//            }
+//        };
+//
+//        // ask for a getblocksinv, unaligned to a reward cycle
+//        let getblocksinv_request = peer_1
+//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+//                let height = network.burnchain.reward_cycle_to_block_height(
+//                    network
+//                        .burnchain
+//                        .block_height_to_reward_cycle(first_stacks_block_height)
+//                        .unwrap(),
+//                ) + 1;
+//                let sn = {
+//                    let ic = sortdb.index_conn();
+//                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
+//                        .unwrap()
+//                        .unwrap();
+//                    sn
+//                };
+//                let getblocksinv = GetBlocksInv {
+//                    consensus_hash: sn.consensus_hash,
+//                    num_blocks: reward_cycle_length as u16,
+//                };
+//                Ok(getblocksinv)
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
+//
+//        let reply = peer_1
+//            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
+//                ConversationP2P::make_getblocksinv_response(
+//                    &network.local_peer,
+//                    &network.burnchain,
+//                    sortdb,
+//                    chainstate,
+//                    &mut network.header_cache,
+//                    &getblocksinv_request,
+//                )
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nReply {:?}\n\n", &reply);
+//
+//        match reply {
+//            StacksMessageType::Nack(nack_data) => {
+//                assert_eq!(nack_data.error_code, NackErrorCodes::InvalidPoxFork);
+//            }
+//            x => {
+//                error!("Did not get Nack, but got {:?}", &x);
+//                assert!(false);
+//            }
+//        };
+//
+//        // ask for a getblocksinv, for an unknown consensus hash
+//        let getblocksinv_request = peer_1
+//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+//                let getblocksinv = GetBlocksInv {
+//                    consensus_hash: ConsensusHash([0xaa; 20]),
+//                    num_blocks: reward_cycle_length as u16,
+//                };
+//                Ok(getblocksinv)
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
+//
+//        let reply = peer_1
+//            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
+//                ConversationP2P::make_getblocksinv_response(
+//                    &network.local_peer,
+//                    &network.burnchain,
+//                    sortdb,
+//                    chainstate,
+//                    &mut network.header_cache,
+//                    &getblocksinv_request,
+//                )
+//            })
+//            .unwrap();
+//
+//        test_debug!("\n\nReply {:?}\n\n", &reply);
+//
+//        match reply {
+//            StacksMessageType::Nack(nack_data) => {
+//                assert_eq!(nack_data.error_code, NackErrorCodes::NoSuchBurnchainBlock);
+//            }
+//            x => {
+//                error!("Did not get Nack, but got {:?}", &x);
+//                assert!(false);
+//            }
+//        };
+//    }
 
     #[test]
     fn test_sync_inv_diagnose_nack() {
@@ -4367,245 +4301,245 @@ mod test {
         })
     }
 
-    #[test]
-    #[ignore]
-    fn test_sync_inv_2_peers_different_pox_vectors() {
-        with_timeout(600, || {
-            let mut peer_1_config =
-                TestPeerConfig::new("test_sync_inv_2_peers_different_pox_vectors", 31998, 41998);
-            let mut peer_2_config =
-                TestPeerConfig::new("test_sync_inv_2_peers_different_pox_vectors", 31999, 41999);
+    // #[test]
+    // #[ignore]
+    // fn test_sync_inv_2_peers_different_pox_vectors() {
+    //     with_timeout(600, || {
+    //         let mut peer_1_config =
+    //             TestPeerConfig::new("test_sync_inv_2_peers_different_pox_vectors", 31998, 41998);
+    //         let mut peer_2_config =
+    //             TestPeerConfig::new("test_sync_inv_2_peers_different_pox_vectors", 31999, 41999);
 
-            peer_1_config.add_neighbor(&peer_2_config.to_neighbor());
-            peer_2_config.add_neighbor(&peer_1_config.to_neighbor());
+    //         peer_1_config.add_neighbor(&peer_2_config.to_neighbor());
+    //         peer_2_config.add_neighbor(&peer_1_config.to_neighbor());
 
-            let reward_cycle_length =
-                peer_1_config.burnchain.pox_constants.reward_cycle_length as u64;
-            assert_eq!(reward_cycle_length, 5);
+    //         let reward_cycle_length =
+    //             peer_1_config.burnchain.pox_constants.reward_cycle_length as u64;
+    //         assert_eq!(reward_cycle_length, 5);
 
-            let mut peer_1 = TestPeer::new(peer_1_config);
-            let mut peer_2 = TestPeer::new(peer_2_config);
+    //         let mut peer_1 = TestPeer::new(peer_1_config);
+    //         let mut peer_2 = TestPeer::new(peer_2_config);
 
-            let num_blocks = (GETPOXINV_MAX_BITLEN * 3) as u64;
+    //         let num_blocks = (GETPOXINV_MAX_BITLEN * 3) as u64;
 
-            let first_stacks_block_height = {
-                let sn = SortitionDB::get_canonical_burn_chain_tip(
-                    &peer_1.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                sn.block_height + 1
-            };
+    //         let first_stacks_block_height = {
+    //             let sn = SortitionDB::get_canonical_burn_chain_tip(
+    //                 &peer_1.sortdb.as_ref().unwrap().conn(),
+    //             )
+    //             .unwrap();
+    //             sn.block_height + 1
+    //         };
 
-            // only peer 2 makes progress after the point of stability.
-            for i in 0..num_blocks {
-                let (mut burn_ops, stacks_block, microblocks) = peer_2.make_default_tenure();
+    //         // only peer 2 makes progress after the point of stability.
+    //         for i in 0..num_blocks {
+    //             let (mut burn_ops, stacks_block, microblocks) = peer_2.make_default_tenure();
 
-                let (_, burn_header_hash, consensus_hash) =
-                    peer_2.next_burnchain_block(burn_ops.clone());
-                peer_2.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+    //             let (_, burn_header_hash, consensus_hash) =
+    //                 peer_2.next_burnchain_block(burn_ops.clone());
+    //             peer_2.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
 
-                TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
+    //             TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
 
-                peer_1.next_burnchain_block_raw(burn_ops.clone());
-                if i < num_blocks - reward_cycle_length * 2 {
-                    peer_1.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-                }
-            }
+    //             peer_1.next_burnchain_block_raw(burn_ops.clone());
+    //             if i < num_blocks - reward_cycle_length * 2 {
+    //                 peer_1.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+    //             }
+    //         }
 
-            let peer_1_pox_id = {
-                let tip_sort_id = SortitionDB::get_canonical_sortition_tip(
-                    peer_1.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                let ic = peer_1.sortdb.as_ref().unwrap().index_conn();
-                let sortdb_reader = SortitionHandleConn::open_reader(&ic, &tip_sort_id).unwrap();
-                sortdb_reader.get_pox_id().unwrap()
-            };
+    //         let peer_1_pox_id = {
+    //             let tip_sort_id = SortitionDB::get_canonical_sortition_tip(
+    //                 peer_1.sortdb.as_ref().unwrap().conn(),
+    //             )
+    //             .unwrap();
+    //             let ic = peer_1.sortdb.as_ref().unwrap().index_conn();
+    //             let sortdb_reader = SortitionHandleConn::open_reader(&ic, &tip_sort_id).unwrap();
+    //             sortdb_reader.get_pox_id().unwrap()
+    //         };
 
-            let peer_2_pox_id = {
-                let tip_sort_id = SortitionDB::get_canonical_sortition_tip(
-                    peer_2.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                let ic = peer_2.sortdb.as_ref().unwrap().index_conn();
-                let sortdb_reader = SortitionHandleConn::open_reader(&ic, &tip_sort_id).unwrap();
-                sortdb_reader.get_pox_id().unwrap()
-            };
+    //         let peer_2_pox_id = {
+    //             let tip_sort_id = SortitionDB::get_canonical_sortition_tip(
+    //                 peer_2.sortdb.as_ref().unwrap().conn(),
+    //             )
+    //             .unwrap();
+    //             let ic = peer_2.sortdb.as_ref().unwrap().index_conn();
+    //             let sortdb_reader = SortitionHandleConn::open_reader(&ic, &tip_sort_id).unwrap();
+    //             sortdb_reader.get_pox_id().unwrap()
+    //         };
 
-            // peers must have different PoX bit vectors -- peer 1 didn't see the last reward cycle
-            assert_eq!(
-                peer_1_pox_id,
-                PoxId::from_bools(vec![
-                    true, true, true, true, true, true, true, true, true, true, false
-                ])
-            );
-            assert_eq!(
-                peer_2_pox_id,
-                PoxId::from_bools(vec![
-                    true, true, true, true, true, true, true, true, true, true, true
-                ])
-            );
+    //         // peers must have different PoX bit vectors -- peer 1 didn't see the last reward cycle
+    //         assert_eq!(
+    //             peer_1_pox_id,
+    //             PoxId::from_bools(vec![
+    //                 true, true, true, true, true, true, true, true, true, true, false
+    //             ])
+    //         );
+    //         assert_eq!(
+    //             peer_2_pox_id,
+    //             PoxId::from_bools(vec![
+    //                 true, true, true, true, true, true, true, true, true, true, true
+    //             ])
+    //         );
 
-            let num_burn_blocks = {
-                let sn = SortitionDB::get_canonical_burn_chain_tip(
-                    peer_1.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                sn.block_height + 1
-            };
+    //         let num_burn_blocks = {
+    //             let sn = SortitionDB::get_canonical_burn_chain_tip(
+    //                 peer_1.sortdb.as_ref().unwrap().conn(),
+    //             )
+    //             .unwrap();
+    //             sn.block_height + 1
+    //         };
 
-            let mut round = 0;
-            let mut inv_1_count = 0;
-            let mut inv_2_count = 0;
-            let mut peer_1_sorts = 0;
-            let mut peer_2_sorts = 0;
+    //         let mut round = 0;
+    //         let mut inv_1_count = 0;
+    //         let mut inv_2_count = 0;
+    //         let mut peer_1_sorts = 0;
+    //         let mut peer_2_sorts = 0;
 
-            while inv_1_count < reward_cycle_length * 4
-                || inv_2_count < num_blocks - reward_cycle_length * 2
-                || peer_1_sorts < reward_cycle_length * 9 + 1
-                || peer_2_sorts < reward_cycle_length * 9 + 1
-            {
-                let _ = peer_1.step();
-                let _ = peer_2.step();
+    //         while inv_1_count < reward_cycle_length * 4
+    //             || inv_2_count < num_blocks - reward_cycle_length * 2
+    //             || peer_1_sorts < reward_cycle_length * 9 + 1
+    //             || peer_2_sorts < reward_cycle_length * 9 + 1
+    //         {
+    //             let _ = peer_1.step();
+    //             let _ = peer_2.step();
 
-                // peer 1 should see that peer 2 has all blocks for reward cycles 5 through 9
-                match peer_1.network.inv_state {
-                    Some(ref inv) => {
-                        inv_1_count = inv.get_inv_num_blocks(&peer_2.to_neighbor().addr);
-                        peer_1_sorts = inv.get_inv_sortitions(&peer_2.to_neighbor().addr);
-                    }
-                    None => {}
-                };
+    //             // peer 1 should see that peer 2 has all blocks for reward cycles 5 through 9
+    //             match peer_1.network.inv_state {
+    //                 Some(ref inv) => {
+    //                     inv_1_count = inv.get_inv_num_blocks(&peer_2.to_neighbor().addr);
+    //                     peer_1_sorts = inv.get_inv_sortitions(&peer_2.to_neighbor().addr);
+    //                 }
+    //                 None => {}
+    //             };
 
-                // peer 2 should see that peer 1 has all blocks up to where we stopped feeding them to
-                // it
-                match peer_2.network.inv_state {
-                    Some(ref inv) => {
-                        inv_2_count = inv.get_inv_num_blocks(&peer_1.to_neighbor().addr);
-                        peer_2_sorts = inv.get_inv_sortitions(&peer_1.to_neighbor().addr);
-                    }
-                    None => {}
-                };
+    //             // peer 2 should see that peer 1 has all blocks up to where we stopped feeding them to
+    //             // it
+    //             match peer_2.network.inv_state {
+    //                 Some(ref inv) => {
+    //                     inv_2_count = inv.get_inv_num_blocks(&peer_1.to_neighbor().addr);
+    //                     peer_2_sorts = inv.get_inv_sortitions(&peer_1.to_neighbor().addr);
+    //                 }
+    //                 None => {}
+    //             };
 
-                match peer_1.network.inv_state {
-                    Some(ref inv) => {
-                        info!("Peer 1 stats: {:?}", &inv.block_stats);
-                        assert_eq!(inv.get_broken_peers().len(), 0);
-                        assert_eq!(inv.get_dead_peers().len(), 0);
-                        assert_eq!(inv.get_diverged_peers().len(), 0);
-                    }
-                    None => {}
-                }
+    //             match peer_1.network.inv_state {
+    //                 Some(ref inv) => {
+    //                     info!("Peer 1 stats: {:?}", &inv.block_stats);
+    //                     assert_eq!(inv.get_broken_peers().len(), 0);
+    //                     assert_eq!(inv.get_dead_peers().len(), 0);
+    //                     assert_eq!(inv.get_diverged_peers().len(), 0);
+    //                 }
+    //                 None => {}
+    //             }
 
-                match peer_2.network.inv_state {
-                    Some(ref inv) => {
-                        info!("Peer 2 stats: {:?}", &inv.block_stats);
-                        assert_eq!(inv.get_broken_peers().len(), 0);
-                        assert_eq!(inv.get_dead_peers().len(), 0);
-                        assert_eq!(inv.get_diverged_peers().len(), 0);
-                    }
-                    None => {}
-                }
+    //             match peer_2.network.inv_state {
+    //                 Some(ref inv) => {
+    //                     info!("Peer 2 stats: {:?}", &inv.block_stats);
+    //                     assert_eq!(inv.get_broken_peers().len(), 0);
+    //                     assert_eq!(inv.get_dead_peers().len(), 0);
+    //                     assert_eq!(inv.get_diverged_peers().len(), 0);
+    //                 }
+    //                 None => {}
+    //             }
 
-                round += 1;
+    //             round += 1;
 
-                test_debug!(
-                    "\n\ninv_1_count = {} <? {}, inv_2_count = {} <? {}, peer_1_sorts = {} <? {}, peer_2_sorts = {} <? {}",
-                    inv_1_count,
-                    reward_cycle_length * 4,
-                    inv_2_count,
-                    num_blocks - reward_cycle_length * 2,
-                    peer_1_sorts,
-                    reward_cycle_length * 9 + 1,
-                    peer_2_sorts,
-                    reward_cycle_length * 9 + 1
-                );
-            }
+    //             test_debug!(
+    //                 "\n\ninv_1_count = {} <? {}, inv_2_count = {} <? {}, peer_1_sorts = {} <? {}, peer_2_sorts = {} <? {}",
+    //                 inv_1_count,
+    //                 reward_cycle_length * 4,
+    //                 inv_2_count,
+    //                 num_blocks - reward_cycle_length * 2,
+    //                 peer_1_sorts,
+    //                 reward_cycle_length * 9 + 1,
+    //                 peer_2_sorts,
+    //                 reward_cycle_length * 9 + 1
+    //             );
+    //         }
 
-            info!("Completed walk round {} step(s)", round);
+    //         info!("Completed walk round {} step(s)", round);
 
-            peer_1.dump_frontier();
-            peer_2.dump_frontier();
+    //         peer_1.dump_frontier();
+    //         peer_2.dump_frontier();
 
-            let peer_1_pox_id = {
-                let tip_sort_id = SortitionDB::get_canonical_sortition_tip(
-                    peer_1.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                let ic = peer_1.sortdb.as_ref().unwrap().index_conn();
-                let sortdb_reader = SortitionHandleConn::open_reader(&ic, &tip_sort_id).unwrap();
-                sortdb_reader.get_pox_id().unwrap()
-            };
+    //         let peer_1_pox_id = {
+    //             let tip_sort_id = SortitionDB::get_canonical_sortition_tip(
+    //                 peer_1.sortdb.as_ref().unwrap().conn(),
+    //             )
+    //             .unwrap();
+    //             let ic = peer_1.sortdb.as_ref().unwrap().index_conn();
+    //             let sortdb_reader = SortitionHandleConn::open_reader(&ic, &tip_sort_id).unwrap();
+    //             sortdb_reader.get_pox_id().unwrap()
+    //         };
 
-            let peer_2_pox_id = {
-                let tip_sort_id = SortitionDB::get_canonical_sortition_tip(
-                    peer_2.sortdb.as_ref().unwrap().conn(),
-                )
-                .unwrap();
-                let ic = peer_2.sortdb.as_ref().unwrap().index_conn();
-                let sortdb_reader = SortitionHandleConn::open_reader(&ic, &tip_sort_id).unwrap();
-                sortdb_reader.get_pox_id().unwrap()
-            };
+    //         let peer_2_pox_id = {
+    //             let tip_sort_id = SortitionDB::get_canonical_sortition_tip(
+    //                 peer_2.sortdb.as_ref().unwrap().conn(),
+    //             )
+    //             .unwrap();
+    //             let ic = peer_2.sortdb.as_ref().unwrap().index_conn();
+    //             let sortdb_reader = SortitionHandleConn::open_reader(&ic, &tip_sort_id).unwrap();
+    //             sortdb_reader.get_pox_id().unwrap()
+    //         };
 
-            let peer_2_inv = peer_1
-                .network
-                .inv_state
-                .as_ref()
-                .unwrap()
-                .block_stats
-                .get(&peer_2.to_neighbor().addr)
-                .unwrap()
-                .inv
-                .clone();
-            test_debug!("peer 1's view of peer 2: {:?}", &peer_2_inv);
-            test_debug!("peer 1's PoX bit vector is {:?}", &peer_1_pox_id);
+    //         let peer_2_inv = peer_1
+    //             .network
+    //             .inv_state
+    //             .as_ref()
+    //             .unwrap()
+    //             .block_stats
+    //             .get(&peer_2.to_neighbor().addr)
+    //             .unwrap()
+    //             .inv
+    //             .clone();
+    //         test_debug!("peer 1's view of peer 2: {:?}", &peer_2_inv);
+    //         test_debug!("peer 1's PoX bit vector is {:?}", &peer_1_pox_id);
 
-            let peer_1_inv = peer_2
-                .network
-                .inv_state
-                .as_ref()
-                .unwrap()
-                .block_stats
-                .get(&peer_1.to_neighbor().addr)
-                .unwrap()
-                .inv
-                .clone();
-            test_debug!("peer 2's view of peer 1: {:?}", &peer_1_inv);
-            test_debug!("peer 2's PoX bit vector is {:?}", &peer_2_pox_id);
+    //         let peer_1_inv = peer_2
+    //             .network
+    //             .inv_state
+    //             .as_ref()
+    //             .unwrap()
+    //             .block_stats
+    //             .get(&peer_1.to_neighbor().addr)
+    //             .unwrap()
+    //             .inv
+    //             .clone();
+    //         test_debug!("peer 2's view of peer 1: {:?}", &peer_1_inv);
+    //         test_debug!("peer 2's PoX bit vector is {:?}", &peer_2_pox_id);
 
-            // nodes only learn about the prefix of their PoX bit vectors that they agree on
-            assert_eq!(peer_2_inv.num_sortitions, reward_cycle_length * 9 + 1);
-            assert_eq!(peer_1_inv.num_sortitions, reward_cycle_length * 9 + 1);
+    //         // nodes only learn about the prefix of their PoX bit vectors that they agree on
+    //         assert_eq!(peer_2_inv.num_sortitions, reward_cycle_length * 9 + 1);
+    //         assert_eq!(peer_1_inv.num_sortitions, reward_cycle_length * 9 + 1);
 
-            // only 9 reward cycles -- we couldn't agree on the 10th
-            assert_eq!(peer_1_inv.pox_inv, vec![255, 1]);
-            assert_eq!(peer_2_inv.pox_inv, vec![255, 1]);
+    //         // only 9 reward cycles -- we couldn't agree on the 10th
+    //         assert_eq!(peer_1_inv.pox_inv, vec![255, 1]);
+    //         assert_eq!(peer_2_inv.pox_inv, vec![255, 1]);
 
-            // peer 1 should have learned that peer 2 has all the blocks, up to the point of
-            // PoX instability between the two
-            for i in 0..(reward_cycle_length * 4) {
-                assert!(peer_2_inv.has_ith_block(i + first_stacks_block_height));
-                if i > 0 {
-                    assert!(peer_2_inv.has_ith_microblock_stream(i + first_stacks_block_height));
-                } else {
-                    assert!(!peer_2_inv.has_ith_microblock_stream(i + first_stacks_block_height));
-                }
-            }
+    //         // peer 1 should have learned that peer 2 has all the blocks, up to the point of
+    //         // PoX instability between the two
+    //         for i in 0..(reward_cycle_length * 4) {
+    //             assert!(peer_2_inv.has_ith_block(i + first_stacks_block_height));
+    //             if i > 0 {
+    //                 assert!(peer_2_inv.has_ith_microblock_stream(i + first_stacks_block_height));
+    //             } else {
+    //                 assert!(!peer_2_inv.has_ith_microblock_stream(i + first_stacks_block_height));
+    //             }
+    //         }
 
-            // peer 2 should have learned about all of peer 1's blocks
-            for i in 0..(num_blocks - 2 * reward_cycle_length) {
-                assert!(peer_1_inv.has_ith_block(i + first_stacks_block_height));
-                if i > 0 && i != num_blocks - 2 * reward_cycle_length - 1 {
-                    // peer 1 doesn't have the final microblock stream, since no anchor block confirmed it
-                    assert!(peer_1_inv.has_ith_microblock_stream(i + first_stacks_block_height));
-                }
-            }
+    //         // peer 2 should have learned about all of peer 1's blocks
+    //         for i in 0..(num_blocks - 2 * reward_cycle_length) {
+    //             assert!(peer_1_inv.has_ith_block(i + first_stacks_block_height));
+    //             if i > 0 && i != num_blocks - 2 * reward_cycle_length - 1 {
+    //                 // peer 1 doesn't have the final microblock stream, since no anchor block confirmed it
+    //                 assert!(peer_1_inv.has_ith_microblock_stream(i + first_stacks_block_height));
+    //             }
+    //         }
 
-            assert!(!peer_1_inv.has_ith_block(reward_cycle_length * 4));
-            assert!(!peer_1_inv.has_ith_microblock_stream(reward_cycle_length * 4));
+    //         assert!(!peer_1_inv.has_ith_block(reward_cycle_length * 4));
+    //         assert!(!peer_1_inv.has_ith_microblock_stream(reward_cycle_length * 4));
 
-            assert!(!peer_2_inv.has_ith_block(num_blocks - 2 * reward_cycle_length));
-            assert!(!peer_2_inv.has_ith_microblock_stream(num_blocks - 2 * reward_cycle_length));
-        })
-    }
+    //         assert!(!peer_2_inv.has_ith_block(num_blocks - 2 * reward_cycle_length));
+    //         assert!(!peer_2_inv.has_ith_microblock_stream(num_blocks - 2 * reward_cycle_length));
+    //     })
+    // }
 }
