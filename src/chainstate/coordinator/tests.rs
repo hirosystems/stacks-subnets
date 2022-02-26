@@ -745,11 +745,8 @@ fn missed_block_commits() {
             // NOTE: intended for block block_height - 2
             last_input = Some((
                 bad_op.txid(),
-                if b.is_in_prepare_phase(next_mock_header.block_height - 2 + 1) {
-                    2
-                } else {
                     (OUTPUTS_PER_COMMIT as u32) + 1
-                },
+                ,
             ));
             bad_op.set_block_height(next_mock_header.block_height);
             test_debug!(
@@ -808,11 +805,8 @@ fn missed_block_commits() {
             // produce a block with one good op,
             last_input = Some((
                 expected_winner,
-                if b.is_in_prepare_phase(next_mock_header.block_height) {
-                    2
-                } else {
                     (OUTPUTS_PER_COMMIT as u32) + 1
-                },
+                ,
             ));
             produce_burn_block_do_not_set_height(
                 &mut burnchain,
