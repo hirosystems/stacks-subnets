@@ -300,10 +300,10 @@ impl BlockEventDispatcher for NullEventDispatcher {
 pub fn make_coordinator<'a>(
     path: &str,
     burnchain: Option<Burnchain>,
-) -> ChainsCoordinator<'a, NullEventDispatcher, (), OnChainRewardSetProvider, (), ()> {
+) -> ChainsCoordinator<'a, NullEventDispatcher, (), (), ()> {
     let (tx, _) = sync_channel(100000);
     let burnchain = burnchain.unwrap_or_else(|| get_burnchain(path));
-    ChainsCoordinator::test_new(&burnchain, 0x80000000, path, OnChainRewardSetProvider(), tx)
+    ChainsCoordinator::test_new(&burnchain, 0x80000000, path, tx)
 }
 
 struct StubbedRewardSetProvider(Vec<StacksAddress>);
@@ -324,8 +324,7 @@ impl RewardSetProvider for StubbedRewardSetProvider {
 fn make_reward_set_coordinator<'a>(
     path: &str,
     addrs: Vec<StacksAddress>,
-    pox_consts: Option<PoxConstants>,
-) -> ChainsCoordinator<'a, NullEventDispatcher, (), StubbedRewardSetProvider, (), ()> {
+) -> ChainsCoordinator<'a, NullEventDispatcher, (), (), ()> {
     let (tx, _) = sync_channel(100000);
     ChainsCoordinator::test_new(
         &get_burnchain(path),
@@ -644,7 +643,6 @@ fn missed_block_commits() {
     let _r = std::fs::remove_dir_all(path);
 
     let sunset_ht = 8000;
-    let pox_consts = Some(PoxConstants::new(5, 3, 3, 25, 5, 7010, sunset_ht));
     let burnchain_conf = get_burnchain(path);
 
     let vrf_keys: Vec<_> = (0..50).map(|_| VRFPrivateKey::new()).collect();

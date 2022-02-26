@@ -249,7 +249,6 @@ impl<'a, T: BlockEventDispatcher, CE: CostEstimator + ?Sized, FE: FeeEstimator +
             attachments_tx,
             dispatcher: Some(dispatcher),
             notifier: arc_notices,
-            reward_set_provider: OnChainRewardSetProvider(),
             cost_estimator,
             fee_estimator,
             atlas_config,
