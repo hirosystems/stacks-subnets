@@ -2580,7 +2580,7 @@ max_burn_block_height - target_block_height);
             consensus_hash: ancestor_sn.consensus_hash,
             num_blocks: cmp::min(
                 tip_sn.block_height.saturating_sub(ancestor_sn.block_height) + 1,
-                self.burnchain.pox_constants.reward_cycle_length as u64,
+                MaxBlocksInventoryRequest,
             ) as u16,
         };
 

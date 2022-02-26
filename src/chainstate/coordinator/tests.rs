@@ -380,7 +380,6 @@ fn make_genesis_block_with_recipients(
     my_burn: u64,
     vrf_key: &VRFPrivateKey,
     key_index: u32,
-    recipients: Option<&RewardSetInfo>,
 ) -> (BlockstackOperationType, StacksBlock) {
     let tx_auth = TransactionAuth::from_p2pkh(miner).unwrap();
 
@@ -422,19 +421,7 @@ fn make_genesis_block_with_recipients(
     let block = builder.mine_anchored_block(&mut epoch_tx);
     builder.epoch_finish(epoch_tx);
 
-    let commit_outs = if let Some(recipients) = recipients {
-        let mut commit_outs = recipients
-            .recipients
-            .iter()
-            .map(|(a, _)| a.clone())
-            .collect::<Vec<StacksAddress>>();
-        if commit_outs.len() == 1 {
-            commit_outs.push(StacksAddress::burn_address(false))
-        }
-        commit_outs
-    } else {
-        vec![]
-    };
+    let commit_outs = vec![];
 
     let commit_op = LeaderBlockCommitOp {
         block_header_hash: block.block_hash(),
@@ -684,10 +671,6 @@ fn missed_block_commits() {
             timestamp: 1,
         };
 
-        let reward_cycle_info = coord.get_reward_cycle_info(&next_mock_header).unwrap();
-        let next_block_recipients = get_rw_sortdb(path)
-            .test_get_next_block_recipients(&b, reward_cycle_info.as_ref())
-            .unwrap();
 
         let b = get_burnchain(path);
         let mut ops = vec![];
@@ -702,7 +685,6 @@ fn missed_block_commits() {
                 10000,
                 vrf_key,
                 ix as u32,
-                next_block_recipients.as_ref(),
                 0,
                 false,
                 last_input.as_ref().unwrap().clone(),
@@ -731,7 +713,6 @@ fn missed_block_commits() {
                 10000,
                 vrf_key,
                 ix as u32,
-                next_block_recipients.as_ref(),
             )
         } else {
             make_stacks_block_with_input(
@@ -744,7 +725,6 @@ fn missed_block_commits() {
                 10000,
                 vrf_key,
                 ix as u32,
-                next_block_recipients.as_ref(),
                 0,
                 false,
                 last_input.as_ref().unwrap().clone(),
@@ -1016,10 +996,10 @@ fn eval_at_chain_tip(chainstate_path: &str, sort_db: &SortitionDB, eval: &str) -
         .unwrap()
 }
 
-fn reveal_block<T: BlockEventDispatcher, N: CoordinatorNotices, U: RewardSetProvider>(
+fn reveal_block<T: BlockEventDispatcher, N: CoordinatorNotices>(
     chainstate_path: &str,
     sort_db: &SortitionDB,
-    coord: &mut ChainsCoordinator<T, N, U, (), ()>,
+    coord: &mut ChainsCoordinator<T, N, (), ()>,
     my_sortition: &SortitionId,
     block: &StacksBlock,
 ) {

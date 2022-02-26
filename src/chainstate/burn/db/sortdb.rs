@@ -892,8 +892,7 @@ impl<'a> SortitionHandleTx<'a> {
     }
 
     /// Get the expected PoX recipients (reward set) for the next sortition, either by querying information
-    ///  from the current reward cycle, or if `next_pox_info` is provided, by querying information
-    ///  for the next reward cycle.
+    ///  from the current reward cycle.
     ///
     /// Returns None if:
     ///   * The reward cycle had an anchor block, but it isn't known by this node.
@@ -905,7 +904,6 @@ impl<'a> SortitionHandleTx<'a> {
         _burnchain: &Burnchain,
         _block_height: u64,
         _reward_set_vrf_seed: &SortitionHash,
-        _next_pox_info: Option<&RewardCycleInfo>,
     ) -> Result<Option<RewardSetInfo>, BurnchainError> {
         Ok(None)
     }
@@ -2096,7 +2094,6 @@ impl SortitionDB {
     /// * `ops` - the parsed blockstack operations (will be validated in this function)
     /// * `burnchain` - a reference to the burnchain information struct
     /// * `from_tip` - tip of the "sortition chain" that is being built on
-    /// * `next_pox_info` - iff this sortition is the first block in a reward cycle, this should be Some
     ///
     pub fn evaluate_sortition(
         &mut self,
@@ -2104,7 +2101,6 @@ impl SortitionDB {
         ops: Vec<BlockstackOperationType>,
         burnchain: &Burnchain,
         from_tip: &SortitionId,
-        next_pox_info: Option<RewardCycleInfo>,
     ) -> Result<
         (
             BlockSnapshot,
@@ -2162,16 +2158,6 @@ impl SortitionDB {
         // commit everything!
         sortition_db_handle.commit()?;
         Ok((new_snapshot.0, new_snapshot.1, reward_set_info))
-    }
-
-    #[cfg(test)]
-    pub fn test_get_next_block_recipients(
-        &mut self,
-        burnchain: &Burnchain,
-        next_pox_info: Option<&RewardCycleInfo>,
-    ) -> Result<Option<RewardSetInfo>, BurnchainError> {
-        let parent_snapshot = SortitionDB::get_canonical_burn_chain_tip(self.conn())?;
-        self.get_next_block_recipients(burnchain, &parent_snapshot, next_pox_info)
     }
 
     pub fn is_stacks_block_in_sortition_set(
@@ -2725,7 +2711,6 @@ impl<'a> SortitionHandleTx<'a> {
         parent_snapshot: &BlockSnapshot,
         snapshot: &BlockSnapshot,
         block_ops: &Vec<BlockstackOperationType>,
-        _reward_info: Option<&RewardSetInfo>,
         initialize_bonus: Option<InitialMiningBonus>,
     ) -> Result<TrieHash, db_error> {
         assert_eq!(

@@ -161,7 +161,6 @@ impl LeaderBlockCommitOp {
         &self,
         _burnchain: &Burnchain,
         _tx: &mut SortitionHandleTx,
-        _reward_set_info: Option<&RewardSetInfo>,
     ) -> Result<(), op_error> {
         // good to go!
         Ok(())

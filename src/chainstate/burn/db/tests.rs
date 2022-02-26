@@ -213,7 +213,7 @@ fn test_insert_block_commit() {
         sn.consensus_hash = ConsensusHash([0x23; 20]);
 
         let index_root = tx
-            .append_chain_tip_snapshot(&sn_parent, &sn, &vec![], None, None)
+            .append_chain_tip_snapshot(&sn_parent, &sn, &vec![], None)
             .unwrap();
         sn.index_root = index_root;
 
@@ -374,7 +374,7 @@ fn is_fresh_consensus_hash() {
                 canonical_stacks_tip_consensus_hash: ConsensusHash([0u8; 20]),
             };
             let index_root = tx
-                .append_chain_tip_snapshot(&last_snapshot, &snapshot_row, &vec![], None, None)
+                .append_chain_tip_snapshot(&last_snapshot, &snapshot_row, &vec![], None)
                 .unwrap();
             last_snapshot = snapshot_row;
             last_snapshot.index_root = index_root;
@@ -613,7 +613,7 @@ fn get_consensus_at() {
                 canonical_stacks_tip_consensus_hash: ConsensusHash([0u8; 20]),
             };
             let index_root = tx
-                .append_chain_tip_snapshot(&last_snapshot, &snapshot_row, &vec![], None, None)
+                .append_chain_tip_snapshot(&last_snapshot, &snapshot_row, &vec![], None)
                 .unwrap();
             last_snapshot = snapshot_row;
             last_snapshot.index_root = index_root;
@@ -809,7 +809,7 @@ fn get_last_snapshot_with_sortition() {
         let chain_tip = SortitionDB::get_canonical_burn_chain_tip(db.conn()).unwrap();
         let mut tx = SortitionHandleTx::begin(&mut db, &chain_tip.sortition_id).unwrap();
 
-        tx.append_chain_tip_snapshot(&chain_tip, &snapshot_without_sortition, &vec![], None, None)
+        tx.append_chain_tip_snapshot(&chain_tip, &snapshot_without_sortition, &vec![], None)
             .unwrap();
         tx.commit().unwrap();
     }
@@ -830,7 +830,7 @@ fn get_last_snapshot_with_sortition() {
         let chain_tip = SortitionDB::get_canonical_burn_chain_tip(db.conn()).unwrap();
         let mut tx = SortitionHandleTx::begin(&mut db, &chain_tip.sortition_id).unwrap();
 
-        tx.append_chain_tip_snapshot(&chain_tip, &snapshot_with_sortition, &vec![], None, None)
+        tx.append_chain_tip_snapshot(&chain_tip, &snapshot_with_sortition, &vec![], None)
             .unwrap();
         tx.commit().unwrap();
     }
@@ -1018,7 +1018,7 @@ fn test_chain_reorg() {
         ]);
 
         let mut tx = SortitionHandleTx::begin(&mut db, &last_snapshot.sortition_id).unwrap();
-        tx.append_chain_tip_snapshot(&last_snapshot, &next_snapshot, &vec![], None, None)
+        tx.append_chain_tip_snapshot(&last_snapshot, &next_snapshot, &vec![], None)
             .unwrap();
         tx.commit().unwrap();
 
@@ -1154,7 +1154,7 @@ fn test_chain_reorg() {
 
             let mut tx = SortitionHandleTx::begin(&mut db, &last_snapshot.sortition_id).unwrap();
             let next_index_root = tx
-                .append_chain_tip_snapshot(&last_snapshot, &next_snapshot, &vec![], None, None)
+                .append_chain_tip_snapshot(&last_snapshot, &next_snapshot, &vec![], None)
                 .unwrap();
             tx.commit().unwrap();
 
@@ -1233,7 +1233,7 @@ fn test_chain_reorg() {
                 let mut tx =
                     SortitionHandleTx::begin(&mut db, &last_snapshot.sortition_id).unwrap();
                 let next_index_root = tx
-                    .append_chain_tip_snapshot(&last_snapshot, &next_snapshot, &vec![], None, None)
+                    .append_chain_tip_snapshot(&last_snapshot, &next_snapshot, &vec![], None)
                     .unwrap();
                 tx.commit().unwrap();
                 next_index_root
@@ -1264,7 +1264,7 @@ fn test_chain_reorg() {
         let next_index_root = {
             let mut tx = SortitionHandleTx::begin(&mut db, &last_snapshot.sortition_id).unwrap();
             let next_index_root = tx
-                .append_chain_tip_snapshot(&last_snapshot, &next_snapshot, &vec![], None, None)
+                .append_chain_tip_snapshot(&last_snapshot, &next_snapshot, &vec![], None)
                 .unwrap();
             tx.commit().unwrap();
             next_index_root
@@ -1456,7 +1456,7 @@ fn test_get_stacks_header_hashes() {
             let mut tx = SortitionHandleTx::begin(&mut db, &last_snapshot.sortition_id).unwrap();
 
             let index_root = tx
-                .append_chain_tip_snapshot(&last_snapshot, &snapshot_row, &vec![], None, None)
+                .append_chain_tip_snapshot(&last_snapshot, &snapshot_row, &vec![], None)
                 .unwrap();
             last_snapshot = snapshot_row;
             last_snapshot.index_root = index_root;

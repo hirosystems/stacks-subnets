@@ -333,9 +333,6 @@ mod tests {
                     &snapshot,
                     &next_block_header,
                     vec![BlockstackOperationType::LeaderBlockCommit(block_commit)],
-                    None,
-                    PoxId::initial(),
-                    None,
                     0,
                 )
                 .unwrap();
