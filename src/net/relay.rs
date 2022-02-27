@@ -2911,168 +2911,168 @@ mod test {
         test_get_blocks_and_microblocks_2_peers_push_blocks_and_microblocks(false, false)
     }
 
-//    #[test]
-//    #[ignore]
-//    fn test_get_blocks_and_microblocks_upload_blocks_http() {
-//        with_timeout(600, || {
-//            let (port_sx, port_rx) = std::sync::mpsc::sync_channel(1);
-//            let (block_sx, block_rx) = std::sync::mpsc::sync_channel(1);
-//
-//            std::thread::spawn(move || loop {
-//                eprintln!("Get port");
-//                let remote_port: u16 = port_rx.recv().unwrap();
-//                eprintln!("Got port {}", remote_port);
-//
-//                eprintln!("Send getinfo");
-//                let peer_info = http_get_info(remote_port);
-//                eprintln!("Got getinfo! {:?}", &peer_info);
-//                let idx = peer_info.stacks_tip_height as usize;
-//
-//                eprintln!("Get blocks and microblocks");
-//                let blocks_and_microblocks: Vec<(
-//                    ConsensusHash,
-//                    Option<StacksBlock>,
-//                    Option<Vec<StacksMicroblock>>,
-//                )> = block_rx.recv().unwrap();
-//                eprintln!("Got blocks and microblocks!");
-//
-//                if idx >= blocks_and_microblocks.len() {
-//                    eprintln!("Out of blocks to send!");
-//                    return;
-//                }
-//
-//                eprintln!(
-//                    "Upload block {}",
-//                    &blocks_and_microblocks[idx].1.as_ref().unwrap().block_hash()
-//                );
-//                http_post_block(
-//                    remote_port,
-//                    &blocks_and_microblocks[idx].0,
-//                    blocks_and_microblocks[idx].1.as_ref().unwrap(),
-//                );
-//                for mblock in blocks_and_microblocks[idx].2.as_ref().unwrap().iter() {
-//                    eprintln!("Upload microblock {}", mblock.block_hash());
-//                    http_post_microblock(
-//                        remote_port,
-//                        &blocks_and_microblocks[idx].0,
-//                        &blocks_and_microblocks[idx].1.as_ref().unwrap().block_hash(),
-//                        mblock,
-//                    );
-//                }
-//            });
-//
-//            let original_blocks_and_microblocks = RefCell::new(vec![]);
-//            let port_sx_cell = RefCell::new(port_sx);
-//            let block_sx_cell = RefCell::new(block_sx);
-//
-//            run_get_blocks_and_microblocks(
-//                "test_get_blocks_and_microblocks_upload_blocks_http",
-//                4250,
-//                2,
-//                |ref mut peer_configs| {
-//                    // build initial network topology.
-//                    assert_eq!(peer_configs.len(), 2);
-//
-//                    // peer 0 produces the blocks
-//                    peer_configs[0].connection_opts.disable_chat_neighbors = true;
-//
-//                    // peer 0 sends them to peer 1
-//                    peer_configs[1].connection_opts.disable_chat_neighbors = true;
-//                    peer_configs[1].connection_opts.disable_inv_sync = true;
-//
-//                    // disable nat punches -- disconnect/reconnect
-//                    // clears inv state
-//                    peer_configs[0].connection_opts.disable_natpunch = true;
-//                    peer_configs[1].connection_opts.disable_natpunch = true;
-//
-//                    // generous timeouts
-//                    peer_configs[0].connection_opts.timeout = 180;
-//                    peer_configs[1].connection_opts.timeout = 180;
-//
-//                    let peer_0 = peer_configs[0].to_neighbor();
-//                    let peer_1 = peer_configs[1].to_neighbor();
-//                },
-//                |num_blocks, ref mut peers| {
-//                    let tip = SortitionDB::get_canonical_burn_chain_tip(
-//                        &peers[0].sortdb.as_ref().unwrap().conn(),
-//                    )
-//                    .unwrap();
-//                    let this_reward_cycle = peers[0]
-//                        .config
-//                        .burnchain
-//                        .block_height_to_reward_cycle(tip.block_height)
-//                        .unwrap();
-//
-//                    // build up block data to replicate
-//                    let mut block_data = vec![];
-//                    for _ in 0..num_blocks {
-//                        // only produce blocks for a single reward
-//                        // cycle, since pushing block/microblock
-//                        // announcements in reward cycles the remote
-//                        // peer doesn't know about won't work.
-//                        let tip = SortitionDB::get_canonical_burn_chain_tip(
-//                            &peers[0].sortdb.as_ref().unwrap().conn(),
-//                        )
-//                        .unwrap();
-//                        if peers[0]
-//                            .config
-//                            .burnchain
-//                            .block_height_to_reward_cycle(tip.block_height)
-//                            .unwrap()
-//                            != this_reward_cycle
-//                        {
-//                            continue;
-//                        }
-//
-//                        let (mut burn_ops, stacks_block, microblocks) =
-//                            peers[0].make_default_tenure();
-//
-//                        let (_, burn_header_hash, consensus_hash) =
-//                            peers[0].next_burnchain_block(burn_ops.clone());
-//                        peers[0].process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-//
-//                        TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
-//
-//                        for i in 1..peers.len() {
-//                            peers[i].next_burnchain_block_raw(burn_ops.clone());
-//                        }
-//
-//                        let sn = SortitionDB::get_canonical_burn_chain_tip(
-//                            &peers[0].sortdb.as_ref().unwrap().conn(),
-//                        )
-//                        .unwrap();
-//                        block_data.push((
-//                            sn.consensus_hash.clone(),
-//                            Some(stacks_block),
-//                            Some(microblocks),
-//                        ));
-//                    }
-//
-//                    assert_eq!(block_data.len(), 5);
-//
-//                    *original_blocks_and_microblocks.borrow_mut() = block_data.clone();
-//
-//                    block_data
-//                },
-//                |ref mut peers| {
-//                    let blocks_and_microblocks = original_blocks_and_microblocks.borrow().clone();
-//                    let remote_port = peers[1].config.http_port;
-//
-//                    let port_sx = port_sx_cell.borrow_mut();
-//                    let block_sx = block_sx_cell.borrow_mut();
-//
-//                    let _ = (*port_sx).try_send(remote_port);
-//                    let _ = (*block_sx).try_send(blocks_and_microblocks);
-//                },
-//                |ref peer| {
-//                    // check peer health
-//                    // TODO
-//                    true
-//                },
-//                |_| true,
-//            );
-//        })
-//    }
+    #[test]
+    #[ignore]
+    fn test_get_blocks_and_microblocks_upload_blocks_http() {
+        with_timeout(600, || {
+            let (port_sx, port_rx) = std::sync::mpsc::sync_channel(1);
+            let (block_sx, block_rx) = std::sync::mpsc::sync_channel(1);
+
+            std::thread::spawn(move || loop {
+                eprintln!("Get port");
+                let remote_port: u16 = port_rx.recv().unwrap();
+                eprintln!("Got port {}", remote_port);
+
+                eprintln!("Send getinfo");
+                let peer_info = http_get_info(remote_port);
+                eprintln!("Got getinfo! {:?}", &peer_info);
+                let idx = peer_info.stacks_tip_height as usize;
+
+                eprintln!("Get blocks and microblocks");
+                let blocks_and_microblocks: Vec<(
+                    ConsensusHash,
+                    Option<StacksBlock>,
+                    Option<Vec<StacksMicroblock>>,
+                )> = block_rx.recv().unwrap();
+                eprintln!("Got blocks and microblocks!");
+
+                if idx >= blocks_and_microblocks.len() {
+                    eprintln!("Out of blocks to send!");
+                    return;
+                }
+
+                eprintln!(
+                    "Upload block {}",
+                    &blocks_and_microblocks[idx].1.as_ref().unwrap().block_hash()
+                );
+                http_post_block(
+                    remote_port,
+                    &blocks_and_microblocks[idx].0,
+                    blocks_and_microblocks[idx].1.as_ref().unwrap(),
+                );
+                for mblock in blocks_and_microblocks[idx].2.as_ref().unwrap().iter() {
+                    eprintln!("Upload microblock {}", mblock.block_hash());
+                    http_post_microblock(
+                        remote_port,
+                        &blocks_and_microblocks[idx].0,
+                        &blocks_and_microblocks[idx].1.as_ref().unwrap().block_hash(),
+                        mblock,
+                    );
+                }
+            });
+
+            let original_blocks_and_microblocks = RefCell::new(vec![]);
+            let port_sx_cell = RefCell::new(port_sx);
+            let block_sx_cell = RefCell::new(block_sx);
+
+            run_get_blocks_and_microblocks(
+                "test_get_blocks_and_microblocks_upload_blocks_http",
+                4250,
+                2,
+                |ref mut peer_configs| {
+                    // build initial network topology.
+                    assert_eq!(peer_configs.len(), 2);
+
+                    // peer 0 produces the blocks
+                    peer_configs[0].connection_opts.disable_chat_neighbors = true;
+
+                    // peer 0 sends them to peer 1
+                    peer_configs[1].connection_opts.disable_chat_neighbors = true;
+                    peer_configs[1].connection_opts.disable_inv_sync = true;
+
+                    // disable nat punches -- disconnect/reconnect
+                    // clears inv state
+                    peer_configs[0].connection_opts.disable_natpunch = true;
+                    peer_configs[1].connection_opts.disable_natpunch = true;
+
+                    // generous timeouts
+                    peer_configs[0].connection_opts.timeout = 180;
+                    peer_configs[1].connection_opts.timeout = 180;
+
+                    let peer_0 = peer_configs[0].to_neighbor();
+                    let peer_1 = peer_configs[1].to_neighbor();
+                },
+                |num_blocks, ref mut peers| {
+                    let tip = SortitionDB::get_canonical_burn_chain_tip(
+                        &peers[0].sortdb.as_ref().unwrap().conn(),
+                    )
+                    .unwrap();
+                    let this_reward_cycle = peers[0]
+                        .config
+                        .burnchain
+                        .block_height_to_reward_cycle()
+                        .unwrap();
+
+                    // build up block data to replicate
+                    let mut block_data = vec![];
+                    for _ in 0..num_blocks {
+                        // only produce blocks for a single reward
+                        // cycle, since pushing block/microblock
+                        // announcements in reward cycles the remote
+                        // peer doesn't know about won't work.
+                        let tip = SortitionDB::get_canonical_burn_chain_tip(
+                            &peers[0].sortdb.as_ref().unwrap().conn(),
+                        )
+                        .unwrap();
+                        if peers[0]
+                            .config
+                            .burnchain
+                            .block_height_to_reward_cycle()
+                            .unwrap()
+                            != this_reward_cycle
+                        {
+                            continue;
+                        }
+
+                        let (mut burn_ops, stacks_block, microblocks) =
+                            peers[0].make_default_tenure();
+
+                        let (_, burn_header_hash, consensus_hash) =
+                            peers[0].next_burnchain_block(burn_ops.clone());
+                        peers[0].process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+
+                        TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
+
+                        for i in 1..peers.len() {
+                            peers[i].next_burnchain_block_raw(burn_ops.clone());
+                        }
+
+                        let sn = SortitionDB::get_canonical_burn_chain_tip(
+                            &peers[0].sortdb.as_ref().unwrap().conn(),
+                        )
+                        .unwrap();
+                        block_data.push((
+                            sn.consensus_hash.clone(),
+                            Some(stacks_block),
+                            Some(microblocks),
+                        ));
+                    }
+
+                    assert_eq!(block_data.len(), 5);
+
+                    *original_blocks_and_microblocks.borrow_mut() = block_data.clone();
+
+                    block_data
+                },
+                |ref mut peers| {
+                    let blocks_and_microblocks = original_blocks_and_microblocks.borrow().clone();
+                    let remote_port = peers[1].config.http_port;
+
+                    let port_sx = port_sx_cell.borrow_mut();
+                    let block_sx = block_sx_cell.borrow_mut();
+
+                    let _ = (*port_sx).try_send(remote_port);
+                    let _ = (*block_sx).try_send(blocks_and_microblocks);
+                },
+                |ref peer| {
+                    // check peer health
+                    // TODO
+                    true
+                },
+                |_| true,
+            );
+        })
+    }
 
     fn make_test_smart_contract_transaction(
         peer: &mut TestPeer,
