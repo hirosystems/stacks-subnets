@@ -2521,431 +2521,282 @@ mod test {
         }
     }
 
-//    #[test]
-//    fn test_sync_inv_make_inv_messages() {
-//        let peer_1_config = TestPeerConfig::new("test_sync_inv_make_inv_messages", 31985, 41986);
-//
-//        let reward_cycle_length = peer_1_config.burnchain.pox_constants.reward_cycle_length;
-//        let num_blocks = peer_1_config.burnchain.pox_constants.reward_cycle_length * 2;
-//
-//        assert_eq!(reward_cycle_length, 5);
-//
-//        let mut peer_1 = TestPeer::new(peer_1_config);
-//
-//        let first_stacks_block_height = {
-//            let sn =
-//                SortitionDB::get_canonical_burn_chain_tip(&peer_1.sortdb.as_ref().unwrap().conn())
-//                    .unwrap();
-//            sn.block_height
-//        };
-//
-//        for i in 0..num_blocks {
-//            let (burn_ops, stacks_block, microblocks) = peer_1.make_default_tenure();
-//
-//            peer_1.next_burnchain_block(burn_ops.clone());
-//            peer_1.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-//        }
-//
-//        let (tip, num_burn_blocks) = {
-//            let sn =
-//                SortitionDB::get_canonical_burn_chain_tip(peer_1.sortdb.as_ref().unwrap().conn())
-//                    .unwrap();
-//            let num_burn_blocks = sn.block_height - peer_1.config.burnchain.first_block_height;
-//            (sn, num_burn_blocks)
-//        };
-//
-//        peer_1
-//            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
-//                network.refresh_local_peer().unwrap();
-//                network
-//                    .refresh_burnchain_view(sortdb, chainstate, false)
-//                    .unwrap();
-//                network.refresh_sortition_view(sortdb).unwrap();
-//                Ok(())
-//            })
-//            .unwrap();
-//
-//        // simulate a getpoxinv / poxinv for one reward cycle
-//        let getpoxinv_request = peer_1
-//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-//                let height = network.burnchain.reward_cycle_to_block_height(1);
-//                let sn = {
-//                    let ic = sortdb.index_conn();
-//                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
-//                        .unwrap()
-//                        .unwrap();
-//                    sn
-//                };
-//                let getpoxinv = GetPoxInv {
-//                    consensus_hash: sn.consensus_hash,
-//                    num_cycles: 1,
-//                };
-//                Ok(getpoxinv)
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nSend {:?}\n\n", &getpoxinv_request);
-//
-//        let reply = peer_1
-//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-//                ConversationP2P::make_getpoxinv_response(
-//                    &network.local_peer,
-//                    &network.burnchain,
-//                    sortdb,
-//                    &network.pox_id,
-//                    &getpoxinv_request,
-//                )
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nReply {:?}\n\n", &reply);
-//
-//        match reply {
-//            StacksMessageType::PoxInv(poxinv) => {
-//                assert_eq!(poxinv.bitlen, 1);
-//                assert_eq!(poxinv.pox_bitvec, vec![0x01]);
-//            }
-//            x => {
-//                error!("Did not get PoxInv, but got {:?}", &x);
-//                assert!(false);
-//            }
-//        }
-//
-//        // simulate a getpoxinv / poxinv for several reward cycles, including more than we have
-//        // (10, but only have 7)
-//        let getpoxinv_request = peer_1
-//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-//                let height = network.burnchain.reward_cycle_to_block_height(1);
-//                let sn = {
-//                    let ic = sortdb.index_conn();
-//                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
-//                        .unwrap()
-//                        .unwrap();
-//                    sn
-//                };
-//                let getpoxinv = GetPoxInv {
-//                    consensus_hash: sn.consensus_hash,
-//                    num_cycles: 10,
-//                };
-//                Ok(getpoxinv)
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nSend {:?}\n\n", &getpoxinv_request);
-//
-//        let reply = peer_1
-//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-//                ConversationP2P::make_getpoxinv_response(
-//                    &network.local_peer,
-//                    &network.burnchain,
-//                    sortdb,
-//                    &network.pox_id,
-//                    &getpoxinv_request,
-//                )
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nReply {:?}\n\n", &reply);
-//
-//        match reply {
-//            StacksMessageType::PoxInv(poxinv) => {
-//                assert_eq!(poxinv.bitlen, 7); // 2 reward cycles we generated, plus 5 reward cycles when booted up (1 reward cycle = 5 blocks).  1st one is free
-//                assert_eq!(poxinv.pox_bitvec, vec![0x7f]);
-//            }
-//            x => {
-//                error!("Did not get PoxInv, but got {:?}", &x);
-//                assert!(false);
-//            }
-//        }
-//
-//        // ask for a PoX vector off of an unknown consensus hash
-//        let getpoxinv_request = peer_1
-//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-//                let getpoxinv = GetPoxInv {
-//                    consensus_hash: ConsensusHash([0xaa; 20]),
-//                    num_cycles: 10,
-//                };
-//                Ok(getpoxinv)
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nSend {:?}\n\n", &getpoxinv_request);
-//
-//        let reply = peer_1
-//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-//                ConversationP2P::make_getpoxinv_response(
-//                    &network.local_peer,
-//                    &network.burnchain,
-//                    sortdb,
-//                    &network.pox_id,
-//                    &getpoxinv_request,
-//                )
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nReply {:?}\n\n", &reply);
-//
-//        match reply {
-//            StacksMessageType::Nack(nack_data) => {
-//                assert_eq!(nack_data.error_code, NackErrorCodes::InvalidPoxFork);
-//            }
-//            x => {
-//                error!("Did not get PoxInv, but got {:?}", &x);
-//                assert!(false);
-//            }
-//        }
-//
-//        // ask for a getblocksinv, aligned on a reward cycle.
-//        let getblocksinv_request = peer_1
-//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-//                let height = network.burnchain.reward_cycle_to_block_height(
-//                    network
-//                        .burnchain
-//                        .block_height_to_reward_cycle(first_stacks_block_height)
-//                        .unwrap(),
-//                );
-//                let sn = {
-//                    let ic = sortdb.index_conn();
-//                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
-//                        .unwrap()
-//                        .unwrap();
-//                    sn
-//                };
-//                let getblocksinv = GetBlocksInv {
-//                    consensus_hash: sn.consensus_hash,
-//                    num_blocks: reward_cycle_length as u16,
-//                };
-//                Ok(getblocksinv)
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
-//
-//        let reply = peer_1
-//            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
-//                ConversationP2P::make_getblocksinv_response(
-//                    &network.local_peer,
-//                    &network.burnchain,
-//                    sortdb,
-//                    chainstate,
-//                    &mut network.header_cache,
-//                    &getblocksinv_request,
-//                )
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nReply {:?}\n\n", &reply);
-//
-//        match reply {
-//            StacksMessageType::BlocksInv(blocksinv) => {
-//                assert_eq!(blocksinv.bitlen, reward_cycle_length as u16);
-//                assert_eq!(blocksinv.block_bitvec, vec![0x1f]);
-//                assert_eq!(blocksinv.microblocks_bitvec, vec![0x1e]);
-//            }
-//            x => {
-//                error!("Did not get BlocksInv, but got {:?}", &x);
-//                assert!(false);
-//            }
-//        };
-//
-//        // ask for a getblocksinv, right at the first Stacks block height
-//        let getblocksinv_request = peer_1
-//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-//                let height = network.burnchain.reward_cycle_to_block_height(
-//                    network
-//                        .burnchain
-//                        .block_height_to_reward_cycle(first_stacks_block_height)
-//                        .unwrap(),
-//                );
-//                test_debug!("Ask for inv at height {}", height);
-//                let sn = {
-//                    let ic = sortdb.index_conn();
-//                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
-//                        .unwrap()
-//                        .unwrap();
-//                    sn
-//                };
-//                let getblocksinv = GetBlocksInv {
-//                    consensus_hash: sn.consensus_hash,
-//                    num_blocks: reward_cycle_length as u16,
-//                };
-//                Ok(getblocksinv)
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
-//
-//        let reply = peer_1
-//            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
-//                ConversationP2P::make_getblocksinv_response(
-//                    &network.local_peer,
-//                    &network.burnchain,
-//                    sortdb,
-//                    chainstate,
-//                    &mut network.header_cache,
-//                    &getblocksinv_request,
-//                )
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nReply {:?}\n\n", &reply);
-//
-//        match reply {
-//            StacksMessageType::BlocksInv(blocksinv) => {
-//                assert_eq!(blocksinv.bitlen, reward_cycle_length as u16);
-//                assert_eq!(blocksinv.block_bitvec, vec![0x1f]);
-//                assert_eq!(blocksinv.microblocks_bitvec, vec![0x1e]);
-//            }
-//            x => {
-//                error!("Did not get Nack, but got {:?}", &x);
-//                assert!(false);
-//            }
-//        };
-//
-//        // ask for a getblocksinv, prior to the first Stacks block height
-//        let getblocksinv_request = peer_1
-//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-//                let height = network.burnchain.reward_cycle_to_block_height(
-//                    network
-//                        .burnchain
-//                        .block_height_to_reward_cycle(first_stacks_block_height)
-//                        .unwrap()
-//                        - 1,
-//                );
-//                test_debug!("Ask for inv at height {}", height);
-//                let sn = {
-//                    let ic = sortdb.index_conn();
-//                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
-//                        .unwrap()
-//                        .unwrap();
-//                    sn
-//                };
-//                let getblocksinv = GetBlocksInv {
-//                    consensus_hash: sn.consensus_hash,
-//                    num_blocks: reward_cycle_length as u16,
-//                };
-//                Ok(getblocksinv)
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
-//
-//        let reply = peer_1
-//            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
-//                ConversationP2P::make_getblocksinv_response(
-//                    &network.local_peer,
-//                    &network.burnchain,
-//                    sortdb,
-//                    chainstate,
-//                    &mut network.header_cache,
-//                    &getblocksinv_request,
-//                )
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nReply {:?}\n\n", &reply);
-//
-//        match reply {
-//            StacksMessageType::BlocksInv(blocksinv) => {
-//                assert_eq!(blocksinv.bitlen, reward_cycle_length as u16);
-//                assert_eq!(blocksinv.block_bitvec, vec![0x0]);
-//                assert_eq!(blocksinv.microblocks_bitvec, vec![0x0]);
-//            }
-//            x => {
-//                error!("Did not get BlocksInv, but got {:?}", &x);
-//                assert!(false);
-//            }
-//        };
-//
-//        // ask for a getblocksinv, unaligned to a reward cycle
-//        let getblocksinv_request = peer_1
-//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-//                let height = network.burnchain.reward_cycle_to_block_height(
-//                    network
-//                        .burnchain
-//                        .block_height_to_reward_cycle(first_stacks_block_height)
-//                        .unwrap(),
-//                ) + 1;
-//                let sn = {
-//                    let ic = sortdb.index_conn();
-//                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
-//                        .unwrap()
-//                        .unwrap();
-//                    sn
-//                };
-//                let getblocksinv = GetBlocksInv {
-//                    consensus_hash: sn.consensus_hash,
-//                    num_blocks: reward_cycle_length as u16,
-//                };
-//                Ok(getblocksinv)
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
-//
-//        let reply = peer_1
-//            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
-//                ConversationP2P::make_getblocksinv_response(
-//                    &network.local_peer,
-//                    &network.burnchain,
-//                    sortdb,
-//                    chainstate,
-//                    &mut network.header_cache,
-//                    &getblocksinv_request,
-//                )
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nReply {:?}\n\n", &reply);
-//
-//        match reply {
-//            StacksMessageType::Nack(nack_data) => {
-//                assert_eq!(nack_data.error_code, NackErrorCodes::InvalidPoxFork);
-//            }
-//            x => {
-//                error!("Did not get Nack, but got {:?}", &x);
-//                assert!(false);
-//            }
-//        };
-//
-//        // ask for a getblocksinv, for an unknown consensus hash
-//        let getblocksinv_request = peer_1
-//            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
-//                let getblocksinv = GetBlocksInv {
-//                    consensus_hash: ConsensusHash([0xaa; 20]),
-//                    num_blocks: reward_cycle_length as u16,
-//                };
-//                Ok(getblocksinv)
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
-//
-//        let reply = peer_1
-//            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
-//                ConversationP2P::make_getblocksinv_response(
-//                    &network.local_peer,
-//                    &network.burnchain,
-//                    sortdb,
-//                    chainstate,
-//                    &mut network.header_cache,
-//                    &getblocksinv_request,
-//                )
-//            })
-//            .unwrap();
-//
-//        test_debug!("\n\nReply {:?}\n\n", &reply);
-//
-//        match reply {
-//            StacksMessageType::Nack(nack_data) => {
-//                assert_eq!(nack_data.error_code, NackErrorCodes::NoSuchBurnchainBlock);
-//            }
-//            x => {
-//                error!("Did not get Nack, but got {:?}", &x);
-//                assert!(false);
-//            }
-//        };
-//    }
+    #[test]
+    fn test_sync_inv_make_inv_messages() {
+        let peer_1_config = TestPeerConfig::new("test_sync_inv_make_inv_messages", 31985, 41986);
+
+        let reward_cycle_length = 5;
+        let num_blocks = reward_cycle_length * 2;
+
+        assert_eq!(reward_cycle_length, 5);
+
+        let mut peer_1 = TestPeer::new(peer_1_config);
+
+        let first_stacks_block_height = {
+            let sn =
+                SortitionDB::get_canonical_burn_chain_tip(&peer_1.sortdb.as_ref().unwrap().conn())
+                    .unwrap();
+            sn.block_height
+        };
+
+        for i in 0..num_blocks {
+            let (burn_ops, stacks_block, microblocks) = peer_1.make_default_tenure();
+
+            peer_1.next_burnchain_block(burn_ops.clone());
+            peer_1.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+        }
+
+        let (tip, num_burn_blocks) = {
+            let sn =
+                SortitionDB::get_canonical_burn_chain_tip(peer_1.sortdb.as_ref().unwrap().conn())
+                    .unwrap();
+            let num_burn_blocks = sn.block_height - peer_1.config.burnchain.first_block_height;
+            (sn, num_burn_blocks)
+        };
+
+        peer_1
+            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
+                network.refresh_local_peer().unwrap();
+                network
+                    .refresh_burnchain_view(sortdb, chainstate, false)
+                    .unwrap();
+                network.refresh_sortition_view(sortdb).unwrap();
+                Ok(())
+            })
+            .unwrap();
+
+        // ask for a getblocksinv, aligned on a reward cycle.
+        let getblocksinv_request = peer_1
+            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+                let height = network.burnchain.reward_cycle_to_block_height();
+                let sn = {
+                    let ic = sortdb.index_conn();
+                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
+                        .unwrap()
+                        .unwrap();
+                    sn
+                };
+                let getblocksinv = GetBlocksInv {
+                    consensus_hash: sn.consensus_hash,
+                    num_blocks: reward_cycle_length as u16,
+                };
+                Ok(getblocksinv)
+            })
+            .unwrap();
+
+        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
+
+        let reply = peer_1
+            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
+                ConversationP2P::make_getblocksinv_response(
+                    &network.local_peer,
+                    &network.burnchain,
+                    sortdb,
+                    chainstate,
+                    &mut network.header_cache,
+                    &getblocksinv_request,
+                )
+            })
+            .unwrap();
+
+        test_debug!("\n\nReply {:?}\n\n", &reply);
+
+        match reply {
+            StacksMessageType::BlocksInv(blocksinv) => {
+                assert_eq!(blocksinv.bitlen, reward_cycle_length as u16);
+                assert_eq!(blocksinv.block_bitvec, vec![0x1f]);
+                assert_eq!(blocksinv.microblocks_bitvec, vec![0x1e]);
+            }
+            x => {
+                error!("Did not get BlocksInv, but got {:?}", &x);
+                assert!(false);
+            }
+        };
+
+        // ask for a getblocksinv, right at the first Stacks block height
+        let getblocksinv_request = peer_1
+            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+                let height = network.burnchain.reward_cycle_to_block_height(
+                );
+                test_debug!("Ask for inv at height {}", height);
+                let sn = {
+                    let ic = sortdb.index_conn();
+                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
+                        .unwrap()
+                        .unwrap();
+                    sn
+                };
+                let getblocksinv = GetBlocksInv {
+                    consensus_hash: sn.consensus_hash,
+                    num_blocks: reward_cycle_length as u16,
+                };
+                Ok(getblocksinv)
+            })
+            .unwrap();
+
+        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
+
+        let reply = peer_1
+            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
+                ConversationP2P::make_getblocksinv_response(
+                    &network.local_peer,
+                    &network.burnchain,
+                    sortdb,
+                    chainstate,
+                    &mut network.header_cache,
+                    &getblocksinv_request,
+                )
+            })
+            .unwrap();
+
+        test_debug!("\n\nReply {:?}\n\n", &reply);
+
+        match reply {
+            StacksMessageType::BlocksInv(blocksinv) => {
+                assert_eq!(blocksinv.bitlen, reward_cycle_length as u16);
+                assert_eq!(blocksinv.block_bitvec, vec![0x1f]);
+                assert_eq!(blocksinv.microblocks_bitvec, vec![0x1e]);
+            }
+            x => {
+                error!("Did not get Nack, but got {:?}", &x);
+                assert!(false);
+            }
+        };
+
+        // ask for a getblocksinv, prior to the first Stacks block height
+        let getblocksinv_request = peer_1
+            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+                let height = network.burnchain.reward_cycle_to_block_height();
+                test_debug!("Ask for inv at height {}", height);
+                let sn = {
+                    let ic = sortdb.index_conn();
+                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
+                        .unwrap()
+                        .unwrap();
+                    sn
+                };
+                let getblocksinv = GetBlocksInv {
+                    consensus_hash: sn.consensus_hash,
+                    num_blocks: reward_cycle_length as u16,
+                };
+                Ok(getblocksinv)
+            })
+            .unwrap();
+
+        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
+
+        let reply = peer_1
+            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
+                ConversationP2P::make_getblocksinv_response(
+                    &network.local_peer,
+                    &network.burnchain,
+                    sortdb,
+                    chainstate,
+                    &mut network.header_cache,
+                    &getblocksinv_request,
+                )
+            })
+            .unwrap();
+
+        test_debug!("\n\nReply {:?}\n\n", &reply);
+
+        match reply {
+            StacksMessageType::BlocksInv(blocksinv) => {
+                assert_eq!(blocksinv.bitlen, reward_cycle_length as u16);
+                assert_eq!(blocksinv.block_bitvec, vec![0x0]);
+                assert_eq!(blocksinv.microblocks_bitvec, vec![0x0]);
+            }
+            x => {
+                error!("Did not get BlocksInv, but got {:?}", &x);
+                assert!(false);
+            }
+        };
+
+        // ask for a getblocksinv, unaligned to a reward cycle
+        let getblocksinv_request = peer_1
+            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+                let height = network.burnchain.reward_cycle_to_block_height(
+                ) + 1;
+                let sn = {
+                    let ic = sortdb.index_conn();
+                    let sn = SortitionDB::get_ancestor_snapshot(&ic, height, &tip.sortition_id)
+                        .unwrap()
+                        .unwrap();
+                    sn
+                };
+                let getblocksinv = GetBlocksInv {
+                    consensus_hash: sn.consensus_hash,
+                    num_blocks: reward_cycle_length as u16,
+                };
+                Ok(getblocksinv)
+            })
+            .unwrap();
+
+        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
+
+        let reply = peer_1
+            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
+                ConversationP2P::make_getblocksinv_response(
+                    &network.local_peer,
+                    &network.burnchain,
+                    sortdb,
+                    chainstate,
+                    &mut network.header_cache,
+                    &getblocksinv_request,
+                )
+            })
+            .unwrap();
+
+        test_debug!("\n\nReply {:?}\n\n", &reply);
+
+        match reply {
+            StacksMessageType::Nack(nack_data) => {
+                assert_eq!(nack_data.error_code, NackErrorCodes::InvalidPoxFork);
+            }
+            x => {
+                error!("Did not get Nack, but got {:?}", &x);
+                assert!(false);
+            }
+        };
+
+        // ask for a getblocksinv, for an unknown consensus hash
+        let getblocksinv_request = peer_1
+            .with_network_state(|sortdb, _chainstate, network, _relayer, _mempool| {
+                let getblocksinv = GetBlocksInv {
+                    consensus_hash: ConsensusHash([0xaa; 20]),
+                    num_blocks: reward_cycle_length as u16,
+                };
+                Ok(getblocksinv)
+            })
+            .unwrap();
+
+        test_debug!("\n\nSend {:?}\n\n", &getblocksinv_request);
+
+        let reply = peer_1
+            .with_network_state(|sortdb, chainstate, network, _relayer, _mempool| {
+                ConversationP2P::make_getblocksinv_response(
+                    &network.local_peer,
+                    &network.burnchain,
+                    sortdb,
+                    chainstate,
+                    &mut network.header_cache,
+                    &getblocksinv_request,
+                )
+            })
+            .unwrap();
+
+        test_debug!("\n\nReply {:?}\n\n", &reply);
+
+        match reply {
+            StacksMessageType::Nack(nack_data) => {
+                assert_eq!(nack_data.error_code, NackErrorCodes::NoSuchBurnchainBlock);
+            }
+            x => {
+                error!("Did not get Nack, but got {:?}", &x);
+                assert!(false);
+            }
+        };
+    }
 
     #[test]
     fn test_sync_inv_diagnose_nack() {
