@@ -241,47 +241,6 @@ impl PeerBlocksInv {
         (new_blocks, new_microblocks)
     }
 
-    /// Invalidate block and microblock inventories as a result of learning a new reward cycle's status.
-    /// Drop all blocks and microblocks at and after the given reward cycle.
-    /// Returns how many bits were dropped.
-    pub fn truncate_block_inventories(&mut self, burnchain: &Burnchain, reward_cycle: u64) -> u64 {
-        // invalidate all blocks and microblocks that come after this
-        let highest_agreed_block_height = burnchain.reward_cycle_to_block_height();
-
-        assert!(
-            highest_agreed_block_height >= self.first_block_height,
-            "BUG: highest agreed block height is lower than the first-ever block"
-        );
-
-        if self.first_block_height + self.num_sortitions >= highest_agreed_block_height {
-            // clear block/microblock inventories
-            let num_bits =
-                self.first_block_height + self.num_sortitions - highest_agreed_block_height;
-            let mut zeros: Vec<u8> = Vec::with_capacity((num_bits / 8 + 1) as usize);
-            for _i in 0..(num_bits / 8 + 1) {
-                zeros.push(0x00);
-            }
-
-            test_debug!(
-                "Clear all blocks after height {} (reward cycle {}; {} bits)",
-                highest_agreed_block_height,
-                reward_cycle,
-                num_bits
-            );
-            self.merge_blocks_inv(
-                highest_agreed_block_height,
-                num_bits,
-                zeros.clone(),
-                zeros,
-                true,
-            );
-            self.num_sortitions = highest_agreed_block_height - self.first_block_height;
-            num_bits
-        } else {
-            0
-        }
-    }
-
     /// Set a block's bit as available.
     /// Return whether or not the block bit was flipped to 1.
     pub fn set_block_bit(&mut self, block_height: u64) -> bool {
