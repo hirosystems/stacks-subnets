@@ -3190,220 +3190,216 @@ mod test {
         })
     }
 
-//    #[test]
-//    #[ignore]
-//    fn test_sync_inv_2_peers_unstable() {
-//        with_timeout(600, || {
-//            let mut peer_1_config =
-//                TestPeerConfig::new("test_sync_inv_2_peers_unstable", 31996, 41997);
-//            let mut peer_2_config =
-//                TestPeerConfig::new("test_sync_inv_2_peers_unstable", 31997, 41998);
-//
-//            let stable_confs = peer_1_config.burnchain.stable_confirmations as u64;
-//
-//            peer_1_config.add_neighbor(&peer_2_config.to_neighbor());
-//            peer_2_config.add_neighbor(&peer_1_config.to_neighbor());
-//
-//            let mut peer_1 = TestPeer::new(peer_1_config);
-//            let mut peer_2 = TestPeer::new(peer_2_config);
-//
-//            let num_blocks = (GETPOXINV_MAX_BITLEN * 2) as u64;
-//
-//            let first_stacks_block_height = {
-//                let sn = SortitionDB::get_canonical_burn_chain_tip(
-//                    &peer_1.sortdb.as_ref().unwrap().conn(),
-//                )
-//                .unwrap();
-//                sn.block_height + 1
-//            };
-//
-//            // only peer 2 makes progress after the point of stability.
-//            for i in 0..num_blocks {
-//                let (mut burn_ops, stacks_block, microblocks) = peer_2.make_default_tenure();
-//
-//                let (_, burn_header_hash, consensus_hash) =
-//                    peer_2.next_burnchain_block(burn_ops.clone());
-//                peer_2.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-//
-//                TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
-//
-//                // NOTE: the nodes only differ by one block -- they agree on the same PoX vector
-//                if i + 1 < num_blocks {
-//                    peer_1.next_burnchain_block_raw(burn_ops.clone());
-//                    peer_1.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
-//                } else {
-//                    // peer 1 diverges
-//                    test_debug!("Peer 1 diverges at {}", i + first_stacks_block_height);
-//                    peer_1.next_burnchain_block(vec![]);
-//                }
-//            }
-//
-//            // tips must differ
-//            {
-//                let sn1 = SortitionDB::get_canonical_burn_chain_tip(
-//                    peer_1.sortdb.as_ref().unwrap().conn(),
-//                )
-//                .unwrap();
-//                let sn2 = SortitionDB::get_canonical_burn_chain_tip(
-//                    peer_2.sortdb.as_ref().unwrap().conn(),
-//                )
-//                .unwrap();
-//                assert_ne!(sn1.burn_header_hash, sn2.burn_header_hash);
-//            }
-//
-//            let num_stable_blocks = num_blocks - stable_confs;
-//
-//            let num_burn_blocks = {
-//                let sn = SortitionDB::get_canonical_burn_chain_tip(
-//                    peer_1.sortdb.as_ref().unwrap().conn(),
-//                )
-//                .unwrap();
-//                sn.block_height + 1
-//            };
-//
-//            let mut round = 0;
-//            let mut inv_1_count = 0;
-//            let mut inv_2_count = 0;
-//
-//            let mut peer_1_pox_cycle_start = false;
-//            let mut peer_1_block_cycle_start = false;
-//            let mut peer_2_pox_cycle_start = false;
-//            let mut peer_2_block_cycle_start = false;
-//
-//            let mut peer_1_pox_cycle = false;
-//            let mut peer_1_block_cycle = false;
-//            let mut peer_2_pox_cycle = false;
-//            let mut peer_2_block_cycle = false;
-//
-//            while inv_1_count < num_stable_blocks || inv_2_count < num_stable_blocks {
-//                let _ = peer_1.step();
-//                let _ = peer_2.step();
-//
-//                inv_1_count = match peer_1.network.inv_state {
-//                    Some(ref inv) => inv.get_inv_num_blocks(&peer_2.to_neighbor().addr),
-//                    None => 0,
-//                };
-//
-//                inv_2_count = match peer_2.network.inv_state {
-//                    Some(ref inv) => inv.get_inv_num_blocks(&peer_1.to_neighbor().addr),
-//                    None => 0,
-//                };
-//
-//                match peer_1.network.inv_state {
-//                    Some(ref inv) => {
-//                        info!("Peer 1 stats: {:?}", &inv.block_stats);
-//                        assert_eq!(inv.get_broken_peers().len(), 0);
-//                        assert_eq!(inv.get_dead_peers().len(), 0);
-//                        assert_eq!(inv.get_diverged_peers().len(), 0);
-//
-//                        if let Some(stats) = inv.get_stats(&peer_2.to_neighbor().addr) {
-//                            if stats.target_pox_reward_cycle > 0 {
-//                                peer_1_pox_cycle_start = true;
-//                            }
-//                            if stats.target_block_reward_cycle > 0 {
-//                                peer_1_block_cycle_start = true;
-//                            }
-//                            if stats.target_pox_reward_cycle == 0 && peer_1_pox_cycle_start {
-//                                peer_1_pox_cycle = true;
-//                            }
-//                            if stats.target_block_reward_cycle == 0 && peer_1_block_cycle_start {
-//                                peer_1_block_cycle = true;
-//                            }
-//                        }
-//                    }
-//                    None => {}
-//                }
-//
-//                match peer_2.network.inv_state {
-//                    Some(ref inv) => {
-//                        info!("Peer 2 stats: {:?}", &inv.block_stats);
-//                        assert_eq!(inv.get_broken_peers().len(), 0);
-//                        assert_eq!(inv.get_dead_peers().len(), 0);
-//                        assert_eq!(inv.get_diverged_peers().len(), 0);
-//
-//                        if let Some(stats) = inv.get_stats(&peer_1.to_neighbor().addr) {
-//                            if stats.target_pox_reward_cycle > 0 {
-//                                peer_2_pox_cycle_start = true;
-//                            }
-//                            if stats.target_block_reward_cycle > 0 {
-//                                peer_2_block_cycle_start = true;
-//                            }
-//                            if stats.target_pox_reward_cycle == 0 && peer_2_pox_cycle_start {
-//                                peer_2_pox_cycle = true;
-//                            }
-//                            if stats.target_block_reward_cycle == 0 && peer_2_block_cycle_start {
-//                                peer_2_block_cycle = true;
-//                            }
-//                        }
-//                    }
-//                    None => {}
-//                }
-//
-//                round += 1;
-//
-//                test_debug!(
-//                    "\n\ninv_1_count = {}, inv_2_count = {}, num_stable_blocks = {}\n\n",
-//                    inv_1_count,
-//                    inv_2_count,
-//                    num_stable_blocks
-//                );
-//            }
-//
-//            info!("Completed walk round {} step(s)", round);
-//
-//            peer_1.dump_frontier();
-//            peer_2.dump_frontier();
-//
-//            let peer_2_inv = peer_1
-//                .network
-//                .inv_state
-//                .as_ref()
-//                .unwrap()
-//                .block_stats
-//                .get(&peer_2.to_neighbor().addr)
-//                .unwrap()
-//                .inv
-//                .clone();
-//            test_debug!("peer 1's view of peer 2: {:?}", &peer_2_inv);
-//
-//            let peer_1_inv = peer_2
-//                .network
-//                .inv_state
-//                .as_ref()
-//                .unwrap()
-//                .block_stats
-//                .get(&peer_1.to_neighbor().addr)
-//                .unwrap()
-//                .inv
-//                .clone();
-//            test_debug!("peer 2's view of peer 1: {:?}", &peer_1_inv);
-//
-//            assert_eq!(peer_2_inv.num_sortitions, num_burn_blocks - stable_confs);
-//            assert_eq!(peer_1_inv.num_sortitions, num_burn_blocks - stable_confs);
-//
-//            // only 8 reward cycles -- we couldn't agree on the 9th
-//            assert_eq!(peer_1_inv.pox_inv, vec![255]);
-//            assert_eq!(peer_2_inv.pox_inv, vec![255]);
-//
-//            // peer 1 should have learned that peer 2 has all the blocks, up to the point of
-//            // instability
-//            for i in 0..(num_blocks - stable_confs) {
-//                assert!(peer_2_inv.has_ith_block(i + first_stacks_block_height));
-//                if i > 0 {
-//                    assert!(peer_2_inv.has_ith_microblock_stream(i + first_stacks_block_height));
-//                } else {
-//                    assert!(!peer_2_inv.has_ith_microblock_stream(i + first_stacks_block_height));
-//                }
-//            }
-//
-//            for i in 0..(num_blocks - stable_confs) {
-//                assert!(peer_1_inv.has_ith_block(i + first_stacks_block_height));
-//            }
-//
-//            assert!(!peer_2_inv.has_ith_block(num_blocks - stable_confs));
-//            assert!(!peer_2_inv.has_ith_microblock_stream(num_blocks - stable_confs));
-//        })
-//    }
+    #[test]
+    #[ignore]
+    fn test_sync_inv_2_peers_unstable() {
+        with_timeout(600, || {
+            let mut peer_1_config =
+                TestPeerConfig::new("test_sync_inv_2_peers_unstable", 31996, 41997);
+            let mut peer_2_config =
+                TestPeerConfig::new("test_sync_inv_2_peers_unstable", 31997, 41998);
+
+            let stable_confs = peer_1_config.burnchain.stable_confirmations as u64;
+
+            peer_1_config.add_neighbor(&peer_2_config.to_neighbor());
+            peer_2_config.add_neighbor(&peer_1_config.to_neighbor());
+
+            let mut peer_1 = TestPeer::new(peer_1_config);
+            let mut peer_2 = TestPeer::new(peer_2_config);
+
+            let num_blocks = (GETPOXINV_MAX_BITLEN * 2) as u64;
+
+            let first_stacks_block_height = {
+                let sn = SortitionDB::get_canonical_burn_chain_tip(
+                    &peer_1.sortdb.as_ref().unwrap().conn(),
+                )
+                .unwrap();
+                sn.block_height + 1
+            };
+
+            // only peer 2 makes progress after the point of stability.
+            for i in 0..num_blocks {
+                let (mut burn_ops, stacks_block, microblocks) = peer_2.make_default_tenure();
+
+                let (_, burn_header_hash, consensus_hash) =
+                    peer_2.next_burnchain_block(burn_ops.clone());
+                peer_2.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+
+                TestPeer::set_ops_burn_header_hash(&mut burn_ops, &burn_header_hash);
+
+                // NOTE: the nodes only differ by one block -- they agree on the same PoX vector
+                if i + 1 < num_blocks {
+                    peer_1.next_burnchain_block_raw(burn_ops.clone());
+                    peer_1.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
+                } else {
+                    // peer 1 diverges
+                    test_debug!("Peer 1 diverges at {}", i + first_stacks_block_height);
+                    peer_1.next_burnchain_block(vec![]);
+                }
+            }
+
+            // tips must differ
+            {
+                let sn1 = SortitionDB::get_canonical_burn_chain_tip(
+                    peer_1.sortdb.as_ref().unwrap().conn(),
+                )
+                .unwrap();
+                let sn2 = SortitionDB::get_canonical_burn_chain_tip(
+                    peer_2.sortdb.as_ref().unwrap().conn(),
+                )
+                .unwrap();
+                assert_ne!(sn1.burn_header_hash, sn2.burn_header_hash);
+            }
+
+            let num_stable_blocks = num_blocks - stable_confs;
+
+            let num_burn_blocks = {
+                let sn = SortitionDB::get_canonical_burn_chain_tip(
+                    peer_1.sortdb.as_ref().unwrap().conn(),
+                )
+                .unwrap();
+                sn.block_height + 1
+            };
+
+            let mut round = 0;
+            let mut inv_1_count = 0;
+            let mut inv_2_count = 0;
+
+            let mut peer_1_pox_cycle_start = false;
+            let mut peer_1_block_cycle_start = false;
+            let mut peer_2_pox_cycle_start = false;
+            let mut peer_2_block_cycle_start = false;
+
+            let mut peer_1_pox_cycle = false;
+            let mut peer_1_block_cycle = false;
+            let mut peer_2_pox_cycle = false;
+            let mut peer_2_block_cycle = false;
+
+            while inv_1_count < num_stable_blocks || inv_2_count < num_stable_blocks {
+                let _ = peer_1.step();
+                let _ = peer_2.step();
+
+                inv_1_count = match peer_1.network.inv_state {
+                    Some(ref inv) => inv.get_inv_num_blocks(&peer_2.to_neighbor().addr),
+                    None => 0,
+                };
+
+                inv_2_count = match peer_2.network.inv_state {
+                    Some(ref inv) => inv.get_inv_num_blocks(&peer_1.to_neighbor().addr),
+                    None => 0,
+                };
+
+                match peer_1.network.inv_state {
+                    Some(ref inv) => {
+                        info!("Peer 1 stats: {:?}", &inv.block_stats);
+                        assert_eq!(inv.get_broken_peers().len(), 0);
+                        assert_eq!(inv.get_dead_peers().len(), 0);
+                        assert_eq!(inv.get_diverged_peers().len(), 0);
+
+                        if let Some(stats) = inv.get_stats(&peer_2.to_neighbor().addr) {
+                            if stats.target_pox_reward_cycle > 0 {
+                                peer_1_pox_cycle_start = true;
+                            }
+                            if stats.target_block_reward_cycle > 0 {
+                                peer_1_block_cycle_start = true;
+                            }
+                            if stats.target_pox_reward_cycle == 0 && peer_1_pox_cycle_start {
+                                peer_1_pox_cycle = true;
+                            }
+                            if stats.target_block_reward_cycle == 0 && peer_1_block_cycle_start {
+                                peer_1_block_cycle = true;
+                            }
+                        }
+                    }
+                    None => {}
+                }
+
+                match peer_2.network.inv_state {
+                    Some(ref inv) => {
+                        info!("Peer 2 stats: {:?}", &inv.block_stats);
+                        assert_eq!(inv.get_broken_peers().len(), 0);
+                        assert_eq!(inv.get_dead_peers().len(), 0);
+                        assert_eq!(inv.get_diverged_peers().len(), 0);
+
+                        if let Some(stats) = inv.get_stats(&peer_1.to_neighbor().addr) {
+                            if stats.target_pox_reward_cycle > 0 {
+                                peer_2_pox_cycle_start = true;
+                            }
+                            if stats.target_block_reward_cycle > 0 {
+                                peer_2_block_cycle_start = true;
+                            }
+                            if stats.target_pox_reward_cycle == 0 && peer_2_pox_cycle_start {
+                                peer_2_pox_cycle = true;
+                            }
+                            if stats.target_block_reward_cycle == 0 && peer_2_block_cycle_start {
+                                peer_2_block_cycle = true;
+                            }
+                        }
+                    }
+                    None => {}
+                }
+
+                round += 1;
+
+                test_debug!(
+                    "\n\ninv_1_count = {}, inv_2_count = {}, num_stable_blocks = {}\n\n",
+                    inv_1_count,
+                    inv_2_count,
+                    num_stable_blocks
+                );
+            }
+
+            info!("Completed walk round {} step(s)", round);
+
+            peer_1.dump_frontier();
+            peer_2.dump_frontier();
+
+            let peer_2_inv = peer_1
+                .network
+                .inv_state
+                .as_ref()
+                .unwrap()
+                .block_stats
+                .get(&peer_2.to_neighbor().addr)
+                .unwrap()
+                .inv
+                .clone();
+            test_debug!("peer 1's view of peer 2: {:?}", &peer_2_inv);
+
+            let peer_1_inv = peer_2
+                .network
+                .inv_state
+                .as_ref()
+                .unwrap()
+                .block_stats
+                .get(&peer_1.to_neighbor().addr)
+                .unwrap()
+                .inv
+                .clone();
+            test_debug!("peer 2's view of peer 1: {:?}", &peer_1_inv);
+
+            assert_eq!(peer_2_inv.num_sortitions, num_burn_blocks - stable_confs);
+            assert_eq!(peer_1_inv.num_sortitions, num_burn_blocks - stable_confs);
+
+            // peer 1 should have learned that peer 2 has all the blocks, up to the point of
+            // instability
+            for i in 0..(num_blocks - stable_confs) {
+                assert!(peer_2_inv.has_ith_block(i + first_stacks_block_height));
+                if i > 0 {
+                    assert!(peer_2_inv.has_ith_microblock_stream(i + first_stacks_block_height));
+                } else {
+                    assert!(!peer_2_inv.has_ith_microblock_stream(i + first_stacks_block_height));
+                }
+            }
+
+            for i in 0..(num_blocks - stable_confs) {
+                assert!(peer_1_inv.has_ith_block(i + first_stacks_block_height));
+            }
+
+            assert!(!peer_2_inv.has_ith_block(num_blocks - stable_confs));
+            assert!(!peer_2_inv.has_ith_microblock_stream(num_blocks - stable_confs));
+        })
+    }
 
     // #[test]
     // #[ignore]
