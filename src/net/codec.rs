@@ -326,63 +326,6 @@ impl BlocksInvData {
     }
 }
 
-impl StacksMessageCodec for GetPoxInv {
-    fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
-        write_next(fd, &self.consensus_hash)?;
-        write_next(fd, &self.num_cycles)?;
-        Ok(())
-    }
-
-    fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<GetPoxInv, codec_error> {
-        let ch: ConsensusHash = read_next(fd)?;
-        let num_rcs: u16 = read_next(fd)?;
-        if num_rcs == 0 || num_rcs as u64 > GETPOXINV_MAX_BITLEN {
-            return Err(codec_error::DeserializeError(
-                "Invalid GetPoxInv bitlen".to_string(),
-            ));
-        }
-        Ok(GetPoxInv {
-            consensus_hash: ch,
-            num_cycles: num_rcs,
-        })
-    }
-}
-
-impl PoxInvData {
-    pub fn has_ith_reward_cycle(&self, index: u16) -> bool {
-        if index >= self.bitlen {
-            return false;
-        }
-
-        let idx = index / 8;
-        let bit = index % 8;
-        (self.pox_bitvec[idx as usize] & (1 << bit)) != 0
-    }
-}
-
-impl StacksMessageCodec for PoxInvData {
-    fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
-        write_next(fd, &self.bitlen)?;
-        write_next(fd, &self.pox_bitvec)?;
-        Ok(())
-    }
-
-    fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<PoxInvData, codec_error> {
-        let bitlen: u16 = read_next(fd)?;
-        if bitlen == 0 || (bitlen as u64) > GETPOXINV_MAX_BITLEN {
-            return Err(codec_error::DeserializeError(
-                "Invalid PoxInvData bitlen".to_string(),
-            ));
-        }
-
-        let pox_bitvec: Vec<u8> = read_next_exact::<_, u8>(fd, BITVEC_LEN!(bitlen))?;
-        Ok(PoxInvData {
-            bitlen: bitlen,
-            pox_bitvec: pox_bitvec,
-        })
-    }
-}
-
 impl StacksMessageCodec for BlocksAvailableData {
     fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
         write_next(fd, &self.available)?;
@@ -771,8 +714,6 @@ impl StacksMessageType {
             StacksMessageType::HandshakeReject => StacksMessageID::HandshakeReject,
             StacksMessageType::GetNeighbors => StacksMessageID::GetNeighbors,
             StacksMessageType::Neighbors(ref _m) => StacksMessageID::Neighbors,
-            StacksMessageType::GetPoxInv(ref _m) => StacksMessageID::GetPoxInv,
-            StacksMessageType::PoxInv(ref _m) => StacksMessageID::PoxInv,
             StacksMessageType::GetBlocksInv(ref _m) => StacksMessageID::GetBlocksInv,
             StacksMessageType::BlocksInv(ref _m) => StacksMessageID::BlocksInv,
             StacksMessageType::BlocksAvailable(ref _m) => StacksMessageID::BlocksAvailable,
@@ -797,8 +738,6 @@ impl StacksMessageType {
             StacksMessageType::HandshakeReject => "HandshakeReject",
             StacksMessageType::GetNeighbors => "GetNeighbors",
             StacksMessageType::Neighbors(ref _m) => "Neighbors",
-            StacksMessageType::GetPoxInv(ref _m) => "GetPoxInv",
-            StacksMessageType::PoxInv(ref _m) => "PoxInv",
             StacksMessageType::GetBlocksInv(ref _m) => "GetBlocksInv",
             StacksMessageType::BlocksInv(ref _m) => "BlocksInv",
             StacksMessageType::BlocksAvailable(ref _m) => "BlocksAvailable",
@@ -827,12 +766,6 @@ impl StacksMessageType {
             StacksMessageType::HandshakeReject => "HandshakeReject".to_string(),
             StacksMessageType::GetNeighbors => "GetNeighbors".to_string(),
             StacksMessageType::Neighbors(ref m) => format!("Neighbors({:?})", m.neighbors),
-            StacksMessageType::GetPoxInv(ref m) => {
-                format!("GetPoxInv({},{}))", &m.consensus_hash, m.num_cycles)
-            }
-            StacksMessageType::PoxInv(ref m) => {
-                format!("PoxInv({},{:?})", &m.bitlen, &m.pox_bitvec)
-            }
             StacksMessageType::GetBlocksInv(ref m) => {
                 format!("GetBlocksInv({},{})", &m.consensus_hash, m.num_blocks)
             }
@@ -886,8 +819,6 @@ impl StacksMessageCodec for StacksMessageID {
             x if x == StacksMessageID::HandshakeReject as u8 => StacksMessageID::HandshakeReject,
             x if x == StacksMessageID::GetNeighbors as u8 => StacksMessageID::GetNeighbors,
             x if x == StacksMessageID::Neighbors as u8 => StacksMessageID::Neighbors,
-            x if x == StacksMessageID::GetPoxInv as u8 => StacksMessageID::GetPoxInv,
-            x if x == StacksMessageID::PoxInv as u8 => StacksMessageID::PoxInv,
             x if x == StacksMessageID::GetBlocksInv as u8 => StacksMessageID::GetBlocksInv,
             x if x == StacksMessageID::BlocksInv as u8 => StacksMessageID::BlocksInv,
             x if x == StacksMessageID::BlocksAvailable as u8 => StacksMessageID::BlocksAvailable,
@@ -921,8 +852,6 @@ impl StacksMessageCodec for StacksMessageType {
             StacksMessageType::HandshakeReject => {}
             StacksMessageType::GetNeighbors => {}
             StacksMessageType::Neighbors(ref m) => write_next(fd, m)?,
-            StacksMessageType::GetPoxInv(ref m) => write_next(fd, m)?,
-            StacksMessageType::PoxInv(ref m) => write_next(fd, m)?,
             StacksMessageType::GetBlocksInv(ref m) => write_next(fd, m)?,
             StacksMessageType::BlocksInv(ref m) => write_next(fd, m)?,
             StacksMessageType::BlocksAvailable(ref m) => write_next(fd, m)?,
@@ -955,14 +884,6 @@ impl StacksMessageCodec for StacksMessageType {
             StacksMessageID::Neighbors => {
                 let m: NeighborsData = read_next(fd)?;
                 StacksMessageType::Neighbors(m)
-            }
-            StacksMessageID::GetPoxInv => {
-                let m: GetPoxInv = read_next(fd)?;
-                StacksMessageType::GetPoxInv(m)
-            }
-            StacksMessageID::PoxInv => {
-                let m: PoxInvData = read_next(fd)?;
-                StacksMessageType::PoxInv(m)
             }
             StacksMessageID::GetBlocksInv => {
                 let m: GetBlocksInv = read_next(fd)?;
@@ -1512,113 +1433,6 @@ pub mod test {
     }
 
     #[test]
-    fn codec_GetPoxInv() {
-        let getpoxinv = GetPoxInv {
-            consensus_hash: ConsensusHash([0x55; 20]),
-            num_cycles: GETPOXINV_MAX_BITLEN as u16,
-        };
-
-        let getpoxinv_bytes: Vec<u8> = vec![
-            // consensus hash
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            0x55,
-            // num reward cycles
-            0x00,
-            GETPOXINV_MAX_BITLEN as u8,
-        ];
-
-        check_codec_and_corruption::<GetPoxInv>(&getpoxinv, &getpoxinv_bytes);
-
-        // should fail to decode if the block range is too big
-        let getpoxinv_range_too_big = GetPoxInv {
-            consensus_hash: ConsensusHash([0x55; 20]),
-            num_cycles: (GETPOXINV_MAX_BITLEN + 1) as u16,
-        };
-
-        assert!(check_deserialize_failure::<GetPoxInv>(
-            &getpoxinv_range_too_big
-        ));
-    }
-
-    #[test]
-    fn codec_PoxInvData() {
-        // maximially big PoxInvData
-        let maximal_bitvec = vec![0xffu8; (GETPOXINV_MAX_BITLEN / 8) as usize];
-        let mut too_big_bitvec: Vec<u8> = vec![];
-        for i in 0..GETPOXINV_MAX_BITLEN + 1 {
-            too_big_bitvec.push(0xff);
-        }
-
-        let maximal_poxinvdata = PoxInvData {
-            bitlen: GETPOXINV_MAX_BITLEN as u16,
-            pox_bitvec: maximal_bitvec.clone(),
-        };
-
-        let mut maximal_poxinvdata_bytes: Vec<u8> = vec![];
-        // bitlen
-        maximal_poxinvdata_bytes.append(&mut (GETPOXINV_MAX_BITLEN as u16).to_be_bytes().to_vec());
-        // pox bitvec
-        maximal_poxinvdata_bytes
-            .append(&mut ((GETPOXINV_MAX_BITLEN / 8) as u32).to_be_bytes().to_vec());
-        maximal_poxinvdata_bytes.append(&mut maximal_bitvec.clone());
-
-        assert!((maximal_poxinvdata_bytes.len() as u32) < MAX_MESSAGE_LEN);
-
-        check_codec_and_corruption::<PoxInvData>(&maximal_poxinvdata, &maximal_poxinvdata_bytes);
-
-        // should fail to decode if the bitlen is too big
-        let too_big_poxinvdata = PoxInvData {
-            bitlen: (GETPOXINV_MAX_BITLEN + 1) as u16,
-            pox_bitvec: too_big_bitvec.clone(),
-        };
-        assert!(check_deserialize_failure::<PoxInvData>(&too_big_poxinvdata));
-
-        // should fail to decode if the bitlen doesn't match the bitvec
-        let long_bitlen = PoxInvData {
-            bitlen: 1,
-            pox_bitvec: vec![0xff, 0x01],
-        };
-        assert!(check_deserialize_failure::<PoxInvData>(&long_bitlen));
-
-        let short_bitlen = PoxInvData {
-            bitlen: 9,
-            pox_bitvec: vec![0xff],
-        };
-        assert!(check_deserialize_failure::<PoxInvData>(&short_bitlen));
-
-        // empty
-        let empty_inv = PoxInvData {
-            bitlen: 0,
-            pox_bitvec: vec![],
-        };
-        let empty_inv_bytes = vec![
-            // bitlen
-            0x00, 0x00, 0x00, 0x00, // bitvec
-            0x00, 0x00, 0x00, 0x00,
-        ];
-
-        check_codec_and_corruption::<PoxInvData>(&maximal_poxinvdata, &maximal_poxinvdata_bytes);
-    }
-
-    #[test]
     fn codec_GetBlocksInv() {
         let getblocksdata = GetBlocksInv {
             consensus_hash: ConsensusHash([0x55; 20]),
@@ -2002,14 +1816,6 @@ pub mod test {
                         .unwrap(),
                     },
                 ],
-            }),
-            StacksMessageType::GetPoxInv(GetPoxInv {
-                consensus_hash: ConsensusHash([0x55; 20]),
-                num_cycles: GETPOXINV_MAX_BITLEN as u16,
-            }),
-            StacksMessageType::PoxInv(PoxInvData {
-                bitlen: 2,
-                pox_bitvec: vec![0x03],
             }),
             StacksMessageType::GetBlocksInv(GetBlocksInv {
                 consensus_hash: ConsensusHash([0x55; 20]),

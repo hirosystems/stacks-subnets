@@ -870,8 +870,6 @@ pub enum StacksMessageType {
     Neighbors(NeighborsData),
     GetBlocksInv(GetBlocksInv),
     BlocksInv(BlocksInvData),
-    GetPoxInv(GetPoxInv),
-    PoxInv(PoxInvData),
     BlocksAvailable(BlocksAvailableData),
     MicroblocksAvailable(BlocksAvailableData),
     Blocks(BlocksData),
@@ -1444,7 +1442,6 @@ impl From<&HttpRequestType> for HttpResponseMetadata {
 #[derive(Debug, Clone, PartialEq)]
 pub enum HttpResponseType {
     PeerInfo(HttpResponseMetadata, RPCPeerInfoData),
-    PoxInfo(HttpResponseMetadata, RPCPoxInfoData),
     Neighbors(HttpResponseMetadata, RPCNeighborsInfo),
     Headers(HttpResponseMetadata, Vec<ExtendedStacksHeader>),
     HeaderStream(HttpResponseMetadata),
@@ -1498,8 +1495,6 @@ pub enum StacksMessageID {
     Neighbors = 4,
     GetBlocksInv = 5,
     BlocksInv = 6,
-    GetPoxInv = 7,
-    PoxInv = 8,
     BlocksAvailable = 9,
     MicroblocksAvailable = 10,
     Blocks = 11,

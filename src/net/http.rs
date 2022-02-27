@@ -3288,7 +3288,6 @@ impl HttpResponseType {
             ) -> Result<HttpResponseType, net_error>,
         )] = &[
             (&PATH_GETINFO, &HttpResponseType::parse_peerinfo),
-            (&PATH_GETPOXINFO, &HttpResponseType::parse_poxinfo),
             (&PATH_GETNEIGHBORS, &HttpResponseType::parse_neighbors),
             (&PATH_GETHEADERS, &HttpResponseType::parse_headers),
             (&PATH_GETBLOCK, &HttpResponseType::parse_block),
@@ -3408,21 +3407,6 @@ impl HttpResponseType {
         Ok(HttpResponseType::PeerInfo(
             HttpResponseMetadata::from_preamble(request_version, preamble),
             peer_info,
-        ))
-    }
-
-    fn parse_poxinfo<R: Read>(
-        _protocol: &mut StacksHttp,
-        request_version: HttpVersion,
-        preamble: &HttpResponsePreamble,
-        fd: &mut R,
-        len_hint: Option<usize>,
-    ) -> Result<HttpResponseType, net_error> {
-        let pox_info =
-            HttpResponseType::parse_json(preamble, fd, len_hint, MAX_MESSAGE_LEN as u64)?;
-        Ok(HttpResponseType::PoxInfo(
-            HttpResponseMetadata::from_preamble(request_version, preamble),
-            pox_info,
         ))
     }
 
@@ -3920,7 +3904,6 @@ impl HttpResponseType {
     pub fn metadata(&self) -> &HttpResponseMetadata {
         match *self {
             HttpResponseType::PeerInfo(ref md, _) => md,
-            HttpResponseType::PoxInfo(ref md, _) => md,
             HttpResponseType::Neighbors(ref md, _) => md,
             HttpResponseType::HeaderStream(ref md) => md,
             HttpResponseType::Headers(ref md, _) => md,
@@ -4060,10 +4043,6 @@ impl HttpResponseType {
             HttpResponseType::PeerInfo(ref md, ref peer_info) => {
                 HttpResponsePreamble::ok_JSON_from_md(fd, md)?;
                 HttpResponseType::send_json(protocol, md, fd, peer_info)?;
-            }
-            HttpResponseType::PoxInfo(ref md, ref pox_info) => {
-                HttpResponsePreamble::ok_JSON_from_md(fd, md)?;
-                HttpResponseType::send_json(protocol, md, fd, pox_info)?;
             }
             HttpResponseType::Neighbors(ref md, ref neighbor_data) => {
                 HttpResponsePreamble::ok_JSON_from_md(fd, md)?;
@@ -4375,7 +4354,6 @@ impl MessageSequence for StacksHttpMessage {
                 HttpResponseType::GetAttachment(_, _) => "HTTP(GetAttachment)",
                 HttpResponseType::GetAttachmentsInv(_, _) => "HTTP(GetAttachmentsInv)",
                 HttpResponseType::PeerInfo(_, _) => "HTTP(PeerInfo)",
-                HttpResponseType::PoxInfo(_, _) => "HTTP(PeerInfo)",
                 HttpResponseType::Neighbors(_, _) => "HTTP(Neighbors)",
                 HttpResponseType::Headers(..) => "HTTP(Headers)",
                 HttpResponseType::HeaderStream(..) => "HTTP(HeaderStream)",

@@ -376,8 +376,6 @@ pub struct NeighborBlockStats {
     pub target_pox_reward_cycle: u64,
     /// Ongoing request's block target reward cycle
     pub target_block_reward_cycle: u64,
-    /// Received PoxInv
-    pub pox_inv: Option<PoxInvData>,
     /// Received BlocksInv
     pub blocks_inv: Option<BlocksInvData>,
     /// Last time we did a scan
@@ -410,7 +408,6 @@ impl NeighborBlockStats {
             target_pox_reward_cycle: 0,
             target_block_reward_cycle: 0,
             request: None,
-            pox_inv: None,
             blocks_inv: None,
             last_rescan_timestamp: 0,
             done: false,
@@ -428,7 +425,6 @@ impl NeighborBlockStats {
     pub fn reset_block_scan(&mut self, block_reward_cycle: u64) {
         self.block_reward_cycle = block_reward_cycle;
         self.request = None;
-        self.pox_inv = None;
         self.blocks_inv = None;
         self.state = InvWorkState::GetBlocksInvBegin;
 

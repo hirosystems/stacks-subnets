@@ -47,7 +47,6 @@ use net::neighbors::MAX_NEIGHBOR_BLOCK_DELAY;
 use net::relay::*;
 use net::Error as net_error;
 use net::GetBlocksInv;
-use net::GetPoxInv;
 use net::Neighbor;
 use net::NeighborKey;
 use net::PeerAddress;

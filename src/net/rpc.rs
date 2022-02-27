@@ -89,7 +89,7 @@ use net::{
 use net::{BlocksData, GetIsTraitImplementedResponse};
 use net::{ClientError, TipRequest};
 use net::{RPCNeighbor, RPCNeighborsInfo};
-use net::{RPCPeerInfoData, RPCPoxInfoData};
+use net::RPCPeerInfoData;
 use util::get_epoch_time_secs;
 use util::hash::Hash160;
 use util::hash::{hex_bytes, to_hex};
@@ -122,8 +122,6 @@ use crate::{
 };
 
 use util_lib::boot::boot_code_id;
-
-use super::{RPCPoxCurrentCycleInfo, RPCPoxNextCycleInfo};
 
 pub const STREAM_CHUNK_SIZE: u64 = 4096;
 
