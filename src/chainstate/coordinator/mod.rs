@@ -322,9 +322,7 @@ impl<
     > ChainsCoordinator<'a, T, N, CE, FE>
 {
     pub fn handle_new_stacks_block(&mut self) -> Result<(), Error> {
-        panic!("not implemented");
-        // DO NOT SUBMIT: what should this be?
-        // self.process_ready_blocks()
+        Ok(())
     }
 
     pub fn handle_new_burnchain_block(&mut self) -> Result<(), Error> {
@@ -429,12 +427,7 @@ impl<
     ///
     /// Process any ready staging blocks until there are either:
     ///   * there are no more to process
-    ///   * a PoX anchor block is processed which invalidates the current PoX fork
-    ///
-    /// Returns Some(StacksBlockId) if such an anchor block is discovered,
-    ///   otherwise returns None
-    ///
-    fn process_ready_blocks(&mut self) -> Result<Option<BlockHeaderHash>, Error> {
+    fn process_ready_blocks(&mut self) -> Result<(), Error> {
         let canonical_sortition_tip = self.canonical_sortition_tip.as_ref().expect(
             "FAIL: processing a new Stacks block, but don't have a canonical sortition tip",
         );
@@ -585,17 +578,6 @@ impl<
                             &block_receipt.parent_microblocks_cost,
                         );
                     }
-
-                    // if, just after processing the block, we _know_ that this block is a pox anchor, that means
-                    //   that sortitions have already begun processing that didn't know about this pox anchor.
-                    //   we need to trigger an unwind
-                    if let Some(pox_anchor) = self
-                        .sortition_db
-                        .is_stacks_block_pox_anchor(&block_hash, canonical_sortition_tip)?
-                    {
-                        info!("Discovered an old anchor block: {}", &pox_anchor);
-                        return Ok(Some(pox_anchor));
-                    }
                 }
             }
             // TODO: do something with a poison result
@@ -604,7 +586,7 @@ impl<
             processed_blocks = self.chain_state_db.process_blocks(sortdb_handle, 1)?;
         }
 
-        Ok(None)
+        Ok(())
     }
 }
 
