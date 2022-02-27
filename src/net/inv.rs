@@ -1530,9 +1530,14 @@ max_burn_block_height - target_block_height);
                         }
                     }
 
-                    // DO NOT SUBMIT: what should this be?
                     if stats.done
                     {
+                        debug!(
+                            "{:?}: synchronized for nk {:?}",
+                            &network.local_peer,
+                            &nk
+                        );
+
                         fully_synced_peers.insert(nk.clone());
                     }
                 }
