@@ -333,11 +333,6 @@ impl PeerBlocksInv {
     pub fn get_block_height(&self) -> u64 {
         self.first_block_height + self.num_sortitions
     }
-
-    /// What's the number of PoX reward cycles we know about?
-    pub fn get_pox_height(&self) -> u64 {
-        self.num_reward_cycles
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Copy)]
