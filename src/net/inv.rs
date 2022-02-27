@@ -1428,31 +1428,6 @@ max_burn_block_height - target_block_height);
         };
 
         if reloaded {
-            // DO NOT SUBMIT: what should this be?
-//            // find the lowest reward cycle whose bit has since changed from a 0 to a 1.
-//            let num_reward_cycles = cmp::min(
-//                new_pox_id.num_inventory_reward_cycles(),
-//                self.pox_id.num_inventory_reward_cycles(),
-//            );
-//            for i in 0..num_reward_cycles {
-//                if !self.pox_id.has_ith_anchor_block(i) && new_pox_id.has_ith_anchor_block(i) {
-//                    // we learned of a new anchor block intermittently.  Invalidate all cached state at and after this reward cycle.
-//                    inv_state.invalidate_block_inventories(&self.burnchain, i as u64);
-//
-//                    // also clear block header cache (TODO: this is pessimistic -- only invalidated
-//                    // entries need to be cleared)
-//                    debug!(
-//                        "{:?}: invalidating block header cache in response to PoX bit flip",
-//                        &self.local_peer
-//                    );
-//                    self.header_cache.clear();
-//                    break;
-//                }
-//            }
-//
-//            // DO NOT SUBMIT: what should this be?
-//            inv_state.invalidate_block_inventories(&self.burnchain, new_pox_id.len() as u64);
-
             self.tip_sort_id = new_tip_sort_id;
         }
 
