@@ -1407,17 +1407,9 @@ max_burn_block_height - target_block_height);
             self.init_inv_sync(sortdb);
         }
 
-        let inv_state = self
-            .inv_state
-            .as_mut()
-            .expect("Unreachable: inv state not initialized");
-
         let (new_tip_sort_id, reloaded) = {
             if self.burnchain_tip.sortition_id != self.tip_sort_id {
                 // reloaded burnchain tip disagrees with our last-considered sortition tip
-                let ic = sortdb.index_conn();
-                let sortdb_reader =
-                    SortitionHandleConn::open_reader(&ic, &self.burnchain_tip.sortition_id)?;
                 (
                     self.burnchain_tip.sortition_id.clone(),
                     true,
