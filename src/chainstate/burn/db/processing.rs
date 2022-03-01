@@ -73,8 +73,8 @@ impl<'a> SortitionHandleTx<'a> {
         parent_snapshot: &BlockSnapshot,
         block_header: &BurnchainBlockHeader,
         this_block_ops: &Vec<BlockstackOperationType>,
-        _next_pox_info: Option<RewardCycleInfo>,
-        _parent_pox: PoxId,
+        next_pox_info: Option<RewardCycleInfo>,
+        parent_pox: PoxId,
         reward_info: Option<&RewardSetInfo>,
         initial_mining_bonus_ustx: u128,
     ) -> Result<(BlockSnapshot, BurnchainStateTransition), BurnchainError> {
@@ -95,6 +95,15 @@ impl<'a> SortitionHandleTx<'a> {
             .iter()
             .map(|ref op| op.txid())
             .collect();
+
+        let mut next_pox = parent_pox;
+        if let Some(ref next_pox_info) = next_pox_info {
+            debug!(
+                "Assume block is an anchor block={:?}",
+                &next_pox_info.selected_anchor_block()
+            );
+            next_pox.extend_with_present_block();
+        };
 
         // the SortitionId in Hyperchains is always equal to the identifying hash
         // of the L1 block (i.e., the burn block hash)
@@ -164,6 +173,7 @@ impl<'a> SortitionHandleTx<'a> {
             parent_snapshot,
             &snapshot,
             &state_transition.accepted_ops,
+            next_pox_info,
             reward_info,
             initialize_bonus,
         )?;

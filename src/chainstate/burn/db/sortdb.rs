@@ -1671,7 +1671,7 @@ impl SortitionDB {
         let mut first_sn = first_snapshot.clone();
         first_sn.sortition_id = SortitionId::sentinel();
         let index_root =
-            db_tx.index_add_fork_info(&mut first_sn, &first_snapshot, &vec![], None)?;
+            db_tx.index_add_fork_info(&mut first_sn, &first_snapshot, &vec![], None, None, None)?;
         first_snapshot.index_root = index_root;
 
         db_tx.insert_block_snapshot(&first_snapshot)?;
@@ -1751,7 +1751,7 @@ impl SortitionDB {
         let mut first_sn = first_snapshot.clone();
         first_sn.sortition_id = SortitionId::sentinel();
         let index_root =
-            db_tx.index_add_fork_info(&mut first_sn, &first_snapshot, &vec![], None)?;
+            db_tx.index_add_fork_info(&mut first_sn, &first_snapshot, &vec![], None, None, None)?;
         first_snapshot.index_root = index_root;
 
         db_tx.insert_block_snapshot(&first_snapshot)?;
@@ -2810,7 +2810,8 @@ impl<'a> SortitionHandleTx<'a> {
         parent_snapshot: &BlockSnapshot,
         snapshot: &BlockSnapshot,
         block_ops: &Vec<BlockstackOperationType>,
-        _reward_info: Option<&RewardSetInfo>,
+        next_pox_info: Option<RewardCycleInfo>,
+        reward_info: Option<&RewardSetInfo>,
         initialize_bonus: Option<InitialMiningBonus>,
     ) -> Result<TrieHash, db_error> {
         assert_eq!(
@@ -2826,8 +2827,14 @@ impl<'a> SortitionHandleTx<'a> {
         }
 
         let mut parent_sn = parent_snapshot.clone();
-        let root_hash =
-            self.index_add_fork_info(&mut parent_sn, snapshot, block_ops, initialize_bonus)?;
+        let root_hash = self.index_add_fork_info(
+            &mut parent_sn,
+            snapshot,
+            block_ops,
+            next_pox_info,
+            reward_info,
+            initialize_bonus,
+        )?;
 
         let mut sn = snapshot.clone();
         sn.index_root = root_hash.clone();
@@ -3012,6 +3019,8 @@ impl<'a> SortitionHandleTx<'a> {
         parent_snapshot: &mut BlockSnapshot,
         snapshot: &BlockSnapshot,
         _block_ops: &Vec<BlockstackOperationType>,
+        next_pox_info: Option<RewardCycleInfo>,
+        recipient_info: Option<&RewardSetInfo>,
         initialize_bonus: Option<InitialMiningBonus>,
     ) -> Result<TrieHash, db_error> {
         if !snapshot.is_initial() {
@@ -3068,13 +3077,37 @@ impl<'a> SortitionHandleTx<'a> {
             }
         }
 
-        // storing null PoX info
-        keys.push(db_keys::pox_identifier().to_string());
-        values.push(PoxId::initial().to_string());
-        keys.push(db_keys::pox_reward_set_size().to_string());
-        values.push(db_keys::reward_set_size_to_string(0));
-        keys.push(db_keys::pox_last_anchor().to_string());
-        values.push("".to_string());
+        // if this is the start of a reward cycle, store the new PoX keys
+        if !snapshot.is_initial() {
+            if let Some(reward_info) = next_pox_info {
+                let mut pox_id = self.get_pox_id()?;
+                // Always update with a "known block".
+                pox_id.extend_with_present_block();
+                // if we have selected an anchor block, write that info
+                if let Some(ref anchor_block) = reward_info.selected_anchor_block() {
+                    keys.push(db_keys::pox_anchor_to_prepare_end(anchor_block));
+                    values.push(parent_snapshot.sortition_id.to_hex());
+
+                    keys.push(db_keys::pox_last_anchor().to_string());
+                    values.push(anchor_block.to_hex());
+                } else {
+                    keys.push(db_keys::pox_last_anchor().to_string());
+                    values.push("".to_string());
+                }
+
+                // in all cases, write the new PoX bit vector
+                keys.push(db_keys::pox_identifier().to_string());
+                values.push(pox_id.to_string());
+            }
+        } else {
+            assert_eq!(next_pox_info, None);
+            keys.push(db_keys::pox_identifier().to_string());
+            values.push(PoxId::initial().to_string());
+            keys.push(db_keys::pox_reward_set_size().to_string());
+            values.push(db_keys::reward_set_size_to_string(0));
+            keys.push(db_keys::pox_last_anchor().to_string());
+            values.push("".to_string());
+        }
 
         // commit to all newly-arrived blocks
         let (mut block_arrival_keys, mut block_arrival_values) =
