@@ -236,6 +236,7 @@ impl MockController {
         MOCK_EVENTS_STREAM.push_block(new_block);
     }
 
+    // Called by `start` and `sync`.
     fn receive_blocks(
         &mut self,
         block_for_sortitions: bool,

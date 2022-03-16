@@ -3,16 +3,19 @@ use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time;
 
+use crate::burnchains::mock_events::MockController;
 use crate::config::InitialBalance;
+use crate::tests::neon_integrations::wait_for_runloop;
 use crate::tests::to_addr;
 use crate::Config;
 
+use stacks::burnchains::db::BurnchainDB;
 use stacks::chainstate::stacks::StacksPrivateKey;
 use stacks::core::StacksEpochId;
 use stacks::util::hash::hex_bytes;
 
 use super::PUBLISH_CONTRACT;
-use crate::neon::RunLoop;
+use crate::neon;
 use crate::ConfigFile;
 use stacks::vm::costs::ExecutionCost;
 use std::env;
@@ -189,6 +192,8 @@ impl Drop for StacksMainchainController {
 
 const BITCOIND_INT_TEST_COMMITS: u64 = 11000;
 
+use crate::tests::neon_integrations::next_block_and_wait;
+
 #[test]
 fn l1_observer_test() {
     if env::var("BITCOIND_TEST") != Ok("1".into()) {
@@ -211,16 +216,53 @@ fn l1_observer_test() {
     let _bitcoin_res = bitcoin_controller.start_process().expect("didn't start");
     info!("done _bitcoin_res");
 
+    // bitcoin_controller.bootstrap_chain(200);
+
+    eprintln!("Chain bootstrapped...");
     let mut stacks_controller = StacksMainchainController::new(conf.clone());
     // Start stacksd
     let _stacks_res = stacks_controller.start_process().expect("didn't start");
+    let mut conf = super::new_test_conf();
 
-    //    thread::sleep(time::Duration::from_millis(10000));
-    {
-        let mut conf = super::new_test_conf();
-        let mut run_loop = RunLoop::new(conf);
-        run_loop.start(None, 20);
-    }
+    let mut run_loop = neon::RunLoop::new(conf.clone());
+    let blocks_processed = run_loop.get_blocks_processed_arc();
+
+    let channel = run_loop.get_coordinator_channel().unwrap();
+
+    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+
+    thread::spawn(move || run_loop.start(None, 0));
+
+    // give the run loop some time to start up!
+    wait_for_runloop(&blocks_processed);
+
+    // first block wakes up the run loop
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+
+    // //    thread::sleep(time::Duration::from_millis(10000));
+    //     let mut conf = super::new_test_conf();
+    //     let mut run_loop = RunLoop::new(conf.clone());
+
+    //     let channel = run_loop.get_coordinator_channel().unwrap();
+    //     thread::spawn(move || run_loop.start(None, 0));
+    //     use std::time::Duration;
+    // // give the run loop some time to start up!
+    // wait_for_runloop(&blocks_processed);
+
+    // // first block wakes up the run loop
+    // next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+    //     for i in 0..5 {
+
+    //         thread::sleep(Duration::from_millis(1000));
+    //         channel.stop_chains_coordinator();
+
+    //         let _ = BurnchainDB::open(&conf.get_burn_db_path(), true).unwrap();
+    //     }
+
+    //     // let burnchain = run_loop.get_burnchain();
+    //     // panic!("burn chain {:?}", &burnchain);
+
+    channel.stop_chains_coordinator();
 
     bitcoin_controller.kill_process();
     stacks_controller.kill_process();

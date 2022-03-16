@@ -489,6 +489,8 @@ impl RunLoop {
         let burnchain_config = burnchain.get_burnchain();
         self.burnchain = Some(burnchain_config.clone());
 
+        info!("burnchain: {:?}", &self.burnchain);
+
         let is_miner = self.check_is_miner();
         self.is_miner = Some(is_miner);
 
