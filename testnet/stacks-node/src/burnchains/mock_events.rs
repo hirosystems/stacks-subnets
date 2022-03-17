@@ -67,14 +67,24 @@ pub struct MockIndexer {
 pub struct MockBlockDownloader {
     channel: MockChannels,
 }
+use std::{fmt::Write, num::ParseIntError};
+
+pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+        .collect()
+}
 
 impl MockChannels {
     pub fn empty() -> MockChannels {
+
+
         MockChannels {
             blocks: Arc::new(Mutex::new(vec![NewBlock {
                 block_height: 0,
                 burn_block_time: 0,
-                index_block_hash: StacksBlockId(make_mock_byte_string(0)),
+                index_block_hash: StacksBlockId(make_mock_byte_string(1)),
                 parent_index_block_hash: StacksBlockId::sentinel(),
                 events: vec![],
             }])),
@@ -89,9 +99,11 @@ lazy_static! {
 }
 
 fn make_mock_byte_string(from: u64) -> [u8; 32] {
-    let mut output = [1; 32];
-    output[0..8].copy_from_slice(&from.to_be_bytes());
-    output
+    let mut bytes_1= [0u8; 32];
+    let bytes_vec = decode_hex("55c9861be5cff984a20ce6d99d4aa65941412889bdc665094136429b84f8c2ee").expect("hex value problem");
+    bytes_1.copy_from_slice(&bytes_vec[0..32]);
+    warn!("bytes_vec {:?}", bytes_vec);
+    bytes_1
 }
 
 macro_rules! info_yellow {
