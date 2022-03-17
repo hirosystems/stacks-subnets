@@ -314,6 +314,7 @@ impl<'a, T: BlockEventDispatcher, CE: CostEstimator + ?Sized, FE: FeeEstimator +
                 }
                 CoordinatorEvents::NEW_BURN_BLOCK => {
                     debug!("Received new burn block notice");
+                    // where does this come from?
                     if let Err(e) = inst.handle_new_burnchain_block() {
                         warn!("Error processing new burn block: {:?}", e);
                     }
@@ -529,6 +530,8 @@ impl<
     }
 
     pub fn handle_new_burnchain_block(&mut self) -> Result<(), Error> {
+        let bt = backtrace::Backtrace::new();
+        info!("bt {:?}", &bt);
         // Retrieve canonical burnchain chain tip from the BurnchainBlocksDB
         let canonical_burnchain_tip = self.burnchain_blocks_db.get_canonical_chain_tip()?;
         info!("Handle new canonical burnchain tip";
