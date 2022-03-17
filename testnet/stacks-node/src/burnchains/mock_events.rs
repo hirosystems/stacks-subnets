@@ -29,8 +29,8 @@ use super::Error;
 
 #[derive(Clone)]
 pub struct MockChannels {
-    blocks: Arc<Mutex<Vec<NewBlock>>>,
-    minimum_recorded_height: Arc<Mutex<u64>>,
+    pub blocks: Arc<Mutex<Vec<NewBlock>>>,
+    pub minimum_recorded_height: Arc<Mutex<u64>>,
 }
 
 pub struct MockController {
@@ -38,7 +38,7 @@ pub struct MockController {
     contract_identifier: QualifiedContractIdentifier,
     burnchain: Option<Burnchain>,
     config: Config,
-    indexer: MockIndexer,
+    pub indexer: MockIndexer,
 
     db: Option<SortitionDB>,
     burnchain_db: Option<BurnchainDB>,
@@ -55,7 +55,7 @@ pub struct MockController {
 
 pub struct MockIndexer {
     /// This is the channel that new mocked L1 blocks are fed into
-    incoming_channel: MockChannels,
+    pub incoming_channel: MockChannels,
     /// This is the Layer 1 contract that is watched for hyperchain events.
     watch_contract: QualifiedContractIdentifier,
     blocks: Vec<NewBlock>,
