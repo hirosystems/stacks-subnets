@@ -209,10 +209,8 @@ impl Drop for StacksMainchainController {
     }
 }
 
-const BITCOIND_INT_TEST_COMMITS: u64 = 11000;
-
-use crate::tests::neon_integrations::next_block_and_wait;
-
+/// This test brings up bitcoind, and Stacks-L1, and ensures that our listener can hear and record burn blocks
+/// from the Stacks-L1 chain.
 #[test]
 fn l1_observer_test() {
     if env::var("BITCOIND_TEST") != Ok("1".into()) {
@@ -220,7 +218,6 @@ fn l1_observer_test() {
     }
 
     let base_dir = env::var("STACKS_BASE_DIR").expect("couldn't read STACKS_BASE_DIR");
-    let bin_file = format!("{}/target/release/stacks-node", &base_dir);
     let toml_file = format!(
         "{}/testnet/stacks-node/conf/mocknet-miner-conf.toml",
         &base_dir
@@ -229,37 +226,24 @@ fn l1_observer_test() {
     let toml_content = ConfigFile::from_path(&toml_file);
     let conf = Config::from_config_file(toml_content);
 
-    // Setup up a bitcoind controller
+    // Start bitcoind.
     let mut bitcoin_controller = BitcoinCoreController::new(conf.clone());
-    // Start bitcoind
-    let _bitcoin_res = bitcoin_controller.start_process().expect("didn't start");
-    info!("done _bitcoin_res");
+    let _bitcoin_res = bitcoin_controller.start_process().expect("bitcoin controller didn't start");
 
-    // bitcoin_controller.bootstrap_chain(200);
-
-    eprintln!("Chain bootstrapped...");
+    // Start Stacks L1.
     let mut stacks_controller = StacksMainchainController::new(conf.clone());
-    // Start stacksd
-    let _stacks_res = stacks_controller.start_process().expect("didn't start");
-    let mut conf = super::new_test_conf();
-    info!(
-        "burn db paths {} {}",
-        conf.get_burn_db_path(),
-        conf.get_burn_db_file_path()
-    );
+    let _stacks_res = stacks_controller.start_process().expect("stacks l1 controller didn't start");
 
-    let mut run_loop = neon::RunLoop::new(conf.clone());
-    let blocks_processed = run_loop.get_blocks_processed_arc();
+    let config = super::new_test_conf();
+    let mut run_loop = neon::RunLoop::new(config.clone());
 
     let channel = run_loop.get_coordinator_channel().unwrap();
     thread::spawn(move || run_loop.start(None, 0));
     use std::time::Duration;
 
-    info_blue!("start sleeping1");
     thread::sleep(Duration::from_millis(30000));
 
-    // let (network_name, _) = conf.burnchain.get_bitcoin_network();
-    let burnchain = Burnchain::new(&conf.get_burn_db_path(), "mockstack", "hyperchain").unwrap();
+    let burnchain = Burnchain::new(&config.get_burn_db_path(), "mockstack", "hyperchain").unwrap();
     let (_, burndb) = burnchain.open_db(true).unwrap();
     let tip = burndb
         .get_canonical_chain_tip()
@@ -267,7 +251,8 @@ fn l1_observer_test() {
 
     info!("burnblock chain tip is {:?}", &tip);
 
-    // We basically just need this to be beyond 0, but add a few more to make sure we really are reading blocks.
+    // Ensure that the tip height has moved beyond height 0.
+    // We check that we have moved past 3 just to establish we are reliably getting blocks.
     assert!(tip.block_height > 3);
 
     channel.stop_chains_coordinator();
