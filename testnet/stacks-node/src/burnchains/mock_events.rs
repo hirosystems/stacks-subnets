@@ -68,17 +68,22 @@ pub struct MockBlockDownloader {
     channel: MockChannels,
 }
 
+impl MockChannels {
+    pub fn empty() -> MockChannels {
+        MockChannels {
+            blocks: Arc::new(Mutex::new(vec![NewBlock {
+                block_height: 0,
+                burn_block_time: 0,
+                index_block_hash: StacksBlockId(make_mock_byte_string(0)),
+                parent_index_block_hash: StacksBlockId::sentinel(),
+                events: vec![],
+            }])),
+            minimum_recorded_height: Arc::new(Mutex::new(0)),
+        }
+    }
+}
 lazy_static! {
-    static ref MOCK_EVENTS_STREAM: MockChannels = MockChannels {
-        blocks: Arc::new(Mutex::new(vec![NewBlock {
-            block_height: 0,
-            burn_block_time: 0,
-            index_block_hash: StacksBlockId(make_mock_byte_string(0)),
-            parent_index_block_hash: StacksBlockId::sentinel(),
-            events: vec![],
-        }])),
-        minimum_recorded_height: Arc::new(Mutex::new(0)),
-    };
+    pub static ref MOCK_EVENTS_STREAM: MockChannels = MockChannels::empty();
     static ref NEXT_BURN_BLOCK: Arc<Mutex<u64>> = Arc::new(Mutex::new(1));
     static ref NEXT_COMMIT: Arc<Mutex<Option<BlockHeaderHash>>> = Arc::new(Mutex::new(None));
 }
@@ -90,7 +95,7 @@ fn make_mock_byte_string(from: u64) -> [u8; 32] {
 }
 
 impl MockChannels {
-    fn push_block(&self, new_block: NewBlock) {
+    pub fn push_block(&self, new_block: NewBlock) {
         let mut blocks = self.blocks.lock().unwrap();
 
         blocks.push(new_block)
