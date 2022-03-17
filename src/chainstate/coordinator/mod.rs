@@ -530,8 +530,6 @@ impl<
     }
 
     pub fn handle_new_burnchain_block(&mut self) -> Result<(), Error> {
-        let bt = backtrace::Backtrace::new();
-        info!("bt {:?}", &bt);
         // Retrieve canonical burnchain chain tip from the BurnchainBlocksDB
         let canonical_burnchain_tip = self.burnchain_blocks_db.get_canonical_chain_tip()?;
         info!("Handle new canonical burnchain tip";

@@ -259,19 +259,13 @@ fn l1_observer_test() {
     thread::sleep(Duration::from_millis(30000));
 
     // let (network_name, _) = conf.burnchain.get_bitcoin_network();
-    let network_name = "mockstack";
-    let burnchain = Burnchain::new(
-        &conf.get_burn_db_path(),
-        &conf.burnchain.chain,
-        &network_name,
-    )
-    .unwrap();
+    let burnchain = Burnchain::new(&conf.get_burn_db_path(), "mockstack", "hyperchain").unwrap();
     let (_, burndb) = burnchain.open_db(true).unwrap();
     let tip = burndb
         .get_canonical_chain_tip()
         .expect("couldn't get chain tip");
 
-    info!("critical tip {:?}", &tip);
+    info!("burnblock chain tip is {:?}", &tip);
 
     // We basically just need this to be beyond 0, but add a few more to make sure we really are reading blocks.
     assert!(tip.block_height > 3);
