@@ -531,7 +531,7 @@ impl<
     pub fn handle_new_burnchain_block(&mut self) -> Result<(), Error> {
         // Retrieve canonical burnchain chain tip from the BurnchainBlocksDB
         let canonical_burnchain_tip = self.burnchain_blocks_db.get_canonical_chain_tip()?;
-        debug!("Handle new canonical burnchain tip";
+        info!("Handle new canonical burnchain tip";
                "height" => %canonical_burnchain_tip.block_height,
                "block_hash" => %canonical_burnchain_tip.block_hash.to_string());
 
@@ -541,6 +541,7 @@ impl<
 
         // We halt the ancestry research as soon as we find a processed parent
         let mut last_processed_ancestor = loop {
+            info!("cursor {:?}", &cursor);
             if let Some(found_sortition) = self.sortition_db.is_sortition_processed(&cursor)? {
                 break found_sortition;
             }

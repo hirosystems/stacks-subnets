@@ -260,6 +260,31 @@ fn l1_observer_test() {
     // //    thread::sleep(time::Duration::from_millis(10000));
     //     let mut conf = super::new_test_conf();
     //     let mut run_loop = RunLoop::new(conf.clone());
+    run_loop
+    .callbacks
+    .on_burn_chain_initialized(|burnchain_controller| {
+        burnchain_controller.bootstrap_chain(201);
+    });
+
+// In this serie of tests, the callback is fired post-burnchain-sync, pre-stacks-sync
+run_loop.callbacks.on_new_burn_chain_state(|round, burnchain_tip, chain_tip| {
+    info!("subnet callback: on_new_burn_chain_state");
+});
+
+// Use tenure's hook for submitting transactions
+run_loop.callbacks.on_new_tenure(|round, _burnchain_tip, chain_tip, tenure| {
+    info!("subnet callback: on_new_burn_chain_state");
+
+});
+
+// Use block's hook for asserting expectations
+// In this serie of tests, the callback is fired post-burnchain-sync, post-stacks-sync
+run_loop.callbacks.on_new_stacks_chain_state(
+    |round, burnchain_tip, chain_tip, _chain_state, _burn_dbconn| {
+        info!("subnet callback: on_new_stacks_chain_state");
+    },
+);
+
 
         let channel = run_loop.get_coordinator_channel().unwrap();
         thread::spawn(move || run_loop.start(None, 0));
@@ -281,7 +306,7 @@ fn l1_observer_test() {
     //     // panic!("burn chain {:?}", &burnchain);
 
     info_blue!("start sleeping");
-    thread::sleep(Duration::from_millis(15000));
+    thread::sleep(Duration::from_millis(30000));
     info_blue!("end sleeping");
 
     channel.stop_chains_coordinator();

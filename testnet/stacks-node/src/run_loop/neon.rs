@@ -546,6 +546,7 @@ impl RunLoop {
 
         let mut last_tenure_sortition_height = 0;
         loop {
+            info!("cpoint");
             if !self.should_keep_running.load(Ordering::SeqCst) {
                 // The p2p thread relies on the same atomic_bool, it will
                 // discontinue its execution after completing its ongoing runloop epoch.
@@ -561,12 +562,14 @@ impl RunLoop {
                 info!("Exiting stacks-node");
                 break;
             }
+            info!("cpoint");
 
             let remote_chain_height = burnchain.get_headers_height();
 
             // wait for the p2p state-machine to do at least one pass
             debug!("Wait until Stacks block downloads reach a quiescent state before processing more burnchain blocks"; "remote_chain_height" => remote_chain_height, "local_chain_height" => burnchain_height);
 
+            info!("cpoint");
             // wait until it's okay to process the next reward cycle's sortitions
             let ibd = match self.get_pox_watchdog().pox_sync_wait(
                 &burnchain_config,
@@ -581,6 +584,7 @@ impl RunLoop {
                 }
             };
 
+            info!("cpoint");
             // will recalculate this in the following loop
             num_sortitions_in_last_cycle = 0;
 
@@ -589,10 +593,13 @@ impl RunLoop {
             // process them.  This loop runs for one reward cycle, so that the next pass of the
             // runloop will cause the PoX sync watchdog to wait until it believes that the node has
             // obtained all the Stacks blocks it can.
+            info!("cpoint");
             while burnchain_height <= target_burnchain_block_height {
+            info!("cpoint");
                 if !self.should_keep_running.load(Ordering::SeqCst) {
                     break;
                 }
+            info!("cpoint");
 
                 let (next_burnchain_tip, tip_burnchain_height) =
                     match burnchain.sync(Some(burnchain_height + 1)) {
@@ -603,13 +610,16 @@ impl RunLoop {
                         }
                     };
 
+            info!("cpoint");
                 // *now* we know the burnchain height
                 burnchain_tip = next_burnchain_tip;
                 burnchain_height = cmp::min(burnchain_height + 1, tip_burnchain_height);
 
+            info!("cpoint");
                 let sortition_tip = &burnchain_tip.block_snapshot.sortition_id;
                 let next_sortition_height = burnchain_tip.block_snapshot.block_height;
 
+            info!("cpoint");
                 if next_sortition_height != last_tenure_sortition_height {
                     info!(
                         "Downloaded burnchain blocks up to height {}; target height is {}; next_sortition_height = {}, sortition_db_height = {}",
@@ -617,7 +627,9 @@ impl RunLoop {
                     );
                 }
 
+            info!("cpoint");
                 if next_sortition_height > sortition_db_height {
+            info!("cpoint");
                     debug!(
                         "New burnchain block height {} > {}",
                         next_sortition_height, sortition_db_height
@@ -626,7 +638,9 @@ impl RunLoop {
                     let mut sort_count = 0;
 
                     // first, let's process all blocks in (sortition_db_height, next_sortition_height]
+            info!("cpoint");
                     for block_to_process in (sortition_db_height + 1)..(next_sortition_height + 1) {
+            info!("cpoint");
                         let block = {
                             let ic = burnchain.sortdb_ref().index_conn();
                             SortitionDB::get_ancestor_snapshot(&ic, block_to_process, sortition_tip)
@@ -638,13 +652,14 @@ impl RunLoop {
                         if block.sortition {
                             sort_count += 1;
                         }
+            info!("cpoint");
 
                         let sortition_id = &block.sortition_id;
 
                         // Have the node process the new block, that can include, or not, a sortition.
                         node.process_burnchain_state(burnchain.sortdb_mut(), sortition_id);
 
-                        // Now, tell the relayer to check if it won a sortition during this block,
+                        // Now, tell the relayer to cpoint if it won a sortition during this block,
                         // and, if so, to process and advertize the block.  This is basically a
                         // no-op during boot-up.
                         //
@@ -663,7 +678,9 @@ impl RunLoop {
                     );
 
                     sortition_db_height = next_sortition_height;
+            info!("cpoint");
                 } else if ibd {
+            info!("cpoint");
                     // drive block processing after we reach the burnchain tip.
                     // we may have downloaded all the blocks already,
                     // so we can't rely on the relayer alone to
@@ -674,9 +691,11 @@ impl RunLoop {
                 if burnchain_height == target_burnchain_block_height
                     || burnchain_height == tip_burnchain_height
                 {
+            info!("cpoint");
                     break;
                 }
             }
+            info!("cpoint");
 
             target_burnchain_block_height = burnchain_config.reward_cycle_to_block_height(
                 burnchain_config
@@ -685,19 +704,23 @@ impl RunLoop {
                     + 1,
             );
 
+            info!("cpoint");
             if sortition_db_height >= burnchain_height && !ibd {
+            info!("cpoint");
                 let canonical_stacks_tip_height =
                     SortitionDB::get_canonical_burn_chain_tip(burnchain.sortdb_ref().conn())
                         .map(|snapshot| snapshot.canonical_stacks_tip_height)
                         .unwrap_or(0);
                 if canonical_stacks_tip_height < mine_start {
+            info!("cpoint");
                     info!(
                         "Synchronized full burnchain, but stacks tip height is {}, and we are trying to boot to {}, not mining until reaching chain tip",
                         canonical_stacks_tip_height,
                         mine_start
                     );
                 } else {
-                    // once we've synced to the chain tip once, don't apply this check again.
+            info!("cpoint");
+                    // once we've synced to the chain tip once, don't apply this cpoint again.
                     //  this prevents a possible corner case in the event of a PoX fork.
                     mine_start = 0;
 

@@ -94,14 +94,29 @@ fn make_mock_byte_string(from: u64) -> [u8; 32] {
     output
 }
 
+macro_rules! info_yellow {
+    ($($arg:tt)*) => ({
+        eprintln!("\x1b[0;33m{}\x1b[0m", format!($($arg)*));
+    })
+}
+
+macro_rules! info_other {
+    ($($arg:tt)*) => ({
+        eprintln!("\x1b[0;63m{}\x1b[0m", format!($($arg)*));
+    })
+}
+
 impl MockChannels {
     pub fn push_block(&self, new_block: NewBlock) {
         let mut blocks = self.blocks.lock().unwrap();
+        info_yellow!("push_block called, hash: {:?}, new length {}", &new_block.index_block_hash, blocks.len() + 1);
 
-        blocks.push(new_block)
+        blocks.push(new_block);
+
     }
 
     fn get_block(&self, fetch_height: u64) -> Option<NewBlock> {
+        info_yellow!("get_block called");
         let minimum_recorded_height = self.minimum_recorded_height.lock().unwrap();
         let blocks = self.blocks.lock().unwrap();
 
@@ -115,6 +130,8 @@ impl MockChannels {
         }
 
         let block = blocks[fetch_index].clone();
+        info_other!("get_block result: {:?}", &block);
+
         Some(block)
     }
 
@@ -124,6 +141,8 @@ impl MockChannels {
         start_block: u64,
         end_block: Option<u64>,
     ) -> Result<(), BurnchainError> {
+        info_yellow!("fill_blocks called");
+
         let minimum_recorded_height = self.minimum_recorded_height.lock().unwrap();
         let blocks = self.blocks.lock().unwrap();
 
@@ -146,6 +165,8 @@ impl MockChannels {
     }
 
     fn highest_block(&self) -> u64 {
+        info_yellow!("highest_block called");
+
         let minimum_recorded_height = self.minimum_recorded_height.lock().unwrap();
         let blocks = self.blocks.lock().unwrap();
 
@@ -247,10 +268,13 @@ impl MockController {
         block_for_sortitions: bool,
         target_block_height_opt: Option<u64>,
     ) -> Result<(BurnchainTip, u64), Error> {
+        info!("cpoint: MockController::receive_blocks");
         let coordinator_comms = self.coordinator.clone();
         let mut burnchain = self.get_burnchain();
 
+        info!("cpoint: MockController::receive_blocks");
         let (block_snapshot, burnchain_height) = loop {
+        info!("cpoint: MockController::receive_blocks");
             match burnchain.sync_with_indexer(
                 &mut self.indexer,
                 coordinator_comms.clone(),
@@ -259,6 +283,7 @@ impl MockController {
                 self.should_keep_running.clone(),
             ) {
                 Ok(x) => {
+        info!("cpoint: MockController::receive_blocks");
                     // initialize the dbs...
                     self.sortdb_mut();
 
@@ -285,6 +310,7 @@ impl MockController {
                     break (snapshot, burnchain_height);
                 }
                 Err(e) => {
+        info!("cpoint: MockController::receive_blocks");
                     // keep trying
                     error!("Unable to sync with burnchain: {}", e);
                     match e {
@@ -361,6 +387,7 @@ impl BurnchainController for MockController {
     }
 
     fn sync(&mut self, target_block_height_opt: Option<u64>) -> Result<(BurnchainTip, u64), Error> {
+        info!("cpoint: MockController::sync");
         self.receive_blocks(true, target_block_height_opt)
     }
 
