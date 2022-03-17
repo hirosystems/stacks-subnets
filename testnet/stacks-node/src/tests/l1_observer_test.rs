@@ -9,6 +9,7 @@ use crate::tests::neon_integrations::wait_for_runloop;
 use crate::tests::to_addr;
 use crate::Config;
 
+use stacks::burnchains::Burnchain;
 use stacks::burnchains::db::BurnchainDB;
 use stacks::chainstate::stacks::StacksPrivateKey;
 use stacks::core::StacksEpochId;
@@ -241,6 +242,7 @@ fn l1_observer_test() {
     // Start stacksd
     let _stacks_res = stacks_controller.start_process().expect("didn't start");
     let mut conf = super::new_test_conf();
+    info!("burn db paths {} {}", conf.get_burn_db_path(), conf.get_burn_db_file_path());
 
     let mut run_loop = neon::RunLoop::new(conf.clone());
     let blocks_processed = run_loop.get_blocks_processed_arc();
@@ -249,9 +251,18 @@ fn l1_observer_test() {
     thread::spawn(move || run_loop.start(None, 0));
     use std::time::Duration;
 
-    info_blue!("start sleeping");
+    info_blue!("start sleeping1");
+    thread::sleep(Duration::from_millis(15000));
+
+    // let (network_name, _) = conf.burnchain.get_bitcoin_network();
+    let network_name = "mockstack";
+let burnchain = Burnchain::new(&conf.get_burn_db_path(), &conf.burnchain.chain, &network_name).unwrap();
+let (_, burndb) = burnchain.open_db(true).unwrap();
+    let tip = burndb.get_canonical_chain_tip();
+
+    info!("critical tip {:?}", &tip);
     thread::sleep(Duration::from_millis(30000));
-    info_blue!("end sleeping");
+    info_blue!("end sleeping2");
 
     channel.stop_chains_coordinator();
 

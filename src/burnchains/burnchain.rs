@@ -180,8 +180,11 @@ impl Burnchain {
                 PoxConstants::mainnet_default(),
                 PEER_VERSION_MAINNET,
             ),
-            (_, _) => {
-                return Err(burnchain_error::UnsupportedBurnchain);
+            (_, _) => {(
+                BurnchainParameters::hyperchain_mocknet(),
+                PoxConstants::mainnet_default(),
+                PEER_VERSION_MAINNET,
+            )
             }
         };
 
