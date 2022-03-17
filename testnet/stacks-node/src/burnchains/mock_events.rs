@@ -18,6 +18,7 @@ use stacks::chainstate::coordinator::comm::CoordinatorChannels;
 use stacks::chainstate::stacks::index::ClarityMarfTrieId;
 use stacks::core::StacksEpoch;
 use stacks::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksBlockId};
+use stacks::util::hash::hex_bytes;
 use stacks::util::sleep_ms;
 use stacks::vm::types::{QualifiedContractIdentifier, TupleData};
 use stacks::vm::Value as ClarityValue;
@@ -69,14 +70,6 @@ pub struct MockBlockDownloader {
     channel: MockChannels,
 }
 
-// DO NOT SUBMIT: move this to a general location
-pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-    (0..s.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-        .collect()
-}
-
 impl MockChannels {
     pub fn empty() -> MockChannels {
         MockChannels {
@@ -101,7 +94,7 @@ lazy_static! {
 /// Stacks L1 chain. For some reason, this seems stable.
 fn make_mock_byte_string(from: u64) -> [u8; 32] {
     let mut bytes_1 = [0u8; 32];
-    let bytes_vec = decode_hex("55c9861be5cff984a20ce6d99d4aa65941412889bdc665094136429b84f8c2ee")
+    let bytes_vec = hex_bytes("55c9861be5cff984a20ce6d99d4aa65941412889bdc665094136429b84f8c2ee")
         .expect("hex value problem");
     bytes_1.copy_from_slice(&bytes_vec[0..32]);
     bytes_1
