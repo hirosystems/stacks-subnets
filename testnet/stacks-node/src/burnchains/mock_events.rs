@@ -78,8 +78,6 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
 
 impl MockChannels {
     pub fn empty() -> MockChannels {
-
-
         MockChannels {
             blocks: Arc::new(Mutex::new(vec![NewBlock {
                 block_height: 0,
@@ -99,8 +97,9 @@ lazy_static! {
 }
 
 fn make_mock_byte_string(from: u64) -> [u8; 32] {
-    let mut bytes_1= [0u8; 32];
-    let bytes_vec = decode_hex("55c9861be5cff984a20ce6d99d4aa65941412889bdc665094136429b84f8c2ee").expect("hex value problem");
+    let mut bytes_1 = [0u8; 32];
+    let bytes_vec = decode_hex("55c9861be5cff984a20ce6d99d4aa65941412889bdc665094136429b84f8c2ee")
+        .expect("hex value problem");
     bytes_1.copy_from_slice(&bytes_vec[0..32]);
     warn!("bytes_vec {:?}", bytes_vec);
     bytes_1

@@ -9,8 +9,8 @@ use crate::tests::neon_integrations::wait_for_runloop;
 use crate::tests::to_addr;
 use crate::Config;
 
-use stacks::burnchains::Burnchain;
 use stacks::burnchains::db::BurnchainDB;
+use stacks::burnchains::Burnchain;
 use stacks::chainstate::stacks::StacksPrivateKey;
 use stacks::core::StacksEpochId;
 use stacks::util::hash::hex_bytes;
@@ -242,7 +242,11 @@ fn l1_observer_test() {
     // Start stacksd
     let _stacks_res = stacks_controller.start_process().expect("didn't start");
     let mut conf = super::new_test_conf();
-    info!("burn db paths {} {}", conf.get_burn_db_path(), conf.get_burn_db_file_path());
+    info!(
+        "burn db paths {} {}",
+        conf.get_burn_db_path(),
+        conf.get_burn_db_file_path()
+    );
 
     let mut run_loop = neon::RunLoop::new(conf.clone());
     let blocks_processed = run_loop.get_blocks_processed_arc();
@@ -256,15 +260,21 @@ fn l1_observer_test() {
 
     // let (network_name, _) = conf.burnchain.get_bitcoin_network();
     let network_name = "mockstack";
-let burnchain = Burnchain::new(&conf.get_burn_db_path(), &conf.burnchain.chain, &network_name).unwrap();
-let (_, burndb) = burnchain.open_db(true).unwrap();
-    let tip = burndb.get_canonical_chain_tip().expect("couldn't get chain tip");
+    let burnchain = Burnchain::new(
+        &conf.get_burn_db_path(),
+        &conf.burnchain.chain,
+        &network_name,
+    )
+    .unwrap();
+    let (_, burndb) = burnchain.open_db(true).unwrap();
+    let tip = burndb
+        .get_canonical_chain_tip()
+        .expect("couldn't get chain tip");
 
     info!("critical tip {:?}", &tip);
 
     // We basically just need this to be beyond 0, but add a few more to make sure we really are reading blocks.
     assert!(tip.block_height > 3);
-
 
     channel.stop_chains_coordinator();
 
