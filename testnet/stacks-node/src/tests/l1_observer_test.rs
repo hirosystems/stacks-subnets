@@ -21,6 +21,24 @@ use stacks::vm::costs::ExecutionCost;
 use std::env;
 use std::io::{BufRead, BufReader};
 
+macro_rules! info_blue {
+    ($($arg:tt)*) => ({
+        eprintln!("\x1b[0;96m{}\x1b[0m", format!($($arg)*));
+    })
+}
+
+#[allow(unused_macros)]
+macro_rules! info_yellow {
+    ($($arg:tt)*) => ({
+        eprintln!("\x1b[0;33m{}\x1b[0m", format!($($arg)*));
+    })
+}
+
+macro_rules! info_green {
+    ($($arg:tt)*) => ({
+        eprintln!("\x1b[0;32m{}\x1b[0m", format!($($arg)*));
+    })
+}
 #[derive(std::fmt::Debug)]
 pub enum SubprocessError {
     SpawnFailed(String),
@@ -227,25 +245,25 @@ fn l1_observer_test() {
     let mut run_loop = neon::RunLoop::new(conf.clone());
     let blocks_processed = run_loop.get_blocks_processed_arc();
 
-    let channel = run_loop.get_coordinator_channel().unwrap();
+    // let channel = run_loop.get_coordinator_channel().unwrap();
 
-    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+    // let mut btc_regtest_controller = MockController::new(conf, channel.clone());
 
-    thread::spawn(move || run_loop.start(None, 0));
+    // thread::spawn(move || run_loop.start(None, 0));
 
-    // give the run loop some time to start up!
-    wait_for_runloop(&blocks_processed);
+    // // give the run loop some time to start up!
+    // wait_for_runloop(&blocks_processed);
 
-    // first block wakes up the run loop
-    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+    // // first block wakes up the run loop
+    // next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
 
     // //    thread::sleep(time::Duration::from_millis(10000));
     //     let mut conf = super::new_test_conf();
     //     let mut run_loop = RunLoop::new(conf.clone());
 
-    //     let channel = run_loop.get_coordinator_channel().unwrap();
-    //     thread::spawn(move || run_loop.start(None, 0));
-    //     use std::time::Duration;
+        let channel = run_loop.get_coordinator_channel().unwrap();
+        thread::spawn(move || run_loop.start(None, 0));
+        use std::time::Duration;
     // // give the run loop some time to start up!
     // wait_for_runloop(&blocks_processed);
 
@@ -261,6 +279,10 @@ fn l1_observer_test() {
 
     //     // let burnchain = run_loop.get_burnchain();
     //     // panic!("burn chain {:?}", &burnchain);
+
+    info_blue!("start sleeping");
+    thread::sleep(Duration::from_millis(15000));
+    info_blue!("end sleeping");
 
     channel.stop_chains_coordinator();
 

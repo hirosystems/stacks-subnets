@@ -16,7 +16,7 @@ lazy_static! {
 }
 
 async fn handle_new_block(block: serde_json::Value) -> Result<impl warp::Reply, Infallible> {
-    info!("handle_new_block receives {:?}", &block);
+    info!("handle_new_block receives new block");
     let mut blocks = NEW_BLOCKS.lock().unwrap();
     blocks.push(block);
     Ok(warp::http::StatusCode::OK)
@@ -47,7 +47,7 @@ pub fn spawn() -> Sender<()> {
     let (signal_sender, signal_receiver) = oneshot::channel();
     thread::spawn(|| {
         let rt = tokio::runtime::Runtime::new().expect("Failed to initialize tokio");
-        rt.block_on(serve(signal_receiver));
+        rt.block_on(serve(signal_receiver)).expect("block_on failed");
     });
     signal_sender
 }
