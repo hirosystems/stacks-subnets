@@ -64,6 +64,7 @@ pub struct NewBlock {
 }
 
 impl NewBlock {
+    /// Shortened debug string, for logging.
     pub fn short_string(&self) -> String {
         format!(
             "NewBlock(hash={:?}, parent_hash={:?}, block_height={}, num_events={}",
