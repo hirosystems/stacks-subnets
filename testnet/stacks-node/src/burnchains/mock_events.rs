@@ -26,11 +26,12 @@ use crate::operations::BurnchainOpSigner;
 use crate::{BurnchainController, BurnchainTip, Config};
 
 use super::Error;
+use std::{fmt::Write, num::ParseIntError};
 
 #[derive(Clone)]
 pub struct MockChannels {
-    pub blocks: Arc<Mutex<Vec<NewBlock>>>,
-    pub minimum_recorded_height: Arc<Mutex<u64>>,
+    blocks: Arc<Mutex<Vec<NewBlock>>>,
+    minimum_recorded_height: Arc<Mutex<u64>>,
 }
 
 pub struct MockController {
@@ -38,7 +39,7 @@ pub struct MockController {
     contract_identifier: QualifiedContractIdentifier,
     burnchain: Option<Burnchain>,
     config: Config,
-    pub indexer: MockIndexer,
+    indexer: MockIndexer,
 
     db: Option<SortitionDB>,
     burnchain_db: Option<BurnchainDB>,
@@ -55,7 +56,7 @@ pub struct MockController {
 
 pub struct MockIndexer {
     /// This is the channel that new mocked L1 blocks are fed into
-    pub incoming_channel: MockChannels,
+    incoming_channel: MockChannels,
     /// This is the Layer 1 contract that is watched for hyperchain events.
     watch_contract: QualifiedContractIdentifier,
     blocks: Vec<NewBlock>,
@@ -67,8 +68,8 @@ pub struct MockIndexer {
 pub struct MockBlockDownloader {
     channel: MockChannels,
 }
-use std::{fmt::Write, num::ParseIntError};
 
+// DO NOT SUBMIT: move this to a general location
 pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
     (0..s.len())
         .step_by(2)
@@ -96,41 +97,23 @@ lazy_static! {
     static ref NEXT_COMMIT: Arc<Mutex<Option<BlockHeaderHash>>> = Arc::new(Mutex::new(None));
 }
 
+/// This outputs a hard-coded value for the hash of the first block created by the
+/// Stacks L1 chain. For some reason, this seems stable.
 fn make_mock_byte_string(from: u64) -> [u8; 32] {
     let mut bytes_1 = [0u8; 32];
     let bytes_vec = decode_hex("55c9861be5cff984a20ce6d99d4aa65941412889bdc665094136429b84f8c2ee")
         .expect("hex value problem");
     bytes_1.copy_from_slice(&bytes_vec[0..32]);
-    warn!("bytes_vec {:?}", bytes_vec);
     bytes_1
-}
-
-macro_rules! info_yellow {
-    ($($arg:tt)*) => ({
-        eprintln!("\x1b[0;33m{}\x1b[0m", format!($($arg)*));
-    })
-}
-
-macro_rules! info_other {
-    ($($arg:tt)*) => ({
-        eprintln!("\x1b[0;63m{}\x1b[0m", format!($($arg)*));
-    })
 }
 
 impl MockChannels {
     pub fn push_block(&self, new_block: NewBlock) {
         let mut blocks = self.blocks.lock().unwrap();
-        info_yellow!(
-            "push_block called, hash: {:?}, new length {}",
-            &new_block.index_block_hash,
-            blocks.len() + 1
-        );
-
-        blocks.push(new_block);
+        blocks.push(new_block)
     }
 
     fn get_block(&self, fetch_height: u64) -> Option<NewBlock> {
-        info_yellow!("get_block called");
         let minimum_recorded_height = self.minimum_recorded_height.lock().unwrap();
         let blocks = self.blocks.lock().unwrap();
 
@@ -144,8 +127,6 @@ impl MockChannels {
         }
 
         let block = blocks[fetch_index].clone();
-        info_other!("get_block result: {:?}", &block.nice_string());
-
         Some(block)
     }
 
@@ -155,8 +136,6 @@ impl MockChannels {
         start_block: u64,
         end_block: Option<u64>,
     ) -> Result<(), BurnchainError> {
-        info_yellow!("fill_blocks called");
-
         let minimum_recorded_height = self.minimum_recorded_height.lock().unwrap();
         let blocks = self.blocks.lock().unwrap();
 
@@ -179,8 +158,6 @@ impl MockChannels {
     }
 
     fn highest_block(&self) -> u64 {
-        info_yellow!("highest_block called");
-
         let minimum_recorded_height = self.minimum_recorded_height.lock().unwrap();
         let blocks = self.blocks.lock().unwrap();
 
@@ -276,19 +253,15 @@ impl MockController {
         MOCK_EVENTS_STREAM.push_block(new_block);
     }
 
-    // Called by `start` and `sync`.
     fn receive_blocks(
         &mut self,
         block_for_sortitions: bool,
         target_block_height_opt: Option<u64>,
     ) -> Result<(BurnchainTip, u64), Error> {
-        info!("cpoint: MockController::receive_blocks");
         let coordinator_comms = self.coordinator.clone();
         let mut burnchain = self.get_burnchain();
 
-        info!("cpoint: MockController::receive_blocks");
         let (block_snapshot, burnchain_height) = loop {
-            info!("cpoint: MockController::receive_blocks");
             match burnchain.sync_with_indexer(
                 &mut self.indexer,
                 coordinator_comms.clone(),
@@ -297,7 +270,6 @@ impl MockController {
                 self.should_keep_running.clone(),
             ) {
                 Ok(x) => {
-                    info!("cpoint: MockController::receive_blocks");
                     // initialize the dbs...
                     self.sortdb_mut();
 
@@ -324,7 +296,6 @@ impl MockController {
                     break (snapshot, burnchain_height);
                 }
                 Err(e) => {
-                    info!("cpoint: MockController::receive_blocks");
                     // keep trying
                     error!("Unable to sync with burnchain: {}", e);
                     match e {
@@ -401,7 +372,6 @@ impl BurnchainController for MockController {
     }
 
     fn sync(&mut self, target_block_height_opt: Option<u64>) -> Result<(BurnchainTip, u64), Error> {
-        info!("cpoint: MockController::sync");
         self.receive_blocks(true, target_block_height_opt)
     }
 

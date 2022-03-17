@@ -64,7 +64,7 @@ pub struct NewBlock {
 }
 
 impl NewBlock {
-    pub fn nice_string(&self) -> String {
+    pub fn short_string(&self) -> String {
         format!(
             "NewBlock(hash={:?}, parent_hash={:?}, block_height={}, num_events={}",
             &self.index_block_hash,
