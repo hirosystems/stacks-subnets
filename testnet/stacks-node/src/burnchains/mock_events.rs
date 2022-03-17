@@ -109,10 +109,13 @@ macro_rules! info_other {
 impl MockChannels {
     pub fn push_block(&self, new_block: NewBlock) {
         let mut blocks = self.blocks.lock().unwrap();
-        info_yellow!("push_block called, hash: {:?}, new length {}", &new_block.index_block_hash, blocks.len() + 1);
+        info_yellow!(
+            "push_block called, hash: {:?}, new length {}",
+            &new_block.index_block_hash,
+            blocks.len() + 1
+        );
 
         blocks.push(new_block);
-
     }
 
     fn get_block(&self, fetch_height: u64) -> Option<NewBlock> {
@@ -130,7 +133,7 @@ impl MockChannels {
         }
 
         let block = blocks[fetch_index].clone();
-        info_other!("get_block result: {:?}", &block);
+        info_other!("get_block result: {:?}", &block.nice_string());
 
         Some(block)
     }
@@ -274,7 +277,7 @@ impl MockController {
 
         info!("cpoint: MockController::receive_blocks");
         let (block_snapshot, burnchain_height) = loop {
-        info!("cpoint: MockController::receive_blocks");
+            info!("cpoint: MockController::receive_blocks");
             match burnchain.sync_with_indexer(
                 &mut self.indexer,
                 coordinator_comms.clone(),
@@ -283,7 +286,7 @@ impl MockController {
                 self.should_keep_running.clone(),
             ) {
                 Ok(x) => {
-        info!("cpoint: MockController::receive_blocks");
+                    info!("cpoint: MockController::receive_blocks");
                     // initialize the dbs...
                     self.sortdb_mut();
 
@@ -310,7 +313,7 @@ impl MockController {
                     break (snapshot, burnchain_height);
                 }
                 Err(e) => {
-        info!("cpoint: MockController::receive_blocks");
+                    info!("cpoint: MockController::receive_blocks");
                     // keep trying
                     error!("Unable to sync with burnchain: {}", e);
                     match e {

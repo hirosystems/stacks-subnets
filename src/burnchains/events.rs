@@ -63,6 +63,17 @@ pub struct NewBlock {
     pub events: Vec<NewBlockTxEvent>,
 }
 
+impl NewBlock {
+    pub fn nice_string(&self) -> String {
+        format!(
+            "NewBlock(hash={:?}, parent_hash={:?}, block_height={}, num_events={}",
+            &self.index_block_hash,
+            &self.parent_index_block_hash,
+            self.block_height,
+            self.events.len()
+        )
+    }
+}
 /// Method for deserializing a ClarityValue from the `raw_value` field of contract
 /// transaction events.
 fn deser_clarity_value<'de, D>(deser: D) -> Result<ClarityValue, D::Error>

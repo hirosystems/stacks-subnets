@@ -305,7 +305,7 @@ impl RunLoop {
             panic!();
         }
 
-        info!("Start syncing Bitcoin headers, feel free to grab a cup of coffee, this can take a while");
+        info!("Start syncing STACKS L1 HEADERS, feel free to grab a cup of coffee, this can take a while");
 
         let target_burnchain_block_height = match burnchain_config
             .get_highest_burnchain_block()
@@ -595,11 +595,11 @@ impl RunLoop {
             // obtained all the Stacks blocks it can.
             info!("cpoint");
             while burnchain_height <= target_burnchain_block_height {
-            info!("cpoint");
+                info!("cpoint");
                 if !self.should_keep_running.load(Ordering::SeqCst) {
                     break;
                 }
-            info!("cpoint");
+                info!("cpoint");
 
                 let (next_burnchain_tip, tip_burnchain_height) =
                     match burnchain.sync(Some(burnchain_height + 1)) {
@@ -610,16 +610,16 @@ impl RunLoop {
                         }
                     };
 
-            info!("cpoint");
+                info!("cpoint");
                 // *now* we know the burnchain height
                 burnchain_tip = next_burnchain_tip;
                 burnchain_height = cmp::min(burnchain_height + 1, tip_burnchain_height);
 
-            info!("cpoint");
+                info!("cpoint");
                 let sortition_tip = &burnchain_tip.block_snapshot.sortition_id;
                 let next_sortition_height = burnchain_tip.block_snapshot.block_height;
 
-            info!("cpoint");
+                info!("cpoint");
                 if next_sortition_height != last_tenure_sortition_height {
                     info!(
                         "Downloaded burnchain blocks up to height {}; target height is {}; next_sortition_height = {}, sortition_db_height = {}",
@@ -627,9 +627,9 @@ impl RunLoop {
                     );
                 }
 
-            info!("cpoint");
+                info!("cpoint");
                 if next_sortition_height > sortition_db_height {
-            info!("cpoint");
+                    info!("cpoint");
                     debug!(
                         "New burnchain block height {} > {}",
                         next_sortition_height, sortition_db_height
@@ -638,9 +638,9 @@ impl RunLoop {
                     let mut sort_count = 0;
 
                     // first, let's process all blocks in (sortition_db_height, next_sortition_height]
-            info!("cpoint");
+                    info!("cpoint");
                     for block_to_process in (sortition_db_height + 1)..(next_sortition_height + 1) {
-            info!("cpoint");
+                        info!("cpoint");
                         let block = {
                             let ic = burnchain.sortdb_ref().index_conn();
                             SortitionDB::get_ancestor_snapshot(&ic, block_to_process, sortition_tip)
@@ -652,7 +652,7 @@ impl RunLoop {
                         if block.sortition {
                             sort_count += 1;
                         }
-            info!("cpoint");
+                        info!("cpoint");
 
                         let sortition_id = &block.sortition_id;
 
@@ -678,9 +678,9 @@ impl RunLoop {
                     );
 
                     sortition_db_height = next_sortition_height;
-            info!("cpoint");
+                    info!("cpoint");
                 } else if ibd {
-            info!("cpoint");
+                    info!("cpoint");
                     // drive block processing after we reach the burnchain tip.
                     // we may have downloaded all the blocks already,
                     // so we can't rely on the relayer alone to
@@ -691,7 +691,7 @@ impl RunLoop {
                 if burnchain_height == target_burnchain_block_height
                     || burnchain_height == tip_burnchain_height
                 {
-            info!("cpoint");
+                    info!("cpoint");
                     break;
                 }
             }
@@ -706,20 +706,20 @@ impl RunLoop {
 
             info!("cpoint");
             if sortition_db_height >= burnchain_height && !ibd {
-            info!("cpoint");
+                info!("cpoint");
                 let canonical_stacks_tip_height =
                     SortitionDB::get_canonical_burn_chain_tip(burnchain.sortdb_ref().conn())
                         .map(|snapshot| snapshot.canonical_stacks_tip_height)
                         .unwrap_or(0);
                 if canonical_stacks_tip_height < mine_start {
-            info!("cpoint");
+                    info!("cpoint");
                     info!(
                         "Synchronized full burnchain, but stacks tip height is {}, and we are trying to boot to {}, not mining until reaching chain tip",
                         canonical_stacks_tip_height,
                         mine_start
                     );
                 } else {
-            info!("cpoint");
+                    info!("cpoint");
                     // once we've synced to the chain tip once, don't apply this cpoint again.
                     //  this prevents a possible corner case in the event of a PoX fork.
                     mine_start = 0;

@@ -614,7 +614,7 @@ impl Burnchain {
         // handle reorgs
         let (sync_height, did_reorg) = Burnchain::sync_reorg(indexer)?;
         if did_reorg {
-        info!("cpoint: MockController::sync_with_indexer");
+            info!("cpoint: MockController::sync_with_indexer");
             // a reorg happened
             warn!(
                 "Dropping headers higher than {} due to burnchain reorg",
@@ -630,7 +630,7 @@ impl Burnchain {
         // fetch all headers, no matter what
         let mut end_block = indexer.sync_headers(sync_height, None)?;
         if did_reorg && sync_height > 0 {
-        info!("cpoint: MockController::sync_with_indexer");
+            info!("cpoint: MockController::sync_with_indexer");
             // a reorg happened, and the last header fetched
             // is on a smaller fork than the one we just
             // invalidated. Wait for more blocks.
@@ -661,7 +661,7 @@ impl Burnchain {
 
         info!("cpoint: MockController::sync_with_indexer");
         if let Some(target_block_height) = target_block_height_opt {
-        info!("cpoint: MockController::sync_with_indexer");
+            info!("cpoint: MockController::sync_with_indexer");
             // `target_block_height` is used as a hint, but could also be completely off
             // in certain situations. This function is directly reading the
             // headers and syncing with the bitcoin-node, and the interval of blocks
@@ -682,7 +682,7 @@ impl Burnchain {
 
         info!("cpoint: MockController::sync_with_indexer");
         if let Some(max_blocks) = max_blocks_opt {
-        info!("cpoint: MockController::sync_with_indexer");
+            info!("cpoint: MockController::sync_with_indexer");
             if start_block + max_blocks < end_block {
                 debug!(
                     "Will download only {} blocks (up to block height {})",
@@ -737,9 +737,9 @@ impl Burnchain {
             thread::Builder::new()
                 .name("burnchain-downloader".to_string())
                 .spawn(move || {
-        info!("cpoint: MockController::sync_with_indexer");
+                    info!("cpoint: MockController::sync_with_indexer");
                     while let Ok(Some(ipc_header)) = downloader_recv.recv() {
-        info!("cpoint: MockController::sync_with_indexer");
+                        info!("cpoint: MockController::sync_with_indexer");
                         debug!("Try recv next header");
 
                         match should_keep_running {
@@ -775,9 +775,9 @@ impl Burnchain {
         let parse_thread: thread::JoinHandle<Result<(), burnchain_error>> = thread::Builder::new()
             .name("burnchain-parser".to_string())
             .spawn(move || {
-        info!("cpoint: MockController::sync_with_indexer");
+                info!("cpoint: MockController::sync_with_indexer");
                 while let Ok(Some(ipc_block)) = parser_recv.recv() {
-        info!("cpoint: MockController::sync_with_indexer");
+                    info!("cpoint: MockController::sync_with_indexer");
                     debug!("Try recv next block");
 
                     let parse_start = get_epoch_time_ms();
@@ -806,9 +806,9 @@ impl Burnchain {
                 .name("burnchain-db".to_string())
                 .spawn(move || {
                     let mut last_processed = burn_chain_tip;
-        info!("cpoint: MockController::sync_with_indexer");
+                    info!("cpoint: MockController::sync_with_indexer");
                     while let Ok(Some(burnchain_block)) = db_recv.recv() {
-        info!("cpoint: MockController::sync_with_indexer");
+                        info!("cpoint: MockController::sync_with_indexer");
                         debug!("Try recv next parsed block");
 
                         let block_height = burnchain_block.block_height();
