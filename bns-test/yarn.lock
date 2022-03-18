@@ -858,10 +858,10 @@
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
-"@blockstack/clarity-native-bin@^0.3.7":
-  version "0.3.7"
-  resolved "https://registry.yarnpkg.com/@blockstack/clarity-native-bin/-/clarity-native-bin-0.3.7.tgz#31f35ad3ca834e60e334e784c9bc104eb129563b"
-  integrity sha512-epWRIV+cP97EeUrcxtn/rUNBMyoOttQz/1uDhRBZI26ecLRmMNh+4xjkIdnsbIC1s5Ufdy6kuB8Fiq+Zw9UKag==
+"@blockstack/clarity-native-bin@^0.3.15":
+  version "0.3.15"
+  resolved "https://registry.yarnpkg.com/@blockstack/clarity-native-bin/-/clarity-native-bin-0.3.15.tgz#36ac593f0edab201149252f8acf464d27c2611b2"
+  integrity sha512-9Sz6QLMhDhrx7lqjdt25pCREpNjuVfQ7LcWh1j4i3F6Fg4x1HSDst0y6N7R+plkhdH7lD4+pbWTHAzNbPnmr9Q==
   dependencies:
     fs-extra "^8.0.1"
     node-fetch "^2.6.0"
