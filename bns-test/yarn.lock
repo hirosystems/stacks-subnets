@@ -868,10 +868,10 @@
     semver "^6.1.1"
     unzipper "^0.10.11"
 
-"@blockstack/clarity@^0.3.7":
-  version "0.3.7"
-  resolved "https://registry.yarnpkg.com/@blockstack/clarity/-/clarity-0.3.7.tgz#8c7e4aadb79545dac9376788233aa6d1952f9c5e"
-  integrity sha512-Mb3B32ZawG2BhIcigqOrWPqNiQRSA7NzpVHpQKWgruYbYESfltB7HHL4Hcuw62X3PBB2+DUEXBQH6CczTJ8ZRg==
+"@blockstack/clarity@^0.3.15":
+  version "0.3.15"
+  resolved "https://registry.yarnpkg.com/@blockstack/clarity/-/clarity-0.3.15.tgz#3296d63549e8bbdcdb3a072803707109269cc762"
+  integrity sha512-LWfyZ6WTWrWhhD/gV7jIy2ApQRuOFXI3CLrFrhFyGuOA8/zHYft9LjOFAl5I9kFg5x0BNj3vf2zj9VbpHR2SRg==
 
 "@cnakazawa/watch@^1.0.3":
   version "1.0.4"
