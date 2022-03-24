@@ -481,9 +481,9 @@ impl BurnHeaderIPC for MockHeader {
         self.height
     }
 
-    fn header(&self) -> Self::H {
-        self.clone()
-    }
+    // fn header(&self) -> Self::H {
+    //     self.clone()
+    // }
 
     fn header_hash(&self) -> [u8; 32] {
         self.index_hash.0.clone()

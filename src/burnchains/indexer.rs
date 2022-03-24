@@ -26,7 +26,7 @@ pub trait BurnHeaderIPC {
     type H: Send + Sync + Clone;
 
     fn height(&self) -> u64;
-    fn header(&self) -> Self::H;
+    // fn header(&self) -> Self::H;
     fn header_hash(&self) -> [u8; 32];
 }
 
