@@ -22,20 +22,20 @@ use crate::types::chainstate::BurnchainHeaderHash;
 use core::StacksEpoch;
 
 // IPC messages between threads
-pub trait BurnHeaderIPC : Send + Sync {
+pub trait BurnHeaderIPC: Send + Sync {
     fn height(&self) -> u64;
     // fn header(&self) -> Self::H;
     fn header_hash(&self) -> [u8; 32];
 }
 
-pub trait BurnBlockIPC : Send + Sync {
+pub trait BurnBlockIPC: Send + Sync {
     fn height(&self) -> u64;
     fn header(&self) -> Box<dyn BurnHeaderIPC>;
 
-    fn to_burn_block(&self)-> Result<BurnchainBlock, burnchain_error>;
+    fn to_burn_block(&self) -> Result<BurnchainBlock, burnchain_error>;
 }
 
-pub trait BurnchainBlockDownloader : Send +Sync {
+pub trait BurnchainBlockDownloader: Send + Sync {
     fn download(
         &mut self,
         header: &dyn BurnHeaderIPC,
@@ -46,7 +46,7 @@ pub trait BurnchainBlockDownloader : Send +Sync {
 //     fn parse(&mut self, block: &dyn BurnBlockIPC) -> Result<BurnchainBlock, burnchain_error>;
 // }
 
-pub trait BurnchainIndexer {
+pub trait BurnchainIndexer : Send + Sync {
     fn connect(&mut self) -> Result<(), burnchain_error>;
 
     fn get_first_block_height(&self) -> u64;
