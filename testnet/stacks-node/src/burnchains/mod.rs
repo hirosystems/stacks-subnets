@@ -237,7 +237,7 @@ impl BurnchainController {
         }
     }
 
-    fn wait_for_sortitions(&mut self, height_to_wait: Option<u64>) -> Result<BurnchainTip, Error> {
+    pub fn wait_for_sortitions(&mut self, height_to_wait: Option<u64>) -> Result<BurnchainTip, Error> {
         loop {
             let canonical_burnchain_tip = self
                 .burnchain_db
