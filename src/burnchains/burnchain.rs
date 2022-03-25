@@ -280,9 +280,9 @@ impl Burnchain {
         Ok(())
     }
 
-    fn setup_chainstate<I: BurnchainIndexer>(
+    fn setup_chainstate(
         &self,
-        indexer: &mut I,
+        indexer: &mut dyn BurnchainIndexer,
     ) -> Result<(), burnchain_error> {
         let headers_path = indexer.get_headers_path();
         let headers_pathbuf = PathBuf::from(&headers_path);
@@ -322,9 +322,9 @@ impl Burnchain {
     }
 
     /// Connect to the burnchain databases.  They may or may not already exist.
-    pub fn connect_db<I: BurnchainIndexer>(
+    pub fn connect_db(
         &self,
-        indexer: &I,
+        indexer: &dyn BurnchainIndexer,
         readwrite: bool,
         first_block_header_hash: BurnchainHeaderHash,
         first_block_header_timestamp: u64,
@@ -460,7 +460,7 @@ impl Burnchain {
 
     /// Determine if there has been a chain reorg, given our current canonical burnchain tip.
     /// Return the new chain tip and a boolean signaling the presence of a reorg
-    fn sync_reorg<I: BurnchainIndexer>(indexer: &mut I) -> Result<(u64, bool), burnchain_error> {
+    fn sync_reorg(indexer: &mut BurnchainIndexer) -> Result<(u64, bool), burnchain_error> {
         let headers_path = indexer.get_headers_path();
 
         // sanity check -- what is the height of our highest header
@@ -532,17 +532,15 @@ impl Burnchain {
     /// high as target_block_height_opt (if given), or whatever is currently at the tip of the
     /// burnchain DB.
     /// If this method returns Err(burnchain_error::TrySyncAgain), then call this method again.
-    pub fn sync_with_indexer<I>(
+    pub fn sync_with_indexer(
         &mut self,
-        indexer: &mut I,
+        indexer: &mut dyn BurnchainIndexer,
         coord_comm: CoordinatorChannels,
         target_block_height_opt: Option<u64>,
         max_blocks_opt: Option<u64>,
         should_keep_running: Option<Arc<AtomicBool>>,
     ) -> Result<BurnchainBlockHeader, burnchain_error>
-    where
-        I: BurnchainIndexer + 'static,
-    {
+    where    {
         self.setup_chainstate(indexer)?;
         let (_, mut burnchain_db) = self.connect_db(
             indexer,

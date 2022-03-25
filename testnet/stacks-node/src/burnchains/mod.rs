@@ -96,7 +96,7 @@ impl BurnchainController {
 
         let (block_snapshot, burnchain_height) = loop {
             match burnchain.sync_with_indexer(
-                &mut self.indexer,
+                self.indexer.as_mut(),
                 coordinator_comms.clone(),
                 target_block_height_opt,
                 None,
@@ -212,7 +212,7 @@ impl BurnchainController {
     pub fn connect_dbs(&mut self) -> Result<(), Error> {
         let burnchain = self.get_burnchain();
         burnchain.connect_db(
-            &self.indexer,
+            self.indexer.as_ref(),
             true,
             self.indexer.get_first_block_header_hash()?,
             self.indexer.get_first_block_header_timestamp()?,
@@ -228,7 +228,7 @@ impl BurnchainController {
         match &self.burnchain {
             Some(burnchain) => burnchain.clone(),
             None => {
-                let working_dir = self.burn_db_path;
+                let working_dir = &self.burn_db_path;
                 Burnchain::new(&working_dir, "mockstack", "hyperchain").unwrap_or_else(|e| {
                     error!("Failed to instantiate burnchain: {}", e);
                     panic!()
