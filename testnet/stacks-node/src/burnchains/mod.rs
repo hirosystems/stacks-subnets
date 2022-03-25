@@ -3,6 +3,7 @@ use super::operations::BurnchainOpSigner;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use stacks::burnchains;
