@@ -61,6 +61,7 @@ pub trait SubmitOperationChannel: Send + Sync {
 }
 
 use stacks::burnchains::Error as BurnchainError;
+use stacks::vm::types::QualifiedContractIdentifier;
 pub struct BurnchainController {
     indexer: Box<dyn BurnchainIndexer>,
     submit_operation_channel: Box<dyn SubmitOperationChannel>,
@@ -72,11 +73,13 @@ pub struct BurnchainController {
     db: Option<SortitionDB>,
     burnchain_db: Option<BurnchainDB>,
     burn_db_path: String,
+    contract_identifier:QualifiedContractIdentifier,
 }
 impl BurnchainController {
     pub fn new(
         config: Config,
         submit_operation_channel: Box<dyn SubmitOperationChannel>,
+        input_burnblock_channel: Arc<dyn InputBurnblockChannel>,
         coordinator: CoordinatorChannels,
     ) -> BurnchainController {
         let contract_identifier = config.burnchain.contract_identifier.clone();
@@ -84,14 +87,15 @@ impl BurnchainController {
         BurnchainController {
             contract_identifier,
             burnchain: None,
-            config,
             indexer,
             db: None,
             burnchain_db: None,
-            should_keep_running: Some(Arc::new(AtomicBool::new(true))),
+            should_keep_running: Arc::new(AtomicBool::new(true)),
             coordinator,
             chain_tip: None,
             burn_db_path: config.get_burn_db_path(),
+            submit_operation_channel,
+            input_burnblock_channel,
         }
     }
     pub fn start(
