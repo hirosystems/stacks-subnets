@@ -16,8 +16,7 @@ use stacks::{
     net::RPCPoxInfoData,
 };
 
-use crate::burnchains::mock_events::MockController;
-use crate::neon;
+use crate::{neon, BurnchainController};
 use crate::{Config, ConfigFile, Keychain};
 
 pub fn neon_integration_test_conf() -> (Config, StacksAddress) {
@@ -301,7 +300,8 @@ pub fn next_block_and_wait(
         get_epoch_time_secs(),
         current
     );
-    btc_controller.next_block();
+    panic!("fix this");
+    // btc_controller.next_block();
     let start = Instant::now();
     while blocks_processed.load(Ordering::SeqCst) <= current {
         if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
@@ -461,7 +461,8 @@ fn bitcoind_integration_test() {
 
     let channel = run_loop.get_coordinator_channel().unwrap();
 
-    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+    let mut btc_regtest_controller = BurnchainController::new(conf, channel.clone());
+    // let mut btc_regtest_controller = MockController::new(conf, channel.clone());
 
     thread::spawn(move || run_loop.start(None, 0));
 

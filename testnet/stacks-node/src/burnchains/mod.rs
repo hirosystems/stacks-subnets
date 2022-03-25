@@ -1,9 +1,11 @@
+use crate::Config;
+
 use super::operations::BurnchainOpSigner;
 
 use std::fmt;
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use std::time::Instant;
 
 use stacks::burnchains;
@@ -46,10 +48,10 @@ impl From<burnchains::Error> for Error {
     }
 }
 
-pub trait InputBurnblockChannel : Send + Sync {
+pub trait InputBurnblockChannel: Send + Sync {
     fn input_burnblock(&mut self) -> bool;
 }
-pub trait SubmitOperationChannel : Send + Sync {
+pub trait SubmitOperationChannel: Send + Sync {
     fn submit_operation(
         &mut self,
         operation: BlockstackOperationType,
@@ -58,9 +60,7 @@ pub trait SubmitOperationChannel : Send + Sync {
     ) -> bool;
 }
 
-use stacks::burnchains::{
-    Error as BurnchainError
-};
+use stacks::burnchains::Error as BurnchainError;
 pub struct BurnchainController {
     indexer: Box<dyn BurnchainIndexer>,
     submit_operation_channel: Box<dyn SubmitOperationChannel>,
@@ -74,8 +74,25 @@ pub struct BurnchainController {
     burn_db_path: String,
 }
 impl BurnchainController {
-    pub fn new() -> BurnchainController {
-        panic!("tbd")
+    pub fn new(
+        config: Config,
+        submit_operation_channel: Box<dyn SubmitOperationChannel>,
+        coordinator: CoordinatorChannels,
+    ) -> BurnchainController {
+        let contract_identifier = config.burnchain.contract_identifier.clone();
+        let indexer = MockIndexer::new(contract_identifier.clone());
+        BurnchainController {
+            contract_identifier,
+            burnchain: None,
+            config,
+            indexer,
+            db: None,
+            burnchain_db: None,
+            should_keep_running: Some(Arc::new(AtomicBool::new(true))),
+            coordinator,
+            chain_tip: None,
+            burn_db_path: config.get_burn_db_path(),
+        }
     }
     pub fn start(
         &mut self,
@@ -237,7 +254,10 @@ impl BurnchainController {
         }
     }
 
-    pub fn wait_for_sortitions(&mut self, height_to_wait: Option<u64>) -> Result<BurnchainTip, Error> {
+    pub fn wait_for_sortitions(
+        &mut self,
+        height_to_wait: Option<u64>,
+    ) -> Result<BurnchainTip, Error> {
         loop {
             let canonical_burnchain_tip = self
                 .burnchain_db

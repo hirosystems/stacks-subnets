@@ -53,7 +53,7 @@ pub struct NewBlockTxEvent {
 /// Parsing struct for the new block events of the `stacks-node`
 /// events API
 #[derive(Deserialize, Clone)]
-pub struct NewBlock {
+pub struct StacksBlock {
     pub block_height: u64,
     pub burn_block_time: u64,
     #[serde(deserialize_with = "deser_stacks_block_id")]
@@ -191,9 +191,9 @@ impl StacksHyperBlock {
     /// block, producing a `StacksHyperBlock` struct.
     pub fn from_new_block_event(
         subnets_contract: &QualifiedContractIdentifier,
-        b: NewBlock,
+        b: StacksBlock,
     ) -> Self {
-        let NewBlock {
+        let StacksBlock {
             events,
             index_block_hash,
             parent_index_block_hash,

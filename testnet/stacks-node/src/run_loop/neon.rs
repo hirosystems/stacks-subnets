@@ -284,8 +284,7 @@ impl RunLoop {
         coordinator_senders: CoordinatorChannels,
     ) -> BurnchainController {
         // Initialize and start the burnchain.
-        let mut burnchain_controller =
-        BurnchainController::new();
+        let mut burnchain_controller = BurnchainController::new();
         // BurnchainController::new(self.config.clone(), coordinator_senders);
 
         let burnchain_config = burnchain_controller.get_burnchain();

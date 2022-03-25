@@ -18,8 +18,8 @@ use util::vrf::*;
 use util_lib::db::*;
 
 use crate::burnchains::events::ContractEvent;
-use crate::burnchains::events::NewBlock;
 use crate::burnchains::events::NewBlockTxEvent;
+use crate::burnchains::events::StacksBlock;
 use crate::burnchains::events::TxEventType;
 use crate::types::chainstate::{BlockHeaderHash, SortitionId, VRFSeed};
 use crate::vm::execute;
@@ -927,7 +927,7 @@ fn mine_10_stacks_blocks_2_forks_disjoint_same_blocks() {
 fn general_parsing() {
     let test_events = include_str!("./test_events_sample.jsons").lines();
     for test_event in test_events {
-        let _new_block: NewBlock =
+        let _new_block: StacksBlock =
             serde_json::from_str(test_event).expect("Failed to parse events JSON");
     }
 }
@@ -976,7 +976,7 @@ fn create_stacks_event_block() {
         QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "hc-contract-2".into());
 
     // include one "good" event in the block, and two skipped events
-    let input = NewBlock {
+    let input = StacksBlock {
         block_height: 1,
         burn_block_time: 0,
         index_block_hash: StacksBlockId([1; 32]),

@@ -280,10 +280,7 @@ impl Burnchain {
         Ok(())
     }
 
-    fn setup_chainstate(
-        &self,
-        indexer: &mut dyn BurnchainIndexer,
-    ) -> Result<(), burnchain_error> {
+    fn setup_chainstate(&self, indexer: &mut dyn BurnchainIndexer) -> Result<(), burnchain_error> {
         let headers_path = indexer.get_headers_path();
         let headers_pathbuf = PathBuf::from(&headers_path);
 
@@ -540,7 +537,7 @@ impl Burnchain {
         max_blocks_opt: Option<u64>,
         should_keep_running: Option<Arc<AtomicBool>>,
     ) -> Result<BurnchainBlockHeader, burnchain_error>
-    where    {
+where {
         self.setup_chainstate(indexer)?;
         let (_, mut burnchain_db) = self.connect_db(
             indexer,

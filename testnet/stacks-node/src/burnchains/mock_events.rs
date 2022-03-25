@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use stacks::burnchains::db::BurnchainDB;
 use stacks::burnchains::events::{ContractEvent, NewBlockTxEvent};
-use stacks::burnchains::events::{NewBlock, TxEventType};
+use stacks::burnchains::events::{StacksBlock, TxEventType};
 use stacks::burnchains::indexer::{
     BurnBlockIPC, BurnHeaderIPC, BurnchainBlockDownloader, BurnchainIndexer,
 };
@@ -29,7 +29,7 @@ use super::Error;
 
 #[derive(Clone)]
 pub struct MockChannels {
-    blocks: Arc<Mutex<Vec<NewBlock>>>,
+    blocks: Arc<Mutex<Vec<StacksBlock>>>,
     minimum_recorded_height: Arc<Mutex<u64>>,
 }
 
@@ -58,7 +58,7 @@ pub struct MockIndexer {
     incoming_channel: MockChannels,
     /// This is the Layer 1 contract that is watched for hyperchain events.
     watch_contract: QualifiedContractIdentifier,
-    blocks: Vec<NewBlock>,
+    blocks: Vec<StacksBlock>,
     /// The lowest height that the indexer is holding. Defaults to 0,
     /// but after garbage collection, can increase.
     minimum_recorded_height: u64,
@@ -90,13 +90,13 @@ fn make_mock_byte_string(from: u64) -> [u8; 32] {
 }
 
 impl MockChannels {
-    fn push_block(&self, new_block: NewBlock) {
+    fn push_block(&self, new_block: StacksBlock) {
         let mut blocks = self.blocks.lock().unwrap();
 
         blocks.push(new_block)
     }
 
-    fn get_block(&self, fetch_height: u64) -> Option<NewBlock> {
+    fn get_block(&self, fetch_height: u64) -> Option<StacksBlock> {
         let minimum_recorded_height = self.minimum_recorded_height.lock().unwrap();
         let blocks = self.blocks.lock().unwrap();
 
@@ -115,7 +115,7 @@ impl MockChannels {
 
     fn fill_blocks(
         &self,
-        into: &mut Vec<NewBlock>,
+        into: &mut Vec<StacksBlock>,
         start_block: u64,
         end_block: Option<u64>,
     ) -> Result<(), BurnchainError> {
@@ -151,7 +151,7 @@ impl MockChannels {
 impl MockBlockDownloader {
     fn fill_blocks(
         &self,
-        into: &mut Vec<NewBlock>,
+        into: &mut Vec<StacksBlock>,
         start_block: u64,
         end_block: Option<u64>,
     ) -> Result<(), BurnchainError> {
@@ -324,38 +324,28 @@ impl MockBlockDownloader {
 //     }
 // }
 
-pub struct MockParser {
-    watch_contract: QualifiedContractIdentifier,
-}
-
 #[derive(Clone)]
-pub struct MockHeader {
+pub struct MinimalStacksHeader {
     height: u64,
     index_hash: StacksBlockId,
-    parent_index_hash: StacksBlockId,
 }
 #[derive(Clone)]
-pub struct BlockIPC(NewBlock);
+pub struct BlockIPC(StacksBlock);
 
-impl BurnHeaderIPC for MockHeader {
+impl BurnHeaderIPC for MinimalStacksHeader {
     fn height(&self) -> u64 {
         self.height
     }
-
-    // fn header(&self) -> Self::H {
-    //     self.clone()
-    // }
 
     fn header_hash(&self) -> [u8; 32] {
         self.index_hash.0.clone()
     }
 }
 
-impl From<&NewBlock> for MockHeader {
-    fn from(b: &NewBlock) -> Self {
-        MockHeader {
+impl From<&StacksBlock> for MinimalStacksHeader {
+    fn from(b: &StacksBlock) -> Self {
+        MinimalStacksHeader {
             index_hash: b.index_block_hash.clone(),
-            parent_index_hash: b.parent_index_block_hash.clone(),
             height: b.block_height,
         }
     }

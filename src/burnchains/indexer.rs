@@ -46,7 +46,7 @@ pub trait BurnchainBlockDownloader: Send + Sync {
 //     fn parse(&mut self, block: &dyn BurnBlockIPC) -> Result<BurnchainBlock, burnchain_error>;
 // }
 
-pub trait BurnchainIndexer : Send + Sync {
+pub trait BurnchainIndexer: Send + Sync {
     fn connect(&mut self) -> Result<(), burnchain_error>;
 
     fn get_first_block_height(&self) -> u64;
