@@ -33,25 +33,25 @@ pub struct MockChannels {
     minimum_recorded_height: Arc<Mutex<u64>>,
 }
 
-pub struct MockController {
-    /// This is the simulated contract identifier
-    contract_identifier: QualifiedContractIdentifier,
-    burnchain: Option<Burnchain>,
-    config: Config,
-    indexer: MockIndexer,
+// pub struct MockController {
+//     /// This is the simulated contract identifier
+//     contract_identifier: QualifiedContractIdentifier,
+//     burnchain: Option<Burnchain>,
+//     config: Config,
+//     indexer: MockIndexer,
 
-    db: Option<SortitionDB>,
-    burnchain_db: Option<BurnchainDB>,
+//     db: Option<SortitionDB>,
+//     burnchain_db: Option<BurnchainDB>,
 
-    should_keep_running: Option<Arc<AtomicBool>>,
+//     should_keep_running: Option<Arc<AtomicBool>>,
 
-    coordinator: CoordinatorChannels,
-    chain_tip: Option<BurnchainTip>,
+//     coordinator: CoordinatorChannels,
+//     chain_tip: Option<BurnchainTip>,
 
-    /// This will be a unique number for the next burn block. Starts at 1
-    next_burn_block: Arc<Mutex<u64>>,
-    next_commit: Arc<Mutex<Option<BlockHeaderHash>>>,
-}
+//     /// This will be a unique number for the next burn block. Starts at 1
+//     next_burn_block: Arc<Mutex<u64>>,
+//     next_commit: Arc<Mutex<Option<BlockHeaderHash>>>,
+// }
 
 pub struct MockIndexer {
     /// This is the channel that new mocked L1 blocks are fed into
@@ -159,309 +159,170 @@ impl MockBlockDownloader {
     }
 }
 
-impl MockController {
-    pub fn new(config: Config, coordinator: CoordinatorChannels) -> MockController {
-        let contract_identifier = config.burnchain.contract_identifier.clone();
-        let indexer = MockIndexer::new(contract_identifier.clone());
-        MockController {
-            contract_identifier,
-            burnchain: None,
-            config,
-            indexer,
-            db: None,
-            burnchain_db: None,
-            should_keep_running: Some(Arc::new(AtomicBool::new(true))),
-            coordinator,
-            chain_tip: None,
-            next_burn_block: Arc::new(Mutex::new(1u64)),
-            next_commit: Arc::new(Mutex::new(None)),
-        }
-    }
+// impl MockController {
+//     pub fn new(config: Config, coordinator: CoordinatorChannels) -> MockController {
+//         panic!("delete me")
+//         // let contract_identifier = config.burnchain.contract_identifier.clone();
+//         // let indexer = MockIndexer::new(contract_identifier.clone());
+//         // MockController {
+//         //     contract_identifier,
+//         //     burnchain: None,
+//         //     config,
+//         //     indexer,
+//         //     db: None,
+//         //     burnchain_db: None,
+//         //     should_keep_running: Some(Arc::new(AtomicBool::new(true))),
+//         //     coordinator,
+//         //     chain_tip: None,
+//         //     next_burn_block: Arc::new(Mutex::new(1u64)),
+//         //     next_commit: Arc::new(Mutex::new(None)),
+//         // }
+//     }
 
-    /// Produce the next mocked layer-1 block. If `next_commit` is staged,
-    /// this mocked block will contain that commitment.
-    pub fn next_block(&mut self) {
-        let mut next_burn_block = self.next_burn_block.lock().unwrap();
-        let mut next_commit = self.next_commit.lock().unwrap();
+//     /// Produce the next mocked layer-1 block. If `next_commit` is staged,
+//     /// this mocked block will contain that commitment.
+//     pub fn next_block(&mut self) {
+//         let mut next_burn_block = self.next_burn_block.lock().unwrap();
+//         let mut next_commit = self.next_commit.lock().unwrap();
 
-        let tx_event = next_commit.take().map(|next_commit| {
-            let mocked_txid = Txid(next_commit.0.clone());
-            let topic = "print".into();
-            let contract_identifier = self.contract_identifier.clone();
-            let value = TupleData::from_data(vec![
-                (
-                    "event".into(),
-                    ClarityValue::string_ascii_from_bytes("block-commit".as_bytes().to_vec())
-                        .unwrap(),
-                ),
-                (
-                    "block-commit".into(),
-                    ClarityValue::buff_from(next_commit.0.to_vec()).unwrap(),
-                ),
-            ])
-            .expect("Should be a legal Clarity tuple")
-            .into();
+//         let tx_event = next_commit.take().map(|next_commit| {
+//             let mocked_txid = Txid(next_commit.0.clone());
+//             let topic = "print".into();
+//             let contract_identifier = self.contract_identifier.clone();
+//             let value = TupleData::from_data(vec![
+//                 (
+//                     "event".into(),
+//                     ClarityValue::string_ascii_from_bytes("block-commit".as_bytes().to_vec())
+//                         .unwrap(),
+//                 ),
+//                 (
+//                     "block-commit".into(),
+//                     ClarityValue::buff_from(next_commit.0.to_vec()).unwrap(),
+//                 ),
+//             ])
+//             .expect("Should be a legal Clarity tuple")
+//             .into();
 
-            let contract_event = Some(ContractEvent {
-                topic,
-                contract_identifier,
-                value,
-            });
+//             let contract_event = Some(ContractEvent {
+//                 topic,
+//                 contract_identifier,
+//                 value,
+//             });
 
-            NewBlockTxEvent {
-                txid: mocked_txid,
-                event_index: 0,
-                committed: true,
-                event_type: TxEventType::ContractEvent,
-                contract_event,
-            }
-        });
+//             NewBlockTxEvent {
+//                 txid: mocked_txid,
+//                 event_index: 0,
+//                 committed: true,
+//                 event_type: TxEventType::ContractEvent,
+//                 contract_event,
+//             }
+//         });
 
-        let parent_index_block_hash = StacksBlockId(make_mock_byte_string(*next_burn_block - 1));
+//         let parent_index_block_hash = StacksBlockId(make_mock_byte_string(*next_burn_block - 1));
 
-        let index_block_hash = StacksBlockId(make_mock_byte_string(*next_burn_block));
+//         let index_block_hash = StacksBlockId(make_mock_byte_string(*next_burn_block));
 
-        let new_block = NewBlock {
-            block_height: *next_burn_block,
-            burn_block_time: *next_burn_block,
-            index_block_hash,
-            parent_index_block_hash,
-            events: tx_event.into_iter().collect(),
-        };
+//         let new_block = NewBlock {
+//             block_height: *next_burn_block,
+//             burn_block_time: *next_burn_block,
+//             index_block_hash,
+//             parent_index_block_hash,
+//             events: tx_event.into_iter().collect(),
+//         };
 
-        *next_burn_block += 1;
+//         *next_burn_block += 1;
 
-        info!("Layer 1 block mined");
+//         info!("Layer 1 block mined");
 
-        MOCK_EVENTS_STREAM.push_block(new_block);
-    }
+//         panic!("rearrange this");
+//         // MOCK_EVENTS_STREAM.push_block(new_block);
+//     }
 
-    fn receive_blocks(
-        &mut self,
-        block_for_sortitions: bool,
-        target_block_height_opt: Option<u64>,
-    ) -> Result<(BurnchainTip, u64), Error> {
-        let coordinator_comms = self.coordinator.clone();
-        let mut burnchain = self.get_burnchain();
+//     fn receive_blocks(
+//         &mut self,
+//         block_for_sortitions: bool,
+//         target_block_height_opt: Option<u64>,
+//     ) -> Result<(BurnchainTip, u64), Error> {
+//         let coordinator_comms = self.coordinator.clone();
+//         let mut burnchain = self.get_burnchain();
 
-        let (block_snapshot, burnchain_height) = loop {
-            match burnchain.sync_with_indexer(
-                &mut self.indexer,
-                coordinator_comms.clone(),
-                target_block_height_opt,
-                None,
-                self.should_keep_running.clone(),
-            ) {
-                Ok(x) => {
-                    // initialize the dbs...
-                    self.sortdb_mut();
+//         let (block_snapshot, burnchain_height) = loop {
+//             match burnchain.sync_with_indexer(
+//                 &mut self.indexer,
+//                 coordinator_comms.clone(),
+//                 target_block_height_opt,
+//                 None,
+//                 self.should_keep_running.clone(),
+//             ) {
+//                 Ok(x) => {
+//                     // initialize the dbs...
+//                     self.sortdb_mut();
 
-                    // wait for the chains coordinator to catch up with us
-                    if block_for_sortitions {
-                        self.wait_for_sortitions(Some(x.block_height))?;
-                    }
+//                     // wait for the chains coordinator to catch up with us
+//                     if block_for_sortitions {
+//                         self.wait_for_sortitions(Some(x.block_height))?;
+//                     }
 
-                    // NOTE: This is the latest _sortition_ on the canonical sortition history, not the latest burnchain block!
-                    let sort_tip =
-                        SortitionDB::get_canonical_burn_chain_tip(self.sortdb_ref().conn())
-                            .expect("Sortition DB error.");
+//                     // NOTE: This is the latest _sortition_ on the canonical sortition history, not the latest burnchain block!
+//                     let sort_tip =
+//                         SortitionDB::get_canonical_burn_chain_tip(self.sortdb_ref().conn())
+//                             .expect("Sortition DB error.");
 
-                    let snapshot = self
-                        .sortdb_ref()
-                        .get_sortition_result(&sort_tip.sortition_id)
-                        .expect("Sortition DB error.")
-                        .expect("BUG: no data for the canonical chain tip");
+//                     let snapshot = self
+//                         .sortdb_ref()
+//                         .get_sortition_result(&sort_tip.sortition_id)
+//                         .expect("Sortition DB error.")
+//                         .expect("BUG: no data for the canonical chain tip");
 
-                    let burnchain_height = self
-                        .indexer
-                        .get_highest_header_height()
-                        .map_err(Error::IndexerError)?;
-                    break (snapshot, burnchain_height);
-                }
-                Err(e) => {
-                    // keep trying
-                    error!("Unable to sync with burnchain: {}", e);
-                    match e {
-                        BurnchainError::CoordinatorClosed => return Err(Error::CoordinatorClosed),
-                        BurnchainError::TrySyncAgain => {
-                            // try again immediately
-                            continue;
-                        }
-                        BurnchainError::BurnchainPeerBroken => {
-                            // remote burnchain peer broke, and produced a shorter blockchain fork.
-                            // just keep trying
-                            sleep_ms(5000);
-                            continue;
-                        }
-                        _ => {
-                            // delay and try again
-                            sleep_ms(5000);
-                            continue;
-                        }
-                    }
-                }
-            }
-        };
+//                     let burnchain_height = self
+//                         .indexer
+//                         .get_highest_header_height()
+//                         .map_err(Error::IndexerError)?;
+//                     break (snapshot, burnchain_height);
+//                 }
+//                 Err(e) => {
+//                     // keep trying
+//                     error!("Unable to sync with burnchain: {}", e);
+//                     match e {
+//                         BurnchainError::CoordinatorClosed => return Err(Error::CoordinatorClosed),
+//                         BurnchainError::TrySyncAgain => {
+//                             // try again immediately
+//                             continue;
+//                         }
+//                         BurnchainError::BurnchainPeerBroken => {
+//                             // remote burnchain peer broke, and produced a shorter blockchain fork.
+//                             // just keep trying
+//                             sleep_ms(5000);
+//                             continue;
+//                         }
+//                         _ => {
+//                             // delay and try again
+//                             sleep_ms(5000);
+//                             continue;
+//                         }
+//                     }
+//                 }
+//             }
+//         };
 
-        let burnchain_tip = BurnchainTip {
-            block_snapshot,
-            received_at: Instant::now(),
-        };
+//         let burnchain_tip = BurnchainTip {
+//             block_snapshot,
+//             received_at: Instant::now(),
+//         };
 
-        self.chain_tip = Some(burnchain_tip.clone());
-        debug!("Done receiving blocks");
+//         self.chain_tip = Some(burnchain_tip.clone());
+//         debug!("Done receiving blocks");
 
-        Ok((burnchain_tip, burnchain_height))
-    }
+//         Ok((burnchain_tip, burnchain_height))
+//     }
 
-    fn should_keep_running(&self) -> bool {
-        match self.should_keep_running {
-            Some(ref should_keep_running) => should_keep_running.load(Ordering::SeqCst),
-            _ => true,
-        }
-    }
-}
-
-impl BurnchainController for MockController {
-    fn start(
-        &mut self,
-        target_block_height_opt: Option<u64>,
-    ) -> Result<(BurnchainTip, u64), Error> {
-        self.receive_blocks(
-            false,
-            target_block_height_opt.map_or_else(|| Some(1), |x| Some(x)),
-        )
-    }
-
-    fn submit_operation(
-        &mut self,
-        operation: BlockstackOperationType,
-        _op_signer: &mut BurnchainOpSigner,
-        _attempt: u64,
-    ) -> bool {
-        match operation {
-            BlockstackOperationType::LeaderBlockCommit(LeaderBlockCommitOp {
-                block_header_hash,
-                ..
-            }) => {
-                let mut next_commit = self.next_commit.lock().unwrap();
-                if let Some(prior_commit) = next_commit.replace(block_header_hash) {
-                    warn!("Mocknet controller replaced a staged commit"; "prior_commit" => %prior_commit);
-                }
-
-                true
-            }
-        }
-    }
-
-    fn sync(&mut self, target_block_height_opt: Option<u64>) -> Result<(BurnchainTip, u64), Error> {
-        self.receive_blocks(true, target_block_height_opt)
-    }
-
-    fn get_chain_tip(&self) -> BurnchainTip {
-        self.chain_tip.as_ref().unwrap().clone()
-    }
-
-    fn get_headers_height(&self) -> u64 {
-        self.indexer.get_headers_height().unwrap()
-    }
-
-    fn sortdb_ref(&self) -> &SortitionDB {
-        self.db
-            .as_ref()
-            .expect("BUG: did not instantiate the burn DB")
-    }
-
-    fn sortdb_mut(&mut self) -> &mut SortitionDB {
-        let burnchain = self.get_burnchain();
-
-        let (db, burnchain_db) = burnchain.open_db(true).unwrap();
-        self.db = Some(db);
-        self.burnchain_db = Some(burnchain_db);
-
-        match self.db {
-            Some(ref mut sortdb) => sortdb,
-            None => unreachable!(),
-        }
-    }
-
-    fn connect_dbs(&mut self) -> Result<(), Error> {
-        let burnchain = self.get_burnchain();
-        burnchain.connect_db(
-            &self.indexer,
-            true,
-            self.indexer.get_first_block_header_hash()?,
-            self.indexer.get_first_block_header_timestamp()?,
-        )?;
-        Ok(())
-    }
-
-    fn get_stacks_epochs(&self) -> Vec<StacksEpoch> {
-        self.indexer.get_stacks_epochs()
-    }
-
-    fn get_burnchain(&self) -> Burnchain {
-        match &self.burnchain {
-            Some(burnchain) => burnchain.clone(),
-            None => {
-                let working_dir = self.config.get_burn_db_path();
-                Burnchain::new(&working_dir, "mockstack", "hyperchain").unwrap_or_else(|e| {
-                    error!("Failed to instantiate burnchain: {}", e);
-                    panic!()
-                })
-            }
-        }
-    }
-
-    fn wait_for_sortitions(&mut self, height_to_wait: Option<u64>) -> Result<BurnchainTip, Error> {
-        loop {
-            let canonical_burnchain_tip = self
-                .burnchain_db
-                .as_ref()
-                .expect("BurnchainDB not opened")
-                .get_canonical_chain_tip()
-                .unwrap();
-            let canonical_sortition_tip =
-                SortitionDB::get_canonical_burn_chain_tip(self.sortdb_ref().conn()).unwrap();
-            if canonical_burnchain_tip.block_height == canonical_sortition_tip.block_height {
-                // If the canonical burnchain tip is the same as a sortition tip.
-                let _ = self
-                    .sortdb_ref()
-                    .get_sortition_result(&canonical_sortition_tip.sortition_id)
-                    .expect("Sortition DB error.")
-                    .expect("BUG: no data for the canonical chain tip");
-                return Ok(BurnchainTip {
-                    block_snapshot: canonical_sortition_tip,
-                    received_at: Instant::now(),
-                });
-            } else if let Some(height_to_wait) = height_to_wait {
-                // If the height to wait until has been reached, then ext.
-                if canonical_sortition_tip.block_height >= height_to_wait {
-                    let _ = self
-                        .sortdb_ref()
-                        .get_sortition_result(&canonical_sortition_tip.sortition_id)
-                        .expect("Sortition DB error.")
-                        .expect("BUG: no data for the canonical chain tip");
-
-                    return Ok(BurnchainTip {
-                        block_snapshot: canonical_sortition_tip,
-                        received_at: Instant::now(),
-                    });
-                }
-            }
-            if !self.should_keep_running() {
-                return Err(Error::CoordinatorClosed);
-            }
-            // yield some time
-            sleep_ms(100);
-        }
-    }
-
-    #[cfg(test)]
-    fn bootstrap_chain(&mut self, blocks_count: u64) {
-        todo!()
-    }
-}
+//     fn should_keep_running(&self) -> bool {
+//         match self.should_keep_running {
+//             Some(ref should_keep_running) => should_keep_running.load(Ordering::SeqCst),
+//             _ => true,
+//         }
+//     }
+// }
 
 pub struct MockParser {
     watch_contract: QualifiedContractIdentifier,
@@ -501,8 +362,6 @@ impl From<&NewBlock> for MockHeader {
 }
 
 impl BurnBlockIPC for BlockIPC {
-
-
     fn height(&self) -> u64 {
         self.0.block_height
     }
@@ -511,15 +370,16 @@ impl BurnBlockIPC for BlockIPC {
         panic!("tbd")
     }
 
-    fn to_burn_block(&self)-> Result<BurnchainBlock, BurnchainError> {
+    fn to_burn_block(&self) -> Result<BurnchainBlock, BurnchainError> {
         panic!("tbd")
-
     }
-
 }
 
 impl BurnchainBlockDownloader for MockBlockDownloader {
-    fn download(&mut self, header: &dyn BurnHeaderIPC) -> Result<Box<dyn BurnBlockIPC>, BurnchainError> {
+    fn download(
+        &mut self,
+        header: &dyn BurnHeaderIPC,
+    ) -> Result<Box<dyn BurnBlockIPC>, BurnchainError> {
         let block = self.channel.get_block(header.height()).ok_or_else(|| {
             warn!("Failed to mock download height = {}", header.height());
             BurnchainError::BurnchainPeerBroken
@@ -539,16 +399,16 @@ impl BurnchainBlockDownloader for MockBlockDownloader {
 //     }
 // }
 
-impl MockIndexer {
-    pub fn new(watch_contract: QualifiedContractIdentifier) -> MockIndexer {
-        MockIndexer {
-            incoming_channel: MOCK_EVENTS_STREAM.clone(),
-            watch_contract,
-            blocks: vec![],
-            minimum_recorded_height: 0,
-        }
-    }
-}
+// impl MockIndexer {
+//     pub fn new(watch_contract: QualifiedContractIdentifier) -> MockIndexer {
+//         MockIndexer {
+//             incoming_channel: MOCK_EVENTS_STREAM.clone(),
+//             watch_contract,
+//             blocks: vec![],
+//             minimum_recorded_height: 0,
+//         }
+//     }
+// }
 
 impl BurnchainIndexer for MockIndexer {
     fn connect(&mut self) -> Result<(), BurnchainError> {

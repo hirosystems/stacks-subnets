@@ -30,7 +30,7 @@ macro_rules! info_green {
 }
 
 pub struct RunLoopCallbacks {
-    on_burn_chain_initialized: Option<fn(&mut Box<dyn BurnchainController>)>,
+    on_burn_chain_initialized: Option<fn(&mut BurnchainController)>,
     on_new_burn_chain_state: Option<fn(u64, &BurnchainTip, &ChainTip)>,
     on_new_stacks_chain_state:
         Option<fn(u64, &BurnchainTip, &ChainTip, &mut StacksChainState, &dyn BurnStateDB)>,
@@ -47,7 +47,7 @@ impl RunLoopCallbacks {
         }
     }
 
-    pub fn on_burn_chain_initialized(&mut self, callback: fn(&mut Box<dyn BurnchainController>)) {
+    pub fn on_burn_chain_initialized(&mut self, callback: fn(&mut BurnchainController)) {
         self.on_burn_chain_initialized = Some(callback);
     }
 
@@ -66,7 +66,7 @@ impl RunLoopCallbacks {
         self.on_new_tenure = Some(callback);
     }
 
-    pub fn invoke_burn_chain_initialized(&self, burnchain: &mut Box<dyn BurnchainController>) {
+    pub fn invoke_burn_chain_initialized(&self, burnchain: &mut BurnchainController) {
         if let Some(cb) = self.on_burn_chain_initialized {
             cb(burnchain);
         }
