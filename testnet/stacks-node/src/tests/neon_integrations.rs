@@ -292,7 +292,7 @@ pub mod test_observer {
 const PANIC_TIMEOUT_SECS: u64 = 600;
 /// Returns `false` on a timeout, true otherwise.
 pub fn next_block_and_wait(
-    btc_controller: &mut MockController,
+    btc_controller: &mut BurnchainController,
     blocks_processed: &Arc<AtomicU64>,
 ) -> bool {
     let current = blocks_processed.load(Ordering::SeqCst);

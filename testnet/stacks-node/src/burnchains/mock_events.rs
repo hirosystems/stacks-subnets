@@ -7,7 +7,7 @@ use stacks::burnchains::db::BurnchainDB;
 use stacks::burnchains::events::{ContractEvent, NewBlockTxEvent};
 use stacks::burnchains::events::{NewBlock, TxEventType};
 use stacks::burnchains::indexer::{
-    BurnBlockIPC, BurnHeaderIPC, BurnchainBlockDownloader, BurnchainBlockParser, BurnchainIndexer,
+    BurnBlockIPC, BurnHeaderIPC, BurnchainBlockDownloader, BurnchainIndexer,
 };
 use stacks::burnchains::{
     Burnchain, BurnchainBlock, Error as BurnchainError, StacksHyperBlock, Txid,
@@ -68,20 +68,20 @@ pub struct MockBlockDownloader {
     channel: MockChannels,
 }
 
-lazy_static! {
-    static ref MOCK_EVENTS_STREAM: MockChannels = MockChannels {
-        blocks: Arc::new(Mutex::new(vec![NewBlock {
-            block_height: 0,
-            burn_block_time: 0,
-            index_block_hash: StacksBlockId(make_mock_byte_string(0)),
-            parent_index_block_hash: StacksBlockId::sentinel(),
-            events: vec![],
-        }])),
-        minimum_recorded_height: Arc::new(Mutex::new(0)),
-    };
-    static ref NEXT_BURN_BLOCK: Arc<Mutex<u64>> = Arc::new(Mutex::new(1));
-    static ref NEXT_COMMIT: Arc<Mutex<Option<BlockHeaderHash>>> = Arc::new(Mutex::new(None));
-}
+// lazy_static! {
+//     static ref MOCK_EVENTS_STREAM: MockChannels = MockChannels {
+//         blocks: Arc::new(Mutex::new(vec![NewBlock {
+//             block_height: 0,
+//             burn_block_time: 0,
+//             index_block_hash: StacksBlockId(make_mock_byte_string(0)),
+//             parent_index_block_hash: StacksBlockId::sentinel(),
+//             events: vec![],
+//         }])),
+//         minimum_recorded_height: Arc::new(Mutex::new(0)),
+//     };
+//     static ref NEXT_BURN_BLOCK: Arc<Mutex<u64>> = Arc::new(Mutex::new(1));
+//     static ref NEXT_COMMIT: Arc<Mutex<Option<BlockHeaderHash>>> = Arc::new(Mutex::new(None));
+// }
 
 fn make_mock_byte_string(from: u64) -> [u8; 32] {
     let mut output = [1; 32];
@@ -173,8 +173,8 @@ impl MockController {
             should_keep_running: Some(Arc::new(AtomicBool::new(true))),
             coordinator,
             chain_tip: None,
-            next_burn_block: NEXT_BURN_BLOCK.clone(),
-            next_commit: NEXT_COMMIT.clone(),
+            next_burn_block: Arc::new(Mutex::new(1u64)),
+            next_commit: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -424,6 +424,7 @@ impl BurnchainController for MockController {
             let canonical_sortition_tip =
                 SortitionDB::get_canonical_burn_chain_tip(self.sortdb_ref().conn()).unwrap();
             if canonical_burnchain_tip.block_height == canonical_sortition_tip.block_height {
+                // If the canonical burnchain tip is the same as a sortition tip.
                 let _ = self
                     .sortdb_ref()
                     .get_sortition_result(&canonical_sortition_tip.sortition_id)
@@ -434,6 +435,7 @@ impl BurnchainController for MockController {
                     received_at: Instant::now(),
                 });
             } else if let Some(height_to_wait) = height_to_wait {
+                // If the height to wait until has been reached, then ext.
                 if canonical_sortition_tip.block_height >= height_to_wait {
                     let _ = self
                         .sortdb_ref()
@@ -475,8 +477,6 @@ pub struct MockHeader {
 pub struct BlockIPC(NewBlock);
 
 impl BurnHeaderIPC for MockHeader {
-    type H = Self;
-
     fn height(&self) -> u64 {
         self.height
     }
@@ -501,44 +501,43 @@ impl From<&NewBlock> for MockHeader {
 }
 
 impl BurnBlockIPC for BlockIPC {
-    type H = MockHeader;
-    type B = NewBlock;
+
 
     fn height(&self) -> u64 {
         self.0.block_height
     }
 
-    fn header(&self) -> Self::H {
-        MockHeader::from(&self.0)
+    fn header(&self) -> Box<dyn BurnHeaderIPC> {
+        panic!("tbd")
     }
 
-    fn block(&self) -> Self::B {
-        self.0.clone()
+    fn to_burn_block(&self)-> Result<BurnchainBlock, BurnchainError> {
+        panic!("tbd")
+
     }
+
 }
 
 impl BurnchainBlockDownloader for MockBlockDownloader {
-    type B = BlockIPC;
-
-    fn download(&mut self, header: &MockHeader) -> Result<BlockIPC, BurnchainError> {
-        let block = self.channel.get_block(header.height).ok_or_else(|| {
-            warn!("Failed to mock download height = {}", header.height);
+    fn download(&mut self, header: &dyn BurnHeaderIPC) -> Result<Box<dyn BurnBlockIPC>, BurnchainError> {
+        let block = self.channel.get_block(header.height()).ok_or_else(|| {
+            warn!("Failed to mock download height = {}", header.height());
             BurnchainError::BurnchainPeerBroken
         })?;
 
-        Ok(BlockIPC(block))
+        Ok(Box::new(BlockIPC(block)))
     }
 }
 
-impl BurnchainBlockParser for MockParser {
-    type B = BlockIPC;
+// impl BurnchainBlockParser for MockParser {
+//     type B = BlockIPC;
 
-    fn parse(&mut self, block: &BlockIPC) -> Result<BurnchainBlock, BurnchainError> {
-        Ok(BurnchainBlock::StacksHyperBlock(
-            StacksHyperBlock::from_new_block_event(&self.watch_contract, block.block()),
-        ))
-    }
-}
+//     fn parse(&mut self, block: &BlockIPC) -> Result<BurnchainBlock, BurnchainError> {
+//         Ok(BurnchainBlock::StacksHyperBlock(
+//             StacksHyperBlock::from_new_block_event(&self.watch_contract, block.block()),
+//         ))
+//     }
+// }
 
 impl MockIndexer {
     pub fn new(watch_contract: QualifiedContractIdentifier) -> MockIndexer {
@@ -552,10 +551,6 @@ impl MockIndexer {
 }
 
 impl BurnchainIndexer for MockIndexer {
-    type P = MockParser;
-    type B = BlockIPC;
-    type D = MockBlockDownloader;
-
     fn connect(&mut self) -> Result<(), BurnchainError> {
         Ok(())
     }
@@ -613,7 +608,9 @@ impl BurnchainIndexer for MockIndexer {
             Ok(height) => height + 1,
             Err(_) => 0,
         };
-        d.fill_blocks(&mut self.blocks, start_fill, end_height)?;
+
+        panic!("implement this!");
+        // d.fill_blocks(&mut self.blocks, start_fill, end_height)?;
 
         self.get_headers_height()
     }
@@ -632,7 +629,7 @@ impl BurnchainIndexer for MockIndexer {
         &self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<Vec<MockHeader>, BurnchainError> {
+    ) -> Result<Vec<Box<dyn BurnHeaderIPC>>, BurnchainError> {
         if start_block < self.minimum_recorded_height {
             return Err(BurnchainError::MissingHeaders);
         }
@@ -644,22 +641,17 @@ impl BurnchainIndexer for MockIndexer {
             self.blocks.len(),
             (end_block - self.minimum_recorded_height) as usize,
         );
-        let headers = self.blocks[start_index..end_index]
-            .iter()
-            .map(|b| MockHeader::from(b))
-            .collect();
-        Ok(headers)
+        panic!("finish this")
+        // let headers = self.blocks[start_index..end_index]
+        //     .iter()
+        //     .map(|b| MockHeader::from(b))
+        //     .collect();
+        // Ok(headers)
     }
 
-    fn downloader(&self) -> MockBlockDownloader {
-        MockBlockDownloader {
+    fn downloader(&self) -> Box<dyn BurnchainBlockDownloader> {
+        Box::new(MockBlockDownloader {
             channel: self.incoming_channel.clone(),
-        }
-    }
-
-    fn parser(&self) -> MockParser {
-        MockParser {
-            watch_contract: self.watch_contract.clone(),
-        }
+        })
     }
 }

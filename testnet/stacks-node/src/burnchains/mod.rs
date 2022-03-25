@@ -59,6 +59,7 @@ pub trait BurnchainController {
     fn get_stacks_epochs(&self) -> Vec<StacksEpoch>;
 
     fn get_burnchain(&self) -> Burnchain;
+    
     /// Ask the burnchain controller to wait until a given sortition has been processed
     /// or if no target height is provided, wait until the sortition height has reached the
     /// burnchain height.

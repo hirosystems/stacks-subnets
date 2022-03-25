@@ -22,43 +22,31 @@ use crate::types::chainstate::BurnchainHeaderHash;
 use core::StacksEpoch;
 
 // IPC messages between threads
-pub trait BurnHeaderIPC {
-    type H: Send + Sync + Clone;
-
+pub trait BurnHeaderIPC : Send + Sync {
     fn height(&self) -> u64;
     // fn header(&self) -> Self::H;
     fn header_hash(&self) -> [u8; 32];
 }
 
-pub trait BurnBlockIPC {
-    type H: BurnHeaderIPC + Sync + Send + Clone;
-    type B: Send + Sync + Clone;
-
+pub trait BurnBlockIPC : Send + Sync {
     fn height(&self) -> u64;
-    fn header(&self) -> Self::H;
-    fn block(&self) -> Self::B;
+    fn header(&self) -> Box<dyn BurnHeaderIPC>;
+
+    fn to_burn_block(&self)-> Result<BurnchainBlock, burnchain_error>;
 }
 
-pub trait BurnchainBlockDownloader {
-    type B: BurnBlockIPC + Sync + Send + Clone;
-
+pub trait BurnchainBlockDownloader : Send +Sync {
     fn download(
         &mut self,
-        header: &<Self::B as BurnBlockIPC>::H,
-    ) -> Result<Self::B, burnchain_error>;
+        header: &dyn BurnHeaderIPC,
+    ) -> Result<Box<dyn BurnBlockIPC>, burnchain_error>;
 }
 
-pub trait BurnchainBlockParser {
-    type B: BurnBlockIPC + Sync + Send + Clone;
-
-    fn parse(&mut self, block: &Self::B) -> Result<BurnchainBlock, burnchain_error>;
-}
+// pub trait BurnchainBlockParser : Send + Sync {
+//     fn parse(&mut self, block: &dyn BurnBlockIPC) -> Result<BurnchainBlock, burnchain_error>;
+// }
 
 pub trait BurnchainIndexer {
-    type B: BurnBlockIPC + Sync + Send + Clone;
-    type P: BurnchainBlockParser<B = Self::B> + Send + Sync;
-    type D: BurnchainBlockDownloader<B = Self::B> + Send + Sync;
-
     fn connect(&mut self) -> Result<(), burnchain_error>;
 
     fn get_first_block_height(&self) -> u64;
@@ -81,8 +69,7 @@ pub trait BurnchainIndexer {
         &self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<Vec<<Self::B as BurnBlockIPC>::H>, burnchain_error>;
+    ) -> Result<Vec<Box<dyn BurnHeaderIPC>>, burnchain_error>;
 
-    fn downloader(&self) -> Self::D;
-    fn parser(&self) -> Self::P;
+    fn downloader(&self) -> Box<dyn BurnchainBlockDownloader>;
 }

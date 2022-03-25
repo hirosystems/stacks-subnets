@@ -19,6 +19,7 @@ use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::mpsc::RecvError;
 use std::sync::mpsc::sync_channel;
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
@@ -34,7 +35,7 @@ use address::public_keys_to_address_hash;
 use address::AddressHashMode;
 use burnchains::db::BurnchainDB;
 use burnchains::indexer::{
-    BurnBlockIPC, BurnHeaderIPC, BurnchainBlockDownloader, BurnchainBlockParser, BurnchainIndexer,
+    BurnBlockIPC, BurnHeaderIPC, BurnchainBlockDownloader, BurnchainIndexer,
 };
 use burnchains::Address;
 use burnchains::Burnchain;
@@ -659,12 +660,12 @@ impl Burnchain {
         );
 
         // synchronize
-        let (downloader_send, downloader_recv) = sync_channel(1);
+        let (downloader_send, downloader_recv) = sync_channel::<Option<Box<dyn BurnHeaderIPC>>>(1);
         let (parser_send, parser_recv) = sync_channel(1);
         let (db_send, db_recv) = sync_channel(1);
 
         let mut downloader = indexer.downloader();
-        let mut parser = indexer.parser();
+        // let mut parser = indexer.parser();
 
         let myself = self.clone();
 
@@ -674,7 +675,8 @@ impl Burnchain {
             thread::Builder::new()
                 .name("burnchain-downloader".to_string())
                 .spawn(move || {
-                    while let Ok(Some(ipc_header)) = downloader_recv.recv() {
+                    let block_opt = downloader_recv.recv();
+                    while let Ok(Some(ipc_header)) =  downloader_recv.recv() {
                         debug!("Try recv next header");
 
                         match should_keep_running {
@@ -687,7 +689,7 @@ impl Burnchain {
                         };
 
                         let download_start = get_epoch_time_ms();
-                        let ipc_block = downloader.download(&ipc_header)?;
+                        let ipc_block = downloader.download(ipc_header.as_ref())?;
                         let download_end = get_epoch_time_ms();
 
                         debug!(
@@ -714,7 +716,7 @@ impl Burnchain {
                     debug!("Try recv next block");
 
                     let parse_start = get_epoch_time_ms();
-                    let burnchain_block = parser.parse(&ipc_block)?;
+                    let burnchain_block = ipc_block.to_burn_block().expect("couldn't make burn block");
                     let parse_end = get_epoch_time_ms();
 
                     debug!(
@@ -769,15 +771,15 @@ impl Burnchain {
                 .unwrap();
 
         // feed the pipeline!
-        let input_headers = indexer.read_headers(start_block + 1, end_block + 1)?;
+        let mut input_headers:Vec<Box<dyn BurnHeaderIPC>> = indexer.read_headers(start_block + 1, end_block + 1)?;
         let mut downloader_result: Result<(), burnchain_error> = Ok(());
-        for i in 0..input_headers.len() {
+        for i in (0..input_headers.len()).rev() {
             debug!(
                 "Downloading burnchain block {} out of {}...",
                 start_block + 1 + (i as u64),
                 end_block
             );
-            if let Err(e) = downloader_send.send(Some(input_headers[i].clone())) {
+            if let Err(e) = downloader_send.send(Some(input_headers.swap_remove(i))) {
                 info!(
                     "Failed to feed burnchain block header {}: {:?}",
                     start_block + 1 + (i as u64),
