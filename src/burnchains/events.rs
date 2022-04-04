@@ -97,8 +97,9 @@ impl BurnBlockIPC for NewBlock {
             StacksHyperBlock::from_new_block_event(subnets_contract, self.clone()),
         ))
     }
-    fn clone_box(&self) -> Box<dyn BurnBlockIPC> { todo!() }
-
+    fn clone_box(&self) -> Box<dyn BurnBlockIPC> {
+        todo!()
+    }
 }
 
 impl std::fmt::Debug for NewBlock {

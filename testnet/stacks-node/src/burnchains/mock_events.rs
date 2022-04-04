@@ -98,7 +98,6 @@ impl BurnBlockInputChannel for MockChannel {
     }
 }
 
-
 impl MockChannel {
     fn get_block(&self, fetch_height: u64) -> Option<Box<dyn BurnBlockIPC>> {
         let minimum_recorded_height = self.minimum_recorded_height.lock().unwrap();
@@ -113,7 +112,7 @@ impl MockChannel {
             return None;
         }
 
-        let block = blocks[fetch_index].clone_box           ();
+        let block = blocks[fetch_index].clone_box();
         Some(block)
     }
 
@@ -163,7 +162,8 @@ impl MockIndexer {
         start_block: u64,
         end_block: Option<u64>,
     ) -> Result<(), BurnchainError> {
-        self.incoming_channel.fill_blocks(into, start_block, end_block)
+        self.incoming_channel
+            .fill_blocks(into, start_block, end_block)
     }
 }
 
@@ -526,12 +526,16 @@ impl BurnBlockIPC for BlockIPC {
     ) -> Result<BurnchainBlock, stacks::burnchains::Error> {
         panic!("burn block");
     }
-    fn clone_box(&self) -> Box<dyn BurnBlockIPC> { todo!() }
-
+    fn clone_box(&self) -> Box<dyn BurnBlockIPC> {
+        todo!()
+    }
 }
 
 impl BurnchainBlockDownloader for MockBlockDownloader {
-    fn download(& self, header: &dyn BurnHeaderIPC) -> Result<Box<dyn BurnBlockIPC>, BurnchainError> {
+    fn download(
+        &self,
+        header: &dyn BurnHeaderIPC,
+    ) -> Result<Box<dyn BurnBlockIPC>, BurnchainError> {
         let block = self.channel.get_block(header.height()).ok_or_else(|| {
             warn!("Failed to mock download height = {}", header.height());
             BurnchainError::BurnchainPeerBroken
@@ -621,7 +625,8 @@ impl BurnchainIndexer for MockIndexer {
             Ok(height) => height + 1,
             Err(_) => 0,
         };
-        self.incoming_channel.fill_blocks(&mut self.blocks, start_fill, end_height);
+        self.incoming_channel
+            .fill_blocks(&mut self.blocks, start_fill, end_height);
         // self.fill_blocks(&mut self.blocks, start_fill, end_height)?;
 
         self.get_headers_height()

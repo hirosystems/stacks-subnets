@@ -12,7 +12,7 @@ use stacks::burnchains::{
 };
 use stacks::chainstate::burn::db::DBConn;
 use stacks::core::StacksEpoch;
-use stacks::types::chainstate::{BurnchainHeaderHash};
+use stacks::types::chainstate::BurnchainHeaderHash;
 use stacks::util_lib::db::Error as DBError;
 use stacks::util_lib::db::{query_row, u64_to_sql, FromRow};
 use stacks::util_lib::db::{sqlite_open, Error as db_error};
