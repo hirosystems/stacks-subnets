@@ -27,15 +27,14 @@ use std::sync::{
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::burnchains::BurnBlockIPC;
+use crate::burnchains::BurnHeaderIPC;
 use crate::burnchains::StacksHyperOpType;
 use crate::types::chainstate::StacksAddress;
 use crate::types::chainstate::TrieHash;
 use address::public_keys_to_address_hash;
 use address::AddressHashMode;
 use burnchains::db::BurnchainDB;
-use burnchains::indexer::{
-    BurnBlockIPC, BurnHeaderIPC, BurnchainBlockDownloader, BurnchainBlockParser, BurnchainIndexer,
-};
 use burnchains::Address;
 use burnchains::Burnchain;
 use burnchains::PublicKey;
@@ -70,6 +69,7 @@ use util_lib::db::DBTx;
 use util_lib::db::Error as db_error;
 
 use crate::types::chainstate::BurnchainHeaderHash;
+use burnchains::BurnchainIndexer;
 use chainstate::stacks::address::StacksAddressExtensions;
 
 impl BurnchainStateTransition {
@@ -624,8 +624,9 @@ impl Burnchain {
             let mut hdrs = indexer.read_headers(end_block, end_block + 1)?;
             if let Some(hdr) = hdrs.pop() {
                 debug!("Nothing to do; already have blocks up to {}", end_block);
-                let bhh =
-                    BurnchainHeaderHash::from_bitcoin_hash(&BitcoinSha256dHash(hdr.header_hash()));
+                let bhh = BurnchainHeaderHash::from_bitcoin_hash(&BitcoinSha256dHash(
+                    hdr.header_hash().0,
+                ));
                 return burnchain_db
                     .get_burnchain_block(&bhh)
                     .map(|block_data| block_data.header);
@@ -645,12 +646,11 @@ impl Burnchain {
         );
 
         // synchronize
-        let (downloader_send, downloader_recv) = sync_channel(1);
+        let (downloader_send, downloader_recv) = sync_channel::<Option<Box<dyn BurnHeaderIPC>>>(1);
         let (parser_send, parser_recv) = sync_channel(1);
         let (db_send, db_recv) = sync_channel(1);
 
         let mut downloader = indexer.downloader();
-        let mut parser = indexer.parser();
 
         let myself = self.clone();
 
@@ -673,7 +673,7 @@ impl Burnchain {
                         };
 
                         let download_start = get_epoch_time_ms();
-                        let ipc_block = downloader.download(&ipc_header)?;
+                        let ipc_block = downloader.download(ipc_header.as_ref())?;
                         let download_end = get_epoch_time_ms();
 
                         debug!(
@@ -693,6 +693,7 @@ impl Burnchain {
                 })
                 .unwrap();
 
+        let subnets_contract = indexer.subnets_contract();
         let parse_thread: thread::JoinHandle<Result<(), burnchain_error>> = thread::Builder::new()
             .name("burnchain-parser".to_string())
             .spawn(move || {
@@ -700,7 +701,9 @@ impl Burnchain {
                     debug!("Try recv next block");
 
                     let parse_start = get_epoch_time_ms();
-                    let burnchain_block = parser.parse(&ipc_block)?;
+                    let burnchain_block = ipc_block
+                        .to_burn_block(&subnets_contract)
+                        .expect("Could not decode burn block.");
                     let parse_end = get_epoch_time_ms();
 
                     debug!(
@@ -757,13 +760,13 @@ impl Burnchain {
         // feed the pipeline!
         let input_headers = indexer.read_headers(start_block + 1, end_block + 1)?;
         let mut downloader_result: Result<(), burnchain_error> = Ok(());
-        for i in 0..input_headers.len() {
+        for (i, input_header) in input_headers.into_iter().enumerate() {
             debug!(
                 "Downloading burnchain block {} out of {}...",
                 start_block + 1 + (i as u64),
                 end_block
             );
-            if let Err(e) = downloader_send.send(Some(input_headers[i].clone())) {
+            if let Err(e) = downloader_send.send(Some(input_header)) {
                 info!(
                     "Failed to feed burnchain block header {}: {:?}",
                     start_block + 1 + (i as u64),

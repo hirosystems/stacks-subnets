@@ -2,6 +2,7 @@ use std::convert::TryInto;
 use std::fmt::Formatter;
 
 use burnchains::Txid;
+use clarity::types::chainstate::BurnchainHeaderHash;
 use serde::de::Error as DeserError;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -13,10 +14,16 @@ use crate::types::chainstate::BlockHeaderHash;
 use crate::types::chainstate::StacksBlockId;
 use crate::vm::types::CharType;
 use crate::vm::types::SequenceData;
+use burnchains::Error;
 
+use super::BurnBlockIPC;
+use super::BurnHeaderIPC;
+use super::BurnchainBlock;
 use super::StacksHyperBlock;
 use super::StacksHyperOp;
 use super::StacksHyperOpType;
+use burnchains::BasicBurnHeader;
+use chainstate::stacks::StacksBlockHeader;
 
 /// Parsing struct for the transaction event types of the
 /// `stacks-node` events API
@@ -62,6 +69,36 @@ pub struct NewBlock {
     #[serde(deserialize_with = "deser_stacks_block_id")]
     pub parent_index_block_hash: StacksBlockId,
     pub events: Vec<NewBlockTxEvent>,
+}
+
+impl From<&NewBlock> for BasicBurnHeader {
+    fn from(b: &NewBlock) -> Self {
+        BasicBurnHeader {
+            height: b.block_height,
+            header_hash: BurnchainHeaderHash(b.index_block_hash.0.clone()),
+            parent_header_hash: BurnchainHeaderHash(b.parent_index_block_hash.0.clone()),
+            time_stamp: b.burn_block_time,
+        }
+    }
+}
+
+impl BurnBlockIPC for NewBlock {
+    fn height(&self) -> u64 {
+        self.block_height
+    }
+    fn header(&self) -> Box<dyn BurnHeaderIPC> {
+        Box::new(BasicBurnHeader::from(&self.clone()))
+    }
+    fn to_burn_block(
+        &self,
+        subnets_contract: &QualifiedContractIdentifier,
+    ) -> Result<BurnchainBlock, Error> {
+        Ok(BurnchainBlock::StacksHyperBlock(
+            StacksHyperBlock::from_new_block_event(subnets_contract, self.clone()),
+        ))
+    }
+    fn clone_box(&self) -> Box<dyn BurnBlockIPC> { todo!() }
+
 }
 
 impl std::fmt::Debug for NewBlock {

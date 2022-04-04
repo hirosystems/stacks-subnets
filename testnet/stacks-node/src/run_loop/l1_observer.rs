@@ -1,8 +1,9 @@
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::sync::Mutex;
 
-use crate::burnchains::BurnchainChannel;
 use stacks::burnchains::events::NewBlock;
+use stacks::burnchains::BurnBlockInputChannel;
 use std::thread;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::Receiver;
@@ -12,34 +13,30 @@ use warp;
 use warp::Filter;
 pub const EVENT_OBSERVER_PORT: u16 = 50303;
 
-/// Adds in `channel` to downstream functions.
-fn with_db(
-    channel: Arc<dyn BurnchainChannel>,
-) -> impl Filter<Extract = (Arc<dyn BurnchainChannel>,), Error = std::convert::Infallible> + Clone {
-    warp::any().map(move || channel.clone())
+lazy_static! {
+    static ref INDEXER_CHANNEL: Mutex<Option<Box<dyn BurnBlockInputChannel>>> = Mutex::new(None);
 }
 
 /// Route handler.
-async fn handle_new_block(
-    block: serde_json::Value,
-    channel: Arc<dyn BurnchainChannel>,
-) -> Result<impl warp::Reply, Infallible> {
+async fn handle_new_block(block: serde_json::Value) -> Result<impl warp::Reply, Infallible> {
     let parsed_block: NewBlock =
         serde_json::from_str(&block.to_string()).expect("Failed to parse events JSON");
     info!("handle_new_block receives new block {:?}", &parsed_block);
-    channel.push_block(parsed_block);
+    INDEXER_CHANNEL
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .push_block(Box::new(parsed_block))
+        .expect("remove this");
     Ok(warp::http::StatusCode::OK)
 }
 
 /// Define and run the `warp` server.
-async fn serve(
-    signal_receiver: Receiver<()>,
-    channel: Arc<dyn BurnchainChannel>,
-) -> Result<(), JoinError> {
+async fn serve(signal_receiver: Receiver<()>) -> Result<(), JoinError> {
     let first_part = warp::path!("new_block")
         .and(warp::post())
-        .and(warp::body::json())
-        .and(with_db(channel));
+        .and(warp::body::json());
     let new_blocks = first_part.and_then(handle_new_block);
 
     info!("Binding warp server.");
@@ -56,11 +53,11 @@ async fn serve(
 }
 
 /// Spawn a thread with a `warp` server.
-pub fn spawn(channel: Arc<dyn BurnchainChannel>) -> Sender<()> {
+pub fn spawn(channel: Box<dyn BurnBlockInputChannel>) -> Sender<()> {
     let (signal_sender, signal_receiver) = oneshot::channel();
     thread::spawn(|| {
         let rt = tokio::runtime::Runtime::new().expect("Failed to initialize tokio");
-        rt.block_on(serve(signal_receiver, channel))
+        rt.block_on(serve(signal_receiver))
             .expect("block_on failed");
     });
     signal_sender

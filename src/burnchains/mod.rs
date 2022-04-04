@@ -20,9 +20,12 @@ use std::convert::TryFrom;
 use std::default::Default;
 use std::error;
 use std::fmt;
+use std::fmt::Formatter;
 use std::io;
 use std::marker::PhantomData;
+use std::sync::Arc;
 
+use clarity::vm::types::QualifiedContractIdentifier;
 use rusqlite::Error as sqlite_error;
 
 use address::AddressHashMode;
@@ -56,7 +59,6 @@ pub mod db;
 /// hyperchain node to download and validate the corresponding
 /// hyperchain blocks.
 pub mod events;
-pub mod indexer;
 
 #[derive(Serialize, Deserialize)]
 pub struct Txid(pub [u8; 32]);
@@ -237,6 +239,109 @@ impl BurnchainTransaction {
     pub fn get_burn_amount(&self) -> u64 {
         0
     }
+}
+
+use burnchains::Error as burnchain_error;
+
+/// Abstract representation of a burn block header.
+pub trait BurnHeaderIPC: Send + Sync {
+    fn height(&self) -> u64;
+    fn header_hash(&self) -> BurnchainHeaderHash;
+    fn parent_header_hash(&self) -> BurnchainHeaderHash;
+    fn time_stamp(&self) -> u64;
+}
+
+impl std::fmt::Debug for dyn BurnHeaderIPC {
+    /// Shortened debug string, for logging.
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        write!(
+            f,
+            "BurnHeaderIPC(height={:?}, header_hash={:?}, parent_header_hash={:?}, time_stamp={:?})",
+            self.height(),
+            self.header_hash(),
+            self.parent_header_hash(),
+            self.time_stamp()
+        )
+    }
+}
+
+impl PartialEq for dyn BurnHeaderIPC {
+    fn eq(&self, other: &Self) -> bool {
+        true
+    }
+}
+
+/// Abstract representation of a burn block.
+pub trait BurnBlockIPC: Send + Sync {
+    fn height(&self) -> u64;
+    fn header(&self) -> Box<dyn BurnHeaderIPC>;
+    fn to_burn_block(
+        &self,
+        subnets_contract: &QualifiedContractIdentifier,
+    ) -> Result<BurnchainBlock, burnchain_error>;
+
+    fn clone_box(&self) -> Box<dyn BurnBlockIPC>;
+}
+
+/// Manages the downloading of blocks given headers. Unlike `BurnchainIndexer`,
+/// a downloader can be sent between threads (implements `Send + Sync`).
+pub trait BurnchainBlockDownloader: Send + Sync {
+    fn download(
+        &self,
+        header: &dyn BurnHeaderIPC,
+    ) -> Result<Box<dyn BurnBlockIPC>, burnchain_error>;
+}
+
+/// Allows the user to push a new block into the system.
+pub trait BurnBlockInputChannel: Send + Sync {
+    /// Push a block into the channel.
+    fn push_block(&self, new_block: Box<dyn BurnBlockIPC>) -> Result<(), burnchain_error>;
+}
+
+/// Provides an interface where new L1 blocks can be received (by providng a
+/// `BurnBlockInputChannel`.
+pub trait BurnchainIndexer {
+    /// Give the indexer a chance to connect to any underlying databases.
+    fn connect(&mut self, readwrite: bool) -> Result<(), burnchain_error>;
+
+    /// The returned channel is used to push a block into the system understood by this indexer.
+    fn get_input_channel(&self) -> Box<dyn BurnBlockInputChannel>;
+
+    /// Returns the earliest block height.
+    fn get_first_block_height(&self) -> u64;
+    fn get_first_block_header_hash(&self) -> Result<BurnchainHeaderHash, burnchain_error>;
+    fn get_first_block_header_timestamp(&self) -> Result<u64, burnchain_error>;
+    fn get_stacks_epochs(&self) -> Vec<StacksEpoch>;
+
+    fn get_headers_path(&self) -> String;
+    fn get_headers_height(&self) -> Result<u64, burnchain_error>;
+    fn get_highest_header_height(&self) -> Result<u64, burnchain_error>;
+
+    /// Returns the canonical chain tip.
+    fn get_canonical_chain_tip(&self) -> Option<Box<dyn BurnHeaderIPC>>;
+
+    /// Returns true if there has been a re-organization since the last call.
+    fn find_chain_reorg(&mut self) -> Result<u64, burnchain_error>;
+
+    /// Wait for all of these headers to sync with the burnchain.
+    fn sync_headers(
+        &mut self,
+        start_height: u64,
+        end_height: Option<u64>,
+    ) -> Result<u64, burnchain_error>;
+    fn drop_headers(&mut self, new_height: u64) -> Result<(), burnchain_error>;
+
+    /// Read the headers on the canonical chain from heights `start_block` (inclusive) to `end_block` (exclusive).
+    fn read_headers(
+        &self,
+        start_block: u64,
+        end_block: u64,
+    ) -> Result<Vec<Box<dyn BurnHeaderIPC>>, burnchain_error>;
+
+    /// Returns the subnets contract for this hyper chain.
+    fn subnets_contract(&self) -> QualifiedContractIdentifier;
+
+    fn downloader(&self) -> Box<dyn BurnchainBlockDownloader>;
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -454,6 +559,29 @@ impl BurnchainView {
             }
         }
         self.last_burn_block_hashes = ret;
+    }
+}
+
+/// Corresponds to a row in the table.
+pub struct BasicBurnHeader {
+    pub height: u64,
+    pub header_hash: BurnchainHeaderHash,
+    pub parent_header_hash: BurnchainHeaderHash,
+    pub time_stamp: u64,
+}
+
+impl BurnHeaderIPC for BasicBurnHeader {
+    fn height(&self) -> u64 {
+        self.height
+    }
+    fn header_hash(&self) -> BurnchainHeaderHash {
+        self.header_hash
+    }
+    fn parent_header_hash(&self) -> BurnchainHeaderHash {
+        self.parent_header_hash
+    }
+    fn time_stamp(&self) -> u64 {
+        self.time_stamp
     }
 }
 

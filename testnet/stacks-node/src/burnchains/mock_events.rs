@@ -6,11 +6,10 @@ use std::time::Instant;
 use stacks::burnchains::db::BurnchainDB;
 use stacks::burnchains::events::{ContractEvent, NewBlockTxEvent};
 use stacks::burnchains::events::{NewBlock, TxEventType};
-use stacks::burnchains::indexer::{
-    BurnBlockIPC, BurnHeaderIPC, BurnchainBlockDownloader, BurnchainBlockParser, BurnchainIndexer,
-};
+
 use stacks::burnchains::{
-    Burnchain, BurnchainBlock, Error as BurnchainError, StacksHyperBlock, Txid,
+    BasicBurnHeader, BurnBlockIPC, BurnBlockInputChannel, Burnchain, BurnchainBlock,
+    BurnchainBlockDownloader, BurnchainIndexer, Error as BurnchainError, Txid,
 };
 
 use stacks::burnchains;
@@ -27,11 +26,11 @@ use stacks::vm::Value as ClarityValue;
 use crate::operations::BurnchainOpSigner;
 use crate::{BurnchainController, BurnchainTip, Config};
 
-use super::{BurnchainChannel, Error};
+use super::Error;
 
 #[derive(Clone)]
 pub struct MockChannel {
-    blocks: Arc<Mutex<Vec<NewBlock>>>,
+    blocks: Arc<Mutex<Vec<Box<dyn BurnBlockIPC>>>>,
     minimum_recorded_height: Arc<Mutex<u64>>,
 }
 
@@ -60,7 +59,7 @@ pub struct MockIndexer {
     incoming_channel: Arc<MockChannel>,
     /// This is the Layer 1 contract that is watched for hyperchain events.
     watch_contract: QualifiedContractIdentifier,
-    blocks: Vec<NewBlock>,
+    blocks: Vec<Box<dyn BurnBlockIPC>>,
     /// The lowest height that the indexer is holding. Defaults to 0,
     /// but after garbage collection, can increase.
     minimum_recorded_height: u64,
@@ -72,13 +71,13 @@ pub struct MockBlockDownloader {
 
 lazy_static! {
     static ref MOCK_EVENTS_STREAM: Arc<MockChannel> = Arc::new(MockChannel {
-        blocks: Arc::new(Mutex::new(vec![NewBlock {
+        blocks: Arc::new(Mutex::new(vec![Box::new(NewBlock {
             block_height: 0,
             burn_block_time: 0,
             index_block_hash: StacksBlockId(make_mock_byte_string(0)),
             parent_index_block_hash: StacksBlockId::sentinel(),
             events: vec![],
-        }])),
+        })])),
         minimum_recorded_height: Arc::new(Mutex::new(0)),
     });
     static ref NEXT_BURN_BLOCK: Arc<Mutex<u64>> = Arc::new(Mutex::new(1));
@@ -91,13 +90,17 @@ fn make_mock_byte_string(from: u64) -> [u8; 32] {
     output
 }
 
-impl BurnchainChannel for MockChannel {
-    fn push_block(&self, new_block: NewBlock) {
+impl BurnBlockInputChannel for MockChannel {
+    fn push_block(&self, new_block: Box<dyn BurnBlockIPC>) -> Result<(), burnchains::Error> {
         let mut blocks = self.blocks.lock().unwrap();
-        blocks.push(new_block)
+        blocks.push(new_block);
+        Ok(())
     }
+}
 
-    fn get_block(&self, fetch_height: u64) -> Option<NewBlock> {
+
+impl MockChannel {
+    fn get_block(&self, fetch_height: u64) -> Option<Box<dyn BurnBlockIPC>> {
         let minimum_recorded_height = self.minimum_recorded_height.lock().unwrap();
         let blocks = self.blocks.lock().unwrap();
 
@@ -110,13 +113,13 @@ impl BurnchainChannel for MockChannel {
             return None;
         }
 
-        let block = blocks[fetch_index].clone();
+        let block = blocks[fetch_index].clone_box           ();
         Some(block)
     }
 
     fn fill_blocks(
         &self,
-        into: &mut Vec<NewBlock>,
+        into: &mut Vec<Box<dyn BurnBlockIPC>>,
         start_block: u64,
         end_block: Option<u64>,
     ) -> Result<(), burnchains::Error> {
@@ -134,9 +137,13 @@ impl BurnchainChannel for MockChannel {
                 (1 + end_block - *minimum_recorded_height) as usize,
                 blocks.len(),
             );
-            into.extend_from_slice(&blocks[start_index..end_index]);
+            for i in start_index..end_index {
+                into.push(blocks[i].clone_box())
+            }
         } else {
-            into.extend_from_slice(&blocks[start_index..]);
+            for i in start_index..blocks.len() {
+                into.push(blocks[i].clone_box())
+            }
         }
         Ok(())
     }
@@ -149,14 +156,14 @@ impl BurnchainChannel for MockChannel {
     }
 }
 
-impl MockBlockDownloader {
+impl MockIndexer {
     fn fill_blocks(
         &self,
-        into: &mut Vec<NewBlock>,
+        into: &mut Vec<Box<dyn BurnBlockIPC>>,
         start_block: u64,
         end_block: Option<u64>,
     ) -> Result<(), BurnchainError> {
-        self.channel.fill_blocks(into, start_block, end_block)
+        self.incoming_channel.fill_blocks(into, start_block, end_block)
     }
 }
 
@@ -234,7 +241,7 @@ impl MockController {
 
         info!("Layer 1 block mined");
 
-        MOCK_EVENTS_STREAM.push_block(new_block);
+        MOCK_EVENTS_STREAM.push_block(Box::new(new_block));
     }
 
     fn receive_blocks(
@@ -333,9 +340,11 @@ impl BurnchainController for MockController {
             target_block_height_opt.map_or_else(|| Some(1), |x| Some(x)),
         )
     }
-    fn get_channel(&self) -> Arc<dyn BurnchainChannel> {
-        MOCK_EVENTS_STREAM.clone()
+
+    fn get_channel(&self) -> Box<dyn BurnBlockInputChannel> {
+        panic!("Not called for MockController")
     }
+
     fn submit_operation(
         &mut self,
         operation: BlockstackOperationType,
@@ -464,32 +473,30 @@ impl BurnchainController for MockController {
     }
 }
 
-pub struct MockParser {
-    watch_contract: QualifiedContractIdentifier,
-}
-
 #[derive(Clone)]
 pub struct MockHeader {
     pub height: u64,
     pub index_hash: StacksBlockId,
     pub parent_index_hash: StacksBlockId,
+    pub burn_block_time: u64,
 }
+
+use burnchains::BurnHeaderIPC;
 #[derive(Clone)]
 pub struct BlockIPC(pub NewBlock);
 
 impl BurnHeaderIPC for MockHeader {
-    type H = Self;
-
     fn height(&self) -> u64 {
         self.height
     }
-
-    fn header(&self) -> Self::H {
-        self.clone()
+    fn header_hash(&self) -> BurnchainHeaderHash {
+        BurnchainHeaderHash(self.index_hash.0.clone())
     }
-
-    fn header_hash(&self) -> [u8; 32] {
-        self.index_hash.0.clone()
+    fn parent_header_hash(&self) -> BurnchainHeaderHash {
+        BurnchainHeaderHash(self.parent_index_hash.0.clone())
+    }
+    fn time_stamp(&self) -> u64 {
+        self.burn_block_time
     }
 }
 
@@ -499,47 +506,38 @@ impl From<&NewBlock> for MockHeader {
             index_hash: b.index_block_hash.clone(),
             parent_index_hash: b.parent_index_block_hash.clone(),
             height: b.block_height,
+            burn_block_time: b.burn_block_time,
         }
     }
 }
 
 impl BurnBlockIPC for BlockIPC {
-    type H = MockHeader;
-    type B = NewBlock;
-
     fn height(&self) -> u64 {
         self.0.block_height
     }
 
-    fn header(&self) -> Self::H {
-        MockHeader::from(&self.0)
+    fn header(&self) -> Box<dyn BurnHeaderIPC> {
+        Box::new(BasicBurnHeader::from(&self.0))
     }
 
-    fn block(&self) -> Self::B {
-        self.0.clone()
+    fn to_burn_block(
+        &self,
+        subnets_contract: &QualifiedContractIdentifier,
+    ) -> Result<BurnchainBlock, stacks::burnchains::Error> {
+        panic!("burn block");
     }
+    fn clone_box(&self) -> Box<dyn BurnBlockIPC> { todo!() }
+
 }
 
 impl BurnchainBlockDownloader for MockBlockDownloader {
-    type B = BlockIPC;
-
-    fn download(&mut self, header: &MockHeader) -> Result<BlockIPC, BurnchainError> {
-        let block = self.channel.get_block(header.height).ok_or_else(|| {
-            warn!("Failed to mock download height = {}", header.height);
+    fn download(& self, header: &dyn BurnHeaderIPC) -> Result<Box<dyn BurnBlockIPC>, BurnchainError> {
+        let block = self.channel.get_block(header.height()).ok_or_else(|| {
+            warn!("Failed to mock download height = {}", header.height());
             BurnchainError::BurnchainPeerBroken
         })?;
 
-        Ok(BlockIPC(block))
-    }
-}
-
-impl BurnchainBlockParser for MockParser {
-    type B = BlockIPC;
-
-    fn parse(&mut self, block: &BlockIPC) -> Result<BurnchainBlock, BurnchainError> {
-        Ok(BurnchainBlock::StacksHyperBlock(
-            StacksHyperBlock::from_new_block_event(&self.watch_contract, block.block()),
-        ))
+        Ok(block)
     }
 }
 
@@ -555,14 +553,17 @@ impl MockIndexer {
 }
 
 impl BurnchainIndexer for MockIndexer {
-    type P = MockParser;
-    type B = BlockIPC;
-    type D = MockBlockDownloader;
-
-    fn connect(&mut self) -> Result<(), BurnchainError> {
+    fn connect(&mut self, _readwrite: bool) -> Result<(), BurnchainError> {
         Ok(())
     }
 
+    fn subnets_contract(&self) -> QualifiedContractIdentifier {
+        todo!()
+    }
+
+    fn get_input_channel(&self) -> Box<dyn BurnBlockInputChannel> {
+        panic!("tbd")
+    }
     fn get_first_block_height(&self) -> u64 {
         0
     }
@@ -573,6 +574,10 @@ impl BurnchainIndexer for MockIndexer {
 
     fn get_first_block_header_timestamp(&self) -> Result<u64, BurnchainError> {
         Ok(0)
+    }
+
+    fn get_canonical_chain_tip(&self) -> Option<Box<dyn BurnHeaderIPC>> {
+        todo!()
     }
 
     fn get_stacks_epochs(&self) -> Vec<StacksEpoch> {
@@ -611,12 +616,13 @@ impl BurnchainIndexer for MockIndexer {
             }
         }
 
-        let d = self.downloader();
+        let d = self.downloader().as_ref();
         let start_fill = match self.get_headers_height() {
             Ok(height) => height + 1,
             Err(_) => 0,
         };
-        d.fill_blocks(&mut self.blocks, start_fill, end_height)?;
+        self.incoming_channel.fill_blocks(&mut self.blocks, start_fill, end_height);
+        // self.fill_blocks(&mut self.blocks, start_fill, end_height)?;
 
         self.get_headers_height()
     }
@@ -635,7 +641,7 @@ impl BurnchainIndexer for MockIndexer {
         &self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<Vec<MockHeader>, BurnchainError> {
+    ) -> Result<Vec<Box<dyn BurnHeaderIPC>>, BurnchainError> {
         if start_block < self.minimum_recorded_height {
             return Err(BurnchainError::MissingHeaders);
         }
@@ -649,20 +655,14 @@ impl BurnchainIndexer for MockIndexer {
         );
         let headers = self.blocks[start_index..end_index]
             .iter()
-            .map(|b| MockHeader::from(b))
+            .map(|b| b.header())
             .collect();
         Ok(headers)
     }
 
-    fn downloader(&self) -> MockBlockDownloader {
-        MockBlockDownloader {
+    fn downloader(&self) -> Box<dyn BurnchainBlockDownloader> {
+        Box::new(MockBlockDownloader {
             channel: self.incoming_channel.clone(),
-        }
-    }
-
-    fn parser(&self) -> MockParser {
-        MockParser {
-            watch_contract: self.watch_contract.clone(),
-        }
+        })
     }
 }

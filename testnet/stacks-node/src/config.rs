@@ -956,6 +956,13 @@ pub struct BurnchainConfig {
     pub epochs: Option<Vec<StacksEpoch>>,
     /// The layer 1 contract that the hyperchain will watch for Stacks events.
     pub contract_identifier: QualifiedContractIdentifier,
+    /// Hash of the first L1 Stacks block that we are going to index. The L2 indexer
+    /// will follow all decendents of this.
+    pub first_burn_header_hash: String,
+    /// Base header path for the burnchain indexer db.
+    /// Note: This is an implementation detail separate from the burnchain itself. But, we
+    /// group this in for now, until it's worth making a new struct.
+    pub indexer_base_db_path: String,
 }
 
 impl Default for BurnchainConfig {
@@ -985,6 +992,8 @@ impl Default for BurnchainConfig {
             rbf_fee_increment: DEFAULT_RBF_FEE_RATE_INCREMENT,
             epochs: None,
             contract_identifier: QualifiedContractIdentifier::transient(),
+            first_burn_header_hash: "".to_string(),
+            indexer_base_db_path: "".to_string(),
         }
     }
 }
@@ -1205,9 +1214,9 @@ impl Config {
             BURNCHAIN_NAME_MOCKSTACK => {
                 Some(Box::new(MockController::new(self.clone(), coordinator)))
             }
-            BURNCHAIN_NAME_STACKS_L1 => {
-                Some(Box::new(L1Controller::new(self.clone(), coordinator)))
-            }
+            BURNCHAIN_NAME_STACKS_L1 => Some(Box::new(
+                L1Controller::new(self.clone(), coordinator).expect("Couldn't create L1Controller"),
+            )),
             _ => {
                 warn!(
                     "No matching controller for `chain`: {}",
