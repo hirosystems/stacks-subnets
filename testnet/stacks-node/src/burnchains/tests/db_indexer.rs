@@ -152,3 +152,14 @@ fn test_detect_reorg() {
             .expect("Call to `find_chain_reorg` failed.")
     );
 }
+
+/// `sync_headers` shouldn't block, and should always return the max height.
+#[test]
+fn test_sync_headers() {
+    let mut indexer = make_test_indexer_add_10_block_branch();
+
+    /// No matter what the inputs, the answer is `10`, the max height.
+    assert_eq!(10, indexer.sync_headers(1, Some(2)).expect("Couldn't get height"));
+    assert_eq!(10, indexer.sync_headers(1, Some(11)).expect("Couldn't get height"));
+    assert_eq!(10, indexer.sync_headers(1, None).expect("Couldn't get height"));
+}
