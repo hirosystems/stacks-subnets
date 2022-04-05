@@ -1,9 +1,9 @@
 use crate::burnchains::tests::{make_test_new_block, random_sortdb_test_dir};
 use crate::config::BurnchainConfig;
-use crate::stacks::burnchains::BurnchainIndexer;
 use crate::{burnchains::db_indexer::DBBurnchainIndexer, rand::RngCore};
 use rand;
 use stacks::burnchains::events::{NewBlock, NewBlockTxEvent};
+use stacks::burnchains::indexer::BurnchainIndexer;
 use stacks::types::chainstate::{BurnchainHeaderHash, StacksBlockId};
 use stacks::util::hash::to_hex;
 
@@ -19,8 +19,8 @@ fn make_test_config() -> BurnchainConfig {
 }
 
 /// Make indexer with test settings.
-fn make_test_indexer() -> Box<dyn BurnchainIndexer> {
-    Box::new(DBBurnchainIndexer::new(make_test_config()).expect("Couldn't create indexer."))
+fn make_test_indexer() -> DBBurnchainIndexer {
+    DBBurnchainIndexer::new(make_test_config()).expect("Couldn't create indexer.")
 }
 
 /// Tests that we can make a DBBurnchainIndexer and connect.
@@ -31,7 +31,7 @@ fn test_connect() {
 }
 
 /// Make indexer with test settings and add 10 test new blocks.
-fn make_test_indexer_add_10_block_branch() -> Box<dyn BurnchainIndexer> {
+fn make_test_indexer_add_10_block_branch() -> DBBurnchainIndexer {
     let mut indexer = make_test_indexer();
     indexer.connect(true).expect("Couldn't connect.");
 

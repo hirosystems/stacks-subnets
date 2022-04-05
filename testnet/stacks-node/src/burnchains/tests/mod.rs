@@ -1,9 +1,10 @@
 use crate::rand::RngCore;
+use stacks::burnchains::indexer::BurnBlockIPC;
 use stacks::vm::Value as ClarityValue;
 use stacks::{
     burnchains::{
         events::{ContractEvent, NewBlock, NewBlockTxEvent, TxEventType},
-        BurnBlockIPC, Txid,
+        Txid,
     },
     types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksBlockId},
     util::hash::to_hex,
@@ -29,7 +30,7 @@ fn make_test_new_block(
     block_idx: u8,
     parent_block_idx: u8,
     contract_identifier: QualifiedContractIdentifier,
-) -> Box<dyn BurnBlockIPC> {
+) -> NewBlock {
     let tx_event = {
         let mocked_txid = Txid([0; 32]);
         let topic = "print".into();
@@ -69,5 +70,5 @@ fn make_test_new_block(
         events: vec![tx_event],
     };
 
-    Box::new(BlockIPC(new_block))
+    new_block
 }

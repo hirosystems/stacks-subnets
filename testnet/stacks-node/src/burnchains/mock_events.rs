@@ -471,7 +471,7 @@ pub struct MockParser {
     watch_contract: QualifiedContractIdentifier,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MockHeader {
     pub height: u64,
     pub index_hash: StacksBlockId,

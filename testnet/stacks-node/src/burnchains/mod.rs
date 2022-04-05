@@ -24,6 +24,9 @@ pub mod l1_events;
 
 pub mod db_indexer;
 
+mod tests;
+
+
 #[derive(Debug)]
 pub enum Error {
     CoordinatorClosed,

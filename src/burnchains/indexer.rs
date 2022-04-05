@@ -66,6 +66,10 @@ pub trait BurnchainIndexer {
     /// then initialize them. If initialization is needed and `readwrite` is false, panic.
     fn connect(&mut self, readwrite: bool) -> Result<(), burnchain_error>;
 
+    /// Gets a channel to input blocks to this indexer.
+    fn get_channel(&self) -> Arc<dyn BurnchainChannel>;
+
+
     /// Retrieve aspects of the "first block" that we are tracking.
     fn get_first_block_height(&self) -> u64;
     fn get_first_block_header_hash(&self) -> Result<BurnchainHeaderHash, burnchain_error>;
