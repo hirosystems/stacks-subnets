@@ -16,7 +16,7 @@ use stacks::burnchains::indexer::{BurnHeaderIPC, BurnchainBlockParser};
 use stacks::burnchains::{BurnchainBlock, Error as BurnchainError, StacksHyperBlock};
 use stacks::chainstate::burn::db::DBConn;
 use stacks::core::StacksEpoch;
-use stacks::types::chainstate::BurnchainHeaderHash;
+use stacks::types::chainstate::{BurnchainHeaderHash, StacksBlockId};
 use stacks::util_lib::db::Error as DBError;
 use stacks::util_lib::db::{query_row, u64_to_sql, FromRow};
 use stacks::util_lib::db::{sqlite_open, Error as db_error};
@@ -192,7 +192,7 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
         // Decide if this new node is part of the canonical chain.
         let current_canonical_tip_opt = get_canonical_chain_tip(&connection);
 
-        let header = new_block_to_db_row_header(&new_block);
+        let header = BurnHeaderDBRow::from(&new_block);
         let (is_canonical, needs_reorg) = match &current_canonical_tip_opt {
             // No canonical tip so no re-org.
             None => (true, false),
@@ -376,10 +376,24 @@ impl BurnchainBlockParser for MockParser2 {
 }
 
 fn row_to_mock_header(input: &BurnHeaderDBRow) -> MockHeader {
-    todo!()
+    MockHeader {
+        height: input.height,
+        index_hash: StacksBlockId(input.header_hash.0),
+        parent_index_hash: StacksBlockId(input.parent_header_hash.0),
+        time_stamp: input.time_stamp,
+    }
 }
-fn new_block_to_db_row_header(input: &NewBlock) -> BurnHeaderDBRow {
-    todo!()
+
+impl From<&NewBlock> for BurnHeaderDBRow {
+    fn from(b: &NewBlock) -> Self {
+        BurnHeaderDBRow {
+            header_hash: BurnchainHeaderHash(b.index_block_hash.0.clone()),
+            parent_header_hash: BurnchainHeaderHash(b.parent_index_block_hash.0.clone()),
+            height: b.block_height,
+            time_stamp: b.burn_block_time,
+            is_canonical: 0,
+        }
+    }
 }
 
 impl BurnchainIndexer for DBBurnchainIndexer {
@@ -430,7 +444,9 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     }
 
     fn get_channel(&self) -> Arc<(dyn BurnchainChannel + 'static)> {
-        todo!()
+        Arc::new(DBBurnBlockInputChannel {
+            output_db_path: self.get_headers_path(),
+        })
     }
 
     fn get_first_block_height(&self) -> u64 {
