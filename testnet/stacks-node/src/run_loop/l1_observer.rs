@@ -13,16 +13,16 @@ use warp::Filter;
 pub const EVENT_OBSERVER_PORT: u16 = 50303;
 
 /// Adds in `channel` to downstream functions.
-fn with_db<Header, Block>(
-    channel: Arc<dyn BurnchainChannel<Header = Header, Block = Block>,
+fn with_db(
+    channel: Arc<dyn BurnchainChannel>,
 ) -> impl Filter<Extract = (Arc<dyn BurnchainChannel>,), Error = std::convert::Infallible> + Clone {
     warp::any().map(move || channel.clone())
 }
 
 /// Route handler.
-async fn handle_new_block<Header, Block>(
+async fn handle_new_block(
     block: serde_json::Value,
-    channel: Arc<dyn BurnchainChannel<Header = Header, Block = Block>>,
+    channel: Arc<dyn BurnchainChannel>,
 ) -> Result<impl warp::Reply, Infallible> {
     let parsed_block: NewBlock =
         serde_json::from_str(&block.to_string()).expect("Failed to parse events JSON");
@@ -32,9 +32,9 @@ async fn handle_new_block<Header, Block>(
 }
 
 /// Define and run the `warp` server.
-async fn serve<Header, Block>(
+async fn serve(
     signal_receiver: Receiver<()>,
-    channel: Arc<dyn BurnchainChannel<Header = Header, Block = Block>,
+    channel: Arc<dyn BurnchainChannel>,
 ) -> Result<(), JoinError> {
     let first_part = warp::path!("new_block")
         .and(warp::post())
@@ -56,7 +56,7 @@ async fn serve<Header, Block>(
 }
 
 /// Spawn a thread with a `warp` server.
-pub fn spawn<Header, Block>(channel: Arc<dyn BurnchainChannel<Header = Header, Block = Block>>) -> Sender<()> {
+pub fn spawn(channel: Arc<dyn BurnchainChannel>) -> Sender<()> {
     let (signal_sender, signal_receiver) = oneshot::channel();
     thread::spawn(|| {
         let rt = tokio::runtime::Runtime::new().expect("Failed to initialize tokio");

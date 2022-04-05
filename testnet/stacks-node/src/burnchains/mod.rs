@@ -46,8 +46,6 @@ impl From<burnchains::Error> for Error {
 }
 
 pub trait BurnchainChannel: Send + Sync {
-    type Header: Send + Sync + Clone;
-    type Block: Send + Sync + Clone;
     /// Push a block into the channel.
     fn push_block(&self, new_block: NewBlock);
 
@@ -71,14 +69,11 @@ pub trait BurnchainChannel: Send + Sync {
 /// The `BurnchainController` manages overall relations with the underlying burnchain.
 /// In the case of a hyper-chain, the burnchain is the Stacks L1 chain.
 pub trait BurnchainController {
-    type Header: Send + Sync + Clone;
-    type Block: Send + Sync + Clone;
-
     fn start(&mut self, target_block_height_opt: Option<u64>)
         -> Result<(BurnchainTip, u64), Error>;
 
     /// Returns a copy of the channel used to push
-    fn get_channel(&self) -> Arc<dyn BurnchainChannel<Header=Self::Header,Block=Self::Block>>;
+    fn get_channel(&self) -> Arc<dyn BurnchainChannel>;
 
     fn submit_operation(
         &mut self,
@@ -117,14 +112,14 @@ pub struct BurnchainTip {
 
 pub struct PanicController();
 
-impl<Header, Block> BurnchainController for PanicController {
+impl BurnchainController for PanicController {
     fn start(
         &mut self,
         _target_block_height_opt: Option<u64>,
     ) -> Result<(BurnchainTip, u64), Error> {
         panic!()
     }
-    fn get_channel(&self) -> Arc<dyn BurnchainChannel<Header=Header, Block=Block>> {
+    fn get_channel(&self) -> Arc<dyn BurnchainChannel> {
         panic!("tbd")
     }
 

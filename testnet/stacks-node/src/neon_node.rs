@@ -543,8 +543,8 @@ fn recv_unconfirmed_txs(
     }
 }
 
-fn spawn_peer<Header, Block>(
-    runloop: &RunLoop<Header, Block>,
+fn spawn_peer(
+    runloop: &RunLoop,
     mut this: PeerNetwork,
     p2p_sock: &SocketAddr,
     rpc_sock: &SocketAddr,
@@ -775,8 +775,8 @@ fn set_last_sortition(
     };
 }
 
-fn spawn_miner_relayer<Header, Block>(
-    runloop: &RunLoop<Header, Block>,
+fn spawn_miner_relayer(
+    runloop: &RunLoop,
     mut relayer: Relayer,
     local_peer: LocalPeer,
     mut keychain: Keychain,
@@ -1122,8 +1122,8 @@ fn spawn_miner_relayer<Header, Block>(
 }
 
 impl StacksNode {
-    pub fn spawn<Header, Block>(
-        runloop: &RunLoop<Header, Block>,
+    pub fn spawn(
+        runloop: &RunLoop,
         last_burn_block: Option<BurnchainTip>,
         coord_comms: CoordinatorChannels,
         attachments_rx: Receiver<HashSet<AttachmentInstance>>,
@@ -1497,14 +1497,14 @@ impl StacksNode {
 
     /// Return the assembled anchor block info and microblock private key on success.
     /// Return None if we couldn't build a block for whatever reason
-    fn relayer_run_tenure<Header, Block>(
+    fn relayer_run_tenure(
         config: &Config,
         chain_state: &mut StacksChainState,
         burn_db: &mut SortitionDB,
         burn_block: BlockSnapshot,
         keychain: &mut Keychain,
         mem_pool: &mut MemPoolDB,
-        bitcoin_controller: &mut (dyn BurnchainController<Header = Header, Block = Block> + Send),
+        bitcoin_controller: &mut (dyn BurnchainController + Send),
         last_mined_blocks: &Vec<&AssembledAnchorBlock>,
         event_dispatcher: &EventDispatcher,
     ) -> Option<(AssembledAnchorBlock, Secp256k1PrivateKey)> {
