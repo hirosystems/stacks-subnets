@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::sync::Arc;
 use std::{fs, io};
 
@@ -22,9 +23,16 @@ use stacks::util_lib::db::{query_row, u64_to_sql, FromRow};
 use stacks::util_lib::db::{sqlite_open, Error as db_error};
 use stacks_common::deps_common::bitcoin::util::hash::Sha256dHash;
 
-struct DBBurnBlockInputChannel {
-    output_db_path: String,
-}
+
+const DB_BURNCHAIN_SCHEMA: &'static str = &r#"
+    CREATE TABLE headers(
+        height INTEGER NOT NULL,
+        header_hash TEXT PRIMARY KEY NOT NULL,
+        parent_header_hash TEXT NOT NULL,
+        time_stamp INTEGER NOT NULL,
+        is_canonical INTEGER NOT NULL  -- is this block on the canonical path?
+    );
+    "#;
 
 /// Returns true iff the header with index `header_hash` is marked as `is_canonical` in the db.
 fn is_canonical(
@@ -48,20 +56,22 @@ fn is_canonical(
     Ok(row != 0)
 }
 
-/// Returns a comparison between `a` and `b` in `-1, 0, 1` format.
-fn compare_headers(a: &BurnHeaderDBRow, b: &BurnHeaderDBRow) -> i64 {
+/// Returns a comparison between `a` and `b`.
+/// Headers are sorted by height (higher is greater), and then lexicographically by 
+/// the header hash (greater in string space is greater).
+fn compare_headers(a: &BurnHeaderDBRow, b: &BurnHeaderDBRow) -> Ordering {
     if a.height() > b.height() {
-        -1
+        Ordering::Less
     } else if a.height() < b.height() {
-        1
+        Ordering::Greater
     } else {
         // Heights are the same, compare the hashes.
         if a.header_hash() > b.header_hash() {
-            -1
+            Ordering::Less
         } else if a.header_hash() < b.header_hash() {
-            1
+            Ordering::Greater
         } else {
-            0
+            Ordering::Equal
         }
     }
 }
@@ -191,6 +201,11 @@ fn find_first_canonical_ancestor(
     }
 }
 
+
+struct DBBurnBlockInputChannel {
+    output_db_path: String,
+}
+
 impl BurnchainChannel for DBBurnBlockInputChannel {
     fn push_block(&self, new_block: NewBlock) -> Result<(), BurnchainError> {
         // Re-open the connection.
@@ -213,7 +228,7 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
                     // `new_block` isn't the child of the current tip. We ASSUME we have seen all blocks before now.
                     // So, this must be a different chain. Check to see if this is a longer tip.
                     let compare_result = compare_headers(current_canonical_tip, &header);
-                    if compare_result > 0 {
+                    if compare_result == Ordering::Greater {
                         // The new block is greater than the previous tip. It is canonical, and we need a reorg.
                         (true, true)
                     } else {
@@ -297,16 +312,6 @@ impl FromRow<BurnHeaderDBRow> for BurnHeaderDBRow {
         })
     }
 }
-
-const DB_BURNCHAIN_SCHEMA: &'static str = &r#"
-    CREATE TABLE headers(
-        height INTEGER NOT NULL,
-        header_hash TEXT PRIMARY KEY NOT NULL,
-        parent_header_hash TEXT NOT NULL,
-        time_stamp INTEGER NOT NULL,
-        is_canonical INTEGER NOT NULL  -- is this block on the canonical path?
-    );
-    "#;
 
 /// Tracks burnchain forks by storing the block headers in a database.
 pub struct DBBurnchainIndexer {
