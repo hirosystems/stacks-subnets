@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 use std::{fs, io};
 
-use rusqlite::{OpenFlags, Row, ToSql, NO_PARAMS};
+use rusqlite::{OpenFlags, Row, ToSql, NO_PARAMS, Transaction};
 use stacks::burnchains::events::NewBlock;
 use stacks::vm::types::QualifiedContractIdentifier;
 
@@ -87,22 +87,18 @@ fn get_canonical_chain_tip(connection: &DBConn) -> Option<BurnHeaderDBRow> {
     .expect("Couldn't read from the DB.")
 }
 
-// 1) Mark all ancestors of `new_tip` as `is_canonical`.
-// 2) Stop at the first node that already is marked `is_canonical`. This the `greatest common ancestor`.
-// 3) Mark each node from `node_tip` (inclusive) to the `greatest common ancestor` as not `is_canonical`.
-//
-// Returns the height of the `greatest common ancesor`.
+/// 1) Mark all ancestors of `new_tip` as `is_canonical`.
+/// 2) Stop at the first node that already is marked `is_canonical`. This the `greatest common ancestor`.
+/// 3) Mark each node from `node_tip` (inclusive) to the `greatest common ancestor` as not `is_canonical`.
+///
+/// Returns the height of the `greatest common ancesor`.
+///
+/// `transaction` should be commited outside of this function.
 fn process_reorg(
-    connection: &mut DBConn,
+    transaction: &mut Transaction,
     new_tip: &BurnHeaderDBRow,
     old_tip: &BurnHeaderDBRow,
 ) -> Result<u64, BurnchainError> {
-    let transaction = match connection.transaction() {
-        Ok(transaction) => transaction,
-        Err(e) => {
-            return Err(BurnchainError::DBError(db_error::SqliteError(e)));
-        }
-    };
     // Step 1: Set `is_canonical` to true for ancestors of the new tip.
     let mut up_cursor = BurnchainHeaderHash(new_tip.parent_header_hash());
     let greatest_common_ancestor = loop {
@@ -167,8 +163,6 @@ fn process_reorg(
 
         down_cursor = cursor_header.parent_header_hash;
     }
-
-    transaction.commit()?;
 
     Ok(greatest_common_ancestor.height)
 }
@@ -246,7 +240,13 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
             &(header.time_stamp() as u32),
             &(is_canonical as u32),
         ];
-        connection.execute(
+        let mut transaction = match connection.transaction() {
+            Ok(transaction) => transaction,
+            Err(e) => {
+                return Err(BurnchainError::DBError(db_error::SqliteError(e)));
+            }
+        };
+        transaction.execute(
             "INSERT INTO headers (height, header_hash, parent_header_hash, time_stamp, is_canonical) VALUES (?, ?, ?, ?, ?)",
             params,
         )?;
@@ -254,13 +254,16 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
         // Possibly process re-org in the database representation.
         if needs_reorg {
             process_reorg(
-                &mut connection,
+                &mut transaction,
                 &header,
                 current_canonical_tip_opt
                     .as_ref()
                     .expect("Canonical tip should exist if we are doing a reorg"),
             )?;
         }
+
+        transaction.commit()?;
+
         Ok(())
     }
 }
