@@ -246,19 +246,6 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
         Ok(())
     }
 }
-struct DBBlockDownloader {
-    db_path: String,
-}
-
-impl BurnchainBlockDownloader for DBBlockDownloader {
-    type B = BlockIPC;
-    fn download(
-        &mut self,
-        header: &<Self::B as BurnBlockIPC>::H,
-    ) -> Result<Self::B, BurnchainError> {
-        todo!()
-    }
-}
 
 #[derive(Debug, Clone)]
 /// Corresponds to a row in the `headers` table.
@@ -343,35 +330,29 @@ impl DBBurnchainIndexer {
     }
 }
 
-pub struct MockParser2 {
+pub struct DBBurnchainParser {
     watch_contract: QualifiedContractIdentifier,
 }
 
-pub struct MockBlockDownloader2 {
-    channel: Arc<DBBurnBlockInputChannel>,
-}
-
-impl BurnchainBlockDownloader for MockBlockDownloader2 {
-    type B = BlockIPC;
-
-    fn download(&mut self, header: &MockHeader) -> Result<BlockIPC, BurnchainError> {
-        todo!()
-        // let block = self.channel.get_block(header.height).ok_or_else(|| {
-        //     warn!("Failed to mock download height = {}", header.height);
-        //     BurnchainError::BurnchainPeerBroken
-        // })?;
-
-        // Ok(BlockIPC(block))
-    }
-}
-
-impl BurnchainBlockParser for MockParser2 {
+impl BurnchainBlockParser for DBBurnchainParser {
     type B = BlockIPC;
 
     fn parse(&mut self, block: &BlockIPC) -> Result<BurnchainBlock, BurnchainError> {
         Ok(BurnchainBlock::StacksHyperBlock(
             StacksHyperBlock::from_new_block_event(&self.watch_contract, block.block()),
         ))
+    }
+}
+
+pub struct DBBlockDownloader {
+    channel: Arc<DBBurnBlockInputChannel>,
+}
+
+impl BurnchainBlockDownloader for DBBlockDownloader {
+    type B = BlockIPC;
+
+    fn download(&mut self, header: &MockHeader) -> Result<BlockIPC, BurnchainError> {
+        todo!()
     }
 }
 
@@ -397,9 +378,9 @@ impl From<&NewBlock> for BurnHeaderDBRow {
 }
 
 impl BurnchainIndexer for DBBurnchainIndexer {
-    type P = MockParser2;
+    type P = DBBurnchainParser;
     type B = BlockIPC;
-    type D = MockBlockDownloader2;
+    type D = DBBlockDownloader;
     fn connect(&mut self, readwrite: bool) -> Result<(), BurnchainError> {
         let path = &self.config.indexer_base_db_path;
         let mut create_flag = false;
@@ -584,9 +565,6 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     }
     fn downloader(&self) -> Self::D {
         todo!()
-        // DBBlockDownloader {
-        //     db_path: self.get_headers_path(),
-        // }
     }
 }
 

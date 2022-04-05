@@ -61,23 +61,6 @@ pub trait BurnchainBlockParser {
 pub trait BurnchainChannel: Send + Sync {
     /// Push a block into the channel.
     fn push_block(&self, new_block: NewBlock) -> Result<(), burnchain_error>;
-
-    // /// Get a single block according to `fetch_height`.
-    // /// TODO: What is `fetch_height` relative to?
-    // fn get_block(&self, fetch_height: u64) -> Option<NewBlock>;
-
-    // /// Fill `into` according to the relative heights.
-    // /// If `end_block` is None, fill until the heighest block.
-    // fn fill_blocks(
-    //     &self,
-    //     into: &mut Vec<NewBlock>,
-    //     start_block: u64,
-    //     end_block: Option<u64>,
-    // ) -> Result<(), stacks::burnchains::Error>;
-
-    // /// Get the height of the latest block.
-    // /// TODO: Is this right?
-    // fn highest_block(&self) -> u64;
 }
 
 pub trait BurnchainIndexer {
