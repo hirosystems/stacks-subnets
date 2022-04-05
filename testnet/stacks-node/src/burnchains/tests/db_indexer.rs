@@ -35,7 +35,7 @@ fn make_test_indexer_add_10_block_branch() -> DBBurnchainIndexer {
     let mut indexer = make_test_indexer();
     indexer.connect(true).expect("Couldn't connect.");
 
-    let input_channel = indexer.get_input_channel();
+    let input_channel = indexer.get_channel();
 
     // Add heights up to 10.
     for block_idx in 1..11 {
@@ -85,7 +85,7 @@ fn test_detect_reorg() {
     let mut indexer = make_test_indexer();
     indexer.connect(true).expect("Couldn't connect.");
 
-    let input_channel = indexer.get_input_channel();
+    let input_channel = indexer.get_channel();
 
     let contract_identifier = make_test_config().contract_identifier.clone();
     input_channel

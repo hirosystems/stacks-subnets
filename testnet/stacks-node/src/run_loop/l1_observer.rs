@@ -1,8 +1,8 @@
 use std::convert::Infallible;
 use std::sync::Arc;
 
-use crate::burnchains::BurnchainChannel;
 use stacks::burnchains::events::NewBlock;
+use stacks::burnchains::indexer::BurnchainChannel;
 use std::thread;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::Receiver;

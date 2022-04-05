@@ -429,6 +429,10 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         Ok(())
     }
 
+    fn get_channel(&self) -> Arc<(dyn BurnchainChannel + 'static)> {
+        todo!()
+    }
+
     fn get_first_block_height(&self) -> u64 {
         let header = self.get_header_for_hash(&self.first_burn_header_hash);
         header.height()

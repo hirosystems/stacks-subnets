@@ -14,12 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use burnchains::events::NewBlock;
 use burnchains::BurnchainBlock;
 use burnchains::Error as burnchain_error;
 use burnchains::*;
 
 use crate::types::chainstate::BurnchainHeaderHash;
 use core::StacksEpoch;
+use std::sync::Arc;
 
 // IPC messages between threads
 pub trait BurnHeaderIPC {
@@ -56,6 +58,28 @@ pub trait BurnchainBlockParser {
     fn parse(&mut self, block: &Self::B) -> Result<BurnchainBlock, burnchain_error>;
 }
 
+pub trait BurnchainChannel: Send + Sync {
+    /// Push a block into the channel.
+    fn push_block(&self, new_block: NewBlock) -> Result<(), burnchain_error>;
+
+    // /// Get a single block according to `fetch_height`.
+    // /// TODO: What is `fetch_height` relative to?
+    // fn get_block(&self, fetch_height: u64) -> Option<NewBlock>;
+
+    // /// Fill `into` according to the relative heights.
+    // /// If `end_block` is None, fill until the heighest block.
+    // fn fill_blocks(
+    //     &self,
+    //     into: &mut Vec<NewBlock>,
+    //     start_block: u64,
+    //     end_block: Option<u64>,
+    // ) -> Result<(), stacks::burnchains::Error>;
+
+    // /// Get the height of the latest block.
+    // /// TODO: Is this right?
+    // fn highest_block(&self) -> u64;
+}
+
 pub trait BurnchainIndexer {
     type B: BurnBlockIPC + Sync + Send + Clone;
     type P: BurnchainBlockParser<B = Self::B> + Send + Sync;
@@ -68,7 +92,6 @@ pub trait BurnchainIndexer {
 
     /// Gets a channel to input blocks to this indexer.
     fn get_channel(&self) -> Arc<dyn BurnchainChannel>;
-
 
     /// Retrieve aspects of the "first block" that we are tracking.
     fn get_first_block_height(&self) -> u64;

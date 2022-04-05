@@ -574,6 +574,10 @@ impl BurnchainIndexer for MockIndexer {
         Ok(())
     }
 
+    fn get_channel(&self) -> Arc<(dyn BurnchainChannel + 'static)> {
+        todo!()
+    }
+
     fn get_first_block_height(&self) -> u64 {
         0
     }
