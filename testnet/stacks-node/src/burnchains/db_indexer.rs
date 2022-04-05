@@ -83,15 +83,21 @@ fn get_canonical_chain_tip(connection: &DBConn) -> Option<BurnHeaderDBRow> {
 //
 // Returns the height of the `greatest common ancesor`.
 fn process_reorg(
-    connection: &DBConn,
+    connection: &mut DBConn,
     new_tip: &BurnHeaderDBRow,
     old_tip: &BurnHeaderDBRow,
 ) -> Result<u64, BurnchainError> {
+    let transaction = match connection.transaction() {
+        Ok(transaction) => transaction,
+        Err(e) => {
+            return Err(BurnchainError::DBError(db_error::SqliteError(e)));
+        }
+    };
     // Step 1: Set `is_canonical` to true for ancestors of the new tip.
     let mut up_cursor = BurnchainHeaderHash(new_tip.parent_header_hash());
     let greatest_common_ancestor = loop {
         let cursor_header = match query_row::<BurnHeaderDBRow, _>(
-            connection,
+            &transaction,
             "SELECT * FROM headers WHERE header_hash = ?1",
             &[&up_cursor],
         )? {
@@ -106,7 +112,7 @@ fn process_reorg(
             break cursor_header;
         }
 
-        match connection.execute(
+        match transaction.execute(
             "UPDATE headers SET is_canonical = 1 WHERE header_hash = ?1",
             &[&up_cursor],
         ) {
@@ -124,7 +130,7 @@ fn process_reorg(
     let mut down_cursor = BurnchainHeaderHash(old_tip.header_hash());
     loop {
         let cursor_header = match query_row::<BurnHeaderDBRow, _>(
-            connection,
+            &transaction,
             "SELECT * FROM headers WHERE header_hash = ?1",
             &[&down_cursor],
         )? {
@@ -139,7 +145,7 @@ fn process_reorg(
             break;
         }
 
-        match connection.execute(
+        match transaction.execute(
             "UPDATE headers SET is_canonical = 0 WHERE header_hash = ?1",
             &[&down_cursor],
         ) {
@@ -151,6 +157,8 @@ fn process_reorg(
 
         down_cursor = cursor_header.parent_header_hash;
     }
+
+    transaction.commit()?;
 
     Ok(greatest_common_ancestor.height)
 }
@@ -187,7 +195,7 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
     fn push_block(&self, new_block: NewBlock) -> Result<(), BurnchainError> {
         // Re-open the connection.
         let open_flags = OpenFlags::SQLITE_OPEN_READ_WRITE;
-        let connection = sqlite_open(&self.output_db_path, open_flags, true)?;
+        let mut connection = sqlite_open(&self.output_db_path, open_flags, true)?;
 
         // Decide if this new node is part of the canonical chain.
         let current_canonical_tip_opt = get_canonical_chain_tip(&connection);
@@ -230,8 +238,8 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
 
         // Possibly process re-org in the database representation.
         if needs_reorg {
-            let push_block_process_reorg = process_reorg(
-                &connection,
+            process_reorg(
+                &mut connection,
                 &header,
                 current_canonical_tip_opt
                     .as_ref()
