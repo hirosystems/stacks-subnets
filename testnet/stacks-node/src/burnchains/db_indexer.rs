@@ -320,12 +320,12 @@ const DB_BURNCHAIN_SCHEMA: &'static str = &r#"
 pub struct DBBurnchainIndexer {
     config: BurnchainConfig,
     connection: Option<DBConn>,
-    last_canonical_tip: Option<Box<dyn BurnHeaderIPC<H=Header>>>,
+    last_canonical_tip: Option<Box<dyn BurnHeaderIPC<H=BurnHeaderDBRow>>>,
     first_burn_header_hash: BurnchainHeaderHash,
 }
 
-impl<Header, Block> DBBurnchainIndexer<Header, Block> {
-    pub fn new(config: BurnchainConfig) -> Result<DBBurnchainIndexer<Header, Block>, Error> {
+impl DBBurnchainIndexer {
+    pub fn new(config: BurnchainConfig) -> Result<DBBurnchainIndexer, Error> {
         let first_burn_header_hash = BurnchainHeaderHash(
             Sha256dHash::from_hex(&config.first_burn_header_hash)
                 .expect("Could not parse `first_burn_header_hash`.")
@@ -341,7 +341,7 @@ impl<Header, Block> DBBurnchainIndexer<Header, Block> {
     }
 }
 
-impl<Header, Block> BurnchainIndexer for DBBurnchainIndexer<Header, Block> {
+impl BurnchainIndexer for DBBurnchainIndexer {
     fn connect(&mut self, readwrite: bool) -> Result<(), BurnchainError> {
         let path = &self.config.indexer_base_db_path;
         let mut create_flag = false;
