@@ -61,11 +61,16 @@ pub trait BurnchainIndexer {
     type P: BurnchainBlockParser<B = Self::B> + Send + Sync;
     type D: BurnchainBlockDownloader<B = Self::B> + Send + Sync;
 
-    fn connect(&mut self) -> Result<(), burnchain_error>;
+    /// Instructs the sub-class to connect to databases.
+    /// This call should also check if any databases need to be initialized. If so, and `readwrite` is true,
+    /// then initialize them. If initialization is needed and `readwrite` is false, panic.
+    fn connect(&mut self, readwrite: bool) -> Result<(), burnchain_error>;
 
+    /// Retrieve aspects of the "first block" that we are tracking.
     fn get_first_block_height(&self) -> u64;
     fn get_first_block_header_hash(&self) -> Result<BurnchainHeaderHash, burnchain_error>;
     fn get_first_block_header_timestamp(&self) -> Result<u64, burnchain_error>;
+
     fn get_stacks_epochs(&self) -> Vec<StacksEpoch>;
 
     fn get_headers_path(&self) -> String;

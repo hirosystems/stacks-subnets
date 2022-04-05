@@ -91,11 +91,14 @@ fn make_mock_byte_string_for_first_l1_block() -> [u8; 32] {
 }
 
 impl BurnchainChannel for L1Channel {
-    fn push_block(&self, new_block: NewBlock) {
+    fn push_block(&self, new_block: NewBlock) -> Result<(), stacks::burnchains::Error> {
         let mut blocks = self.blocks.lock().unwrap();
-        blocks.push(new_block)
+        blocks.push(new_block);
+        Ok(())
     }
+}
 
+impl L1Channel {
     fn get_block(&self, fetch_height: u64) -> Option<NewBlock> {
         let minimum_recorded_height = self.minimum_recorded_height.lock().unwrap();
         let blocks = self.blocks.lock().unwrap();
@@ -434,7 +437,7 @@ impl BurnchainIndexer for L1Indexer {
     type B = BlockIPC;
     type D = L1BlockDownloader;
 
-    fn connect(&mut self) -> Result<(), BurnchainError> {
+    fn connect(&mut self, _readwrite: bool) -> Result<(), BurnchainError> {
         Ok(())
     }
 

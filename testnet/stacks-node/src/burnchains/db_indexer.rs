@@ -1,28 +1,28 @@
+use std::sync::Arc;
 use std::{fs, io};
 
 use rusqlite::{OpenFlags, Row, ToSql, NO_PARAMS};
 use stacks::burnchains::events::NewBlock;
 use stacks::vm::types::QualifiedContractIdentifier;
 
-use super::{Error, BurnchainChannel};
+use super::mock_events::{BlockIPC, MockHeader};
+use super::{BurnchainChannel, Error};
 use crate::config::BurnchainConfig;
 use crate::stacks::util_lib::db::FromColumn;
-use stacks::burnchains::{
-    Error as BurnchainError,
-};
+use stacks::burnchains::indexer::BurnBlockIPC;
+use stacks::burnchains::indexer::BurnchainBlockDownloader;
+use stacks::burnchains::indexer::BurnchainIndexer;
+use stacks::burnchains::indexer::{BurnHeaderIPC, BurnchainBlockParser};
+use stacks::burnchains::{BurnchainBlock, Error as BurnchainError, StacksHyperBlock};
 use stacks::chainstate::burn::db::DBConn;
 use stacks::core::StacksEpoch;
-use stacks::types::chainstate::{BurnchainHeaderHash};
+use stacks::types::chainstate::BurnchainHeaderHash;
 use stacks::util_lib::db::Error as DBError;
 use stacks::util_lib::db::{query_row, u64_to_sql, FromRow};
 use stacks::util_lib::db::{sqlite_open, Error as db_error};
 use stacks_common::deps_common::bitcoin::util::hash::Sha256dHash;
-use stacks::burnchains::indexer::BurnHeaderIPC;
-use stacks::burnchains::indexer::BurnBlockIPC;
-use stacks::burnchains::indexer::BurnchainBlockDownloader;
-use stacks::burnchains::indexer::BurnchainIndexer;
 
-struct DBBurnBlockInputChannel<Header, Block> {
+struct DBBurnBlockInputChannel {
     output_db_path: String,
 }
 
@@ -49,7 +49,7 @@ fn is_canonical(
 }
 
 /// Returns a comparison between `a` and `b` in `-1, 0, 1` format.
-fn compare_headers<Header>(a: &dyn BurnHeaderIPC<H=Header>, b: &dyn BurnHeaderIPC<H=Header>) -> i64 {
+fn compare_headers(a: &BurnHeaderDBRow, b: &BurnHeaderDBRow) -> i64 {
     if a.height() > b.height() {
         -1
     } else if a.height() < b.height() {
@@ -88,7 +88,7 @@ fn process_reorg(
     old_tip: &BurnHeaderDBRow,
 ) -> Result<u64, BurnchainError> {
     // Step 1: Set `is_canonical` to true for ancestors of the new tip.
-    let mut up_cursor = new_tip.parent_header_hash();
+    let mut up_cursor = BurnchainHeaderHash(new_tip.parent_header_hash());
     let greatest_common_ancestor = loop {
         let cursor_header = match query_row::<BurnHeaderDBRow, _>(
             connection,
@@ -121,7 +121,7 @@ fn process_reorg(
 
     // Step 2: Set `is_canonical` to false from the old tip (inclusive) to the greatest
     // common ancestor (exclusive).
-    let mut down_cursor = old_tip.header_hash();
+    let mut down_cursor = BurnchainHeaderHash(old_tip.header_hash());
     loop {
         let cursor_header = match query_row::<BurnHeaderDBRow, _>(
             connection,
@@ -183,8 +183,8 @@ fn find_first_canonical_ancestor(
     }
 }
 
-impl<Header, Block> BurnchainChannel for DBBurnBlockInputChannel<Header, Block> {
-    fn push_block(&self, new_block: Box<dyn BurnBlockIPC<H=Self::Header, B=Self::Block>>) -> Result<(), BurnchainError> {
+impl BurnchainChannel for DBBurnBlockInputChannel {
+    fn push_block(&self, new_block: NewBlock) -> Result<(), BurnchainError> {
         // Re-open the connection.
         let open_flags = OpenFlags::SQLITE_OPEN_READ_WRITE;
         let connection = sqlite_open(&self.output_db_path, open_flags, true)?;
@@ -192,21 +192,19 @@ impl<Header, Block> BurnchainChannel for DBBurnBlockInputChannel<Header, Block> 
         // Decide if this new node is part of the canonical chain.
         let current_canonical_tip_opt = get_canonical_chain_tip(&connection);
 
+        let header = new_block_to_db_row_header(&new_block);
         let (is_canonical, needs_reorg) = match &current_canonical_tip_opt {
             // No canonical tip so no re-org.
             None => (true, false),
 
             Some(current_canonical_tip) => {
                 // `new_blocks` parent is the old tip, so no reorg.
-                if new_block.header().parent_header_hash() == current_canonical_tip.header_hash() {
+                if header.parent_header_hash() == current_canonical_tip.header_hash() {
                     (true, false)
                 } else {
                     // `new_block` isn't the child of the current tip. We ASSUME we have seen all blocks before now.
                     // So, this must be a different chain. Check to see if this is a longer tip.
-                    let compare_result = compare_headers(
-                        current_canonical_tip.as_ref(),
-                        new_block.header().as_ref(),
-                    );
+                    let compare_result = compare_headers(current_canonical_tip, &header);
                     if compare_result > 0 {
                         // The new block is greater than the previous tip. It is canonical, and we need a reorg.
                         (true, true)
@@ -219,10 +217,10 @@ impl<Header, Block> BurnchainChannel for DBBurnBlockInputChannel<Header, Block> 
 
         // Insert this header.
         let params: &[&dyn ToSql] = &[
-            &(new_block.header().height() as u32),
-            &new_block.header().header_hash(),
-            &new_block.header().parent_header_hash(),
-            &(new_block.header().time_stamp() as u32),
+            &(header.height() as u32),
+            &BurnchainHeaderHash(header.header_hash()),
+            &BurnchainHeaderHash(header.parent_header_hash()),
+            &(header.time_stamp() as u32),
             &(is_canonical as u32),
         ];
         match connection.execute(
@@ -239,11 +237,10 @@ impl<Header, Block> BurnchainChannel for DBBurnBlockInputChannel<Header, Block> 
         if needs_reorg {
             let push_block_process_reorg = process_reorg(
                 &connection,
-                new_block.header().as_ref(),
+                &header,
                 current_canonical_tip_opt
                     .as_ref()
-                    .expect("Canonical tip should exist if we are doing a reorg")
-                    .as_ref(),
+                    .expect("Canonical tip should exist if we are doing a reorg"),
             )?;
         }
         Ok(())
@@ -254,6 +251,7 @@ struct DBBlockDownloader {
 }
 
 impl BurnchainBlockDownloader for DBBlockDownloader {
+    type B = BlockIPC;
     fn download(
         &mut self,
         header: &<Self::B as BurnBlockIPC>::H,
@@ -262,7 +260,7 @@ impl BurnchainBlockDownloader for DBBlockDownloader {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Corresponds to a row in the `headers` table.
 pub struct BurnHeaderDBRow {
     pub height: u64,
@@ -273,14 +271,18 @@ pub struct BurnHeaderDBRow {
 }
 
 impl BurnHeaderIPC for BurnHeaderDBRow {
+    type H = BurnHeaderDBRow;
+    fn header(&self) -> Self::H {
+        self.clone()
+    }
     fn height(&self) -> u64 {
         self.height
     }
-    fn header_hash(&self) -> BurnchainHeaderHash {
-        self.header_hash
+    fn header_hash(&self) -> [u8; 32] {
+        self.header_hash.0
     }
-    fn parent_header_hash(&self) -> BurnchainHeaderHash {
-        self.parent_header_hash
+    fn parent_header_hash(&self) -> [u8; 32] {
+        self.parent_header_hash.0
     }
     fn time_stamp(&self) -> u64 {
         self.time_stamp
@@ -320,7 +322,7 @@ const DB_BURNCHAIN_SCHEMA: &'static str = &r#"
 pub struct DBBurnchainIndexer {
     config: BurnchainConfig,
     connection: Option<DBConn>,
-    last_canonical_tip: Option<Box<dyn BurnHeaderIPC<H=BurnHeaderDBRow>>>,
+    last_canonical_tip: Option<BurnHeaderDBRow>,
     first_burn_header_hash: BurnchainHeaderHash,
 }
 
@@ -341,7 +343,49 @@ impl DBBurnchainIndexer {
     }
 }
 
+pub struct MockParser2 {
+    watch_contract: QualifiedContractIdentifier,
+}
+
+pub struct MockBlockDownloader2 {
+    channel: Arc<DBBurnBlockInputChannel>,
+}
+
+impl BurnchainBlockDownloader for MockBlockDownloader2 {
+    type B = BlockIPC;
+
+    fn download(&mut self, header: &MockHeader) -> Result<BlockIPC, BurnchainError> {
+        todo!()
+        // let block = self.channel.get_block(header.height).ok_or_else(|| {
+        //     warn!("Failed to mock download height = {}", header.height);
+        //     BurnchainError::BurnchainPeerBroken
+        // })?;
+
+        // Ok(BlockIPC(block))
+    }
+}
+
+impl BurnchainBlockParser for MockParser2 {
+    type B = BlockIPC;
+
+    fn parse(&mut self, block: &BlockIPC) -> Result<BurnchainBlock, BurnchainError> {
+        Ok(BurnchainBlock::StacksHyperBlock(
+            StacksHyperBlock::from_new_block_event(&self.watch_contract, block.block()),
+        ))
+    }
+}
+
+fn row_to_mock_header(input: &BurnHeaderDBRow) -> MockHeader {
+    todo!()
+}
+fn new_block_to_db_row_header(input: &NewBlock) -> BurnHeaderDBRow {
+    todo!()
+}
+
 impl BurnchainIndexer for DBBurnchainIndexer {
+    type P = MockParser2;
+    type B = BlockIPC;
+    type D = MockBlockDownloader2;
     fn connect(&mut self, readwrite: bool) -> Result<(), BurnchainError> {
         let path = &self.config.indexer_base_db_path;
         let mut create_flag = false;
@@ -392,7 +436,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
 
     fn get_first_block_header_hash(&self) -> Result<BurnchainHeaderHash, BurnchainError> {
         let header = self.get_header_for_hash(&self.first_burn_header_hash);
-        Ok(header.header_hash())
+        Ok(BurnchainHeaderHash(header.header_hash()))
     }
 
     fn get_first_block_header_timestamp(&self) -> Result<u64, BurnchainError> {
@@ -442,7 +486,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
 
         let still_canonical = is_canonical(
             self.connection.as_ref().unwrap(),
-            last_canonical_tip.header_hash(),
+            BurnchainHeaderHash(last_canonical_tip.header_hash()),
         )
         .expect("Couldn't get is_canonical.");
 
@@ -452,7 +496,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         } else {
             find_first_canonical_ancestor(
                 self.connection.as_ref().unwrap(),
-                last_canonical_tip.header_hash(),
+                BurnchainHeaderHash(last_canonical_tip.header_hash()),
             )
         };
 
@@ -480,7 +524,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         &self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<Vec<Box<dyn BurnHeaderIPC<H=Header>>>, BurnchainError> {
+    ) -> Result<Vec<MockHeader>, BurnchainError> {
         let sql_query = "SELECT * FROM headers WHERE height >= ?1 AND height < ?2 and is_canonical = true ORDER BY height";
         let sql_args: &[&dyn ToSql] = &[&u64_to_sql(start_block)?, &u64_to_sql(end_block)?];
 
@@ -497,7 +541,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
 
         // gather, but make sure we get _all_ headers
         let mut next_height = start_block;
-        let mut headers: Vec<Box<dyn BurnHeaderIPC>> = vec![];
+        let mut headers: Vec<MockHeader> = vec![];
         while let Some(row) = rows
             .next()
             .map_err(|e| BurnchainError::DBError(db_error::SqliteError(e)))?
@@ -509,21 +553,25 @@ impl BurnchainIndexer for DBBurnchainIndexer {
             next_height += 1;
 
             let next_header = BurnHeaderDBRow::from_row(&row)?;
-            headers.push(Box::new(next_header));
+            headers.push(row_to_mock_header(&next_header));
         }
 
         Ok(headers)
     }
 
+    fn parser(&self) -> Self::P {
+        todo!()
+    }
     fn downloader(&self) -> Self::D {
-        DBBlockDownloader {
-            db_path: self.get_headers_path(),
-        }
+        todo!()
+        // DBBlockDownloader {
+        //     db_path: self.get_headers_path(),
+        // }
     }
 }
 
-impl<Header, Block> DBBurnchainIndexer<Header, Block> {
-    pub fn get_header_for_hash(&self, hash: &BurnchainHeaderHash) -> Box<dyn BurnHeaderIPC<H=Header>> {
+impl DBBurnchainIndexer {
+    pub fn get_header_for_hash(&self, hash: &BurnchainHeaderHash) -> BurnHeaderDBRow {
         let row = query_row::<BurnHeaderDBRow, _>(
             &self.connection.as_ref().unwrap(),
             "SELECT * FROM headers WHERE burn_header_hash = ?1",
@@ -538,6 +586,6 @@ impl<Header, Block> DBBurnchainIndexer<Header, Block> {
             &hash
         ));
 
-        Box::new(row)
+        row
     }
 }
