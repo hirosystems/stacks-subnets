@@ -1197,10 +1197,10 @@ impl From<FeeEstimationConfigFile> for FeeEstimationConfig {
 
 impl Config {
     /// Factory function based on `self.burnchain.chain`.
-    pub fn make_burnchain_controller(
+    pub fn make_burnchain_controller<Header, Block>(
         &self,
         coordinator: CoordinatorChannels,
-    ) -> Option<Box<dyn BurnchainController + Send>> {
+    ) -> Option<Box<dyn BurnchainController<Header = Header, Block = Block> + Send>> {
         match self.burnchain.chain.as_str() {
             BURNCHAIN_NAME_MOCKSTACK => {
                 Some(Box::new(MockController::new(self.clone(), coordinator)))

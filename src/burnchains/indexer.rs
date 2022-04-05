@@ -28,6 +28,8 @@ pub trait BurnHeaderIPC {
     fn height(&self) -> u64;
     fn header(&self) -> Self::H;
     fn header_hash(&self) -> [u8; 32];
+    fn parent_header_hash(&self) -> [u8; 32];
+    fn time_stamp(&self) -> u64;
 }
 
 pub trait BurnBlockIPC {

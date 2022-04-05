@@ -116,9 +116,9 @@ impl Counters {
 }
 
 /// Coordinating a node running in neon mode.
-pub struct RunLoop {
+pub struct RunLoop<Header, Block> {
     config: Config,
-    pub callbacks: RunLoopCallbacks,
+    pub callbacks: RunLoopCallbacks<Header, Block>,
     counters: Counters,
     coordinator_channels: Option<(CoordinatorReceivers, CoordinatorChannels)>,
     should_keep_running: Arc<AtomicBool>,
@@ -146,7 +146,7 @@ fn async_safe_write_stderr(msg: &str) {
     }
 }
 
-impl RunLoop {
+impl<Header, Block> RunLoop<Header, Block> {
     /// Sets up a runloop and node, given a config.
     pub fn new(config: Config) -> Self {
         let channels = CoordinatorCommunication::instantiate();
@@ -276,11 +276,11 @@ impl RunLoop {
     /// Instantiate the burnchain client and databases.
     /// Fetches headers and instantiates the burnchain.
     /// Panics on failure.
-    fn instantiate_burnchain_state(
+    fn instantiate_burnchain_state<Header, Block>(
         &mut self,
         _burnchain_opt: Option<Burnchain>,
         coordinator_senders: CoordinatorChannels,
-    ) -> Box<dyn BurnchainController> {
+    ) -> Box<dyn BurnchainController<Header = Header, Block = Block>> {
         // Initialize and start the burnchain.
         let mut burnchain_controller = self
             .config

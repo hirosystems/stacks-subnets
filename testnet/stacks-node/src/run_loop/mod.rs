@@ -30,16 +30,16 @@ macro_rules! info_green {
     })
 }
 
-pub struct RunLoopCallbacks {
-    on_burn_chain_initialized: Option<fn(&mut Box<dyn BurnchainController>)>,
+pub struct RunLoopCallbacks<Header, Block> {
+    on_burn_chain_initialized: Option<fn(&mut Box<dyn BurnchainController<Header = Header, Block = Block>>)>,
     on_new_burn_chain_state: Option<fn(u64, &BurnchainTip, &ChainTip)>,
     on_new_stacks_chain_state:
         Option<fn(u64, &BurnchainTip, &ChainTip, &mut StacksChainState, &dyn BurnStateDB)>,
     on_new_tenure: Option<fn(u64, &BurnchainTip, &ChainTip, &mut Tenure)>,
 }
 
-impl RunLoopCallbacks {
-    pub fn new() -> RunLoopCallbacks {
+impl<Header, Block> RunLoopCallbacks<Header, Block> {
+    pub fn new() -> RunLoopCallbacks<Header, Block> {
         RunLoopCallbacks {
             on_burn_chain_initialized: None,
             on_new_burn_chain_state: None,
@@ -48,7 +48,7 @@ impl RunLoopCallbacks {
         }
     }
 
-    pub fn on_burn_chain_initialized(&mut self, callback: fn(&mut Box<dyn BurnchainController>)) {
+    pub fn on_burn_chain_initialized(&mut self, callback: fn(&mut Box<dyn BurnchainController<Header = Header, Block = Block>>)) {
         self.on_burn_chain_initialized = Some(callback);
     }
 
