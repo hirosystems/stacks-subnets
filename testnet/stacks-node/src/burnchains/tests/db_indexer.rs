@@ -10,7 +10,6 @@ use stacks::util::hash::to_hex;
 /// Create config settings for the tests.
 fn make_test_config() -> BurnchainConfig {
     let db_path_dir = random_sortdb_test_dir();
-    info!("db_path_dir {:?}", &db_path_dir);
     let mut config = BurnchainConfig::default();
     config.indexer_base_db_path = db_path_dir;
     config.first_burn_header_hash =
@@ -159,7 +158,36 @@ fn test_sync_headers() {
     let mut indexer = make_test_indexer_add_10_block_branch();
 
     /// No matter what the inputs, the answer is `10`, the max height.
-    assert_eq!(10, indexer.sync_headers(1, Some(2)).expect("Couldn't get height"));
-    assert_eq!(10, indexer.sync_headers(1, Some(11)).expect("Couldn't get height"));
-    assert_eq!(10, indexer.sync_headers(1, None).expect("Couldn't get height"));
+    assert_eq!(
+        10,
+        indexer
+            .sync_headers(1, Some(2))
+            .expect("Couldn't get height")
+    );
+    assert_eq!(
+        10,
+        indexer
+            .sync_headers(1, Some(11))
+            .expect("Couldn't get height")
+    );
+    assert_eq!(
+        10,
+        indexer.sync_headers(1, None).expect("Couldn't get height")
+    );
+}
+
+/// `drop_headers` is a no-op. Should just always return success.
+#[test]
+fn test_drop_headers() {
+    let mut indexer = make_test_indexer_add_10_block_branch();
+
+    indexer
+        .drop_headers(1)
+        .expect("`drop_headers` should succed");
+    indexer
+        .drop_headers(10)
+        .expect("`drop_headers` should succed");
+    indexer
+        .drop_headers(20)
+        .expect("`drop_headers` should succed");
 }
