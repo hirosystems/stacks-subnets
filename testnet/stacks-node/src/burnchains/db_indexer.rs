@@ -223,15 +223,10 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
             &(header.time_stamp() as u32),
             &(is_canonical as u32),
         ];
-        match connection.execute(
+        connection.execute(
             "INSERT INTO headers (height, header_hash, parent_header_hash, time_stamp, is_canonical) VALUES (?, ?, ?, ?, ?)",
             params,
-        ) {
-            Ok(_) => {            }
-            Err(e) => {
-                return Err(BurnchainError::DBError(db_error::SqliteError(e)));
-            }
-        };
+        )?;
 
         // Possibly process re-org in the database representation.
         if needs_reorg {
