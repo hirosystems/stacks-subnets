@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 use std::{fs, io};
 
-use rusqlite::{OpenFlags, Row, ToSql, NO_PARAMS, Transaction};
+use rusqlite::{OpenFlags, Row, ToSql, Transaction, NO_PARAMS};
 use stacks::burnchains::events::NewBlock;
 use stacks::vm::types::QualifiedContractIdentifier;
 
@@ -22,7 +22,6 @@ use stacks::util_lib::db::Error as DBError;
 use stacks::util_lib::db::{query_row, u64_to_sql, FromRow};
 use stacks::util_lib::db::{sqlite_open, Error as db_error};
 use stacks_common::deps_common::bitcoin::util::hash::Sha256dHash;
-
 
 const DB_BURNCHAIN_SCHEMA: &'static str = &r#"
     CREATE TABLE headers(
@@ -57,7 +56,7 @@ fn is_canonical(
 }
 
 /// Returns a comparison between `a` and `b`.
-/// Headers are sorted by height (higher is greater), and then lexicographically by 
+/// Headers are sorted by height (higher is greater), and then lexicographically by
 /// the header hash (greater in string space is greater).
 fn compare_headers(a: &BurnHeaderDBRow, b: &BurnHeaderDBRow) -> Ordering {
     if a.height() > b.height() {
@@ -195,7 +194,6 @@ fn find_first_canonical_ancestor(
     }
 }
 
-
 struct DBBurnBlockInputChannel {
     output_db_path: String,
 }
@@ -316,26 +314,72 @@ impl FromRow<BurnHeaderDBRow> for BurnHeaderDBRow {
     }
 }
 
+/// Creates a DB connection, connects, and instantiates the DB if needed.
+/// If DB needs instantiation and `readwrite` is false, error.
+fn create_db_and_maybe_instantiate(
+    db_path: &String,
+    readwrite: bool,
+) -> Result<DBConn, BurnchainError> {
+    let mut create_flag = false;
+    let open_flags = match fs::metadata(db_path) {
+        Err(e) => {
+            if e.kind() == io::ErrorKind::NotFound {
+                // need to create
+                if readwrite {
+                    create_flag = true;
+                    OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE
+                } else {
+                    return Err(BurnchainError::from(DBError::NoDBError));
+                }
+            } else {
+                return Err(BurnchainError::from(DBError::IOError(e)));
+            }
+        }
+        Ok(_md) => {
+            // can just open
+            if readwrite {
+                OpenFlags::SQLITE_OPEN_READ_WRITE
+            } else {
+                OpenFlags::SQLITE_OPEN_READ_ONLY
+            }
+        }
+    };
+
+    let connection = sqlite_open(db_path, open_flags, true)?;
+
+    if create_flag {
+        connection
+            .execute(DB_BURNCHAIN_SCHEMA, NO_PARAMS)
+            .map_err(|e| BurnchainError::DBError(db_error::SqliteError(e)))?;
+    }
+
+    Ok(connection)
+}
+
 /// Tracks burnchain forks by storing the block headers in a database.
 pub struct DBBurnchainIndexer {
     config: BurnchainConfig,
-    connection: Option<DBConn>,
+    connection: DBConn,
     last_canonical_tip: Option<BurnHeaderDBRow>,
     first_burn_header_hash: BurnchainHeaderHash,
 }
 
 impl DBBurnchainIndexer {
-    pub fn new(config: BurnchainConfig) -> Result<DBBurnchainIndexer, Error> {
+    /// Create a new indexer and connect to the database. If the database schema doesn't exist,
+    /// if `readwrite` is true, instantiate it, otherwise error.
+    pub fn new(config: BurnchainConfig, readwrite: bool) -> Result<DBBurnchainIndexer, Error> {
         let first_burn_header_hash = BurnchainHeaderHash(
             Sha256dHash::from_hex(&config.first_burn_header_hash)
                 .expect("Could not parse `first_burn_header_hash`.")
                 .0,
         );
 
+        let connection = create_db_and_maybe_instantiate(&config.indexer_base_db_path, readwrite)?;
+        let last_canonical_tip = get_canonical_chain_tip(&connection);
         Ok(DBBurnchainIndexer {
             config,
-            connection: None,
-            last_canonical_tip: None,
+            connection,
+            last_canonical_tip,
             first_burn_header_hash,
         })
     }
@@ -392,46 +436,9 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     type P = DBBurnchainParser;
     type B = BlockIPC;
     type D = DBBlockDownloader;
+
+    /// `connect` is a no-op now. TODO: remove it?
     fn connect(&mut self, readwrite: bool) -> Result<(), BurnchainError> {
-        let path = &self.config.indexer_base_db_path;
-        let mut create_flag = false;
-        let open_flags = match fs::metadata(path) {
-            Err(e) => {
-                if e.kind() == io::ErrorKind::NotFound {
-                    // need to create
-                    if readwrite {
-                        create_flag = true;
-                        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE
-                    } else {
-                        return Err(BurnchainError::from(DBError::NoDBError));
-                    }
-                } else {
-                    return Err(BurnchainError::from(DBError::IOError(e)));
-                }
-            }
-            Ok(_md) => {
-                // can just open
-                if readwrite {
-                    OpenFlags::SQLITE_OPEN_READ_WRITE
-                } else {
-                    OpenFlags::SQLITE_OPEN_READ_ONLY
-                }
-            }
-        };
-
-        self.connection = Some(sqlite_open(path, open_flags, true)?);
-
-        if create_flag {
-            let _ = self
-                .connection
-                .as_ref()
-                .unwrap()
-                .execute(DB_BURNCHAIN_SCHEMA, NO_PARAMS)
-                .map_err(|e| BurnchainError::DBError(db_error::SqliteError(e)))?;
-        }
-
-        self.last_canonical_tip = get_canonical_chain_tip(self.connection.as_ref().unwrap());
-
         Ok(())
     }
 
@@ -471,7 +478,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
 
     fn get_highest_header_height(&self) -> Result<u64, BurnchainError> {
         match query_row::<u64, _>(
-            &self.connection.as_ref().unwrap(),
+            &self.connection,
             "SELECT MAX(height) FROM headers",
             NO_PARAMS,
         )? {
@@ -484,7 +491,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         let last_canonical_tip = match self.last_canonical_tip.as_ref() {
             Some(tip) => tip,
             None => {
-                let new_tip = get_canonical_chain_tip(self.connection.as_ref().unwrap());
+                let new_tip = get_canonical_chain_tip(&self.connection);
                 self.last_canonical_tip = new_tip;
                 return match &self.last_canonical_tip {
                     Some(tip) => Ok(tip.height()),
@@ -497,7 +504,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         };
 
         let still_canonical = is_canonical(
-            self.connection.as_ref().unwrap(),
+            &self.connection,
             BurnchainHeaderHash(last_canonical_tip.header_hash()),
         )
         .expect("Couldn't get is_canonical.");
@@ -507,12 +514,12 @@ impl BurnchainIndexer for DBBurnchainIndexer {
             self.get_highest_header_height()
         } else {
             find_first_canonical_ancestor(
-                self.connection.as_ref().unwrap(),
+                &self.connection,
                 BurnchainHeaderHash(last_canonical_tip.header_hash()),
             )
         };
 
-        let current_tip = get_canonical_chain_tip(self.connection.as_ref().unwrap());
+        let current_tip = get_canonical_chain_tip(&self.connection);
         self.last_canonical_tip = current_tip;
         result
     }
@@ -542,8 +549,6 @@ impl BurnchainIndexer for DBBurnchainIndexer {
 
         let mut stmt = self
             .connection
-            .as_ref()
-            .unwrap()
             .prepare(sql_query)
             .map_err(|e| BurnchainError::DBError(db_error::SqliteError(e)))?;
 
@@ -582,7 +587,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
 impl DBBurnchainIndexer {
     pub fn get_header_for_hash(&self, hash: &BurnchainHeaderHash) -> BurnHeaderDBRow {
         let row = query_row::<BurnHeaderDBRow, _>(
-            &self.connection.as_ref().unwrap(),
+            &self.connection,
             "SELECT * FROM headers WHERE burn_header_hash = ?1",
             &[&hash],
         )

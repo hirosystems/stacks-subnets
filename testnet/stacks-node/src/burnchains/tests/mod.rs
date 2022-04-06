@@ -15,7 +15,7 @@ use super::mock_events::BlockIPC;
 
 pub mod db_indexer;
 
-fn random_sortdb_test_dir() -> String {
+pub fn random_sortdb_test_dir() -> String {
     let mut rng = rand::thread_rng();
     let mut buf = [0u8; 32];
     rng.fill_bytes(&mut buf);

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use rand::RngCore;
 
-use stacks::burnchains::{MagicBytes, BLOCKSTACK_MAGIC_MAINNET};
+use stacks::burnchains::{self, MagicBytes, BLOCKSTACK_MAGIC_MAINNET};
 use stacks::chainstate::coordinator::comm::CoordinatorChannels;
 use stacks::chainstate::stacks::miner::BlockBuilderSettings;
 use stacks::chainstate::stacks::MAX_BLOCK_LEN;
@@ -1209,20 +1209,20 @@ impl Config {
     pub fn make_burnchain_controller(
         &self,
         coordinator: CoordinatorChannels,
-    ) -> Option<Box<dyn BurnchainController + Send>> {
+    ) -> Result<Box<dyn BurnchainController + Send>, super::burnchains::Error> {
         match self.burnchain.chain.as_str() {
             BURNCHAIN_NAME_MOCKSTACK => {
-                Some(Box::new(MockController::new(self.clone(), coordinator)))
+                Ok(Box::new(MockController::new(self.clone(), coordinator)))
             }
-            BURNCHAIN_NAME_STACKS_L1 => {
-                Some(Box::new(L1Controller::new(self.clone(), coordinator)))
-            }
+            BURNCHAIN_NAME_STACKS_L1 => Ok(Box::new(L1Controller::new(self.clone(), coordinator)?)),
             _ => {
                 warn!(
                     "No matching controller for `chain`: {}",
                     self.burnchain.chain.as_str()
                 );
-                None
+                Err(super::burnchains::Error::UnsupportedBurnchain(
+                    self.burnchain.chain.clone(),
+                ))
             }
         }
     }

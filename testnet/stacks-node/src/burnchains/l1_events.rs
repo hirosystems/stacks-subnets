@@ -19,6 +19,7 @@ use stacks::util::hash::hex_bytes;
 use stacks::util::sleep_ms;
 use stacks::vm::types::QualifiedContractIdentifier;
 
+use super::db_indexer::DBBurnchainIndexer;
 use super::mock_events::BlockIPC;
 use super::{BurnchainChannel, Error};
 use crate::burnchains::mock_events::MockHeader;
@@ -34,7 +35,7 @@ pub struct L1Channel {
 pub struct L1Controller {
     burnchain: Option<Burnchain>,
     config: Config,
-    indexer: L1Indexer,
+    indexer: DBBurnchainIndexer,
 
     db: Option<SortitionDB>,
     burnchain_db: Option<BurnchainDB>,
@@ -163,10 +164,9 @@ impl L1BlockDownloader {
 }
 
 impl L1Controller {
-    pub fn new(config: Config, coordinator: CoordinatorChannels) -> L1Controller {
-        let contract_identifier = config.burnchain.contract_identifier.clone();
-        let indexer = L1Indexer::new(contract_identifier.clone());
-        L1Controller {
+    pub fn new(config: Config, coordinator: CoordinatorChannels) -> Result<L1Controller, Error> {
+        let indexer = DBBurnchainIndexer::new(config.burnchain.clone(), true)?;
+        Ok(L1Controller {
             burnchain: None,
             config,
             indexer,
@@ -175,7 +175,7 @@ impl L1Controller {
             should_keep_running: Some(Arc::new(AtomicBool::new(true))),
             coordinator,
             chain_tip: None,
-        }
+        })
     }
 
     fn receive_blocks(
@@ -320,6 +320,8 @@ impl BurnchainController for L1Controller {
 
     fn connect_dbs(&mut self) -> Result<(), Error> {
         let burnchain = self.get_burnchain();
+
+        self.indexer.connect(true)?;
         burnchain.connect_db(
             &self.indexer,
             true,

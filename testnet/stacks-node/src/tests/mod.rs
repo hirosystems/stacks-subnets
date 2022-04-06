@@ -1,4 +1,7 @@
 use std::convert::TryInto;
+use std::env;
+use std::io::BufReader;
+use std::process::{Child, Command, Stdio};
 
 use rand::RngCore;
 
@@ -21,6 +24,7 @@ use stacks::vm::database::BurnStateDB;
 use stacks::vm::types::PrincipalData;
 use stacks::vm::{ClarityName, ContractName, Value};
 use stacks::{address::AddressHashMode, util::hash::to_hex};
+use std::io::BufRead;
 
 use super::Config;
 
@@ -420,4 +424,83 @@ fn make_microblock(
         .mine_next_microblock_from_txs(mempool_txs, privk)
         .unwrap();
     microblock
+}
+
+#[derive(std::fmt::Debug)]
+pub enum SubprocessError {
+    SpawnFailed(String),
+}
+
+type SubprocessResult<T> = Result<T, SubprocessError>;
+
+/// In charge of running L1 `stacks-node`.
+pub struct StacksL1Controller {
+    sub_process: Option<Child>,
+    config_path: String,
+    out_reader: Option<BufReader<std::process::ChildStdout>>,
+}
+
+impl StacksL1Controller {
+    pub fn new(config_path: String) -> StacksL1Controller {
+        StacksL1Controller {
+            sub_process: None,
+            config_path,
+            out_reader: None,
+        }
+    }
+
+    pub fn start_process(&mut self) -> SubprocessResult<()> {
+        let binary = match env::var("STACKS_BASE_DIR") {
+            Err(_) => {
+                // assume stacks-node is in path
+                "stacks-node".into()
+            }
+            Ok(path) => path,
+        };
+        let mut command = Command::new(&binary);
+        command
+            .stdout(Stdio::piped())
+            .arg("start")
+            .arg("--config=".to_owned() + &self.config_path);
+
+        info!("stacks-node mainchain spawn: {:?}", command);
+
+        let mut process = match command.spawn() {
+            Ok(child) => child,
+            Err(e) => return Err(SubprocessError::SpawnFailed(format!("{:?}", e))),
+        };
+
+        info!("stacks-node mainchain spawned, waiting for startup");
+        let mut out_reader = BufReader::new(process.stdout.take().unwrap());
+
+        let mut line = String::new();
+        while let Ok(bytes_read) = out_reader.read_line(&mut line) {
+            if bytes_read == 0 {
+                return Err(SubprocessError::SpawnFailed(
+                    "Stacks L1 closed before spawning network".into(),
+                ));
+            }
+            info!("{:?}", &line);
+            break;
+        }
+
+        info!("Stacks L1 startup finished");
+
+        self.sub_process = Some(process);
+        self.out_reader = Some(out_reader);
+
+        Ok(())
+    }
+
+    pub fn kill_process(&mut self) {
+        if let Some(mut sub_process) = self.sub_process.take() {
+            sub_process.kill().unwrap();
+        }
+    }
+}
+
+impl Drop for StacksL1Controller {
+    fn drop(&mut self) {
+        self.kill_process();
+    }
 }

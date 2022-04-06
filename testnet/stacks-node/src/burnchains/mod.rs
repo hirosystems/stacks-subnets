@@ -29,6 +29,7 @@ mod tests;
 
 #[derive(Debug)]
 pub enum Error {
+    UnsupportedBurnchain(String),
     CoordinatorClosed,
     IndexerError(burnchains::Error),
 }
@@ -36,6 +37,9 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Error::UnsupportedBurnchain(ref chain_name) => {
+                write!(f, "Burnchain is not supported: {:?}", chain_name)
+            }
             Error::CoordinatorClosed => write!(f, "ChainsCoordinator closed"),
             Error::IndexerError(ref e) => write!(f, "Indexer error: {:?}", e),
         }
