@@ -4,6 +4,7 @@ use std::{fs, io};
 
 use rusqlite::{OpenFlags, Row, ToSql, Transaction, NO_PARAMS};
 use stacks::burnchains::events::NewBlock;
+use stacks::util::sleep_ms;
 use stacks::vm::types::QualifiedContractIdentifier;
 
 use super::mock_events::{BlockIPC, MockHeader};
@@ -14,7 +15,7 @@ use stacks::burnchains::indexer::BurnBlockIPC;
 use stacks::burnchains::indexer::BurnchainBlockDownloader;
 use stacks::burnchains::indexer::BurnchainIndexer;
 use stacks::burnchains::indexer::{BurnHeaderIPC, BurnchainBlockParser};
-use stacks::burnchains::{BurnchainBlock, Error as BurnchainError, StacksHyperBlock};
+use stacks::burnchains::{self, BurnchainBlock, Error as BurnchainError, StacksHyperBlock};
 use stacks::chainstate::burn::db::DBConn;
 use stacks::core::StacksEpoch;
 use stacks::types::chainstate::{BurnchainHeaderHash, StacksBlockId};
@@ -191,6 +192,32 @@ fn find_first_canonical_ancestor(
         }
 
         cursor = cursor_header.parent_header_hash;
+    }
+}
+
+/// Blocks until we have received our first block.
+///
+/// Returns the height of the highest block found.
+fn wait_for_first_block(connection: &DBConn) -> Result<u64, burnchains::Error> {
+    loop {
+        match query_row::<u64, _>(&connection, "SELECT MAX(height) FROM headers", NO_PARAMS) {
+            Ok(height) => {
+                return Ok(height.expect("Success should mean there is a row to unwrap."));
+            }
+            Err(e) => {
+                match e {
+                    stacks::util_lib::db::Error::NotFoundError => {
+                        // keep looping
+                    }
+                    _ => {
+                        return Err(burnchains::Error::DBError(e));
+                    }
+                }
+            }
+        };
+
+        info!("Waiting for first block.");
+        sleep_ms(1000);
     }
 }
 
@@ -477,11 +504,27 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     }
 
     fn get_highest_header_height(&self) -> Result<u64, BurnchainError> {
-        match query_row::<u64, _>(
+        let row_result = match query_row::<u64, _>(
             &self.connection,
             "SELECT MAX(height) FROM headers",
             NO_PARAMS,
-        )? {
+        ) {
+            Ok(val) => val,
+            Err(e) => {
+                match e {
+                    stacks::util_lib::db::Error::NotFoundError => {
+                        // We haven't got any rows yet. So, return the height is 0.
+                        // TODO: Should we propagate this error?
+                        return Ok(0);
+                    }
+                    _ => {
+                        panic!("get_highest_header_height: got unexpected error {:?}", &e)
+                    }
+                }
+            }
+        };
+
+        match row_result {
             Some(max) => Ok(max),
             None => Ok(0),
         }
@@ -529,9 +572,10 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         _start_height: u64,
         _end_height: Option<u64>,
     ) -> Result<u64, BurnchainError> {
-        // We are not going to download blocks or wait here.
-        // The returned result is always just the highest block known about.
-        self.get_highest_header_height()
+        wait_for_first_block(&self.connection)
+        // // We are not going to download blocks or wait here.
+        // // The returned result is always just the highest block known about.
+        // self.get_highest_header_height()
     }
 
     fn drop_headers(&mut self, _new_height: u64) -> Result<(), BurnchainError> {

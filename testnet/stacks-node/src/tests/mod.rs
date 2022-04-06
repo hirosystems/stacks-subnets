@@ -1,9 +1,11 @@
 use std::convert::TryInto;
-use std::env;
 use std::io::BufReader;
 use std::process::{Child, Command, Stdio};
+use std::sync::Arc;
+use std::{env, thread};
 
 use rand::RngCore;
+use std::thread::JoinHandle;
 
 use stacks::chainstate::burn::ConsensusHash;
 use stacks::chainstate::stacks::{
@@ -437,15 +439,28 @@ type SubprocessResult<T> = Result<T, SubprocessError>;
 pub struct StacksL1Controller {
     sub_process: Option<Child>,
     config_path: String,
-    out_reader: Option<BufReader<std::process::ChildStdout>>,
+    printer_handle: Option<JoinHandle<()>>,
+    log_process: bool,
+}
+
+lazy_static! {
+    pub static ref MOCKNET_PRIVATE_KEY_1: StacksPrivateKey = StacksPrivateKey::from_hex(
+        "aaf57b4730f713cf942bc63f0801c4a62abe5a6ac8e3da10389f9ca3420b0dc701"
+    )
+    .unwrap();
+    pub static ref MOCKNET_PRIVATE_KEY_2: StacksPrivateKey = StacksPrivateKey::from_hex(
+        "0916e2eb04b5702e0e946081829cee67d3bb76e1792af506646843db9252ff4101"
+    )
+    .unwrap();
 }
 
 impl StacksL1Controller {
-    pub fn new(config_path: String) -> StacksL1Controller {
+    pub fn new(config_path: String, log_process: bool) -> StacksL1Controller {
         StacksL1Controller {
             sub_process: None,
             config_path,
-            out_reader: None,
+            printer_handle: None,
+            log_process,
         }
     }
 
@@ -459,7 +474,7 @@ impl StacksL1Controller {
         };
         let mut command = Command::new(&binary);
         command
-            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .arg("start")
             .arg("--config=".to_owned() + &self.config_path);
 
@@ -470,24 +485,37 @@ impl StacksL1Controller {
             Err(e) => return Err(SubprocessError::SpawnFailed(format!("{:?}", e))),
         };
 
+        let printer_handle = if self.log_process {
+            info!("logging process");
+            let child_out = process.stderr.take().unwrap();
+            Some(thread::spawn(|| {
+                info!("spawned thread process");
+
+                let mut buffered_out = BufReader::new(child_out);
+                let mut buf = String::new();
+                loop {
+                    // info!("in loop");
+
+                    buffered_out.read_line(&mut buf).expect("reading a line didn't work");
+                    info!("L1: {}", &buf);
+
+                    // for line in buffered_out.lines() {
+                    //     let line = match line {
+                    //         Ok(x) => x,
+                    //         Err(e) => return,
+                    //     };
+                    //     println!("L1: {}", line);
+                    // }
+                }
+            }))
+        } else {
+            None
+        };
+
         info!("stacks-node mainchain spawned, waiting for startup");
-        let mut out_reader = BufReader::new(process.stdout.take().unwrap());
-
-        let mut line = String::new();
-        while let Ok(bytes_read) = out_reader.read_line(&mut line) {
-            if bytes_read == 0 {
-                return Err(SubprocessError::SpawnFailed(
-                    "Stacks L1 closed before spawning network".into(),
-                ));
-            }
-            info!("{:?}", &line);
-            break;
-        }
-
-        info!("Stacks L1 startup finished");
 
         self.sub_process = Some(process);
-        self.out_reader = Some(out_reader);
+        self.printer_handle = printer_handle;
 
         Ok(())
     }

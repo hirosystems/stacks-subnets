@@ -6,6 +6,8 @@ use crate::tests::StacksL1Controller;
 use clarity::util::hash::to_hex;
 use rand::RngCore;
 use stacks::burnchains::Burnchain;
+use stacks::chainstate;
+use stacks::util::sleep_ms;
 use std::env;
 use std::time::Duration;
 
@@ -26,7 +28,7 @@ fn l1_observer_test() {
 
     // Start Stacks L1.
     let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
-    let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string());
+    let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), true);
     let _stacks_res = stacks_l1_controller
         .start_process()
         .expect("stacks l1 controller didn't start");
@@ -55,7 +57,24 @@ fn l1_observer_test() {
         &config.burnchain.mode,
     )
     .unwrap();
-    let (_, burndb) = burnchain.open_db(true).unwrap();
+
+    let burndb = loop {
+        match burnchain.open_db(true) {
+            Ok((_, burndb)) => {
+                break burndb;
+            }
+            Err(e) => {
+                match e {
+                    _ => {
+                        // continue
+                        info!("waiting for DB, {:?}", &e);
+                        sleep_ms(1000);
+                    }
+                }
+            }
+        }
+    };
+
     let tip = burndb
         .get_canonical_chain_tip()
         .expect("couldn't get chain tip");

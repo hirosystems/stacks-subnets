@@ -173,7 +173,10 @@ pub trait FromColumn<T> {
 
 impl FromRow<u64> for u64 {
     fn from_row<'a>(row: &'a Row) -> Result<u64, Error> {
-        let x: i64 = row.get_unwrap(0);
+        let x: i64 = match row.get(0) {
+            Ok(val) => val,
+            Err(e) => {return Err(Error::NotFoundError);},
+        };
         if x < 0 {
             return Err(Error::ParseError);
         }

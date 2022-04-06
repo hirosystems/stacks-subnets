@@ -194,6 +194,7 @@ impl Burnchain {
             }
         };
 
+        // Note: This is where Burnchain gets created.
         Ok(Burnchain {
             peer_version,
             network_id: params.network_id,
@@ -301,6 +302,7 @@ impl Burnchain {
             0
         };
 
+        info!("this burnchain {:?}", &self);
         if headers_height == 0 || headers_height < self.first_block_height {
             debug!("Fetch initial headers");
             indexer.sync_headers(headers_height, None).map_err(|e| {
