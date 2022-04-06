@@ -497,7 +497,8 @@ impl StacksL1Controller {
                     // info!("in loop");
 
                     buffered_out.read_line(&mut buf).expect("reading a line didn't work");
-                    info!("L1: {}", &buf);
+                    info!("\x1b[0;33mL1: {}\x1b[0m", &buf);
+                    buf.clear();
 
                     // for line in buffered_out.lines() {
                     //     let line = match line {
