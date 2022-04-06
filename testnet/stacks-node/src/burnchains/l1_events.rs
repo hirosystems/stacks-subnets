@@ -275,7 +275,7 @@ impl BurnchainController for L1Controller {
         )
     }
     fn get_channel(&self) -> Arc<dyn BurnchainChannel> {
-        STATIC_EVENTS_STREAM.clone()
+        self.indexer.get_channel()
     }
     fn submit_operation(
         &mut self,

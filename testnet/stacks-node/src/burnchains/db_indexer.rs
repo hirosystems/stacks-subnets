@@ -227,6 +227,7 @@ struct DBBurnBlockInputChannel {
 
 impl BurnchainChannel for DBBurnBlockInputChannel {
     fn push_block(&self, new_block: NewBlock) -> Result<(), BurnchainError> {
+        info!("BurnchainChannel::push_block pushing: {:?}", &new_block);
         // Re-open the connection.
         let open_flags = OpenFlags::SQLITE_OPEN_READ_WRITE;
         let mut connection = sqlite_open(&self.output_db_path, open_flags, true)?;
@@ -288,6 +289,8 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
         }
 
         transaction.commit()?;
+
+        info!("BurnchainChannel::push_block succeeds for: {:?}", &new_block);
 
         Ok(())
     }
