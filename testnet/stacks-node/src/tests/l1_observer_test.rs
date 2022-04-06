@@ -26,13 +26,6 @@ fn l1_observer_test() {
         return;
     }
 
-    // Start Stacks L1.
-    let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
-    let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), true);
-    let _stacks_res = stacks_l1_controller
-        .start_process()
-        .expect("stacks l1 controller didn't start");
-
     // Start the L2 run loop.
     let mut config = super::new_test_conf();
     config.burnchain.chain = "stacks_layer_1".to_string();
@@ -41,11 +34,19 @@ fn l1_observer_test() {
     let db_path_dir = random_sortdb_test_dir();
     config.burnchain.indexer_base_db_path = db_path_dir;
     config.burnchain.first_burn_header_hash =
-        "1111111111111111111111111111111111111111111111111111111111111111".to_string();
+        "a7578f11a428bb953e7bbced9858525b6eec0d24d5d9d77285a7d7d891f68561".to_string();
 
     let mut run_loop = neon::RunLoop::new(config.clone());
     let channel = run_loop.get_coordinator_channel().unwrap();
     thread::spawn(move || run_loop.start(None, 0));
+
+
+    // Start Stacks L1.
+    let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
+    let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), true);
+    let _stacks_res = stacks_l1_controller
+        .start_process()
+        .expect("stacks l1 controller didn't start");
 
     // Sleep to give the run loop time to listen to blocks.
     thread::sleep(Duration::from_millis(45000));

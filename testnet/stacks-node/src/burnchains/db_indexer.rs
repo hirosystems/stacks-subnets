@@ -398,11 +398,13 @@ impl DBBurnchainIndexer {
     /// Create a new indexer and connect to the database. If the database schema doesn't exist,
     /// if `readwrite` is true, instantiate it, otherwise error.
     pub fn new(config: BurnchainConfig, readwrite: bool) -> Result<DBBurnchainIndexer, Error> {
+        info!("Creating DBBurnchainIndexer with config: {:?}", &config);
         let first_burn_header_hash = BurnchainHeaderHash(
-            Sha256dHash::from_hex(&config.first_burn_header_hash)
+            StacksBlockId::from_hex(&config.first_burn_header_hash)
                 .expect("Could not parse `first_burn_header_hash`.")
                 .0,
         );
+        info!("first_burn_header_hash {:?}", first_burn_header_hash);
 
         let connection = create_db_and_maybe_instantiate(&config.indexer_base_db_path, readwrite)?;
         let last_canonical_tip = get_canonical_chain_tip(&connection);
@@ -635,7 +637,7 @@ impl DBBurnchainIndexer {
     pub fn get_header_for_hash(&self, hash: &BurnchainHeaderHash) -> BurnHeaderDBRow {
         let row = query_row::<BurnHeaderDBRow, _>(
             &self.connection,
-            "SELECT * FROM headers WHERE burn_header_hash = ?1",
+            "SELECT * FROM headers WHERE header_hash = ?1",
             &[&hash],
         )
         .expect(&format!(
