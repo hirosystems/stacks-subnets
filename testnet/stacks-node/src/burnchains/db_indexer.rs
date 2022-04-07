@@ -78,13 +78,13 @@ fn compare_headers(a: &BurnHeaderDBRow, b: &BurnHeaderDBRow) -> Ordering {
 
 /// Returns the "canonical" chain tip from the rows in the db. This is the block
 /// with the highest height, breaking ties by lexicographic ordering.
-fn get_canonical_chain_tip(connection: &DBConn) -> Option<BurnHeaderDBRow> {
+fn get_canonical_chain_tip(connection: &DBConn) -> Result<Option<BurnHeaderDBRow>, BurnchainError> {
     query_row::<BurnHeaderDBRow, _>(
         connection,
-        "SELECT * FROM headers ORDER BY height DESC, header_hash DESC",
+        "SELECT * FROM headers ORDER BY height DESC, header_hash DESC LIMIT 1",
         NO_PARAMS,
     )
-    .expect("Couldn't read from the DB.")
+    .map_err(|e| BurnchainError::DBError(e))
 }
 
 /// 1) Mark all ancestors of `new_tip` as `is_canonical`.
@@ -195,54 +195,14 @@ fn find_first_canonical_ancestor(
     }
 }
 
-/// If there are any headers in the DB, return the height of the highest header.
-/// If there are no headers in the DB, return None.
-/// TODO: Can this be done in one call?
-fn safe_get_max_height(connection: &DBConn) -> Result<Option<u64>, burnchains::Error> {
-    let count_result =
-        match query_row::<u64, _>(&connection, "SELECT COUNT(height) FROM headers", NO_PARAMS) {
-            Ok(count) => count,
-            Err(e) => {
-                return Err(BurnchainError::DBError(e));
-            }
-        };
-
-    match count_result {
-        Some(count) => {
-            if count < 1 {
-                return Ok(None);
-            }
-        }
-        None => {
-            panic!("SELECT COUNT returned no rows.");
-        }
-    };
-
-    let row_result =
-        match query_row::<u64, _>(&connection, "SELECT MAX(height) FROM headers", NO_PARAMS) {
-            Ok(val) => val,
-            Err(e) => {
-                return Err(burnchains::Error::DBError(e));
-            }
-        };
-
-    match row_result {
-        Some(max) => Ok(Some(max)),
-        None => {
-            panic!("Should not be None.");
-        }
-    }
-}
-
-/// Blocks until we have received our first block.
+/// Waits until we have received our first block.
 ///
 /// Returns the height of the highest block found.
 fn wait_for_first_block(connection: &DBConn) -> Result<u64, burnchains::Error> {
     loop {
-        let safe_highest_height = safe_get_max_height(connection)?;
-        match safe_highest_height {
-            Some(height) => {
-                return Ok(height);
+        match get_canonical_chain_tip(connection)? {
+            Some(canonical_tip) => {
+                return Ok(canonical_tip.height);
             }
             None => {
                 // pass, stay in loop
@@ -255,6 +215,7 @@ fn wait_for_first_block(connection: &DBConn) -> Result<u64, burnchains::Error> {
 }
 
 struct DBBurnBlockInputChannel {
+    /// Path to the db file underlying this logic.
     output_db_path: String,
 }
 
@@ -269,13 +230,12 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
         let mut connection = sqlite_open(&self.output_db_path, open_flags, true)?;
 
         // Decide if this new node is part of the canonical chain.
-        let current_canonical_tip_opt = get_canonical_chain_tip(&connection);
+        let current_canonical_tip_opt = get_canonical_chain_tip(&connection)?;
 
         let header = BurnHeaderDBRow::from(&new_block);
         let (is_canonical, needs_reorg) = match &current_canonical_tip_opt {
             // No canonical tip so no re-org.
             None => (true, false),
-
             Some(current_canonical_tip) => {
                 // `new_blocks` parent is the old tip, so no reorg.
                 if header.parent_header_hash() == current_canonical_tip.header_hash() {
@@ -386,7 +346,7 @@ impl FromRow<BurnHeaderDBRow> for BurnHeaderDBRow {
 
 /// Creates a DB connection, connects, and instantiates the DB if needed.
 /// If DB needs instantiation and `readwrite` is false, error.
-fn create_db_and_maybe_instantiate(
+fn connect_db_and_maybe_instantiate(
     db_path: &String,
     readwrite: bool,
 ) -> Result<DBConn, BurnchainError> {
@@ -430,9 +390,14 @@ fn create_db_and_maybe_instantiate(
 
 /// Tracks burnchain forks by storing the block headers in a database.
 pub struct DBBurnchainIndexer {
+    /// Store the config options.
     config: BurnchainConfig,
+    /// Database connection.
     connection: DBConn,
+    /// The chain tip that was canonical the last time `find_chain_reorg` was called.
+    /// Note: The chain tip in the database may have changed multiple times since this was set.
     last_canonical_tip: Option<BurnHeaderDBRow>,
+    /// The hash of the first block that the system will store.
     first_burn_header_hash: BurnchainHeaderHash,
 }
 
@@ -446,10 +411,9 @@ impl DBBurnchainIndexer {
                 .expect("Could not parse `first_burn_header_hash`.")
                 .0,
         );
-        info!("first_burn_header_hash {:?}", first_burn_header_hash);
 
-        let connection = create_db_and_maybe_instantiate(&config.indexer_base_db_path, readwrite)?;
-        let last_canonical_tip = get_canonical_chain_tip(&connection);
+        let connection = connect_db_and_maybe_instantiate(&config.indexer_base_db_path, readwrite)?;
+        let last_canonical_tip = get_canonical_chain_tip(&connection)?;
         Ok(DBBurnchainIndexer {
             config,
             connection,
@@ -460,6 +424,7 @@ impl DBBurnchainIndexer {
 }
 
 pub struct DBBurnchainParser {
+    /// L1 contract that we are watching for.
     watch_contract: QualifiedContractIdentifier,
 }
 
@@ -516,7 +481,7 @@ fn row_to_mock_header(input: &BurnHeaderDBRow) -> MockHeader {
 impl From<&NewBlock> for BurnHeaderDBRow {
     fn from(b: &NewBlock) -> Self {
         let block_string = serde_json::to_string(&b)
-            .map_err({ |e| BurnchainError::ParseError })
+            .map_err(|e| BurnchainError::ParseError)
             .expect("Serialization of `NewBlock` has failed.");
         BurnHeaderDBRow {
             header_hash: BurnchainHeaderHash(b.index_block_hash.0.clone()),
@@ -574,8 +539,8 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     }
 
     fn get_highest_header_height(&self) -> Result<u64, BurnchainError> {
-        match safe_get_max_height(&self.connection)? {
-            Some(height) => Ok(height),
+        match get_canonical_chain_tip(&self.connection)? {
+            Some(row) => Ok(row.height),
             None => Ok(0),
         }
     }
@@ -584,7 +549,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         let last_canonical_tip = match self.last_canonical_tip.as_ref() {
             Some(tip) => tip,
             None => {
-                let new_tip = get_canonical_chain_tip(&self.connection);
+                let new_tip = get_canonical_chain_tip(&self.connection)?;
                 self.last_canonical_tip = new_tip;
                 return match &self.last_canonical_tip {
                     Some(tip) => Ok(tip.height()),
@@ -612,7 +577,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
             )
         };
 
-        let current_tip = get_canonical_chain_tip(&self.connection);
+        let current_tip = get_canonical_chain_tip(&self.connection)?;
         self.last_canonical_tip = current_tip;
         result
     }
