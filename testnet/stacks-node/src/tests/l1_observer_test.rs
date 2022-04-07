@@ -51,31 +51,6 @@ fn l1_observer_test() {
     // Sleep to give the run loop time to listen to blocks.
     thread::sleep(Duration::from_millis(45000));
 
-    // The burnchain should have registered what the listener recorded.
-    let burnchain = Burnchain::new(
-        &config.get_burn_db_path(),
-        &config.burnchain.chain,
-        &config.burnchain.mode,
-    )
-    .unwrap();
-
-    let burndb = loop {
-        match burnchain.open_db(true) {
-            Ok((_, burndb)) => {
-                break burndb;
-            }
-            Err(e) => {
-                match e {
-                    _ => {
-                        // continue
-                        info!("waiting for DB, {:?}", &e);
-                        sleep_ms(1000);
-                    }
-                }
-            }
-        }
-    };
-
     let indexer = 
         DBBurnchainIndexer::new(config.burnchain.clone(), false).
         expect("Should be able to create DBBurnchainIndexer.");
