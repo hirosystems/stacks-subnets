@@ -612,9 +612,6 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         _end_height: Option<u64>,
     ) -> Result<u64, BurnchainError> {
         wait_for_first_block(&self.connection)
-        // // We are not going to download blocks or wait here.
-        // // The returned result is always just the highest block known about.
-        // self.get_highest_header_height()
     }
 
     fn drop_headers(&mut self, _new_height: u64) -> Result<(), BurnchainError> {
@@ -660,7 +657,9 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     }
 
     fn parser(&self) -> Self::P {
-        todo!()
+        DBBurnchainParser {
+            watch_contract: self.config.contract_identifier.clone(),
+        }
     }
     fn downloader(&self) -> Self::D {
         DBBlockDownloader {
