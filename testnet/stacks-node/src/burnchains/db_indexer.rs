@@ -19,10 +19,9 @@ use stacks::burnchains::{self, BurnchainBlock, Error as BurnchainError, StacksHy
 use stacks::chainstate::burn::db::DBConn;
 use stacks::core::StacksEpoch;
 use stacks::types::chainstate::{BurnchainHeaderHash, StacksBlockId};
-use stacks::util_lib::db::{Error as DBError, ensure_base_directory_exists};
+use stacks::util_lib::db::{ensure_base_directory_exists, Error as DBError};
 use stacks::util_lib::db::{query_row, u64_to_sql, FromRow};
 use stacks::util_lib::db::{sqlite_open, Error as db_error};
-use stacks_common::deps_common::bitcoin::util::hash::Sha256dHash;
 
 const DB_BURNCHAIN_SCHEMA: &'static str = &r#"
     CREATE TABLE headers(
@@ -196,26 +195,59 @@ fn find_first_canonical_ancestor(
     }
 }
 
+/// If there are any headers in the DB, return the height of the highest header.
+/// If there are no headers in the DB, return None.
+/// TODO: Can this be done in one call?
+fn safe_get_max_height(connection: &DBConn) -> Result<Option<u64>, burnchains::Error> {
+    let count_result =
+        match query_row::<u64, _>(&connection, "SELECT COUNT(height) FROM headers", NO_PARAMS) {
+            Ok(count) => count,
+            Err(e) => {
+                return Err(BurnchainError::DBError(e));
+            }
+        };
+
+    match count_result {
+        Some(count) => {
+            if count < 1 {
+                return Ok(None);
+            }
+        }
+        None => {
+            panic!("SELECT COUNT returned no rows.");
+        }
+    };
+
+    let row_result =
+        match query_row::<u64, _>(&connection, "SELECT MAX(height) FROM headers", NO_PARAMS) {
+            Ok(val) => val,
+            Err(e) => {
+                return Err(burnchains::Error::DBError(e));
+            }
+        };
+
+    match row_result {
+        Some(max) => Ok(Some(max)),
+        None => {
+            panic!("Should not be None.");
+        }
+    }
+}
+
 /// Blocks until we have received our first block.
 ///
 /// Returns the height of the highest block found.
 fn wait_for_first_block(connection: &DBConn) -> Result<u64, burnchains::Error> {
     loop {
-        match query_row::<u64, _>(&connection, "SELECT MAX(height) FROM headers", NO_PARAMS) {
-            Ok(height) => {
-                return Ok(height.expect("Success should mean there is a row to unwrap."));
+        let safe_highest_height = safe_get_max_height(connection)?;
+        match safe_highest_height {
+            Some(height) => {
+                return Ok(height);
             }
-            Err(e) => {
-                match e {
-                    stacks::util_lib::db::Error::NotFoundError => {
-                        // keep looping
-                    }
-                    _ => {
-                        return Err(burnchains::Error::DBError(e));
-                    }
-                }
+            None => {
+                // pass, stay in loop
             }
-        };
+        }
 
         info!("Waiting for first block.");
         sleep_ms(1000);
@@ -359,7 +391,7 @@ fn create_db_and_maybe_instantiate(
     readwrite: bool,
 ) -> Result<DBConn, BurnchainError> {
     ensure_base_directory_exists(db_path)?;
-    
+
     let mut create_flag = false;
     let open_flags = match fs::metadata(db_path) {
         Err(e) => {
@@ -542,28 +574,8 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     }
 
     fn get_highest_header_height(&self) -> Result<u64, BurnchainError> {
-        let row_result = match query_row::<u64, _>(
-            &self.connection,
-            "SELECT MAX(height) FROM headers",
-            NO_PARAMS,
-        ) {
-            Ok(val) => val,
-            Err(e) => {
-                match e {
-                    stacks::util_lib::db::Error::NotFoundError => {
-                        // We haven't got any rows yet. So, return the height is 0.
-                        // TODO: Should we propagate this error?
-                        return Ok(0);
-                    }
-                    _ => {
-                        panic!("get_highest_header_height: got unexpected error {:?}", &e)
-                    }
-                }
-            }
-        };
-
-        match row_result {
-            Some(max) => Ok(max),
+        match safe_get_max_height(&self.connection)? {
+            Some(height) => Ok(height),
             None => Ok(0),
         }
     }
