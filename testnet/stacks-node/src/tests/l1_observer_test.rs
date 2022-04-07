@@ -1,15 +1,16 @@
 use std;
 use std::thread;
 
+use crate::burnchains::db_indexer::DBBurnchainIndexer;
 use crate::neon;
 use crate::tests::StacksL1Controller;
 use clarity::util::hash::to_hex;
 use rand::RngCore;
 use stacks::burnchains::Burnchain;
-use stacks::chainstate;
 use stacks::util::sleep_ms;
 use std::env;
 use std::time::Duration;
+use crate::stacks::burnchains::indexer::BurnchainIndexer;
 
 fn random_sortdb_test_dir() -> String {
     let mut rng = rand::thread_rng();
@@ -75,14 +76,14 @@ fn l1_observer_test() {
         }
     };
 
-    let tip = burndb
-        .get_canonical_chain_tip()
-        .expect("couldn't get chain tip");
-    info!("burnblock chain tip is {:?}", &tip);
+    let indexer = 
+        DBBurnchainIndexer::new(config.burnchain.clone(), false).
+        expect("Should be able to create DBBurnchainIndexer.");
+    let tip_height = indexer.get_highest_header_height().expect("Should have a highest block.");
 
     // Ensure that the tip height has moved beyond height 0.
     // We check that we have moved past 3 just to establish we are reliably getting blocks.
-    assert!(tip.block_height > 3);
+    assert!(tip_height > 3);
 
     channel.stop_chains_coordinator();
     stacks_l1_controller.kill_process();
