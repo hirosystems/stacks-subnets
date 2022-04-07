@@ -281,15 +281,17 @@ impl RunLoop {
         &mut self,
         _burnchain_opt: Option<Burnchain>,
         coordinator_senders: CoordinatorChannels,
-    ) -> (Box<dyn BurnchainController> , Option<Sender<()>>){
+    ) -> (Box<dyn BurnchainController>, Option<Sender<()>>) {
         // Initialize and start the burnchain.
         let mut burnchain_controller = self
             .config
             .make_burnchain_controller(coordinator_senders)
             .expect("couldn't create burnchain controller");
 
-
-        info!("Should we spawn warp server?: {}", self.config.burnchain.spawn_l1_observer());
+        info!(
+            "Should we spawn warp server?: {}",
+            self.config.burnchain.spawn_l1_observer()
+        );
         let l1_observer_signal = if self.config.burnchain.spawn_l1_observer() {
             Some(l1_observer::spawn(burnchain_controller.get_channel()))
         } else {
@@ -347,7 +349,7 @@ impl RunLoop {
 
         // TODO (hack) instantiate the sortdb in the burnchain
         let _ = burnchain_controller.sortdb_mut();
-        (burnchain_controller,l1_observer_signal)
+        (burnchain_controller, l1_observer_signal)
     }
 
     /// Instantiate the Stacks chain state and start the chains coordinator thread.
@@ -524,7 +526,6 @@ impl RunLoop {
 
         let sortdb = burnchain.sortdb_mut();
         let mut sortition_db_height = RunLoop::get_sortition_db_height(&sortdb, &burnchain_config);
-
 
         // Start the runloop
         debug!("Begin run loop");

@@ -94,7 +94,7 @@ pub trait BurnchainIndexer {
     fn find_chain_reorg(&mut self) -> Result<u64, burnchain_error>;
 
     /// This method will block until at least one header (the "first" tracked header) has been read.
-    /// 
+    ///
     /// It will return the highest height known about.
     fn sync_headers(
         &mut self,

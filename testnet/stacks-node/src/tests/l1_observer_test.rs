@@ -40,7 +40,6 @@ fn l1_observer_test() {
     let channel = run_loop.get_coordinator_channel().unwrap();
     thread::spawn(move || run_loop.start(None, 0));
 
-
     // Start Stacks L1.
     let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
     let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), true);

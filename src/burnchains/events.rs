@@ -20,7 +20,7 @@ use super::StacksHyperOpType;
 
 /// Parsing struct for the transaction event types of the
 /// `stacks-node` events API
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Serialize)]
 pub enum TxEventType {
     ContractEvent,
     Other,
@@ -28,7 +28,7 @@ pub enum TxEventType {
 
 /// Parsing struct for the contract_event field in transaction events
 /// of the `stacks-node` events API
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ContractEvent {
     #[serde(deserialize_with = "deser_contract_identifier")]
     pub contract_identifier: QualifiedContractIdentifier,
@@ -39,7 +39,7 @@ pub struct ContractEvent {
 
 /// Parsing struct for the transaction events of the `stacks-node`
 /// events API
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NewBlockTxEvent {
     #[serde(deserialize_with = "deser_txid")]
     pub txid: Txid,
@@ -53,7 +53,7 @@ pub struct NewBlockTxEvent {
 
 /// Parsing struct for the new block events of the `stacks-node`
 /// events API
-#[derive(Deserialize, Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct NewBlock {
     pub block_height: u64,
     pub burn_block_time: u64,

@@ -496,7 +496,9 @@ impl StacksL1Controller {
                 loop {
                     // info!("in loop");
 
-                    buffered_out.read_line(&mut buf).expect("reading a line didn't work");
+                    buffered_out
+                        .read_line(&mut buf)
+                        .expect("reading a line didn't work");
                     info!("\x1b[0;33mL1: {}\x1b[0m", &buf);
                     buf.clear();
 

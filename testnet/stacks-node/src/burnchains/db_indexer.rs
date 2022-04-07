@@ -30,7 +30,8 @@ const DB_BURNCHAIN_SCHEMA: &'static str = &r#"
         header_hash TEXT PRIMARY KEY NOT NULL,
         parent_header_hash TEXT NOT NULL,
         time_stamp INTEGER NOT NULL,
-        is_canonical INTEGER NOT NULL  -- is this block on the canonical path?
+        is_canonical INTEGER NOT NULL,  -- is this block on the canonical path?
+        block TEXT NOT NULL  -- json serilization of the NewBlock
     );
     "#;
 
@@ -226,6 +227,7 @@ struct DBBurnBlockInputChannel {
 }
 
 impl BurnchainChannel for DBBurnBlockInputChannel {
+    /// TODO: add comment.
     fn push_block(&self, new_block: NewBlock) -> Result<(), BurnchainError> {
         info!("BurnchainChannel::push_block pushing: {:?}", &new_block);
         // Re-open the connection.
@@ -259,12 +261,15 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
         };
 
         // Insert this header.
+        let block_string =
+            serde_json::to_string(&new_block).map_err({ |e| BurnchainError::ParseError })?;
         let params: &[&dyn ToSql] = &[
             &(header.height() as u32),
             &BurnchainHeaderHash(header.header_hash()),
             &BurnchainHeaderHash(header.parent_header_hash()),
             &(header.time_stamp() as u32),
             &(is_canonical as u32),
+            &block_string,
         ];
         let mut transaction = match connection.transaction() {
             Ok(transaction) => transaction,
@@ -273,7 +278,7 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
             }
         };
         transaction.execute(
-            "INSERT INTO headers (height, header_hash, parent_header_hash, time_stamp, is_canonical) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO headers (height, header_hash, parent_header_hash, time_stamp, is_canonical, block) VALUES (?, ?, ?, ?, ?, ?)",
             params,
         )?;
 
@@ -290,7 +295,10 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
 
         transaction.commit()?;
 
-        info!("BurnchainChannel::push_block succeeds for: {:?}", &new_block);
+        info!(
+            "BurnchainChannel::push_block succeeds for: {:?}",
+            &new_block
+        );
 
         Ok(())
     }
@@ -304,6 +312,7 @@ pub struct BurnHeaderDBRow {
     pub parent_header_hash: BurnchainHeaderHash,
     pub time_stamp: u64,
     pub is_canonical: u64,
+    pub block: String,
 }
 
 impl BurnHeaderIPC for BurnHeaderDBRow {
@@ -333,6 +342,7 @@ impl FromRow<BurnHeaderDBRow> for BurnHeaderDBRow {
             BurnchainHeaderHash::from_column(row, "parent_header_hash")?;
         let time_stamp: u32 = row.get_unwrap("time_stamp");
         let is_canonical: u32 = row.get_unwrap("is_canonical");
+        let block: String = row.get_unwrap("block");
 
         Ok(BurnHeaderDBRow {
             height: height.into(),
@@ -340,6 +350,7 @@ impl FromRow<BurnHeaderDBRow> for BurnHeaderDBRow {
             parent_header_hash,
             time_stamp: time_stamp.into(),
             is_canonical: is_canonical.into(),
+            block,
         })
     }
 }
@@ -432,14 +443,33 @@ impl BurnchainBlockParser for DBBurnchainParser {
 }
 
 pub struct DBBlockDownloader {
-    channel: Arc<DBBurnBlockInputChannel>,
+    output_db_path: String,
 }
 
 impl BurnchainBlockDownloader for DBBlockDownloader {
     type B = BlockIPC;
 
     fn download(&mut self, header: &MockHeader) -> Result<BlockIPC, BurnchainError> {
-        todo!()
+        let open_flags = OpenFlags::SQLITE_OPEN_READ_WRITE;
+        let connection = sqlite_open(&self.output_db_path, open_flags, true)?;
+        let header_hash = BurnchainHeaderHash(header.index_hash.0);
+        let params: &[&dyn ToSql] = &[&header_hash];
+        let block_string = query_row::<BurnHeaderDBRow, _>(
+            &connection,
+            "SELECT * FROM headers WHERE header_hash = ?1",
+            params,
+        )?;
+
+        let block = match block_string {
+            Some(header) => {
+                serde_json::from_str(&header.block).map_err(|_e| BurnchainError::ParseError)?
+            }
+            None => {
+                return Err(BurnchainError::UnknownBlock(header_hash));
+            }
+        };
+
+        Ok(BlockIPC(block))
     }
 }
 
@@ -454,12 +484,16 @@ fn row_to_mock_header(input: &BurnHeaderDBRow) -> MockHeader {
 
 impl From<&NewBlock> for BurnHeaderDBRow {
     fn from(b: &NewBlock) -> Self {
+        let block_string = serde_json::to_string(&b)
+            .map_err({ |e| BurnchainError::ParseError })
+            .expect("Serialization of `NewBlock` has failed.");
         BurnHeaderDBRow {
             header_hash: BurnchainHeaderHash(b.index_block_hash.0.clone()),
             parent_header_hash: BurnchainHeaderHash(b.parent_index_block_hash.0.clone()),
             height: b.block_height,
             time_stamp: b.burn_block_time,
             is_canonical: 0,
+            block: block_string,
         }
     }
 }
@@ -629,7 +663,9 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         todo!()
     }
     fn downloader(&self) -> Self::D {
-        todo!()
+        DBBlockDownloader {
+            output_db_path: self.get_headers_path(),
+        }
     }
 }
 
