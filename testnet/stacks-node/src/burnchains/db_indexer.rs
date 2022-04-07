@@ -217,6 +217,8 @@ fn wait_for_first_block(connection: &DBConn) -> Result<u64, burnchains::Error> {
 struct DBBurnBlockInputChannel {
     /// Path to the db file underlying this logic.
     output_db_path: String,
+    /// The hash of the first block that the system will store.
+    first_burn_header_hash: BurnchainHeaderHash,
 }
 
 impl BurnchainChannel for DBBurnBlockInputChannel {
@@ -229,10 +231,18 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
         let open_flags = OpenFlags::SQLITE_OPEN_READ_WRITE;
         let mut connection = sqlite_open(&self.output_db_path, open_flags, true)?;
 
-        // Decide if this new node is part of the canonical chain.
         let current_canonical_tip_opt = get_canonical_chain_tip(&connection)?;
-
         let header = BurnHeaderDBRow::from(&new_block);
+
+        // In order to record this block, we either: 1) have already started recording, or 2) this
+        // block has the "first hash" we're looking for.
+        if current_canonical_tip_opt.is_none() {
+            if header.header_hash != self.first_burn_header_hash {
+                return Ok(());
+            }
+        }
+
+        // Decide if this new node is part of the canonical chain.
         let (is_canonical, needs_reorg) = match &current_canonical_tip_opt {
             // No canonical tip so no re-org.
             None => (true, false),
@@ -507,6 +517,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     fn get_channel(&self) -> Arc<(dyn BurnchainChannel + 'static)> {
         Arc::new(DBBurnBlockInputChannel {
             output_db_path: self.get_headers_path(),
+            first_burn_header_hash: self.first_burn_header_hash.clone(),
         })
     }
 
