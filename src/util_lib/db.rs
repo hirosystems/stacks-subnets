@@ -551,7 +551,11 @@ pub fn ensure_base_directory_exists(full_path_str: &str) -> Result<(), Error> {
     let mut path = PathBuf::from(full_path_str);
     let could_pop = path.pop();
     // let error = format!("Invalid path passed to `ensure_directory_exists`: {}", &full_path_str);
-    assert!(could_pop, "Invalid path passed to `ensure_directory_exists`: {}", &full_path_str);
+    assert!(
+        could_pop,
+        "Invalid path passed to `ensure_directory_exists`: {}",
+        &full_path_str
+    );
 
     // This will not failif `path` already exists.
     fs::create_dir_all(path).map_err(Error::IOError)?;
