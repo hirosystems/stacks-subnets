@@ -2,8 +2,9 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 use std::{fs, io};
 
-use rusqlite::{OpenFlags, Row, ToSql, NO_PARAMS, Transaction};
+use rusqlite::{OpenFlags, Row, ToSql, Transaction, NO_PARAMS};
 use stacks::burnchains::events::NewBlock;
+use stacks::util::sleep_ms;
 use stacks::vm::types::QualifiedContractIdentifier;
 
 use super::mock_events::{BlockIPC, MockHeader};
@@ -14,15 +15,13 @@ use stacks::burnchains::indexer::BurnBlockIPC;
 use stacks::burnchains::indexer::BurnchainBlockDownloader;
 use stacks::burnchains::indexer::BurnchainIndexer;
 use stacks::burnchains::indexer::{BurnHeaderIPC, BurnchainBlockParser};
-use stacks::burnchains::{BurnchainBlock, Error as BurnchainError, StacksHyperBlock};
+use stacks::burnchains::{self, BurnchainBlock, Error as BurnchainError, StacksHyperBlock};
 use stacks::chainstate::burn::db::DBConn;
 use stacks::core::StacksEpoch;
 use stacks::types::chainstate::{BurnchainHeaderHash, StacksBlockId};
-use stacks::util_lib::db::Error as DBError;
+use stacks::util_lib::db::{ensure_base_directory_exists, Error as DBError};
 use stacks::util_lib::db::{query_row, u64_to_sql, FromRow};
 use stacks::util_lib::db::{sqlite_open, Error as db_error};
-use stacks_common::deps_common::bitcoin::util::hash::Sha256dHash;
-
 
 const DB_BURNCHAIN_SCHEMA: &'static str = &r#"
     CREATE TABLE headers(
@@ -30,7 +29,8 @@ const DB_BURNCHAIN_SCHEMA: &'static str = &r#"
         header_hash TEXT PRIMARY KEY NOT NULL,
         parent_header_hash TEXT NOT NULL,
         time_stamp INTEGER NOT NULL,
-        is_canonical INTEGER NOT NULL  -- is this block on the canonical path?
+        is_canonical INTEGER NOT NULL,  -- is this block on the canonical path?
+        block TEXT NOT NULL  -- json serilization of the NewBlock
     );
     "#;
 
@@ -57,7 +57,7 @@ fn is_canonical(
 }
 
 /// Returns a comparison between `a` and `b`.
-/// Headers are sorted by height (higher is greater), and then lexicographically by 
+/// Headers are sorted by height (higher is greater), and then lexicographically by
 /// the header hash (greater in string space is greater).
 fn compare_headers(a: &BurnHeaderDBRow, b: &BurnHeaderDBRow) -> Ordering {
     if a.height() > b.height() {
@@ -195,13 +195,75 @@ fn find_first_canonical_ancestor(
     }
 }
 
+/// If there are any headers in the DB, return the height of the highest header.
+/// If there are no headers in the DB, return None.
+/// TODO: Can this be done in one call?
+fn safe_get_max_height(connection: &DBConn) -> Result<Option<u64>, burnchains::Error> {
+    let count_result =
+        match query_row::<u64, _>(&connection, "SELECT COUNT(height) FROM headers", NO_PARAMS) {
+            Ok(count) => count,
+            Err(e) => {
+                return Err(BurnchainError::DBError(e));
+            }
+        };
+
+    match count_result {
+        Some(count) => {
+            if count < 1 {
+                return Ok(None);
+            }
+        }
+        None => {
+            panic!("SELECT COUNT returned no rows.");
+        }
+    };
+
+    let row_result =
+        match query_row::<u64, _>(&connection, "SELECT MAX(height) FROM headers", NO_PARAMS) {
+            Ok(val) => val,
+            Err(e) => {
+                return Err(burnchains::Error::DBError(e));
+            }
+        };
+
+    match row_result {
+        Some(max) => Ok(Some(max)),
+        None => {
+            panic!("Should not be None.");
+        }
+    }
+}
+
+/// Blocks until we have received our first block.
+///
+/// Returns the height of the highest block found.
+fn wait_for_first_block(connection: &DBConn) -> Result<u64, burnchains::Error> {
+    loop {
+        let safe_highest_height = safe_get_max_height(connection)?;
+        match safe_highest_height {
+            Some(height) => {
+                return Ok(height);
+            }
+            None => {
+                // pass, stay in loop
+            }
+        }
+
+        info!("Waiting for first block.");
+        sleep_ms(1000);
+    }
+}
 
 struct DBBurnBlockInputChannel {
     output_db_path: String,
 }
 
 impl BurnchainChannel for DBBurnBlockInputChannel {
+    /// TODO: add comment.
+    /// TODO: Make this method sensitive to `first_burn_header_hash`, and don't push
+    /// anything until we have seen that block.
     fn push_block(&self, new_block: NewBlock) -> Result<(), BurnchainError> {
+        info!("BurnchainChannel::push_block pushing: {:?}", &new_block);
         // Re-open the connection.
         let open_flags = OpenFlags::SQLITE_OPEN_READ_WRITE;
         let mut connection = sqlite_open(&self.output_db_path, open_flags, true)?;
@@ -233,12 +295,15 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
         };
 
         // Insert this header.
+        let block_string =
+            serde_json::to_string(&new_block).map_err({ |e| BurnchainError::ParseError })?;
         let params: &[&dyn ToSql] = &[
             &(header.height() as u32),
             &BurnchainHeaderHash(header.header_hash()),
             &BurnchainHeaderHash(header.parent_header_hash()),
             &(header.time_stamp() as u32),
             &(is_canonical as u32),
+            &block_string,
         ];
         let mut transaction = match connection.transaction() {
             Ok(transaction) => transaction,
@@ -247,7 +312,7 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
             }
         };
         transaction.execute(
-            "INSERT INTO headers (height, header_hash, parent_header_hash, time_stamp, is_canonical) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO headers (height, header_hash, parent_header_hash, time_stamp, is_canonical, block) VALUES (?, ?, ?, ?, ?, ?)",
             params,
         )?;
 
@@ -276,6 +341,7 @@ pub struct BurnHeaderDBRow {
     pub parent_header_hash: BurnchainHeaderHash,
     pub time_stamp: u64,
     pub is_canonical: u64,
+    pub block: String,
 }
 
 impl BurnHeaderIPC for BurnHeaderDBRow {
@@ -305,6 +371,7 @@ impl FromRow<BurnHeaderDBRow> for BurnHeaderDBRow {
             BurnchainHeaderHash::from_column(row, "parent_header_hash")?;
         let time_stamp: u32 = row.get_unwrap("time_stamp");
         let is_canonical: u32 = row.get_unwrap("is_canonical");
+        let block: String = row.get_unwrap("block");
 
         Ok(BurnHeaderDBRow {
             height: height.into(),
@@ -312,30 +379,81 @@ impl FromRow<BurnHeaderDBRow> for BurnHeaderDBRow {
             parent_header_hash,
             time_stamp: time_stamp.into(),
             is_canonical: is_canonical.into(),
+            block,
         })
     }
+}
+
+/// Creates a DB connection, connects, and instantiates the DB if needed.
+/// If DB needs instantiation and `readwrite` is false, error.
+fn create_db_and_maybe_instantiate(
+    db_path: &String,
+    readwrite: bool,
+) -> Result<DBConn, BurnchainError> {
+    ensure_base_directory_exists(db_path)?;
+
+    let mut create_flag = false;
+    let open_flags = match fs::metadata(db_path) {
+        Err(e) => {
+            if e.kind() == io::ErrorKind::NotFound {
+                // need to create
+                if readwrite {
+                    create_flag = true;
+                    OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE
+                } else {
+                    return Err(BurnchainError::from(DBError::NoDBError));
+                }
+            } else {
+                return Err(BurnchainError::from(DBError::IOError(e)));
+            }
+        }
+        Ok(_md) => {
+            // can just open
+            if readwrite {
+                OpenFlags::SQLITE_OPEN_READ_WRITE
+            } else {
+                OpenFlags::SQLITE_OPEN_READ_ONLY
+            }
+        }
+    };
+
+    let connection = sqlite_open(db_path, open_flags, true)?;
+
+    if create_flag {
+        connection
+            .execute(DB_BURNCHAIN_SCHEMA, NO_PARAMS)
+            .map_err(|e| BurnchainError::DBError(db_error::SqliteError(e)))?;
+    }
+
+    Ok(connection)
 }
 
 /// Tracks burnchain forks by storing the block headers in a database.
 pub struct DBBurnchainIndexer {
     config: BurnchainConfig,
-    connection: Option<DBConn>,
+    connection: DBConn,
     last_canonical_tip: Option<BurnHeaderDBRow>,
     first_burn_header_hash: BurnchainHeaderHash,
 }
 
 impl DBBurnchainIndexer {
-    pub fn new(config: BurnchainConfig) -> Result<DBBurnchainIndexer, Error> {
+    /// Create a new indexer and connect to the database. If the database schema doesn't exist,
+    /// if `readwrite` is true, instantiate it, otherwise error.
+    pub fn new(config: BurnchainConfig, readwrite: bool) -> Result<DBBurnchainIndexer, Error> {
+        info!("Creating DBBurnchainIndexer with config: {:?}", &config);
         let first_burn_header_hash = BurnchainHeaderHash(
-            Sha256dHash::from_hex(&config.first_burn_header_hash)
+            StacksBlockId::from_hex(&config.first_burn_header_hash)
                 .expect("Could not parse `first_burn_header_hash`.")
                 .0,
         );
+        info!("first_burn_header_hash {:?}", first_burn_header_hash);
 
+        let connection = create_db_and_maybe_instantiate(&config.indexer_base_db_path, readwrite)?;
+        let last_canonical_tip = get_canonical_chain_tip(&connection);
         Ok(DBBurnchainIndexer {
             config,
-            connection: None,
-            last_canonical_tip: None,
+            connection,
+            last_canonical_tip,
             first_burn_header_hash,
         })
     }
@@ -356,14 +474,33 @@ impl BurnchainBlockParser for DBBurnchainParser {
 }
 
 pub struct DBBlockDownloader {
-    channel: Arc<DBBurnBlockInputChannel>,
+    output_db_path: String,
 }
 
 impl BurnchainBlockDownloader for DBBlockDownloader {
     type B = BlockIPC;
 
     fn download(&mut self, header: &MockHeader) -> Result<BlockIPC, BurnchainError> {
-        todo!()
+        let open_flags = OpenFlags::SQLITE_OPEN_READ_WRITE;
+        let connection = sqlite_open(&self.output_db_path, open_flags, true)?;
+        let header_hash = BurnchainHeaderHash(header.index_hash.0);
+        let params: &[&dyn ToSql] = &[&header_hash];
+        let block_string = query_row::<BurnHeaderDBRow, _>(
+            &connection,
+            "SELECT * FROM headers WHERE header_hash = ?1",
+            params,
+        )?;
+
+        let block = match block_string {
+            Some(header) => {
+                serde_json::from_str(&header.block).map_err(|_e| BurnchainError::ParseError)?
+            }
+            None => {
+                return Err(BurnchainError::UnknownBlock(header_hash));
+            }
+        };
+
+        Ok(BlockIPC(block))
     }
 }
 
@@ -378,12 +515,16 @@ fn row_to_mock_header(input: &BurnHeaderDBRow) -> MockHeader {
 
 impl From<&NewBlock> for BurnHeaderDBRow {
     fn from(b: &NewBlock) -> Self {
+        let block_string = serde_json::to_string(&b)
+            .map_err({ |e| BurnchainError::ParseError })
+            .expect("Serialization of `NewBlock` has failed.");
         BurnHeaderDBRow {
             header_hash: BurnchainHeaderHash(b.index_block_hash.0.clone()),
             parent_header_hash: BurnchainHeaderHash(b.parent_index_block_hash.0.clone()),
             height: b.block_height,
             time_stamp: b.burn_block_time,
             is_canonical: 0,
+            block: block_string,
         }
     }
 }
@@ -392,46 +533,9 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     type P = DBBurnchainParser;
     type B = BlockIPC;
     type D = DBBlockDownloader;
+
+    /// `connect` is a no-op now. TODO: remove it?
     fn connect(&mut self, readwrite: bool) -> Result<(), BurnchainError> {
-        let path = &self.config.indexer_base_db_path;
-        let mut create_flag = false;
-        let open_flags = match fs::metadata(path) {
-            Err(e) => {
-                if e.kind() == io::ErrorKind::NotFound {
-                    // need to create
-                    if readwrite {
-                        create_flag = true;
-                        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE
-                    } else {
-                        return Err(BurnchainError::from(DBError::NoDBError));
-                    }
-                } else {
-                    return Err(BurnchainError::from(DBError::IOError(e)));
-                }
-            }
-            Ok(_md) => {
-                // can just open
-                if readwrite {
-                    OpenFlags::SQLITE_OPEN_READ_WRITE
-                } else {
-                    OpenFlags::SQLITE_OPEN_READ_ONLY
-                }
-            }
-        };
-
-        self.connection = Some(sqlite_open(path, open_flags, true)?);
-
-        if create_flag {
-            let _ = self
-                .connection
-                .as_ref()
-                .unwrap()
-                .execute(DB_BURNCHAIN_SCHEMA, NO_PARAMS)
-                .map_err(|e| BurnchainError::DBError(db_error::SqliteError(e)))?;
-        }
-
-        self.last_canonical_tip = get_canonical_chain_tip(self.connection.as_ref().unwrap());
-
         Ok(())
     }
 
@@ -470,12 +574,8 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     }
 
     fn get_highest_header_height(&self) -> Result<u64, BurnchainError> {
-        match query_row::<u64, _>(
-            &self.connection.as_ref().unwrap(),
-            "SELECT MAX(height) FROM headers",
-            NO_PARAMS,
-        )? {
-            Some(max) => Ok(max),
+        match safe_get_max_height(&self.connection)? {
+            Some(height) => Ok(height),
             None => Ok(0),
         }
     }
@@ -484,7 +584,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         let last_canonical_tip = match self.last_canonical_tip.as_ref() {
             Some(tip) => tip,
             None => {
-                let new_tip = get_canonical_chain_tip(self.connection.as_ref().unwrap());
+                let new_tip = get_canonical_chain_tip(&self.connection);
                 self.last_canonical_tip = new_tip;
                 return match &self.last_canonical_tip {
                     Some(tip) => Ok(tip.height()),
@@ -497,7 +597,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         };
 
         let still_canonical = is_canonical(
-            self.connection.as_ref().unwrap(),
+            &self.connection,
             BurnchainHeaderHash(last_canonical_tip.header_hash()),
         )
         .expect("Couldn't get is_canonical.");
@@ -507,12 +607,12 @@ impl BurnchainIndexer for DBBurnchainIndexer {
             self.get_highest_header_height()
         } else {
             find_first_canonical_ancestor(
-                self.connection.as_ref().unwrap(),
+                &self.connection,
                 BurnchainHeaderHash(last_canonical_tip.header_hash()),
             )
         };
 
-        let current_tip = get_canonical_chain_tip(self.connection.as_ref().unwrap());
+        let current_tip = get_canonical_chain_tip(&self.connection);
         self.last_canonical_tip = current_tip;
         result
     }
@@ -522,9 +622,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         _start_height: u64,
         _end_height: Option<u64>,
     ) -> Result<u64, BurnchainError> {
-        // We are not going to download blocks or wait here.
-        // The returned result is always just the highest block known about.
-        self.get_highest_header_height()
+        wait_for_first_block(&self.connection)
     }
 
     fn drop_headers(&mut self, _new_height: u64) -> Result<(), BurnchainError> {
@@ -542,8 +640,6 @@ impl BurnchainIndexer for DBBurnchainIndexer {
 
         let mut stmt = self
             .connection
-            .as_ref()
-            .unwrap()
             .prepare(sql_query)
             .map_err(|e| BurnchainError::DBError(db_error::SqliteError(e)))?;
 
@@ -572,18 +668,22 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     }
 
     fn parser(&self) -> Self::P {
-        todo!()
+        DBBurnchainParser {
+            watch_contract: self.config.contract_identifier.clone(),
+        }
     }
     fn downloader(&self) -> Self::D {
-        todo!()
+        DBBlockDownloader {
+            output_db_path: self.get_headers_path(),
+        }
     }
 }
 
 impl DBBurnchainIndexer {
     pub fn get_header_for_hash(&self, hash: &BurnchainHeaderHash) -> BurnHeaderDBRow {
         let row = query_row::<BurnHeaderDBRow, _>(
-            &self.connection.as_ref().unwrap(),
-            "SELECT * FROM headers WHERE burn_header_hash = ?1",
+            &self.connection,
+            "SELECT * FROM headers WHERE header_hash = ?1",
             &[&hash],
         )
         .expect(&format!(

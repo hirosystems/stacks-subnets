@@ -19,7 +19,7 @@ fn make_test_config() -> BurnchainConfig {
 
 /// Make indexer with test settings.
 fn make_test_indexer() -> DBBurnchainIndexer {
-    DBBurnchainIndexer::new(make_test_config()).expect("Couldn't create indexer.")
+    DBBurnchainIndexer::new(make_test_config(), true).expect("Couldn't create indexer.")
 }
 
 /// Tests that we can make a DBBurnchainIndexer and connect.
