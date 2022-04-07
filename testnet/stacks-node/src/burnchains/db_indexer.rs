@@ -623,19 +623,11 @@ impl BurnchainIndexer for DBBurnchainIndexer {
             .query(sql_args)
             .map_err(|e| BurnchainError::DBError(db_error::SqliteError(e)))?;
 
-        // gather, but make sure we get _all_ headers
-        let mut next_height = start_block;
         let mut headers: Vec<MockHeader> = vec![];
         while let Some(row) = rows
             .next()
             .map_err(|e| BurnchainError::DBError(db_error::SqliteError(e)))?
         {
-            let height: u64 = u64::from_column(&row, "height")?;
-            if height != next_height {
-                break;
-            }
-            next_height += 1;
-
             let next_header = BurnHeaderDBRow::from_row(&row)?;
             headers.push(row_to_mock_header(&next_header));
         }

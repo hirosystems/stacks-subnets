@@ -13,7 +13,7 @@ fn make_test_config() -> BurnchainConfig {
     let mut config = BurnchainConfig::default();
     config.indexer_base_db_path = db_path_dir;
     config.first_burn_header_hash =
-        "1111111111111111111111111111111111111111111111111111111111111111".to_string();
+        "0101010101010101010101010101010101010101010101010101010101010101".to_string();
     config
 }
 
@@ -190,4 +190,37 @@ fn test_drop_headers() {
     indexer
         .drop_headers(20)
         .expect("`drop_headers` should succed");
+}
+
+/// Test that if we set "first header hash" to something higher than the first block,
+/// that will be the first block we record.
+#[test]
+fn test_first_header_hash_requires_waiting() {
+    let mut config = make_test_config();
+
+    config.first_burn_header_hash =
+        "0303030303030303030303030303030303030303030303030303030303030303".to_string();
+    let mut indexer = DBBurnchainIndexer::new(config, true).expect("Couldn't create indexer.");
+
+    indexer.connect(true).expect("Couldn't connect.");
+
+    let input_channel = indexer.get_channel();
+
+    // Add heights up to 10.
+    for block_idx in 1..11 {
+        let new_block = make_test_new_block(
+            block_idx,
+            block_idx as u8,
+            (block_idx - 1) as u8,
+            make_test_config().contract_identifier.clone(),
+        );
+        input_channel
+            .push_block(new_block)
+            .expect("Failed to push block");
+    }
+
+    let headers = indexer.read_headers(1, 11).expect("Couldn't get height");
+    for header in &headers {
+        info!("{:?}", &header);
+    }
 }
