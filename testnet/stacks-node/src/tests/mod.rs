@@ -486,7 +486,6 @@ impl StacksL1Controller {
         };
 
         let printer_handle = if self.log_process {
-            info!("logging process");
             let child_out = process.stderr.take().unwrap();
             Some(thread::spawn(|| {
                 info!("spawned thread process");
