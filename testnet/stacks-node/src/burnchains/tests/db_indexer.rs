@@ -4,6 +4,8 @@ use crate::{burnchains::db_indexer::DBBurnchainIndexer, rand::RngCore};
 use rand;
 use stacks::burnchains::events::{NewBlock, NewBlockTxEvent};
 use stacks::burnchains::indexer::BurnchainIndexer;
+use stacks::burnchains::Burnchain;
+use stacks::chainstate::coordinator::CoordinatorCommunication;
 use stacks::types::chainstate::{BurnchainHeaderHash, StacksBlockId};
 use stacks::util::hash::to_hex;
 
@@ -14,6 +16,7 @@ fn make_test_config() -> BurnchainConfig {
     config.indexer_base_db_path = db_path_dir;
     config.first_burn_header_hash =
         "0101010101010101010101010101010101010101010101010101010101010101".to_string();
+    config.first_burn_header_timestamp = 1u64;
     config
 }
 
@@ -223,4 +226,42 @@ fn test_first_header_hash_requires_waiting() {
     for header in &headers {
         info!("{:?}", &header);
     }
+}
+
+/// Test the DBBurnchainIndexer in the context of Burnchain::sync_with_indexer.
+#[test]
+fn test_db_sync_with_indexer() {
+    let mut indexer = make_test_indexer_add_10_block_branch();
+    let config = make_test_config();
+    let burnchain_dir = random_sortdb_test_dir();
+
+    let first_burn_header_hash = BurnchainHeaderHash(
+        StacksBlockId::from_hex(&config.first_burn_header_hash)
+            .expect("Could not parse `first_burn_header_hash`.")
+            .0,
+    );
+
+    let mut burnchain = Burnchain::new(&burnchain_dir, "mockstack", "hyperchain")
+        .expect("Could not create Burnchain.");
+    let (sortition_db, burn_db) = burnchain
+        .connect_db(
+            &indexer,
+            true,
+            first_burn_header_hash,
+            config.first_burn_header_timestamp,
+        )
+        .expect("Could not connect burnchain.");
+
+    let (_receivers, channels) = CoordinatorCommunication::instantiate();
+
+    let target_block_height_opt = None;
+    let max_blocks_opt = None;
+    let should_keep_running = None;
+    burnchain.sync_with_indexer(
+        &mut indexer,
+        channels,
+        target_block_height_opt,
+        max_blocks_opt,
+        should_keep_running,
+    );
 }
