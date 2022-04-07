@@ -289,7 +289,7 @@ impl RunLoop {
             .expect("couldn't create burnchain controller");
 
         info!(
-            "Should we spawn warp server?: {}",
+            "self.config.burnchain.spawn_l1_observer(): {}",
             self.config.burnchain.spawn_l1_observer()
         );
         let l1_observer_signal = if self.config.burnchain.spawn_l1_observer() {

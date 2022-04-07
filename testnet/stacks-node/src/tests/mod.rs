@@ -494,21 +494,12 @@ impl StacksL1Controller {
                 let mut buffered_out = BufReader::new(child_out);
                 let mut buf = String::new();
                 loop {
-                    // info!("in loop");
-
                     buffered_out
                         .read_line(&mut buf)
                         .expect("reading a line didn't work");
+                    // Print the L1 log line in yellow.
                     info!("\x1b[0;33mL1: {}\x1b[0m", &buf);
                     buf.clear();
-
-                    // for line in buffered_out.lines() {
-                    //     let line = match line {
-                    //         Ok(x) => x,
-                    //         Err(e) => return,
-                    //     };
-                    //     println!("L1: {}", line);
-                    // }
                 }
             }))
         } else {

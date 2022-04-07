@@ -106,7 +106,8 @@ pub trait BurnchainIndexer {
     fn drop_headers(&mut self, new_height: u64) -> Result<(), burnchain_error>;
 
     /// Reads in the headers from `start_block` to `end_block`.
-    /// Returns an error if the headers in this range are not available.
+    /// If the headers in this range do not exist, it is not an error, and a truncated vector
+    /// is returned.
     fn read_headers(
         &self,
         start_block: u64,

@@ -228,6 +228,8 @@ struct DBBurnBlockInputChannel {
 
 impl BurnchainChannel for DBBurnBlockInputChannel {
     /// TODO: add comment.
+    /// TODO: Make this method sensitive to `first_burn_header_hash`, and don't push
+    /// anything until we have seen that block.
     fn push_block(&self, new_block: NewBlock) -> Result<(), BurnchainError> {
         info!("BurnchainChannel::push_block pushing: {:?}", &new_block);
         // Re-open the connection.
@@ -294,11 +296,6 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
         }
 
         transaction.commit()?;
-
-        info!(
-            "BurnchainChannel::push_block succeeds for: {:?}",
-            &new_block
-        );
 
         Ok(())
     }
