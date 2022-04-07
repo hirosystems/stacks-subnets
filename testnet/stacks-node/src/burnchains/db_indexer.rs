@@ -19,7 +19,7 @@ use stacks::burnchains::{self, BurnchainBlock, Error as BurnchainError, StacksHy
 use stacks::chainstate::burn::db::DBConn;
 use stacks::core::StacksEpoch;
 use stacks::types::chainstate::{BurnchainHeaderHash, StacksBlockId};
-use stacks::util_lib::db::Error as DBError;
+use stacks::util_lib::db::{Error as DBError, ensure_base_directory_exists};
 use stacks::util_lib::db::{query_row, u64_to_sql, FromRow};
 use stacks::util_lib::db::{sqlite_open, Error as db_error};
 use stacks_common::deps_common::bitcoin::util::hash::Sha256dHash;
@@ -358,6 +358,8 @@ fn create_db_and_maybe_instantiate(
     db_path: &String,
     readwrite: bool,
 ) -> Result<DBConn, BurnchainError> {
+    ensure_base_directory_exists(db_path)?;
+    
     let mut create_flag = false;
     let open_flags = match fs::metadata(db_path) {
         Err(e) => {
