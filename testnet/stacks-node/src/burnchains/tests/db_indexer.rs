@@ -272,12 +272,19 @@ fn test_db_sync_with_indexer() {
             .expect("Failed to push block");
     }
 
-    let result = burnchain.sync_with_indexer(
-        &mut indexer,
-        channels.clone(),
-        target_block_height_opt,
-        None,
-        None,
+    let result = burnchain
+        .sync_with_indexer(
+            &mut indexer,
+            channels.clone(),
+            target_block_height_opt,
+            None,
+            None,
+        )
+        .expect("Call to `sync_with_indexer` should succeed.");
+
+    assert_eq!(10, result.block_height);
+    assert_eq!(
+        "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+        result.block_hash.to_string()
     );
-    assert_eq!("Err(TrySyncAgain)", format!("{:?}", result));
 }

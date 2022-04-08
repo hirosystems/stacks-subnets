@@ -213,15 +213,6 @@ impl BurnchainDB {
                 &[&BURNCHAIN_DB_VERSION],
             )?;
 
-            let first_block_header = BurnchainBlockHeader {
-                block_height: first_block_height,
-                block_hash: first_burn_header_hash.clone(),
-                timestamp: first_burn_header_timestamp,
-                num_txs: 0,
-                parent_block_hash: BurnchainHeaderHash::sentinel(),
-            };
-
-            db_tx.store_burnchain_db_entry(&first_block_header)?;
             db_tx.commit()?;
         }
 

@@ -536,12 +536,22 @@ impl Burnchain {
             indexer.get_first_block_header_timestamp()?,
         )?;
 
-        let burn_chain_tip = burnchain_db.get_canonical_chain_tip().map_err(|e| {
-            error!("Failed to query burn chain tip from burn DB: {}", e);
-            e
-        })?;
+        let burn_chain_tip: Option<BurnchainBlockHeader> =
+            match burnchain_db.get_canonical_chain_tip() {
+                Ok(header) => Some(header),
+                Err(error) => match error {
+                    MissingParentBlock => None,
+                    _ => {
+                        error!("Failed to query burn chain tip from burn DB: {}", &error);
+                        return Err(error);
+                    }
+                },
+            };
 
-        let db_height = burn_chain_tip.block_height;
+        let db_height = match &burn_chain_tip {
+            Some(header) => header.block_height,
+            None => 0,
+        };
 
         // handle reorgs
         let (sync_height, did_reorg) = Burnchain::sync_reorg(indexer)?;
@@ -632,9 +642,9 @@ impl Burnchain {
             }
         }
 
-        if start_block == db_height && db_height == end_block {
+        if burn_chain_tip.is_some() && start_block == db_height && db_height == end_block {
             // all caught up
-            return Ok(burn_chain_tip);
+            return Ok(burn_chain_tip.unwrap());
         }
 
         let total = sync_height - self.first_block_height;
@@ -731,13 +741,14 @@ impl Burnchain {
                         let block_height = burnchain_block.block_height();
 
                         let insert_start = get_epoch_time_ms();
-                        last_processed =
+                        last_processed = Some(
                             Burnchain::process_block(&myself, &mut burnchain_db, &burnchain_block)
                                 .map_err(|e| {
                                     warn!("Error processing block {:?}", e);
                                     e
                                 })
-                                .unwrap();
+                                .unwrap(),
+                        );
                         if !coord_comm.announce_new_burn_block() {
                             warn!("Coordinator communication failed");
                             return Err(burnchain_error::CoordinatorClosed);
@@ -750,7 +761,7 @@ impl Burnchain {
                             insert_end.saturating_sub(insert_start)
                         );
                     }
-                    Ok(last_processed)
+                    Ok(last_processed.unwrap())
                 })
                 .unwrap();
 
