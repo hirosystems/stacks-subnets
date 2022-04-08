@@ -24,6 +24,7 @@ slog = { version = "2.5.2", features = [ "max_level_trace" ] }
 clarity = { package = "clarity", path = "../../clarity/." }
 stacks_common = { package = "stacks-common", path = "../../stacks-common/." }
 tokio = { version = "=1.15.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["blocking", "json", "rustls"] }
 warp = "0.3"
 
 [dependencies.rusqlite]
@@ -32,7 +33,6 @@ features = ["blob", "serde_json", "i128_blob", "bundled", "trace"]
 
 [dev-dependencies]
 ring = "0.16.19"
-reqwest = { version = "0.11", features = ["blocking", "json", "rustls"] }
 
 [dev-dependencies.rusqlite]
 version = "=0.24.2"

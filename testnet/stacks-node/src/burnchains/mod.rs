@@ -4,6 +4,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Instant;
 
+use reqwest::Error as ReqwestError;
 use stacks::burnchains;
 use stacks::burnchains::events::NewBlock;
 use stacks::burnchains::indexer::BurnchainChannel;
@@ -11,7 +12,6 @@ use stacks::burnchains::Burnchain;
 use stacks::chainstate::burn::db::sortdb::SortitionDB;
 use stacks::chainstate::burn::operations::BlockstackOperationType;
 use stacks::chainstate::burn::BlockSnapshot;
-
 use stacks::core::StacksEpoch;
 
 /// This module implements a burnchain controller that
@@ -32,6 +32,8 @@ pub enum Error {
     UnsupportedBurnchain(String),
     CoordinatorClosed,
     IndexerError(burnchains::Error),
+    RPCError(String),
+    BadCommitment,
 }
 
 impl fmt::Display for Error {
@@ -42,7 +44,15 @@ impl fmt::Display for Error {
             }
             Error::CoordinatorClosed => write!(f, "ChainsCoordinator closed"),
             Error::IndexerError(ref e) => write!(f, "Indexer error: {:?}", e),
+            Error::RPCError(ref e) => write!(f, "ControllerError(RPCError: {})", e),
+            Error::BadCommitment => write!(f, "ControllerError(BadCommitment))"),
         }
+    }
+}
+
+impl From<ReqwestError> for Error {
+    fn from(e: ReqwestError) -> Self {
+        Error::RPCError(e.to_string())
     }
 }
 
