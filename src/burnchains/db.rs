@@ -175,6 +175,7 @@ impl BurnchainDB {
         first_burn_header_timestamp: u64,
         readwrite: bool,
     ) -> Result<BurnchainDB, BurnchainError> {
+        info!("Make burnchain db at: {:?}", &path);
         let mut create_flag = false;
         let open_flags = match fs::metadata(path) {
             Err(e) => {
@@ -323,7 +324,7 @@ impl BurnchainDB {
         block: &BurnchainBlock,
     ) -> Result<Vec<BlockstackOperationType>, BurnchainError> {
         let header = block.header();
-        debug!("Storing new burnchain block";
+        info!("Storing new burnchain block";
               "burn_header_hash" => %header.block_hash.to_string());
         let mut blockstack_ops = self.get_blockstack_transactions(burnchain, block, &header);
         apply_blockstack_txs_safety_checks(header.block_height, &mut blockstack_ops);

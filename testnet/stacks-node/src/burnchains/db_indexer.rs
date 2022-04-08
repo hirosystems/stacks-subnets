@@ -266,7 +266,12 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
 
         // Insert this header.
         let block_string =
-            serde_json::to_string(&new_block).map_err({ |e| BurnchainError::ParseError })?;
+            serde_json::to_string(&new_block).map_err(|e| BurnchainError::ParseError)?;
+        info!("output block_string {}", &block_string);
+
+        let decoded: NewBlock = serde_json::from_str(&block_string).expect("why not?");
+        info!("decoded {:?}", &decoded);
+
         let params: &[&dyn ToSql] = &[
             &(header.height() as u32),
             &BurnchainHeaderHash(header.header_hash()),
@@ -460,14 +465,15 @@ impl BurnchainBlockDownloader for DBBlockDownloader {
         let connection = sqlite_open(&self.output_db_path, open_flags, true)?;
         let header_hash = BurnchainHeaderHash(header.index_hash.0);
         let params: &[&dyn ToSql] = &[&header_hash];
-        let block_string = query_row::<BurnHeaderDBRow, _>(
+        let header = query_row::<BurnHeaderDBRow, _>(
             &connection,
             "SELECT * FROM headers WHERE header_hash = ?1",
             params,
         )?;
 
-        let block = match block_string {
+        let block = match header {
             Some(header) => {
+                info!("block_string {:?}", &header.block);
                 serde_json::from_str(&header.block).map_err(|_e| BurnchainError::ParseError)?
             }
             None => {

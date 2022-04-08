@@ -5,6 +5,7 @@ use rand;
 use stacks::burnchains::events::{NewBlock, NewBlockTxEvent};
 use stacks::burnchains::indexer::BurnchainIndexer;
 use stacks::burnchains::Burnchain;
+use stacks::burnchains::Error as BurnchainError;
 use stacks::chainstate::coordinator::CoordinatorCommunication;
 use stacks::types::chainstate::{BurnchainHeaderHash, StacksBlockId};
 use stacks::util::hash::to_hex;
@@ -231,7 +232,7 @@ fn test_first_header_hash_requires_waiting() {
 /// Test the DBBurnchainIndexer in the context of Burnchain::sync_with_indexer.
 #[test]
 fn test_db_sync_with_indexer() {
-    let mut indexer = make_test_indexer_add_10_block_branch();
+    let mut indexer = make_test_indexer();
     let config = make_test_config();
     let burnchain_dir = random_sortdb_test_dir();
 
@@ -254,14 +255,29 @@ fn test_db_sync_with_indexer() {
 
     let (_receivers, channels) = CoordinatorCommunication::instantiate();
 
-    let target_block_height_opt = None;
-    let max_blocks_opt = None;
-    let should_keep_running = None;
-    burnchain.sync_with_indexer(
+    let target_block_height_opt = Some(10);
+
+    let input_channel = indexer.get_channel();
+
+    // Add heights up to 10.
+    for block_idx in 1..11 {
+        let new_block = make_test_new_block(
+            block_idx,
+            block_idx as u8,
+            (block_idx - 1) as u8,
+            make_test_config().contract_identifier.clone(),
+        );
+        input_channel
+            .push_block(new_block)
+            .expect("Failed to push block");
+    }
+
+    let result = burnchain.sync_with_indexer(
         &mut indexer,
-        channels,
+        channels.clone(),
         target_block_height_opt,
-        max_blocks_opt,
-        should_keep_running,
+        None,
+        None,
     );
+    assert_eq!("Err(TrySyncAgain)", format!("{:?}", result));
 }

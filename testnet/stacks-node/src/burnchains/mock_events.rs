@@ -478,7 +478,7 @@ pub struct MockHeader {
     pub parent_index_hash: StacksBlockId,
     pub time_stamp: u64,
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BlockIPC(pub NewBlock);
 
 impl BurnHeaderIPC for MockHeader {

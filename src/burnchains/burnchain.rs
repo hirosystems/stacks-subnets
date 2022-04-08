@@ -302,7 +302,7 @@ impl Burnchain {
         };
 
         if headers_height == 0 || headers_height < self.first_block_height {
-            debug!("Fetch initial headers");
+            info!("Fetch initial headers");
             indexer.sync_headers(headers_height, None).map_err(|e| {
                 error!("Failed to sync initial headers");
                 e
@@ -430,7 +430,7 @@ impl Burnchain {
         burnchain_db: &mut BurnchainDB,
         block: &BurnchainBlock,
     ) -> Result<BurnchainBlockHeader, burnchain_error> {
-        debug!(
+        info!(
             "Process block {} {}",
             block.block_height(),
             &block.block_hash()
@@ -581,7 +581,7 @@ impl Burnchain {
             start_block = db_height;
         }
 
-        debug!(
+        info!(
             "Sync'ed headers from {} to {}. DB at {}",
             sync_height, end_block, db_height
         );
@@ -592,13 +592,13 @@ impl Burnchain {
             // headers and syncing with the bitcoin-node, and the interval of blocks
             // to download computed here should be considered as our source of truth.
             if target_block_height > start_block && target_block_height < end_block {
-                debug!(
+                info!(
                     "Will download up to max burn block height {}",
                     target_block_height
                 );
                 end_block = target_block_height;
             } else {
-                debug!(
+                info!(
                     "Ignoring target block height {} considered as irrelevant",
                     target_block_height
                 );
@@ -607,7 +607,7 @@ impl Burnchain {
 
         if let Some(max_blocks) = max_blocks_opt {
             if start_block + max_blocks < end_block {
-                debug!(
+                info!(
                     "Will download only {} blocks (up to block height {})",
                     max_blocks,
                     start_block + max_blocks
@@ -623,7 +623,7 @@ impl Burnchain {
             // nothing to do -- go get the burnchain block data at that height
             let mut hdrs = indexer.read_headers(end_block, end_block + 1)?;
             if let Some(hdr) = hdrs.pop() {
-                debug!("Nothing to do; already have blocks up to {}", end_block);
+                info!("Nothing to do; already have blocks up to {}", end_block);
                 let bhh =
                     BurnchainHeaderHash::from_bitcoin_hash(&BitcoinSha256dHash(hdr.header_hash()));
                 return burnchain_db
@@ -661,7 +661,7 @@ impl Burnchain {
                 .name("burnchain-downloader".to_string())
                 .spawn(move || {
                     while let Ok(Some(ipc_header)) = downloader_recv.recv() {
-                        debug!("Try recv next header");
+                        info!("Try recv next header");
 
                         match should_keep_running {
                             Some(ref should_keep_running)
@@ -676,7 +676,7 @@ impl Burnchain {
                         let ipc_block = downloader.download(&ipc_header)?;
                         let download_end = get_epoch_time_ms();
 
-                        debug!(
+                        info!(
                             "Downloaded block {} in {}ms",
                             ipc_block.height(),
                             download_end.saturating_sub(download_start)
@@ -697,13 +697,13 @@ impl Burnchain {
             .name("burnchain-parser".to_string())
             .spawn(move || {
                 while let Ok(Some(ipc_block)) = parser_recv.recv() {
-                    debug!("Try recv next block");
+                    info!("Try recv next block");
 
                     let parse_start = get_epoch_time_ms();
                     let burnchain_block = parser.parse(&ipc_block)?;
                     let parse_end = get_epoch_time_ms();
 
-                    debug!(
+                    info!(
                         "Parsed block {} in {}ms",
                         burnchain_block.block_height(),
                         parse_end.saturating_sub(parse_start)
@@ -726,7 +726,7 @@ impl Burnchain {
                 .spawn(move || {
                     let mut last_processed = burn_chain_tip;
                     while let Ok(Some(burnchain_block)) = db_recv.recv() {
-                        debug!("Try recv next parsed block");
+                        info!("Try recv next parsed block");
 
                         let block_height = burnchain_block.block_height();
 
@@ -744,7 +744,7 @@ impl Burnchain {
                         }
                         let insert_end = get_epoch_time_ms();
 
-                        debug!(
+                        info!(
                             "Inserted block {} in {}ms",
                             burnchain_block.block_height(),
                             insert_end.saturating_sub(insert_start)
@@ -758,7 +758,7 @@ impl Burnchain {
         let input_headers = indexer.read_headers(start_block + 1, end_block + 1)?;
         let mut downloader_result: Result<(), burnchain_error> = Ok(());
         for i in 0..input_headers.len() {
-            debug!(
+            info!(
                 "Downloading burnchain block {} out of {}...",
                 start_block + 1 + (i as u64),
                 end_block
