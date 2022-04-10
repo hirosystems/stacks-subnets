@@ -4,14 +4,14 @@ use std::thread;
 use crate::burnchains::db_indexer::DBBurnchainIndexer;
 use crate::neon;
 use crate::stacks::burnchains::indexer::BurnchainIndexer;
+use crate::tests::neon_integrations::{get_account, submit_tx};
 use crate::tests::StacksL1Controller;
+use crate::tests::{make_contract_publish, to_addr};
 use clarity::util::hash::to_hex;
 use rand::RngCore;
 use stacks::burnchains::Burnchain;
-use stacks::util::sleep_ms;
-use crate::tests::neon_integrations::{get_account, submit_tx};
-use crate::tests::{make_contract_publish, to_addr};
 use stacks::chainstate::stacks::StacksPrivateKey;
+use stacks::util::sleep_ms;
 use stacks::vm::types::QualifiedContractIdentifier;
 use std::env;
 use std::time::Duration;
@@ -21,11 +21,6 @@ fn random_sortdb_test_dir() -> String {
     let mut buf = [0u8; 32];
     rng.fill_bytes(&mut buf);
     format!("/tmp/stacks-node-tests/sortdb/test-{}", to_hex(&buf))
-}
-
-#[derive(std::fmt::Debug)]
-pub enum SubprocessError {
-    SpawnFailed(String),
 }
 
 lazy_static! {
@@ -39,7 +34,6 @@ lazy_static! {
     .unwrap();
 }
 
-
 /// This test brings up the Stacks-L1 chain in "mocknet" mode, and ensures that our listener can hear and record burn blocks
 /// from the Stacks-L1 chain.
 #[test]
@@ -47,13 +41,6 @@ fn l1_observer_test() {
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
         return;
     }
-
-    // Start Stacks L1.
-    let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
-    let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), true);
-    let _stacks_res = stacks_l1_controller
-        .start_process()
-        .expect("stacks l1 controller didn't start");
 
     // Start the L2 run loop.
     let mut config = super::new_test_conf();

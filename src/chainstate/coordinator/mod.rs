@@ -453,7 +453,17 @@ impl<
 
     pub fn handle_new_burnchain_block(&mut self) -> Result<(), Error> {
         // Retrieve canonical burnchain chain tip from the BurnchainBlocksDB
-        let canonical_burnchain_tip = self.burnchain_blocks_db.get_canonical_chain_tip()?;
+        let canonical_burnchain_tip = match self.burnchain_blocks_db.get_canonical_chain_tip() {
+            Ok(tip) => tip,
+            Err(e) => match e {
+                MissingParentBlock => {
+                    return Ok(());
+                }
+                _ => {
+                    return Err(Error::BurnchainError(e));
+                }
+            },
+        };
         debug!("Handle new canonical burnchain tip";
                "height" => %canonical_burnchain_tip.block_height,
                "block_hash" => %canonical_burnchain_tip.block_hash.to_string());
