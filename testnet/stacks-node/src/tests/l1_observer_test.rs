@@ -37,7 +37,7 @@ lazy_static! {
 /// This test brings up the Stacks-L1 chain in "mocknet" mode, and ensures that our listener can hear and record burn blocks
 /// from the Stacks-L1 chain.
 #[test]
-fn l1_observer_test() {
+fn l1_basic_listener_test() {
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
         return;
     }
@@ -50,7 +50,7 @@ fn l1_observer_test() {
     let db_path_dir = random_sortdb_test_dir();
     config.burnchain.indexer_base_db_path = db_path_dir;
     config.burnchain.first_burn_header_hash =
-        "a7578f11a428bb953e7bbced9858525b6eec0d24d5d9d77285a7d7d891f68561".to_string();
+        "9946c68526249c259231f1660be4c72e915ebe1f25a8c8400095812b487eb279".to_string();
     config.burnchain.rpc_ssl = false;
     config.burnchain.rpc_port = 20443;
     config.burnchain.peer_host = "127.0.0.1".into();
