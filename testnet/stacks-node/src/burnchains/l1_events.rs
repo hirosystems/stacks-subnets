@@ -1,4 +1,5 @@
 use std::cmp;
+use std::convert::TryInto;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -241,8 +242,23 @@ impl L1BlockDownloader {
 //     pub anchor_mode: TransactionAnchorMode,
 // }
 
-pub fn burnchain_from_config(config:&BurnchainConfig) -> Burnchain {
-    todo!()
+// match &self.burnchain {
+//     Some(burnchain) => burnchain.clone(),
+//     None => {
+//         let working_dir = self.config.get_burn_db_path();
+//         Burnchain::new(&working_dir, "mockstack", "hyperchain").unwrap_or_else(|e| {
+//             error!("Failed to instantiate burnchain: {}", e);
+//             panic!()
+//         })
+//     }
+// }
+pub fn burnchain_from_config(config:&Config) -> Result<Burnchain, BurnchainError> {
+    let mut burnchain = Burnchain::new(&config.get_burn_db_path(), &config.burnchain.chain, &config.burnchain.mode)?;
+    burnchain.first_block_hash = BurnchainHeaderHash::from_hex(&config.burnchain.first_burn_header_hash).expect(&format!("Could not parse BurnchainHeaderHash: {}", &config.burnchain.first_burn_header_hash));
+    burnchain.first_block_height = config.burnchain.first_burn_header_height;
+    burnchain.first_block_timestamp = config.burnchain.first_burn_header_timestamp as u32;
+
+    Ok(burnchain)
     // Burnchain {
     //      peer_version: config.peer_version,
     //      network_id: u32,
@@ -262,7 +278,7 @@ pub fn burnchain_from_config(config:&BurnchainConfig) -> Burnchain {
 impl L1Controller {
     pub fn new(config: Config, coordinator: CoordinatorChannels) -> Result<L1Controller, Error> {
         let indexer = DBBurnchainIndexer::new(config.burnchain.clone(), true)?;
-        let burnchain = burnchain_from_config(&config.burnchain);
+        let burnchain = burnchain_from_config(&config)?;
         Ok(L1Controller {
             burnchain,
             config,

@@ -744,6 +744,9 @@ impl Burnchain {
                         let block_height = burnchain_block.block_height();
 
                         info!("scrutinizing block: first hash {:?} this block {:?}", &first_block_hash, &burnchain_block);
+                        if burnchain_block.block_hash() == first_block_hash {
+                            break;
+                        }
                         let insert_start = get_epoch_time_ms();
                         last_processed = Some(
                             Burnchain::process_block(&myself, &mut burnchain_db, &burnchain_block)

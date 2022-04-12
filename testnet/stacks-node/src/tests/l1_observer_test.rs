@@ -184,22 +184,15 @@ fn l1_integration_test() {
     //  and start mining L2 blocks
     thread::sleep(Duration::from_secs(60));
 
-    // The burnchain should have registered what the listener recorded.
-    let burnchain = Burnchain::new(
-        &config.get_burn_db_path(),
-        &config.burnchain.chain,
-        &config.burnchain.mode,
-    )
-    .unwrap();
-    let (_, burndb) = burnchain.open_db(true).unwrap();
-    let tip = burndb
-        .get_canonical_chain_tip()
-        .expect("couldn't get chain tip");
-    info!("burnblock chain tip is {:?}", &tip);
+    let indexer = DBBurnchainIndexer::new(config.burnchain.clone(), false)
+        .expect("Should be able to create DBBurnchainIndexer.");
+    let tip_height = indexer
+        .get_highest_header_height()
+        .expect("Should have a highest block.");
 
     // Ensure that the tip height has moved beyond height 0.
     // We check that we have moved past 3 just to establish we are reliably getting blocks.
-    assert!(tip.block_height > 3);
+    assert!(tip_height > 3);
 
     eprintln!("Miner account: {}", miner_account);
 
