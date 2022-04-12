@@ -555,7 +555,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     fn get_highest_header_height(&self) -> Result<u64, BurnchainError> {
         match get_canonical_chain_tip(&self.connection)? {
             Some(row) => Ok(row.height),
-            None => Ok(0),
+            None => Ok(self.get_first_block_height()),
         }
     }
 
@@ -568,8 +568,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
                 return match &self.last_canonical_tip {
                     Some(tip) => Ok(tip.height()),
                     None => {
-                        // TODO: Use height of `first header hash`.
-                        Ok(0)
+                        Ok(self.get_first_block_height())
                     }
                 };
             }

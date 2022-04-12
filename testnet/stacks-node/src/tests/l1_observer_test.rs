@@ -107,6 +107,7 @@ fn l1_integration_test() {
     config.burnchain.first_burn_header_hash =
     // "a7578f11a428bb953e7bbced9858525b6eec0d24d5d9d77285a7d7d891f68561".to_string();
     "9946c68526249c259231f1660be4c72e915ebe1f25a8c8400095812b487eb279".to_string();
+    config.burnchain.first_burn_header_height = 1;
     config.burnchain.chain = "stacks_layer_1".to_string();
     config.burnchain.mode = "hyperchain".to_string();
     config.burnchain.rpc_ssl = false;

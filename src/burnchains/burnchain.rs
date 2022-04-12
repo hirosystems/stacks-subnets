@@ -734,10 +734,8 @@ impl Burnchain {
                         let block_height = burnchain_block.block_height();
 
                         info!("scrutinizing block: first hash {:?} this block {:?}", &first_block_hash, &burnchain_block);
-                        if burnchain_block.block_hash() == first_block_hash {
-                            break;
-                        }
                         let insert_start = get_epoch_time_ms();
+                        if burnchain_block.block_hash() != first_block_hash {
                         last_processed = 
                             Burnchain::process_block(&myself, &mut burnchain_db, &burnchain_block)
                                 .map_err(|e| {
@@ -746,6 +744,7 @@ impl Burnchain {
                                 })
                                 .unwrap()
                         ;
+                        }
                         if !coord_comm.announce_new_burn_block() {
                             warn!("Coordinator communication failed");
                             return Err(burnchain_error::CoordinatorClosed);
