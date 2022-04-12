@@ -903,37 +903,51 @@ impl ConversationHttp {
         account: &PrincipalData,
         with_proof: bool,
     ) -> Result<(), net_error> {
+        info!("rpc check");
         let response_metadata = HttpResponseMetadata::from(req);
+        info!("rpc check");
 
         let response =
             match chainstate.maybe_read_only_clarity_tx(&sortdb.index_conn(), tip, |clarity_tx| {
                 clarity_tx.with_clarity_db_readonly(|clarity_db| {
+                    info!("rpc check");
+
                     let key = ClarityDatabase::make_key_for_account_balance(&account);
                     let burn_block_height = clarity_db.get_current_burnchain_block_height() as u64;
                     let (balance, balance_proof) = if with_proof {
+                        info!("rpc check");
+
                         clarity_db
                             .get_with_proof::<STXBalance>(&key)
                             .map(|(a, b)| (a, Some(format!("0x{}", to_hex(&b)))))
                             .unwrap_or_else(|| (STXBalance::zero(), Some("".into())))
-                    } else {
+                    } else {        info!("rpc check");
+
                         clarity_db
                             .get::<STXBalance>(&key)
                             .map(|a| (a, None))
                             .unwrap_or_else(|| (STXBalance::zero(), None))
                     };
 
+                    info!("rpc check");
+
                     let key = ClarityDatabase::make_key_for_account_nonce(&account);
                     let (nonce, nonce_proof) = if with_proof {
+                        info!("rpc check");
+
                         clarity_db
                             .get_with_proof(&key)
                             .map(|(a, b)| (a, Some(format!("0x{}", to_hex(&b)))))
                             .unwrap_or_else(|| (0, Some("".into())))
                     } else {
+                        info!("rpc check");
+
                         clarity_db
                             .get(&key)
                             .map(|a| (a, None))
                             .unwrap_or_else(|| (0, None))
                     };
+                    info!("rpc check");
 
                     let unlocked = balance.get_available_balance_at_burn_block(burn_block_height);
                     let (locked, unlock_height) =
@@ -941,6 +955,7 @@ impl ConversationHttp {
 
                     let balance = format!("0x{}", to_hex(&unlocked.to_be_bytes()));
                     let locked = format!("0x{}", to_hex(&locked.to_be_bytes()));
+                    info!("rpc check");
 
                     AccountEntryResponse {
                         balance,
@@ -1464,6 +1479,7 @@ impl ConversationHttp {
         sortdb: &SortitionDB,
         chainstate: &mut StacksChainState,
     ) -> Result<Option<StacksBlockId>, net_error> {
+        info!("rpc check, trying to get the tip {:?}", &tip_req);
         match tip_req {
             TipRequest::UseLatestUnconfirmedTip => {
                 let unconfirmed_chain_tip_opt = match &mut chainstate.unconfirmed_state {
@@ -1483,6 +1499,7 @@ impl ConversationHttp {
                 if let Some(unconfirmed_chain_tip) = unconfirmed_chain_tip_opt {
                     Ok(Some(unconfirmed_chain_tip))
                 } else {
+                    // This is the problem.. we can't load the tip from here.
                     match chainstate.get_stacks_chain_tip(sortdb)? {
                         Some(tip) => Ok(Some(StacksBlockHeader::make_index_block_hash(
                             &tip.consensus_hash,
@@ -2010,6 +2027,7 @@ impl ConversationHttp {
                 None
             }
             HttpRequestType::GetAccount(ref _md, ref principal, ref tip_req, ref with_proof) => {
+                info!("rpc check, trying to get the tip");
                 if let Some(tip) = ConversationHttp::handle_load_stacks_chain_tip(
                     &mut self.connection.protocol,
                     &mut reply,
@@ -2018,6 +2036,8 @@ impl ConversationHttp {
                     sortdb,
                     chainstate,
                 )? {
+                    info!("rpc check, got the tip");
+
                     ConversationHttp::handle_get_account_entry(
                         &mut self.connection.protocol,
                         &mut reply,

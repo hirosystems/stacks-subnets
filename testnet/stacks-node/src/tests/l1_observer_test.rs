@@ -131,6 +131,13 @@ fn l1_integration_test() {
     // Give the run loop time to start.
     thread::sleep(Duration::from_millis(2_000));
 
+    // let account = get_account(&l2_rpc_origin, &miner_account);
+    // assert_eq!(account.balance, 0);
+    // assert!(
+    //     account.nonce >= 2,
+    //     "Miner should have produced at least 2 coinbase transactions"
+    // );
+
 
     let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), true);
     let _stacks_res = stacks_l1_controller

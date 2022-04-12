@@ -1736,25 +1736,34 @@ impl HttpRequestType {
         query: Option<&str>,
         _fd: &mut R,
     ) -> Result<HttpRequestType, net_error> {
+        info!("http check");
         if preamble.get_content_length() != 0 {
             return Err(net_error::DeserializeError(
                 "Invalid Http request: expected 0-length body for GetAccount".to_string(),
             ));
         }
+        info!("http check");
 
         let principal = PrincipalData::parse(&captures["principal"]).map_err(|_e| {
             net_error::DeserializeError("Failed to parse account principal".into())
         })?;
+        info!("http check");
 
         let with_proof = HttpRequestType::get_proof_query(query);
-        let tip = HttpRequestType::get_chain_tip_query(query);
+        info!("http check, with_proof {:?}", &with_proof);
 
-        Ok(HttpRequestType::GetAccount(
+        let tip = HttpRequestType::get_chain_tip_query(query);
+        info!("http check, tip {:?}", &tip);
+
+        let res = Ok(HttpRequestType::GetAccount(
             HttpRequestMetadata::from_preamble(preamble),
             principal,
             tip,
             with_proof,
-        ))
+        ));
+        info!("http check, res {:?}", &res);
+
+        res
     }
 
     fn parse_get_data_var<R: Read>(
