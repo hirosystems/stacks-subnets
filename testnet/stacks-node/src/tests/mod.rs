@@ -435,6 +435,9 @@ pub enum SubprocessError {
 
 type SubprocessResult<T> = Result<T, SubprocessError>;
 
+/// The StacksL1Controller will terminate after this many empty lines. Consecutive empty lines indicate
+/// the underlying process is hung.
+const MAX_CONSECUTIVE_EMPTY_LINES:u64 = 10; // consecutive empty lines indicate L1 has crashed or stopped
 /// In charge of running L1 `stacks-node`.
 pub struct StacksL1Controller {
     sub_process: Option<Child>,
@@ -492,12 +495,25 @@ impl StacksL1Controller {
 
                 let mut buffered_out = BufReader::new(child_out);
                 let mut buf = String::new();
+                let mut consecutive_empty_lines = 0;
                 loop {
                     buffered_out
                         .read_line(&mut buf)
                         .expect("reading a line didn't work");
-                    // Print the L1 log line in yellow.
-                    info!("\x1b[0;33mL1: {}\x1b[0m", &buf);
+
+                    let trimmed_line = buf.trim();
+                    if !trimmed_line.is_empty() {
+                        // Print the L1 log line in yellow.
+                        info!("\x1b[0;33mL1: {}\x1b[0m", &buf);
+                        consecutive_empty_lines = 0;
+                    } else {
+                        consecutive_empty_lines += 1;
+                        if consecutive_empty_lines >= MAX_CONSECUTIVE_EMPTY_LINES {
+                            warn!("L1 chain seems to be dead. Stopping the thread.");
+                            break;
+                        }
+                    }
+
                     buf.clear();
                 }
             }))

@@ -36,6 +36,7 @@ use super::db_indexer::DBBurnchainIndexer;
 use super::mock_events::BlockIPC;
 use super::{BurnchainChannel, Error};
 use crate::burnchains::mock_events::MockHeader;
+use crate::config::BurnchainConfig;
 use crate::operations::BurnchainOpSigner;
 use crate::{BurnchainController, BurnchainTip, Config};
 
@@ -46,7 +47,7 @@ pub struct L1Channel {
 }
 
 pub struct L1Controller {
-    burnchain: Option<Burnchain>,
+    burnchain: Burnchain,
     config: Config,
     indexer: DBBurnchainIndexer,
 
@@ -185,11 +186,85 @@ impl L1BlockDownloader {
     }
 }
 
+// pub struct Burnchain {
+//     pub peer_version: u32,
+//     pub network_id: u32,
+//     pub chain_name: String,
+//     pub network_name: String,
+//     pub working_dir: String,
+//     pub consensus_hash_lifetime: u32,
+//     pub stable_confirmations: u32,
+//     pub first_block_height: u64,
+//     pub first_block_hash: BurnchainHeaderHash,
+//     pub first_block_timestamp: u32,
+//     pub pox_constants: PoxConstants,
+//     pub initial_reward_start_block: u64,
+// }
+// pub struct BurnchainConfig {
+//     pub chain: String,
+//     pub mode: String,
+//     pub chain_id: u32,
+//     pub peer_version: u32,
+//     pub commit_anchor_block_within: u64,
+//     pub burn_fee_cap: u64,
+//     pub peer_host: String,
+//     pub peer_port: u16,
+//     pub rpc_port: u16,
+//     pub rpc_ssl: bool,
+//     pub username: Option<String>,
+//     pub password: Option<String>,
+//     pub timeout: u32,
+//     pub magic_bytes: MagicBytes,
+//     pub local_mining_public_key: Option<String>,
+//     pub process_exit_at_block_height: Option<u64>,
+//     pub poll_time_secs: u64,
+//     pub satoshis_per_byte: u64,
+//     pub max_rbf: u64,
+//     pub leader_key_tx_estimated_size: u64,
+//     pub block_commit_tx_estimated_size: u64,
+//     pub rbf_fee_increment: u64,
+//     /// Custom override for the definitions of the epochs. This will only be applied for testnet and
+//     /// regtest nodes.
+//     pub epochs: Option<Vec<StacksEpoch>>,
+//     /// The layer 1 contract that the hyperchain will watch for Stacks events.
+//     pub contract_identifier: QualifiedContractIdentifier,
+//     /// Hash of the first L1 Stacks block that we are going to index. The L2 indexer
+//     /// will follow all decendents of this.
+//     pub first_burn_header_hash: String,
+//     /// Time stamp for the first header we are looking for.
+//     pub first_burn_header_timestamp: u64,
+//     /// Base header path for the burnchain indexer db.
+//     /// Note: This is an implementation detail separate from the burnchain itself. But, we
+//     /// group this in for now, until it's worth making a new struct.
+//     pub indexer_base_db_path: String,
+//     /// The anchor mode for any transactions submitted to L1
+//     pub anchor_mode: TransactionAnchorMode,
+// }
+
+pub fn burnchain_from_config(config:&BurnchainConfig) -> Burnchain {
+    todo!()
+    // Burnchain {
+    //      peer_version: config.peer_version,
+    //      network_id: u32,
+    //      chain_name: String,
+    //      network_name: String,
+    //      working_dir: config.working_dir,
+    //      consensus_hash_lifetime: u32,
+    //      stable_confirmations: u32,
+    //      first_block_height: u64,
+    //      first_block_hash: BurnchainHeaderHash,
+    //      first_block_timestamp: u32,
+    //      pox_constants: PoxConstants,
+    //      initial_reward_start_block: u64,
+    // }
+}
+
 impl L1Controller {
     pub fn new(config: Config, coordinator: CoordinatorChannels) -> Result<L1Controller, Error> {
         let indexer = DBBurnchainIndexer::new(config.burnchain.clone(), true)?;
+        let burnchain = burnchain_from_config(&config.burnchain);
         Ok(L1Controller {
-            burnchain: None,
+            burnchain,
             config,
             indexer,
             db: None,
@@ -500,16 +575,7 @@ impl BurnchainController for L1Controller {
     }
 
     fn get_burnchain(&self) -> Burnchain {
-        match &self.burnchain {
-            Some(burnchain) => burnchain.clone(),
-            None => {
-                let working_dir = self.config.get_burn_db_path();
-                Burnchain::new(&working_dir, "mockstack", "hyperchain").unwrap_or_else(|e| {
-                    error!("Failed to instantiate burnchain: {}", e);
-                    panic!()
-                })
-            }
-        }
+        self.burnchain.clone()
     }
 
     fn wait_for_sortitions(&mut self, height_to_wait: Option<u64>) -> Result<BurnchainTip, Error> {

@@ -368,6 +368,7 @@ name = "blockstack-core"
 version = "0.0.1"
 dependencies = [
  "assert-json-diff",
+ "backtrace",
  "chrono",
  "clarity",
  "criterion",

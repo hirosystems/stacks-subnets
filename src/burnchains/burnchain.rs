@@ -174,6 +174,8 @@ impl Burnchain {
         chain_name: &str,
         network_name: &str,
     ) -> Result<Burnchain, burnchain_error> {
+        let bt = backtrace::Backtrace::new();
+        info!("burnchain:bt {:?}", &bt);
         let (params, pox_constants, peer_version) = match (chain_name, network_name) {
             ("mockstack", "hyperchain") => (
                 BurnchainParameters::hyperchain_mocknet(),
@@ -730,6 +732,7 @@ impl Burnchain {
             })
             .unwrap();
 
+            let first_block_hash = self.first_block_hash.clone();
         let db_thread: thread::JoinHandle<Result<BurnchainBlockHeader, burnchain_error>> =
             thread::Builder::new()
                 .name("burnchain-db".to_string())
@@ -740,6 +743,7 @@ impl Burnchain {
 
                         let block_height = burnchain_block.block_height();
 
+                        info!("scrutinizing block: first hash {:?} this block {:?}", &first_block_hash, &burnchain_block);
                         let insert_start = get_epoch_time_ms();
                         last_processed = Some(
                             Burnchain::process_block(&myself, &mut burnchain_db, &burnchain_block)
