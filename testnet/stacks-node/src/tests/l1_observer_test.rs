@@ -205,6 +205,8 @@ fn l1_integration_test() {
         "Miner should have produced at least 2 coinbase transactions"
     );
 
+    thread::sleep(Duration::from_secs(6));
+
     channel.stop_chains_coordinator();
     stacks_l1_controller.kill_process();
 }
