@@ -531,6 +531,7 @@ pub struct Account {
 pub fn get_account<F: std::fmt::Display>(http_origin: &str, account: &F) -> Account {
     let client = reqwest::blocking::Client::new();
     let path = format!("{}/v2/accounts/{}?proof=0", http_origin, account);
+    info!("path {}", &path);
     let res = client
         .get(&path)
         .send()
