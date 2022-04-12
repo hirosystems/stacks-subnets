@@ -195,24 +195,24 @@ fn find_first_canonical_ancestor(
     }
 }
 
-/// Waits until we have received our first block.
-///
-/// Returns the height of the highest block found.
-fn wait_for_first_block(connection: &DBConn) -> Result<u64, burnchains::Error> {
-    loop {
-        match get_canonical_chain_tip(connection)? {
-            Some(canonical_tip) => {
-                return Ok(canonical_tip.height);
-            }
-            None => {
-                // pass, stay in loop
-            }
-        }
+// /// Waits until we have received our first block.
+// ///
+// /// Returns the height of the highest block found.
+// fn wait_for_first_block(connection: &DBConn) -> Result<u64, burnchains::Error> {
+//     loop {
+//         match get_canonical_chain_tip(connection)? {
+//             Some(canonical_tip) => {
+//                 return Ok(canonical_tip.height);
+//             }
+//             None => {
+//                 // pass, stay in loop
+//             }
+//         }
 
-        info!("Waiting for first block.");
-        sleep_ms(1000);
-    }
-}
+//         info!("Waiting for first block.");
+//         sleep_ms(1000);
+//     }
+// }
 
 struct DBBurnBlockInputChannel {
     /// Path to the db file underlying this logic.
@@ -528,18 +528,15 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     }
 
     fn get_first_block_height(&self) -> u64 {
-        let header = self.get_header_for_hash(&self.first_burn_header_hash);
-        header.height()
+        self.config.first_burn_header_height
     }
 
     fn get_first_block_header_hash(&self) -> Result<BurnchainHeaderHash, BurnchainError> {
-        let header = self.get_header_for_hash(&self.first_burn_header_hash);
-        Ok(BurnchainHeaderHash(header.header_hash()))
+        Ok(self.first_burn_header_hash)
     }
 
     fn get_first_block_header_timestamp(&self) -> Result<u64, BurnchainError> {
-        let header = self.get_header_for_hash(&self.first_burn_header_hash);
-        Ok(header.time_stamp())
+        Ok(self.config.first_burn_header_timestamp)
     }
 
     fn get_stacks_epochs(&self) -> Vec<StacksEpoch> {
@@ -604,7 +601,8 @@ impl BurnchainIndexer for DBBurnchainIndexer {
         _start_height: u64,
         _end_height: Option<u64>,
     ) -> Result<u64, BurnchainError> {
-        wait_for_first_block(&self.connection)
+        self.get_highest_header_height()
+        // wait_for_first_block(&self.connection)
     }
 
     fn drop_headers(&mut self, _new_height: u64) -> Result<(), BurnchainError> {

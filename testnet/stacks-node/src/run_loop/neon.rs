@@ -489,30 +489,37 @@ impl RunLoop {
             .take()
             .expect("Run loop already started, can only start once after initialization.");
 
+            info!("runloop check");
         self.setup_termination_handler();
         let (mut burnchain, l1_observer_signal) =
             self.instantiate_burnchain_state(burnchain_opt, coordinator_senders.clone());
+            info!("runloop check");
 
         let burnchain_config = burnchain.get_burnchain();
         self.burnchain = Some(burnchain_config.clone());
+        info!("runloop check");
 
         let is_miner = self.check_is_miner();
         self.is_miner = Some(is_miner);
+        info!("runloop check");
 
         // have headers; boot up the chains coordinator and instantiate the chain state
         let (coordinator_thread_handle, attachments_rx) =
             self.spawn_chains_coordinator(&burnchain_config, coordinator_receivers);
         self.instantiate_pox_watchdog();
+        info!("runloop check");
 
         // We announce a new burn block so that the chains coordinator
         // can resume prior work and handle eventual unprocessed sortitions
         // stored during a previous session.
         coordinator_senders.announce_new_burn_block();
+        info!("runloop check");
 
         // Wait for some sortitions!
         let mut burnchain_tip = burnchain
             .wait_for_sortitions(None)
             .expect("Unable to get burnchain tip");
+            info!("runloop check");
 
         // Boot up the p2p network and relayer, and figure out how many sortitions we have so far
         // (it could be non-zero if the node is resuming from chainstate)
@@ -522,17 +529,22 @@ impl RunLoop {
             coordinator_senders.clone(),
             attachments_rx,
         );
+        info!("runloop check");
 
         let sortdb = burnchain.sortdb_mut();
         let mut sortition_db_height = RunLoop::get_sortition_db_height(&sortdb, &burnchain_config);
 
         // Start the runloop
+        info!("runloop check");
+
         debug!("Begin run loop");
         self.start_prometheus();
         self.counters.bump_blocks_processed();
 
         let mut burnchain_height = sortition_db_height;
         let mut num_sortitions_in_last_cycle = 1;
+
+        info!("runloop check");
 
         // prepare to fetch the first reward cycle!
         let mut target_burnchain_block_height = burnchain_config.reward_cycle_to_block_height(
@@ -546,6 +558,8 @@ impl RunLoop {
             "Begin main runloop starting a burnchain block {}",
             sortition_db_height
         );
+
+        info!("runloop check");
 
         let mut last_tenure_sortition_height = 0;
         loop {
