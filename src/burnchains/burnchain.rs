@@ -368,6 +368,7 @@ impl Burnchain {
     /// Open the burn databases.  They must already exist.
     pub fn open_db(&self, readwrite: bool) -> Result<(SortitionDB, BurnchainDB), burnchain_error> {
         let db_path = self.get_db_path();
+        info!("db_path {}", &db_path);
         let burnchain_db_path = self.get_burnchaindb_path();
 
         let db_pathbuf = PathBuf::from(db_path.clone());
@@ -383,6 +384,7 @@ impl Burnchain {
         let sortition_db = SortitionDB::open(&db_path, readwrite)?;
         let burnchain_db = BurnchainDB::open(&burnchain_db_path, readwrite)?;
 
+        info!("databases opened successfully");
         Ok((sortition_db, burnchain_db))
     }
 

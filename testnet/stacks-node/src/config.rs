@@ -822,6 +822,8 @@ impl Config {
     pub fn get_burn_db_file_path(&self) -> String {
         let mut path = self.get_burnchain_path();
         path.push("sortition");
+
+        info!("sortition file at {}", &path.to_str().expect(""));
         path.to_str().expect("Unable to produce path").to_string()
     }
 

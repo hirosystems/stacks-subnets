@@ -561,16 +561,24 @@ impl BurnchainController for L1Controller {
     }
 
     fn sortdb_mut(&mut self) -> &mut SortitionDB {
+        info!("sortdb check");
         let burnchain = self.get_burnchain();
+        info!("sortdb check");
 
         let (db, burnchain_db) = burnchain.open_db(true).unwrap();
+        info!("sortdb check");
+
         self.db = Some(db);
         self.burnchain_db = Some(burnchain_db);
+        info!("sortdb check");
 
-        match self.db {
+        let result = match self.db {
             Some(ref mut sortdb) => sortdb,
             None => unreachable!(),
-        }
+        };
+        info!("sortdb check");
+
+        result
     }
 
     fn connect_dbs(&mut self) -> Result<(), Error> {

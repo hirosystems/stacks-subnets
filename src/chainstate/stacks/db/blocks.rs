@@ -5735,9 +5735,12 @@ impl StacksChainState {
     ) -> Result<Option<StagingBlock>, Error> {
         let (consensus_hash, block_bhh) =
             SortitionDB::get_canonical_stacks_chain_tip_hash(sortdb.conn())?;
+            info!("got tip hash {:?} {:?}", &consensus_hash, &block_bhh);
         let sql = "SELECT * FROM staging_blocks WHERE processed = 1 AND orphaned = 0 AND consensus_hash = ?1 AND anchored_block_hash = ?2";
         let args: &[&dyn ToSql] = &[&consensus_hash, &block_bhh];
-        query_row(&self.db(), sql, args).map_err(Error::DBError)
+        let r =query_row(&self.db(), sql, args).map_err(Error::DBError);
+        info!("got row");
+        r
     }
 
     /// Get the height of a staging block
