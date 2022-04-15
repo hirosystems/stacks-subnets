@@ -727,7 +727,7 @@ impl Burnchain {
             })
             .unwrap();
 
-            let first_block_hash = self.first_block_hash.clone();
+        let first_block_hash = self.first_block_hash.clone();
         let db_thread: thread::JoinHandle<Result<BurnchainBlockHeader, burnchain_error>> =
             thread::Builder::new()
                 .name("burnchain-db".to_string())
@@ -738,17 +738,19 @@ impl Burnchain {
 
                         let block_height = burnchain_block.block_height();
 
-                        info!("scrutinizing block: first hash {:?} this block {:?}", &first_block_hash, &burnchain_block);
+                        info!(
+                            "scrutinizing block: first hash {:?} this block {:?}",
+                            &first_block_hash, &burnchain_block
+                        );
                         let insert_start = get_epoch_time_ms();
                         // if burnchain_block.block_hash() != first_block_hash {
-                        last_processed = 
+                        last_processed =
                             Burnchain::process_block(&myself, &mut burnchain_db, &burnchain_block)
                                 .map_err(|e| {
                                     warn!("Error processing block {:?}", e);
                                     e
                                 })
-                                .unwrap()
-                        ;
+                                .unwrap();
                         // }
                         if !coord_comm.announce_new_burn_block() {
                             warn!("Coordinator communication failed");

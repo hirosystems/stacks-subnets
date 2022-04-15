@@ -921,7 +921,8 @@ impl ConversationHttp {
                             .get_with_proof::<STXBalance>(&key)
                             .map(|(a, b)| (a, Some(format!("0x{}", to_hex(&b)))))
                             .unwrap_or_else(|| (STXBalance::zero(), Some("".into())))
-                    } else {        info!("rpc check");
+                    } else {
+                        info!("rpc check");
 
                         clarity_db
                             .get::<STXBalance>(&key)

@@ -160,7 +160,6 @@ fn l1_integration_test() {
     //     "Miner should have produced at least 2 coinbase transactions"
     // );
 
-
     let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), true);
     let _stacks_res = stacks_l1_controller
         .start_process()

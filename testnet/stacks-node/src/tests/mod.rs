@@ -437,7 +437,7 @@ type SubprocessResult<T> = Result<T, SubprocessError>;
 
 /// The StacksL1Controller will terminate after this many empty lines. Consecutive empty lines indicate
 /// the underlying process is hung.
-const MAX_CONSECUTIVE_EMPTY_LINES:u64 = 10; // consecutive empty lines indicate L1 has crashed or stopped
+const MAX_CONSECUTIVE_EMPTY_LINES: u64 = 10; // consecutive empty lines indicate L1 has crashed or stopped
 /// In charge of running L1 `stacks-node`.
 pub struct StacksL1Controller {
     sub_process: Option<Child>,

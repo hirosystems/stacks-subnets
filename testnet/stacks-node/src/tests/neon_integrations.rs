@@ -532,13 +532,8 @@ pub fn get_account<F: std::fmt::Display>(http_origin: &str, account: &F) -> Acco
     let client = reqwest::blocking::Client::new();
     let path = format!("{}/v2/accounts/{}?proof=0", http_origin, account);
     info!("path {}", &path);
-    let response = client
-        .get(&path)
-        .send();
-    let res= response
-        .unwrap()
-        .json::<AccountEntryResponse>()
-        .unwrap();
+    let response = client.get(&path).send();
+    let res = response.unwrap().json::<AccountEntryResponse>().unwrap();
     info!("Account response: {:#?}", res);
     Account {
         balance: u128::from_str_radix(&res.balance[2..], 16).unwrap(),

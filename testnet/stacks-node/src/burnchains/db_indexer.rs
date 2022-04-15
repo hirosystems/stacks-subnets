@@ -567,9 +567,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
                 self.last_canonical_tip = new_tip;
                 return match &self.last_canonical_tip {
                     Some(tip) => Ok(tip.height()),
-                    None => {
-                        Ok(self.get_first_block_height())
-                    }
+                    None => Ok(self.get_first_block_height()),
                 };
             }
         };

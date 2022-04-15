@@ -489,11 +489,11 @@ impl RunLoop {
             .take()
             .expect("Run loop already started, can only start once after initialization.");
 
-            info!("runloop check");
+        info!("runloop check");
         self.setup_termination_handler();
         let (mut burnchain, l1_observer_signal) =
             self.instantiate_burnchain_state(burnchain_opt, coordinator_senders.clone());
-            info!("runloop check");
+        info!("runloop check");
 
         let burnchain_config = burnchain.get_burnchain();
         self.burnchain = Some(burnchain_config.clone());
@@ -519,7 +519,7 @@ impl RunLoop {
         let mut burnchain_tip = burnchain
             .wait_for_sortitions(None)
             .expect("Unable to get burnchain tip");
-            info!("runloop check");
+        info!("runloop check");
 
         // Boot up the p2p network and relayer, and figure out how many sortitions we have so far
         // (it could be non-zero if the node is resuming from chainstate)

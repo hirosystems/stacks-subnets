@@ -252,9 +252,17 @@ impl L1BlockDownloader {
 //         })
 //     }
 // }
-pub fn burnchain_from_config(config:&Config) -> Result<Burnchain, BurnchainError> {
-    let mut burnchain = Burnchain::new(&config.get_burn_db_path(), &config.burnchain.chain, &config.burnchain.mode)?;
-    burnchain.first_block_hash = BurnchainHeaderHash::from_hex(&config.burnchain.first_burn_header_hash).expect(&format!("Could not parse BurnchainHeaderHash: {}", &config.burnchain.first_burn_header_hash));
+pub fn burnchain_from_config(config: &Config) -> Result<Burnchain, BurnchainError> {
+    let mut burnchain = Burnchain::new(
+        &config.get_burn_db_path(),
+        &config.burnchain.chain,
+        &config.burnchain.mode,
+    )?;
+    burnchain.first_block_hash =
+        BurnchainHeaderHash::from_hex(&config.burnchain.first_burn_header_hash).expect(&format!(
+            "Could not parse BurnchainHeaderHash: {}",
+            &config.burnchain.first_burn_header_hash
+        ));
     burnchain.first_block_height = config.burnchain.first_burn_header_height;
     burnchain.first_block_timestamp = config.burnchain.first_burn_header_timestamp as u32;
 
