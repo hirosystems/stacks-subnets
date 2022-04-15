@@ -51,7 +51,7 @@ pub struct NewBlockTxEvent {
     pub txid: Txid,
     pub event_index: usize,
     pub committed: bool,
-    #[serde(rename = "type", deserialize_with = "deser_tx_event_type")]
+    #[serde(rename = "type", serialize_with = "ser_tx_event_type", deserialize_with = "deser_tx_event_type")]
     pub event_type: TxEventType,
     #[serde(default)]
     pub contract_event: Option<ContractEvent>,
@@ -85,6 +85,18 @@ impl std::fmt::Debug for NewBlock {
         )
     }
 }
+
+fn ser_tx_event_type<S: Serializer>(input: &TxEventType, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let as_str = match input {
+        TxEventType::ContractEvent => "contract_event",
+        TxEventType::Other => "other",
+    };  
+    serializer.serialize_str(as_str)
+}
+
 
 /// Method for deserializing a ClarityValue from the `raw_value` field of contract
 /// transaction events.

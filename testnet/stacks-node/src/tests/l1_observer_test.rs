@@ -42,18 +42,39 @@ fn l1_basic_listener_test() {
         return;
     }
 
+    // Start Stacks L1.
+    let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
+    let l1_rpc_origin = "http://127.0.0.1:20443";
+    let nft_trait_name = "nft-trait-standard";
+    let ft_trait_name = "ft-trait-standard";
+
     // Start the L2 run loop.
     let mut config = super::new_test_conf();
-    config.burnchain.chain = "stacks_layer_1".to_string();
-    config.burnchain.mode = "hyperchain".to_string();
+    config.node.mining_key = Some(MOCKNET_PRIVATE_KEY_2.clone());
+    let miner_account = to_addr(&MOCKNET_PRIVATE_KEY_2);
 
     let db_path_dir = random_sortdb_test_dir();
     config.burnchain.indexer_base_db_path = db_path_dir;
     config.burnchain.first_burn_header_hash =
-        "9946c68526249c259231f1660be4c72e915ebe1f25a8c8400095812b487eb279".to_string();
+    // "a7578f11a428bb953e7bbced9858525b6eec0d24d5d9d77285a7d7d891f68561".to_string();
+    "9946c68526249c259231f1660be4c72e915ebe1f25a8c8400095812b487eb279".to_string();
+    config.burnchain.first_burn_header_height = 1;
+    config.burnchain.chain = "stacks_layer_1".to_string();
+    config.burnchain.mode = "hyperchain".to_string();
     config.burnchain.rpc_ssl = false;
     config.burnchain.rpc_port = 20443;
     config.burnchain.peer_host = "127.0.0.1".into();
+    config.node.wait_time_for_microblocks = 10_000;
+    config.node.rpc_bind = "127.0.0.1:30443".into();
+    config.node.p2p_bind = "127.0.0.1:30444".into();
+    let l2_rpc_origin = format!("http://{}", &config.node.rpc_bind);
+
+    config.burnchain.contract_identifier = QualifiedContractIdentifier::new(
+        to_addr(&MOCKNET_PRIVATE_KEY_1).into(),
+        "hyperchain-controller".into(),
+    );
+
+    config.node.miner = true;
 
     let mut run_loop = neon::RunLoop::new(config.clone());
     let channel = run_loop.get_coordinator_channel().unwrap();
