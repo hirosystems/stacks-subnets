@@ -1415,6 +1415,7 @@ impl SortitionDB {
         epochs: &[StacksEpoch],
         readwrite: bool,
     ) -> Result<SortitionDB, db_error> {
+        info!("critical: connect SortitionDB {} {:?} {}", &first_block_height, first_burn_hash, first_burn_header_timestamp);
         let create_flag = match fs::metadata(path) {
             Err(e) => {
                 if e.kind() == ErrorKind::NotFound {
@@ -2880,10 +2881,12 @@ impl<'a> SortitionHandleTx<'a> {
     /// Insert a snapshots row from a block's-worth of operations.
     /// Do not call directly -- use append_chain_tip_snapshot to preserve the fork table structure.
     fn insert_block_snapshot(&self, snapshot: &BlockSnapshot) -> Result<(), db_error> {
+        let bt = backtrace::Backtrace::new();
+        info!("insert_block_snapshot:bt {:?}", &bt);
         assert!(snapshot.block_height < BLOCK_HEIGHT_MAX);
         assert!(snapshot.num_sortitions < BLOCK_HEIGHT_MAX);
 
-        test_debug!(
+        info!(
             "Insert block snapshot state {} for block {} ({},{}) {}",
             snapshot.index_root,
             snapshot.block_height,
@@ -2918,6 +2921,7 @@ impl<'a> SortitionHandleTx<'a> {
             &snapshot.accumulated_coinbase_ustx.to_string(),
         ];
 
+        // info!("Inserb block snapshot args {:?}", &args);
         self.execute("INSERT INTO snapshots \
                       (block_height, burn_header_hash, burn_header_timestamp, parent_burn_header_hash, consensus_hash, ops_hash, total_burn, sortition, sortition_hash, winning_block_txid, winning_stacks_block_hash, index_root, num_sortitions, \
                       stacks_block_accepted, stacks_block_height, arrival_index, canonical_stacks_tip_height, canonical_stacks_tip_hash, canonical_stacks_tip_consensus_hash, sortition_id, parent_sortition_id, pox_valid, accumulated_coinbase_ustx) \

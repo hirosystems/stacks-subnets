@@ -346,6 +346,9 @@ impl Burnchain {
         let db_path = self.get_db_path();
         let burnchain_db_path = self.get_burnchaindb_path();
 
+        info!("critical: db_path {}", &db_path);
+        info!("critical: burnchain_db_path {}", &burnchain_db_path);
+
         let sortitiondb = SortitionDB::connect(
             &db_path,
             self.first_block_height,
@@ -737,7 +740,7 @@ impl Burnchain {
 
                         info!("scrutinizing block: first hash {:?} this block {:?}", &first_block_hash, &burnchain_block);
                         let insert_start = get_epoch_time_ms();
-                        if burnchain_block.block_hash() != first_block_hash {
+                        // if burnchain_block.block_hash() != first_block_hash {
                         last_processed = 
                             Burnchain::process_block(&myself, &mut burnchain_db, &burnchain_block)
                                 .map_err(|e| {
@@ -746,7 +749,7 @@ impl Burnchain {
                                 })
                                 .unwrap()
                         ;
-                        }
+                        // }
                         if !coord_comm.announce_new_burn_block() {
                             warn!("Coordinator communication failed");
                             return Err(burnchain_error::CoordinatorClosed);

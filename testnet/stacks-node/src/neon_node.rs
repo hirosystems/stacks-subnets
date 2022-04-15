@@ -564,6 +564,7 @@ fn spawn_peer(
 
     this.bind(p2p_sock, rpc_sock).unwrap();
     let (mut dns_resolver, mut dns_client) = DNSResolver::new(10);
+    info!("critical: burn_db_path {}", &burn_db_path);
     let sortdb = SortitionDB::open(&burn_db_path, false).map_err(NetError::DBError)?;
 
     let (mut chainstate, _) = StacksChainState::open(

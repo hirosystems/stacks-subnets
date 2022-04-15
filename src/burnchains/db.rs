@@ -119,6 +119,8 @@ impl<'a> BurnchainDBTransaction<'a> {
         &self,
         header: &BurnchainBlockHeader,
     ) -> Result<i64, BurnchainError> {
+        let bt = backtrace::Backtrace::new();
+        info!("store_burnchain_db_entry:bt {:?}", &bt);
         let sql = "INSERT INTO burnchain_db_block_headers
                    (block_height, block_hash, parent_block_hash, num_txs, timestamp)
                    VALUES (?, ?, ?, ?, ?)";

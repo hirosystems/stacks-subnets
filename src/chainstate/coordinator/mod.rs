@@ -272,7 +272,9 @@ impl<'a, T: BlockEventDispatcher, CE: CostEstimator + ?Sized, FE: FeeEstimator +
 
         loop {
             // timeout so that we handle Ctrl-C a little gracefully
-            match comms.wait_on() {
+            let wait_on_result = comms.wait_on();
+            // info!("wait_on_result: {:?}", &wait_on_result);
+            match wait_on_result {
                 CoordinatorEvents::NEW_STACKS_BLOCK => {
                     debug!("Received new stacks block notice");
                     if let Err(e) = inst.handle_new_stacks_block() {
