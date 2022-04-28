@@ -1,6 +1,7 @@
 use std;
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use crate::neon;
@@ -8,10 +9,11 @@ use crate::tests::neon_integrations::{get_account, submit_tx};
 use crate::tests::{make_contract_publish, to_addr};
 use stacks::burnchains::Burnchain;
 use stacks::chainstate::stacks::StacksPrivateKey;
+use stacks::util::get_epoch_time_secs;
 use stacks::vm::types::QualifiedContractIdentifier;
 use std::env;
 use std::io::{BufRead, BufReader};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[derive(std::fmt::Debug)]
 pub enum SubprocessError {
@@ -110,8 +112,40 @@ impl Drop for StacksL1Controller {
     }
 }
 
+const PANIC_TIMEOUT_SECS: u64 = 600;
+
+/// Repeatedly nap until `blocks_processed` increases by at least 1.
+pub fn next_block_and_wait(blocks_processed: &Arc<AtomicU64>) -> bool {
+    let current = blocks_processed.load(Ordering::SeqCst);
+    eprintln!(
+        "Issuing block at {}, waiting for bump ({})",
+        get_epoch_time_secs(),
+        current
+    );
+    let start = Instant::now();
+    while blocks_processed.load(Ordering::SeqCst) <= current {
+        if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
+            error!("Timed out waiting for block to process, trying to continue test");
+            return false;
+        }
+        test_debug!(
+            "waiting for nex block, blocks_processed: {:?}",
+            &blocks_processed
+        );
+        thread::sleep(Duration::from_millis(100));
+    }
+    eprintln!(
+        "Block bumped at {} ({})",
+        get_epoch_time_secs(),
+        blocks_processed.load(Ordering::SeqCst)
+    );
+    true
+}
+
 /// This test brings up the Stacks-L1 chain in "mocknet" mode, and ensures that our listener can hear and record burn blocks
 /// from the Stacks-L1 chain.
+///
+/// NOTE: This test does not mine L2 blocks.
 #[test]
 fn l1_basic_listener_test() {
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
@@ -172,6 +206,7 @@ fn l1_basic_listener_test() {
     run_loop_thread.join().expect("Failed to join run loop.");
 }
 
+/// Push the hyper-chains contract to L1, and mine some L2 blocks.
 #[test]
 fn l1_integration_test() {
     // running locally:
@@ -213,6 +248,7 @@ fn l1_integration_test() {
 
     let mut run_loop = neon::RunLoop::new(config.clone());
     let termination_switch = run_loop.get_termination_switch();
+    let blocks_processed = run_loop.get_blocks_processed_arc().clone();
     let run_loop_thread = thread::spawn(move || run_loop.start(None, 0));
 
     // Give the run loop time to start.
@@ -266,9 +302,10 @@ fn l1_integration_test() {
 
     println!("Submitted FT, NFT, and Hyperchain contracts!");
 
-    // Sleep to give the run loop time to listen to blocks,
-    //  and start mining L2 blocks
-    thread::sleep(Duration::from_secs(60));
+    // Mine a few L2 blocks.
+    next_block_and_wait(&blocks_processed);
+    next_block_and_wait(&blocks_processed);
+    next_block_and_wait(&blocks_processed);
 
     // The burnchain should have registered what the listener recorded.
     let burnchain = Burnchain::new(
