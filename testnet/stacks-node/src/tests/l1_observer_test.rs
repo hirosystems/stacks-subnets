@@ -306,7 +306,13 @@ fn l1_integration_test() {
     next_block_and_wait(&blocks_processed);
     next_block_and_wait(&blocks_processed);
     next_block_and_wait(&blocks_processed);
-
+    next_block_and_wait(&blocks_processed);
+    next_block_and_wait(&blocks_processed);
+    next_block_and_wait(&blocks_processed);
+    next_block_and_wait(&blocks_processed);
+    next_block_and_wait(&blocks_processed);
+    next_block_and_wait(&blocks_processed);
+    
     // The burnchain should have registered what the listener recorded.
     let burnchain = Burnchain::new(
         &config.get_burn_db_path(),
