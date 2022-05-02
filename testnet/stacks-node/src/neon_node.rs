@@ -1101,8 +1101,6 @@ fn spawn_miner_relayer(
                             counters.bump_blocks_processed();
                         }
 
-                        info!("dev2: block produced: {:?}", &last_mined_block.anchored_block.block_hash());
-                        info!("dev: adding block_produced_at_burn_block; burn {:?} hash {:?}", &burn_header_hash, &last_mined_block.anchored_block.block_hash());
                         block_produced_at_burn_block.insert(burn_header_hash, last_mined_block.anchored_block.block_hash());
                         last_mined_blocks_vec.push((last_mined_block, microblock_privkey));
                     }
