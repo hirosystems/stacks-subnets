@@ -9,6 +9,7 @@ use std::sync::{atomic::Ordering, Arc, Mutex};
 use std::{thread, thread::JoinHandle};
 
 use crate::burnchains::BurnchainController;
+use stacks::burnchains::Burnchain;
 use stacks::burnchains::{BurnchainParameters, Txid};
 use stacks::chainstate::burn::db::sortdb::SortitionDB;
 use stacks::chainstate::burn::operations::{BlockstackOperationType, LeaderBlockCommitOp};
@@ -542,6 +543,43 @@ fn recv_unconfirmed_txs(
     }
 }
 
+/// Find the last Stacks block this miner produced on this burnchain fork. That is, find the first ancestor of
+/// of `burn_header_hash` for which this miner produced a Stacks block, according to `block_produced_at_burn_block`,
+/// and return the hash of that last Stacks block. Return None if no such Stacks block can be found.
+/// 
+/// Note: After system restart, `block_produced_at_burn_block` will not contain the last Stacks block because it
+/// is stored in RAM. This will require walking back burn blocks until the burn genesis.
+fn find_last_stacks_block_this_produced<'a>(
+    burnchain: &Burnchain,
+    burn_header_hash: &BurnchainHeaderHash,
+    block_produced_at_burn_block: &'a HashMap<BurnchainHeaderHash, BlockHeaderHash>,
+) -> Option<&'a BlockHeaderHash> {
+    let mut cursor = burn_header_hash.clone();
+    let (_, burndb) = burnchain.open_db(false).unwrap();
+
+    let expected_last_block = loop {
+        let parent = match burndb.get_burnchain_block(&cursor) {
+            Ok(burn_block) => burn_block.header,
+            Err(_) => {
+                // TODO: Separate "not found error", which isn't an error, from other real errors.
+                break None;
+            }
+        };
+
+        let expected_stacks_parent = block_produced_at_burn_block.get(&parent.block_hash);
+        match expected_stacks_parent {
+            Some(expected_stacks_parent) => {
+                break Some(expected_stacks_parent);
+            }
+            None => {
+                // pass through to loop again
+                cursor = parent.parent_block_hash;
+            }
+        };
+    };
+    expected_last_block
+}
+
 fn spawn_peer(
     runloop: &RunLoop,
     mut this: PeerNetwork,
@@ -810,6 +848,10 @@ fn spawn_miner_relayer(
         Vec<(AssembledAnchorBlock, Secp256k1PrivateKey)>,
     > = HashMap::new();
 
+    // Maps each burn block to the block this miner produced for it.
+    let mut block_produced_at_burn_block: HashMap<BurnchainHeaderHash, BlockHeaderHash> =
+        HashMap::new();
+
     let mut bitcoin_controller = config
         .make_burnchain_controller(coord_comms.clone())
         .expect("couldn't create burnchain controller");
@@ -817,6 +859,8 @@ fn spawn_miner_relayer(
     let mut miner_tip = None; // only set if we won the last sortition
     let mut last_microblock_tenure_time = 0;
     let mut last_tenure_issue_time = 0;
+
+    let burnchain = runloop.get_burnchain();
 
     let relayer_handle = thread::Builder::new().name("relayer".to_string()).spawn(move || {
         let cost_estimator = config.make_cost_estimator()
@@ -1038,6 +1082,8 @@ fn spawn_miner_relayer(
                         .remove(&burn_header_hash)
                         .unwrap_or_default();
 
+                    let expected_last_block = find_last_stacks_block_this_produced(&burnchain,
+                        &last_burn_block.parent_burn_header_hash, &block_produced_at_burn_block);
                     let last_mined_block_opt = StacksNode::relayer_run_tenure(
                         &config,
                         &mut chainstate,
@@ -1048,11 +1094,16 @@ fn spawn_miner_relayer(
                         &mut *bitcoin_controller,
                         &last_mined_blocks_vec.iter().map(|(blk, _)| blk).collect(),
                         &event_dispatcher,
+                        expected_last_block,
                     );
                     if let Some((last_mined_block, microblock_privkey)) = last_mined_block_opt {
                         if last_mined_blocks_vec.len() == 0 {
                             counters.bump_blocks_processed();
                         }
+
+                        info!("dev2: block produced: {:?}", &last_mined_block.anchored_block.block_hash());
+                        info!("dev: adding block_produced_at_burn_block; burn {:?} hash {:?}", &burn_header_hash, &last_mined_block.anchored_block.block_hash());
+                        block_produced_at_burn_block.insert(burn_header_hash, last_mined_block.anchored_block.block_hash());
                         last_mined_blocks_vec.push((last_mined_block, microblock_privkey));
                     }
                     last_mined_blocks.insert(burn_header_hash, last_mined_blocks_vec);
@@ -1509,6 +1560,7 @@ impl StacksNode {
         bitcoin_controller: &mut (dyn BurnchainController + Send),
         last_mined_blocks: &Vec<&AssembledAnchorBlock>,
         event_dispatcher: &EventDispatcher,
+        expected_parent_header: Option<&BlockHeaderHash>,
     ) -> Option<(AssembledAnchorBlock, Secp256k1PrivateKey)> {
         let MiningTenureInformation {
             mut stacks_parent_header,
