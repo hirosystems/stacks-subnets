@@ -1592,6 +1592,7 @@ pub enum EventKeyType {
     SmartContractEvent((QualifiedContractIdentifier, String)),
     AssetEvent(AssetIdentifier),
     STXEvent,
+    WithdrawalEvent,
     MemPoolTransactions,
     Microblocks,
     AnyEvent,

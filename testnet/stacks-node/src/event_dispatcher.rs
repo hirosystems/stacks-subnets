@@ -389,6 +389,7 @@ pub struct EventDispatcher {
     mempool_observers_lookup: HashSet<u16>,
     microblock_observers_lookup: HashSet<u16>,
     stx_observers_lookup: HashSet<u16>,
+    withdrawal_observers_lookup: HashSet<u16>,
     any_event_observers_lookup: HashSet<u16>,
     miner_observers_lookup: HashSet<u16>,
     mined_microblocks_observers_lookup: HashSet<u16>,
@@ -501,6 +502,7 @@ impl EventDispatcher {
             contract_events_observers_lookup: HashMap::new(),
             assets_observers_lookup: HashMap::new(),
             stx_observers_lookup: HashSet::new(),
+            withdrawal_observers_lookup: HashSet::new(),
             any_event_observers_lookup: HashSet::new(),
             burn_block_observers_lookup: HashSet::new(),
             mempool_observers_lookup: HashSet::new(),
@@ -589,6 +591,14 @@ impl EventDispatcher {
                             dispatch_matrix[*o_i as usize].insert(i);
                         }
                     }
+                    StacksTransactionEvent::STXEvent(STXEventType::STXWithdrawEvent(_)) => {
+                        for o_i in &self.stx_observers_lookup {
+                            dispatch_matrix[*o_i as usize].insert(i);
+                        }
+                        for o_i in &self.withdrawal_observers_lookup {
+                            dispatch_matrix[*o_i as usize].insert(i);
+                        }
+                    }
                     StacksTransactionEvent::NFTEvent(NFTEventType::NFTTransferEvent(
                         event_data,
                     )) => {
@@ -612,6 +622,16 @@ impl EventDispatcher {
                             &mut dispatch_matrix,
                         );
                     }
+                    StacksTransactionEvent::NFTEvent(NFTEventType::NFTWithdrawEvent(event_data)) => {
+                        self.update_dispatch_matrix_if_observer_subscribed(
+                            &event_data.asset_identifier,
+                            i,
+                            &mut dispatch_matrix,
+                        );
+                        for o_i in &self.withdrawal_observers_lookup {
+                            dispatch_matrix[*o_i as usize].insert(i);
+                        }
+                    }
                     StacksTransactionEvent::FTEvent(FTEventType::FTTransferEvent(event_data)) => {
                         self.update_dispatch_matrix_if_observer_subscribed(
                             &event_data.asset_identifier,
@@ -632,6 +652,16 @@ impl EventDispatcher {
                             i,
                             &mut dispatch_matrix,
                         );
+                    }
+                    StacksTransactionEvent::FTEvent(FTEventType::FTWithdrawEvent(event_data)) => {
+                        self.update_dispatch_matrix_if_observer_subscribed(
+                            &event_data.asset_identifier,
+                            i,
+                            &mut dispatch_matrix,
+                        );
+                        for o_i in &self.withdrawal_observers_lookup {
+                            dispatch_matrix[*o_i as usize].insert(i);
+                        }
                     }
                 }
                 events.push((!receipt.post_condition_aborted, tx_hash, event));
@@ -982,6 +1012,9 @@ impl EventDispatcher {
                 }
                 EventKeyType::STXEvent => {
                     self.stx_observers_lookup.insert(observer_index);
+                }
+                EventKeyType::WithdrawalEvent => {
+                    self.withdrawal_observers_lookup.insert(observer_index);
                 }
                 EventKeyType::AssetEvent(event_key) => {
                     match self.assets_observers_lookup.entry(event_key.clone()) {
