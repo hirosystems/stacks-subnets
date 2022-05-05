@@ -31,8 +31,8 @@ use super::db_indexer::DBBurnchainIndexer;
 use super::{BurnchainChannel, Error};
 use crate::config::BurnchainConfig;
 use crate::operations::BurnchainOpSigner;
-use crate::{BurnchainController, BurnchainTip, Config};
 use crate::util::hash::Sha512Trunc256Sum;
+use crate::{BurnchainController, BurnchainTip, Config};
 
 #[derive(Clone)]
 pub struct L1Channel {
@@ -270,7 +270,7 @@ impl L1Controller {
         sender_nonce: u64,
         tx_fee: u64,
         commit_to: BlockHeaderHash,
-        withdrawal_root: Sha512Trunc256Sum
+        withdrawal_root: Sha512Trunc256Sum,
     ) -> Result<StacksTransaction, Error> {
         let QualifiedContractIdentifier {
             issuer: contract_addr,
@@ -289,7 +289,7 @@ impl L1Controller {
             function_name: ClarityName::from("commit-block"),
             function_args: vec![
                 ClarityValue::buff_from(committed_block).map_err(|_| Error::BadCommitment)?,
-                ClarityValue::buff_from(withdrawal_root_bytes).map_err(|_| Error::BadCommitment)?
+                ClarityValue::buff_from(withdrawal_root_bytes).map_err(|_| Error::BadCommitment)?,
             ],
         };
 
@@ -341,7 +341,7 @@ impl L1Controller {
             nonce,
             fee,
             op.block_header_hash,
-            op.withdrawal_merkle_root
+            op.withdrawal_merkle_root,
         ) {
             Ok(x) => x,
             Err(e) => {

@@ -82,12 +82,12 @@ use crate::{types, util};
 use chainstate::stacks::address::StacksAddressExtensions;
 use chainstate::stacks::StacksBlockHeader;
 use chainstate::stacks::StacksMicroblockHeader;
+use clarity_vm::withdrawal::create_withdrawal_merkle_tree;
 use monitoring::set_last_execution_cost_observed;
 use rusqlite::types::ToSqlOutput;
 use stacks_common::types::chainstate::{StacksAddress, StacksBlockId};
 use types::chainstate::BurnchainHeaderHash;
 use util_lib::boot::boot_code_id;
-use clarity_vm::withdrawal::{create_withdrawal_merkle_tree};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StagingMicroblock {
