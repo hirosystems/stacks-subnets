@@ -1495,8 +1495,6 @@ fn test_forking_no_tx() {
     test_observer::spawn();
     let http_origin = format!("http://{}", &conf.node.rpc_bind);
 
-    eprintln!("Chain bootstrapped...");
-
     let burnchain = Burnchain::new(
         &conf.get_burn_db_path(),
         &conf.burnchain.chain,
@@ -1513,15 +1511,13 @@ fn test_forking_no_tx() {
     let mut btc_regtest_controller = MockController::new(conf, channel.clone());
 
     test_observer::spawn();
-
-    thread::spawn(move || run_loop.start(None, 0));
+    let termination_switch = run_loop.get_termination_switch();
+    let run_loop_thread = thread::spawn(move || run_loop.start(None, 0));
 
     let common_ancestor = btc_regtest_controller.next_block(None);
-
     wait_for_runloop(&blocks_processed);
 
     let (sortition_db, burndb) = burnchain.open_db(true).unwrap();
-
     info!("start fork 1");
     {
         let mut cursor = btc_regtest_controller.next_block(Some(common_ancestor));
@@ -1534,10 +1530,8 @@ fn test_forking_no_tx() {
         }
         btc_regtest_controller.next_block(Some(cursor));
     }
-
     thread::sleep(Duration::from_millis(1000));
 
-    info!("start fork 2");
     {
         let mut cursor = btc_regtest_controller.next_block(Some(common_ancestor));
         info!("ooo cursor: {:?}", &cursor);
@@ -1557,7 +1551,6 @@ fn test_forking_no_tx() {
         }
         cursor = btc_regtest_controller.next_block(Some(cursor));
     }
-
     thread::sleep(Duration::from_millis(1000));
 
     let blocks = test_observer::get_blocks();
@@ -1566,58 +1559,6 @@ fn test_forking_no_tx() {
     for block_hash in &block_hashes {
         info!("block_hash: {:?}", &block_hash);
     }
-
-    // btc_regtest_controller.next_block(None);
-    // wait_for_block(&blocks_processed);
-
-    // wait_for_next_stacks_block(&sortition_db);
-
-    // let small_contract = "(define-public (return-one) (ok 1))";
-
-    // let mut total_transactions = 0;
-    // {
-    //     let hyperchain_small_contract_publish = make_contract_publish(
-    //         &MOCKNET_PRIVATE_KEY_1,
-    //         total_transactions,
-    //         1000,
-    //         "small-contract",
-    //         small_contract,
-    //     );
-    //     total_transactions += 1;
-    //     submit_tx(&l2_rpc_origin, &hyperchain_small_contract_publish);
-    //     wait_for_mempool_size(total_transactions.try_into().unwrap());
-    // }
-    // btc_regtest_controller.next_block(None);
-    // wait_for_block(&blocks_processed);
-
-    // let mut last_block = 0;
-    // for i in 0..3 {
-    //     let result = next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
-
-    //     info!("ooo result: {:?}", &result);
-    //     last_block = result;
-    // }
-
-    // for i in 0..3 {
-    //     // let result =     next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
-    //     let result = btc_regtest_controller.next_block(None);
-
-    //     wait_for_block(&blocks_processed);
-    //     info!("ooo result: {:?}", &result);
-    // }
-
-    // let mut cursor = last_block;
-
-    // info!("ooo starting the fork");
-    // for i in 0..5 {
-    //     let new_created_block_index = btc_regtest_controller.next_block(Some(cursor));
-
-    //     // let result = wait_for_block(&blocks_processed);
-
-    //     cursor = new_created_block_index;
-    //     // info!("ooo result: {:?}", &result);
-    // }
-    // let result = wait_for_block(&blocks_processed);
-
-    // info!("result: {:?}", &result);
+    termination_switch.store(false, Ordering::SeqCst);
+    run_loop_thread.join().expect("Failed to join run loop.");
 }
