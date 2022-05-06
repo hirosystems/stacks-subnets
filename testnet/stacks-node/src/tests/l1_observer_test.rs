@@ -1187,7 +1187,6 @@ fn no_contract_calls_forking_integration_test() {
 
         for _ in 0..4 {
             cursor = btc_regtest_controller.next_block(Some(cursor));
-            info!("ooo cursor: {:?}", &cursor);
             wait_for_block(&blocks_processed);
         }
         cursor = btc_regtest_controller.next_block(Some(cursor));

@@ -203,7 +203,6 @@ impl MockController {
     ///
     /// Returns the index of the block created.
     pub fn next_block(&mut self, specify_parent: Option<u64>) -> u64 {
-        info!("ooo calling next block");
         let upcoming_burn_block = *self.next_burn_block.lock().unwrap();
         let mut next_commit = self.next_commit.lock().unwrap();
 
