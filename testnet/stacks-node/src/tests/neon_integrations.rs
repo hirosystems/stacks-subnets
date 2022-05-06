@@ -462,6 +462,10 @@ fn mockstack_integration_test() {
     let (mut conf, miner_account) = mockstack_test_conf();
     let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
     conf.node.prometheus_bind = Some(prom_bind.clone());
+    conf.burnchain.first_burn_header_hash =
+        "0000000000000001010101010101010101010101010101010101010101010101".to_string();
+    conf.burnchain.first_burn_header_height = 1;
+    conf.burnchain.first_burn_header_timestamp = 1;
 
     let http_origin = format!("http://{}", &conf.node.rpc_bind);
 
