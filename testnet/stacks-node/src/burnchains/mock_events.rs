@@ -247,14 +247,10 @@ impl MockController {
         let parent_index_block_hash = { StacksBlockId(make_mock_byte_string(effective_parent)) };
 
         let parent_result = self.burn_block_to_height.get(&effective_parent);
-        info!(
-            "ooo effective_parent {} parent_result {:?}",
-            &effective_parent, &parent_result
-        );
         let parent_block_height = match parent_result {
             Some(parent_height) => *parent_height,
             None => {
-                // The only node whose parent is implied is 0.
+                // The only node whose height has a default is 0.
                 assert_eq!(0, effective_parent);
                 0
             }
@@ -271,21 +267,11 @@ impl MockController {
             events: tx_event.into_iter().collect(),
         };
 
-        info!("ooo Layer 1 block mined {:?}", &new_block);
-
         self.burn_block_to_height
             .insert(upcoming_burn_block, block_height);
-        info!(
-            "self.burn_block_to_height: {:?}",
-            &self.burn_block_to_height
-        );
-
         self.burn_block_to_parent
             .insert(upcoming_burn_block, effective_parent);
-        info!(
-            "self.burn_block_to_parent: {:?}",
-            &self.burn_block_to_parent
-        );
+
         self.indexer
             .get_channel()
             .push_block(new_block)

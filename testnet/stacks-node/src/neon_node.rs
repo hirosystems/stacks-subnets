@@ -1060,7 +1060,6 @@ fn spawn_miner_relayer(
                     );
                     if let Some((last_mined_block, microblock_privkey)) = last_mined_block_opt {
                         if let Some(expected_last_block) = expected_last_block_opt {
-                            info!("fork check: expected block {:?}, last_parent {:?}", expected_last_block, &last_mined_block.anchored_block.header.parent_block);
                             assert_eq!(*expected_last_block, last_mined_block.anchored_block.header.parent_block);
                         }
                         if last_mined_blocks_vec.len() == 0 {
