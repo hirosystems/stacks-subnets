@@ -2,9 +2,13 @@ use std;
 use std::process::{Child, Command, Stdio};
 use std::thread::{self, JoinHandle};
 
+use crate::burnchains::mock_events::MockController;
 use crate::config::{EventKeyType, EventObserverConfig};
 use crate::neon;
-use crate::tests::neon_integrations::{get_account, submit_tx, test_observer};
+use crate::tests::neon_integrations::{
+    get_account, mockstack_test_conf, next_block_and_wait, submit_tx, test_observer,
+    wait_for_runloop,
+};
 use crate::tests::{make_contract_call, make_contract_publish, to_addr};
 use clarity::types::chainstate::StacksAddress;
 use clarity::util::get_epoch_time_secs;
@@ -210,6 +214,16 @@ fn select_transactions_where(
                 result.push(parsed);
             }
         }
+    }
+
+    return result;
+}
+
+fn get_block_hashes(blocks: &Vec<serde_json::Value>) -> Vec<String> {
+    let mut result = vec![];
+    for block in blocks {
+        let burn_block_hash = block.get("burn_block_hash").unwrap().as_str().unwrap();
+        result.push(burn_block_hash.to_string());
     }
 
     return result;
@@ -1078,4 +1092,532 @@ fn l2_simple_contract_calls() {
     termination_switch.store(false, Ordering::SeqCst);
     stacks_l1_controller.kill_process();
     run_loop_thread.join().expect("Failed to join run loop.");
+}
+
+pub fn wait_for_blocks_processed(blocks_processed: &Arc<AtomicU64>) -> bool {
+    let current = blocks_processed.load(Ordering::SeqCst);
+    info!(
+        "wait_for_blocks_processed: Issuing block at {}, waiting for bump ({})",
+        get_epoch_time_secs(),
+        current
+    );
+    let start = Instant::now();
+    while blocks_processed.load(Ordering::SeqCst) <= current {
+        if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
+            error!("Timed out waiting for block to process, trying to continue test");
+            return false;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    info!(
+        "wait_for_blocks_processed: Block bumped at {} ({})",
+        get_epoch_time_secs(),
+        blocks_processed.load(Ordering::SeqCst)
+    );
+    true
+}
+
+/// Wait until size of `test_observer::get_memtxs()` is at least `target_size`.
+pub fn wait_for_mempool_size(target_size: usize) {
+    info!(
+        "wait_for_tx_in_mempool: STARTS waiting for size {}",
+        target_size
+    );
+    let start = Instant::now();
+    loop {
+        let memtxs = test_observer::get_memtxs();
+        if memtxs.len() >= target_size {
+            info!(
+                "wait_for_tx_in_mempool: STOPS waiting for size {}",
+                target_size
+            );
+            return;
+        }
+        if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
+            panic!("Timed out waiting for transaction to hit mempool");
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// Tests that we can mine L2 blocks in the presence of a deep L1 fork. The fork is like:
+///    / 2 -> 4 -> 6 -> 8
+/// 1
+///    \ 3 -> 5 -> 7 -> 9
+#[test]
+fn deep_fork_in_l1_integration_test() {
+    if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
+        return;
+    }
+
+    let (mut config, miner_account) = mockstack_test_conf();
+    config.node.miner = true;
+
+    let user_addr = to_addr(&MOCKNET_PRIVATE_KEY_1);
+    config.add_initial_balance(user_addr.to_string(), 10000000);
+
+    let l2_rpc_origin = format!("http://{}", &config.node.rpc_bind);
+    let user_addr = to_addr(&MOCKNET_PRIVATE_KEY_1);
+
+    test_observer::spawn();
+
+    let mut run_loop = neon::RunLoop::new(config.clone());
+    let termination_switch = run_loop.get_termination_switch();
+    let channel = run_loop.get_coordinator_channel().unwrap();
+    let blocks_processed = run_loop.get_blocks_processed_arc();
+    let run_loop_thread = thread::spawn(move || run_loop.start(None, 0));
+
+    // Sleep to give the run loop time to start
+    thread::sleep(Duration::from_millis(2_000));
+
+    let burnchain = Burnchain::new(
+        &config.get_burn_db_path(),
+        &config.burnchain.chain,
+        &config.burnchain.mode,
+    )
+    .unwrap();
+    let (sortition_db, _) = burnchain.open_db(true).unwrap();
+
+    let mut btc_controller = MockController::new(config, channel.clone());
+
+    wait_for_runloop(&blocks_processed);
+    btc_controller.next_block(None);
+
+    wait_for_blocks_processed(&blocks_processed);
+    btc_controller.next_block(None);
+
+    wait_for_blocks_processed(&blocks_processed);
+
+    let small_contract = "(define-public (return-one) (ok 1))";
+    let mut l2_nonce = 0;
+    {
+        let hyperchain_small_contract_publish = make_contract_publish(
+            &MOCKNET_PRIVATE_KEY_1,
+            l2_nonce,
+            1000,
+            "small-contract",
+            small_contract,
+        );
+        l2_nonce += 1;
+        submit_tx(&l2_rpc_origin, &hyperchain_small_contract_publish);
+    }
+    btc_controller.next_block(None);
+
+    wait_for_blocks_processed(&blocks_processed);
+    btc_controller.next_block(None);
+
+    wait_for_blocks_processed(&blocks_processed);
+
+    // Make two contract calls to "return-one".
+    for _ in 0..2 {
+        let small_contract_call1 = make_contract_call(
+            &MOCKNET_PRIVATE_KEY_1,
+            l2_nonce,
+            1000,
+            &user_addr,
+            "small-contract",
+            "return-one",
+            &[],
+        );
+        l2_nonce += 1;
+        submit_tx(&l2_rpc_origin, &small_contract_call1);
+        btc_controller.next_block(None);
+
+        wait_for_blocks_processed(&blocks_processed);
+    }
+    // Wait extra blocks to avoid flakes.
+    btc_controller.next_block(None);
+
+    wait_for_blocks_processed(&blocks_processed);
+    btc_controller.next_block(None);
+
+    wait_for_blocks_processed(&blocks_processed);
+
+    // Check for two calls to "return-one".
+    let small_contract_calls = select_transactions_where(
+        &test_observer::get_blocks(),
+        |transaction| match &transaction.payload {
+            TransactionPayload::ContractCall(contract) => {
+                contract.contract_name == ContractName::try_from("small-contract").unwrap()
+                    && contract.function_name == ClarityName::try_from("return-one").unwrap()
+            }
+            _ => false,
+        },
+    );
+    assert_eq!(small_contract_calls.len(), 2);
+    termination_switch.store(false, Ordering::SeqCst);
+    run_loop_thread.join().expect("Failed to join run loop.");
+}
+
+#[test]
+fn mockstack_integration_test2() {
+    let (mut conf, miner_account) = mockstack_test_conf();
+
+    info!("conf: {:#?}", &conf);
+    let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
+    conf.node.prometheus_bind = Some(prom_bind.clone());
+    conf.node.miner = true;
+
+    let user_addr = to_addr(&MOCKNET_PRIVATE_KEY_1);
+    conf.add_initial_balance(user_addr.to_string(), 10000000);
+    conf.events_observers.push(EventObserverConfig {
+        endpoint: format!("localhost:{}", test_observer::EVENT_OBSERVER_PORT),
+        events_keys: vec![EventKeyType::AnyEvent],
+    });
+
+    test_observer::spawn();
+    let http_origin = format!("http://{}", &conf.node.rpc_bind);
+
+    eprintln!("Chain bootstrapped...");
+
+    let mut run_loop = neon::RunLoop::new(conf.clone());
+    let blocks_processed = run_loop.get_blocks_processed_arc();
+
+    let channel = run_loop.get_coordinator_channel().unwrap();
+    let l2_rpc_origin = format!("http://{}", &conf.node.rpc_bind);
+
+    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+
+    thread::spawn(move || run_loop.start(None, 0));
+
+    // give the run loop some time to start up!
+    wait_for_runloop(&blocks_processed);
+
+    // first block wakes up the run loop
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+
+    let small_contract = "(define-public (return-one) (ok 1))";
+    let mut l2_nonce = 0;
+
+    {
+        let hyperchain_small_contract_publish = make_contract_publish(
+            &MOCKNET_PRIVATE_KEY_1,
+            l2_nonce,
+            1000,
+            "small-contract",
+            small_contract,
+        );
+        l2_nonce += 1;
+        submit_tx(&l2_rpc_origin, &hyperchain_small_contract_publish);
+    }
+
+    // first block will hold our VRF registration
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+    // Make two contract calls to "return-one".
+    for _ in 0..2 {
+        let small_contract_call1 = make_contract_call(
+            &MOCKNET_PRIVATE_KEY_1,
+            l2_nonce,
+            1000,
+            &user_addr,
+            "small-contract",
+            "return-one",
+            &[],
+        );
+        l2_nonce += 1;
+        submit_tx(&l2_rpc_origin, &small_contract_call1);
+        btc_regtest_controller.next_block(None);
+
+        wait_for_blocks_processed(&blocks_processed);
+    }
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+
+    let small_contract_calls = select_transactions_where(
+        &test_observer::get_blocks(),
+        |transaction| match &transaction.payload {
+            TransactionPayload::ContractCall(contract) => {
+                contract.contract_name == ContractName::try_from("small-contract").unwrap()
+                    && contract.function_name == ClarityName::try_from("return-one").unwrap()
+            }
+            _ => false,
+        },
+    );
+    assert_eq!(small_contract_calls.len(), 2);
+}
+
+pub fn wait_for_block(blocks_processed: &Arc<AtomicU64>) -> u64 {
+    let current = blocks_processed.load(Ordering::SeqCst);
+    info!(
+        "wait_for_block: Issuing block at {}, waiting for bump ({})",
+        get_epoch_time_secs(),
+        current
+    );
+    let start = Instant::now();
+    while blocks_processed.load(Ordering::SeqCst) <= current {
+        if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
+            panic!("Timed out waiting for block to process, trying to continue test");
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    info!(
+        "wait_for_block: Block bumped at {} ({})",
+        get_epoch_time_secs(),
+        blocks_processed.load(Ordering::SeqCst)
+    );
+    0
+}
+
+#[test]
+fn mockstack_integration_test_forking() {
+    let (mut conf, miner_account) = mockstack_test_conf();
+    let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
+    conf.node.prometheus_bind = Some(prom_bind.clone());
+    conf.node.miner = true;
+
+    let user_addr = to_addr(&MOCKNET_PRIVATE_KEY_1);
+    conf.add_initial_balance(user_addr.to_string(), 10000000);
+    conf.events_observers.push(EventObserverConfig {
+        endpoint: format!("localhost:{}", test_observer::EVENT_OBSERVER_PORT),
+        events_keys: vec![EventKeyType::AnyEvent],
+    });
+
+    test_observer::spawn();
+    let http_origin = format!("http://{}", &conf.node.rpc_bind);
+
+    eprintln!("Chain bootstrapped...");
+
+    let burnchain = Burnchain::new(
+        &conf.get_burn_db_path(),
+        &conf.burnchain.chain,
+        &conf.burnchain.mode,
+    )
+    .unwrap();
+
+    let mut run_loop = neon::RunLoop::new(conf.clone());
+    let blocks_processed = run_loop.get_blocks_processed_arc();
+
+    let channel = run_loop.get_coordinator_channel().unwrap();
+    let l2_rpc_origin = format!("http://{}", &conf.node.rpc_bind);
+
+    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+
+    test_observer::spawn();
+
+    thread::spawn(move || run_loop.start(None, 0));
+    wait_for_runloop(&blocks_processed);
+
+    let (sortition_db, burndb) = burnchain.open_db(true).unwrap();
+
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+
+    let small_contract = "(define-public (return-one (x uint)) (ok x))";
+    let mut total_transactions = 0;
+
+    {
+        let hyperchain_small_contract_publish = make_contract_publish(
+            &MOCKNET_PRIVATE_KEY_1,
+            total_transactions,
+            1000,
+            "small-contract",
+            small_contract,
+        );
+        total_transactions += 1;
+        submit_tx(&l2_rpc_origin, &hyperchain_small_contract_publish);
+        wait_for_mempool_size(total_transactions.try_into().unwrap());
+    }
+
+    // // first block will hold our VRF registration
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+    next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+    let last_created_block = next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+    info!("ooo last_created_block: {:?}", &last_created_block);
+
+    let mut nonce_cursor = total_transactions;
+    for level_index in 0..3 {
+        let small_contract_call1 = make_contract_call(
+            &MOCKNET_PRIVATE_KEY_1,
+            nonce_cursor,
+            1000,
+            &user_addr,
+            "small-contract",
+            "return-one",
+            &[Value::UInt(total_transactions.into())],
+        );
+        nonce_cursor += 1;
+
+        info!("nonce_cursor: {:?}", &nonce_cursor);
+        info!("total_transactions: {:?}", &total_transactions);
+        let submit_result = submit_tx(&l2_rpc_origin, &small_contract_call1);
+        info!("ooo submit_result: {:?}", &submit_result);
+        total_transactions += 1;
+        info!("ooo total_transactions: {:?}", &total_transactions);
+        wait_for_mempool_size(total_transactions.try_into().unwrap());
+
+        {
+            let last_block = btc_regtest_controller.next_block(None);
+            info!("ooo last_block: {:?}", &last_block);
+            wait_for_block(&blocks_processed);
+        }
+    }
+
+    for overtake_level_index in 0..5 {
+        let mut overtake_cursor = last_created_block;
+
+        {
+            let last_block = btc_regtest_controller.next_block(Some(overtake_cursor));
+            info!("ooo last_block OVERTAKE: {:?}", &last_block);
+            overtake_cursor = last_block;
+            wait_for_block(&blocks_processed);
+        }
+    }
+}
+
+#[test]
+fn test_forking_no_tx() {
+    let (mut conf, miner_account) = mockstack_test_conf();
+    let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
+    conf.node.prometheus_bind = Some(prom_bind.clone());
+    conf.node.miner = true;
+
+    conf.burnchain.first_burn_header_hash =
+        "0000000000000001010101010101010101010101010101010101010101010101".to_string();
+    conf.burnchain.first_burn_header_height = 1;
+    conf.burnchain.first_burn_header_timestamp = 1;
+
+    let user_addr = to_addr(&MOCKNET_PRIVATE_KEY_1);
+    conf.add_initial_balance(user_addr.to_string(), 10000000);
+    conf.events_observers.push(EventObserverConfig {
+        endpoint: format!("localhost:{}", test_observer::EVENT_OBSERVER_PORT),
+        events_keys: vec![EventKeyType::AnyEvent],
+    });
+
+    test_observer::spawn();
+    let http_origin = format!("http://{}", &conf.node.rpc_bind);
+
+    eprintln!("Chain bootstrapped...");
+
+    let burnchain = Burnchain::new(
+        &conf.get_burn_db_path(),
+        &conf.burnchain.chain,
+        &conf.burnchain.mode,
+    )
+    .unwrap();
+
+    let mut run_loop = neon::RunLoop::new(conf.clone());
+    let blocks_processed = run_loop.get_blocks_processed_arc();
+
+    let channel = run_loop.get_coordinator_channel().unwrap();
+    let l2_rpc_origin = format!("http://{}", &conf.node.rpc_bind);
+
+    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+
+    test_observer::spawn();
+
+    thread::spawn(move || run_loop.start(None, 0));
+
+    let common_ancestor = btc_regtest_controller.next_block(None);
+
+    wait_for_runloop(&blocks_processed);
+
+    let (sortition_db, burndb) = burnchain.open_db(true).unwrap();
+
+    info!("start fork 1");
+    {
+        let mut cursor = btc_regtest_controller.next_block(Some(common_ancestor));
+        info!("ooo cursor: {:?}", &cursor);
+        for _ in 0..4 {
+            cursor = btc_regtest_controller.next_block(Some(cursor));
+            info!("ooo cursor: {:?}", &cursor);
+            // wait_for_next_stacks_block(&sortition_db);
+            wait_for_block(&blocks_processed);
+        }
+        btc_regtest_controller.next_block(Some(cursor));
+    }
+
+    thread::sleep(Duration::from_millis(1000));
+
+    info!("start fork 2");
+    {
+        let mut cursor = btc_regtest_controller.next_block(Some(common_ancestor));
+        info!("ooo cursor: {:?}", &cursor);
+        for _ in 0..6 {
+            cursor = btc_regtest_controller.next_block(Some(cursor));
+            info!("ooo cursor: {:?}", &cursor);
+        }
+        wait_for_block(&blocks_processed);
+
+        info!("ooo sleep to mine fork blocks, cursor {}", cursor);
+        thread::sleep(Duration::from_millis(1000));
+
+        for _ in 0..4 {
+            cursor = btc_regtest_controller.next_block(Some(cursor));
+            info!("ooo cursor: {:?}", &cursor);
+            wait_for_block(&blocks_processed);
+        }
+        cursor = btc_regtest_controller.next_block(Some(cursor));
+    }
+
+    thread::sleep(Duration::from_millis(1000));
+
+    let blocks = test_observer::get_blocks();
+    info!("blocks.len(): {:?}", &blocks.len());
+    let block_hashes = get_block_hashes(&blocks);
+    for block_hash in &block_hashes {
+        info!("block_hash: {:?}", &block_hash);
+    }
+
+    // btc_regtest_controller.next_block(None);
+    // wait_for_block(&blocks_processed);
+
+    // wait_for_next_stacks_block(&sortition_db);
+
+    // let small_contract = "(define-public (return-one) (ok 1))";
+
+    // let mut total_transactions = 0;
+    // {
+    //     let hyperchain_small_contract_publish = make_contract_publish(
+    //         &MOCKNET_PRIVATE_KEY_1,
+    //         total_transactions,
+    //         1000,
+    //         "small-contract",
+    //         small_contract,
+    //     );
+    //     total_transactions += 1;
+    //     submit_tx(&l2_rpc_origin, &hyperchain_small_contract_publish);
+    //     wait_for_mempool_size(total_transactions.try_into().unwrap());
+    // }
+    // btc_regtest_controller.next_block(None);
+    // wait_for_block(&blocks_processed);
+
+    // let mut last_block = 0;
+    // for i in 0..3 {
+    //     let result = next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+
+    //     info!("ooo result: {:?}", &result);
+    //     last_block = result;
+    // }
+
+    // for i in 0..3 {
+    //     // let result =     next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
+    //     let result = btc_regtest_controller.next_block(None);
+
+    //     wait_for_block(&blocks_processed);
+    //     info!("ooo result: {:?}", &result);
+    // }
+
+    // let mut cursor = last_block;
+
+    // info!("ooo starting the fork");
+    // for i in 0..5 {
+    //     let new_created_block_index = btc_regtest_controller.next_block(Some(cursor));
+
+    //     // let result = wait_for_block(&blocks_processed);
+
+    //     cursor = new_created_block_index;
+    //     // info!("ooo result: {:?}", &result);
+    // }
+    // let result = wait_for_block(&blocks_processed);
+
+    // info!("result: {:?}", &result);
 }

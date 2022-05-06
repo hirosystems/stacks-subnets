@@ -298,28 +298,27 @@ const PANIC_TIMEOUT_SECS: u64 = 600;
 pub fn next_block_and_wait(
     btc_controller: &mut MockController,
     blocks_processed: &Arc<AtomicU64>,
-) -> bool {
+) -> u64 {
     let current = blocks_processed.load(Ordering::SeqCst);
-    eprintln!(
-        "Issuing block at {}, waiting for bump ({})",
+    info!(
+        "next_block_and_wait: Issuing block at {}, waiting for bump ({})",
         get_epoch_time_secs(),
         current
     );
-    btc_controller.next_block();
+    let new_created_block_index = btc_controller.next_block(None);
     let start = Instant::now();
     while blocks_processed.load(Ordering::SeqCst) <= current {
         if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
-            error!("Timed out waiting for block to process, trying to continue test");
-            return false;
+            panic!("Timed out waiting for block to process, trying to continue test");
         }
         thread::sleep(Duration::from_millis(100));
     }
-    eprintln!(
-        "Block bumped at {} ({})",
+    info!(
+        "next_block_and_wait: Block bumped at {} ({})",
         get_epoch_time_secs(),
         blocks_processed.load(Ordering::SeqCst)
     );
-    true
+    new_created_block_index
 }
 
 pub fn wait_for_runloop(blocks_processed: &Arc<AtomicU64>) {

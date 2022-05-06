@@ -810,6 +810,10 @@ fn spawn_miner_relayer(
         Vec<(AssembledAnchorBlock, Secp256k1PrivateKey)>,
     > = HashMap::new();
 
+    // Maps each burn block to the block this miner produced for it.
+    let mut block_produced_at_burn_block: BTreeMap<(u64, BurnchainHeaderHash), BlockHeaderHash> =
+        BTreeMap::new();
+
     let mut bitcoin_controller = config
         .make_burnchain_controller(coord_comms.clone())
         .expect("couldn't create burnchain controller");
@@ -817,6 +821,9 @@ fn spawn_miner_relayer(
     let mut miner_tip = None; // only set if we won the last sortition
     let mut last_microblock_tenure_time = 0;
     let mut last_tenure_issue_time = 0;
+
+    let burnchain = runloop.get_burnchain();
+    let (sortition_db, _) = burnchain.open_db(true).unwrap();
 
     let relayer_handle = thread::Builder::new().name("relayer".to_string()).spawn(move || {
         let cost_estimator = config.make_cost_estimator()
@@ -1038,6 +1045,8 @@ fn spawn_miner_relayer(
                         .remove(&burn_header_hash)
                         .unwrap_or_default();
 
+                    let expected_last_block_opt = find_last_stacks_block_this_produced(&sortition_db,
+                     &block_produced_at_burn_block);
                     let last_mined_block_opt = StacksNode::relayer_run_tenure(
                         &config,
                         &mut chainstate,
@@ -1050,9 +1059,15 @@ fn spawn_miner_relayer(
                         &event_dispatcher,
                     );
                     if let Some((last_mined_block, microblock_privkey)) = last_mined_block_opt {
+                        if let Some(expected_last_block) = expected_last_block_opt {
+                            info!("fork check: expected block {:?}, last_parent {:?}", expected_last_block, &last_mined_block.anchored_block.header.parent_block);
+                            assert_eq!(*expected_last_block, last_mined_block.anchored_block.header.parent_block);
+                        }
                         if last_mined_blocks_vec.len() == 0 {
                             counters.bump_blocks_processed();
                         }
+
+                        block_produced_at_burn_block.insert((last_burn_block.block_height, burn_header_hash), last_mined_block.anchored_block.block_hash());
                         last_mined_blocks_vec.push((last_mined_block, microblock_privkey));
                     }
                     last_mined_blocks.insert(burn_header_hash, last_mined_blocks_vec);
