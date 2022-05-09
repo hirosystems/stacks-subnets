@@ -831,26 +831,17 @@ fn no_contract_calls_forking_integration_test() {
     assert_eq!(0, get_stacks_tip_height(&sortition_db));
     assert_eq!(0, get_burn_tip_height(&sortition_db));
 
-    info!("stacks height @{} ={}", 44, get_stacks_tip_height(&sortition_db));
-    info!("l1 height @{} ={}", 44, get_burn_tip_height(&sortition_db));
-
     btc_regtest_controller.next_block(None);
     wait_for_block(&blocks_processed);
 
     assert_eq!(0, get_stacks_tip_height(&sortition_db));
     assert_eq!(1, get_burn_tip_height(&sortition_db));
 
-    info!("stacks height @{} ={}", 44, get_stacks_tip_height(&sortition_db));
-    info!("l1 height @{} ={}", 44, get_burn_tip_height(&sortition_db));
-
     btc_regtest_controller.next_block(None);
     wait_for_block(&blocks_processed);
 
     assert_eq!(0, get_stacks_tip_height(&sortition_db));
     assert_eq!(2, get_burn_tip_height(&sortition_db));
-
-    info!("stacks height @{} ={}", 44, get_stacks_tip_height(&sortition_db));
-    info!("l1 height @{} ={}", 44, get_burn_tip_height(&sortition_db));
 
     let common_ancestor = btc_regtest_controller.next_block(None);
     wait_for_block(&blocks_processed);
@@ -859,16 +850,11 @@ fn no_contract_calls_forking_integration_test() {
     assert_eq!(1, get_stacks_tip_height(&sortition_db));
     assert_eq!(3, get_burn_tip_height(&sortition_db));
 
-    info!("stacks height @{} ={}", 44, get_stacks_tip_height(&sortition_db));
-    info!("l1 height @{} ={}", 44, get_burn_tip_height(&sortition_db));
-
     {
         let mut cursor = common_ancestor; // btc_regtest_controller.next_block(Some(common_ancestor));
         for i in 0..4 {
             cursor = btc_regtest_controller.next_block(Some(cursor));
             wait_for_block(&blocks_processed);
-            info!("stacks height @{} ={}", i, get_stacks_tip_height(&sortition_db));
-            info!("l1 height @{} ={}", 44, get_burn_tip_height(&sortition_db));
             assert_eq!(2 + i, get_stacks_tip_height(&sortition_db));
             assert_eq!(4 + i, get_burn_tip_height(&sortition_db));
 
@@ -880,31 +866,20 @@ fn no_contract_calls_forking_integration_test() {
     // assert_eq!(6, get_stacks_tip_height(&sortition_db));
     assert_eq!(8, get_burn_tip_height(&sortition_db));
 
-    info!("start_the_fork, phase 1");
     {
         let mut cursor = btc_regtest_controller.next_block(Some(common_ancestor));
         wait_for_block(&blocks_processed);
-        info!("stacks height @{} ={}", 99, get_stacks_tip_height(&sortition_db));
-        info!("l1 height @{} ={}", 44, get_burn_tip_height(&sortition_db));
 
         // This is the same height as before we mined off of `common_ancestor`.
         assert_eq!(6, get_stacks_tip_height(&sortition_db));
         assert_eq!(8, get_burn_tip_height(&sortition_db));
-
-        info!("start_the_fork, phase 2");
 
         for i in 0..6 {
             info!("check");
             cursor = btc_regtest_controller.next_block(Some(cursor));
         }
 
-        info!("start_the_fork, phase 3");
-
-        info!("check");
-
         wait_for_block(&blocks_processed);
-        info!("stacks height @{} ={}", 100, get_stacks_tip_height(&sortition_db));
-        info!("l1 height @{} ={}", 44, get_burn_tip_height(&sortition_db));
 
         // New burn fork is longer. There is only 1 stacks block on this branch now.
         assert_eq!(1, get_stacks_tip_height(&sortition_db));
@@ -915,8 +890,6 @@ fn no_contract_calls_forking_integration_test() {
         for i in 0..5 {
             cursor = btc_regtest_controller.next_block(Some(cursor));
             wait_for_block(&blocks_processed);
-            info!("stacks height @{} ={}", 299, get_stacks_tip_height(&sortition_db));
-            info!("l1 height @{} ={}", 44, get_burn_tip_height(&sortition_db));
 
             // Growing the second branch.
             assert_eq!(2 + i, get_stacks_tip_height(&sortition_db));
@@ -928,8 +901,9 @@ fn no_contract_calls_forking_integration_test() {
     }
     thread::sleep(Duration::from_millis(1000));
     wait_for_block(&blocks_processed);
-    info!("stacks height @{} ={}", 100, get_stacks_tip_height(&sortition_db));
-    info!("l1 height @{} ={}", 44, get_burn_tip_height(&sortition_db));
+
+    assert_eq!(7, get_stacks_tip_height(&sortition_db));
+    assert_eq!(16, get_burn_tip_height(&sortition_db));
 
     termination_switch.store(false, Ordering::SeqCst);
     run_loop_thread.join().expect("Failed to join run loop.");
