@@ -2,13 +2,9 @@ use std;
 use std::process::{Child, Command, Stdio};
 use std::thread::{self, JoinHandle};
 
-use crate::burnchains::mock_events::MockController;
 use crate::config::{EventKeyType, EventObserverConfig};
 use crate::neon;
-use crate::tests::neon_integrations::{
-    get_account, mockstack_test_conf, next_block_and_wait, submit_tx, test_observer,
-    wait_for_runloop,
-};
+use crate::tests::neon_integrations::{get_account, submit_tx, test_observer};
 use crate::tests::{make_contract_call, make_contract_publish, to_addr};
 use clarity::types::chainstate::StacksAddress;
 use clarity::util::get_epoch_time_secs;
@@ -168,16 +164,7 @@ fn get_stacks_tip_height(sortition_db: &SortitionDB) -> i64 {
     let tip_snapshot = SortitionDB::get_canonical_burn_chain_tip(&sortition_db.conn())
         .expect("Could not read from SortitionDB.");
 
-    info!("tip_snapshot: {:?}", &tip_snapshot);
     tip_snapshot.canonical_stacks_tip_height.try_into().unwrap()
-}
-
-fn get_l1_tip_height(sortition_db: &SortitionDB) -> i64 {
-    let tip_snapshot = SortitionDB::get_canonical_burn_chain_tip(&sortition_db.conn())
-        .expect("Could not read from SortitionDB.");
-
-    info!("tip_snapshot: {:?}", &tip_snapshot);
-    tip_snapshot.block_height.try_into().unwrap()
 }
 
 /// Wait for the *height* of the stacks chain tip to increment.
@@ -227,18 +214,6 @@ fn select_transactions_where(
 
     return result;
 }
-
-/// Maps each block in `blocks` to its `burn_block_hash`.
-fn get_block_hashes(blocks: &Vec<serde_json::Value>) -> Vec<String> {
-    let mut result = vec![];
-    for block in blocks {
-        let burn_block_hash = block.get("burn_block_hash").unwrap().as_str().unwrap();
-        result.push(burn_block_hash.to_string());
-    }
-
-    return result;
-}
-
 
 /// This test brings up the Stacks-L1 chain in "mocknet" mode, and ensures that our listener can hear and record burn blocks
 /// from the Stacks-L1 chain.
