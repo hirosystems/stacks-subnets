@@ -21,6 +21,7 @@ use stacks::{
 
 use crate::burnchains::mock_events::MockController;
 use crate::neon;
+use crate::tests::l1_observer_test::MOCKNET_PRIVATE_KEY_1;
 use crate::tests::{
     make_contract_call, make_contract_publish, make_stacks_transfer, to_addr, SK_1, SK_2, SK_3,
 };
@@ -324,6 +325,32 @@ pub fn next_block_and_wait(
     true
 }
 
+/// Wait for `blocks_processed` to bump. Returns `false` on a timeout, true otherwise.
+pub fn wait_for_block(
+    blocks_processed: &Arc<AtomicU64>,
+) -> bool {
+    let current = blocks_processed.load(Ordering::SeqCst);
+    eprintln!(
+        "Issuing block at {}, waiting for bump ({})",
+        get_epoch_time_secs(),
+        current
+    );
+    let start = Instant::now();
+    while blocks_processed.load(Ordering::SeqCst) <= current {
+        if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
+            error!("Timed out waiting for block to process, trying to continue test");
+            return false;
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    eprintln!(
+        "Block bumped at {} ({})",
+        get_epoch_time_secs(),
+        blocks_processed.load(Ordering::SeqCst)
+    );
+    true
+}
+
 pub fn wait_for_runloop(blocks_processed: &Arc<AtomicU64>) {
     let start = Instant::now();
     while blocks_processed.load(Ordering::SeqCst) == 0 {
@@ -364,6 +391,23 @@ pub fn wait_for_microblocks(microblocks_processed: &Arc<AtomicU64>, timeout: u64
     }
     info!("Next microblock acknowledged");
     return true;
+}
+
+/// Height of the current stacks tip.
+fn get_stacks_tip_height(sortition_db: &SortitionDB) -> i64 {
+    let tip_snapshot = SortitionDB::get_canonical_burn_chain_tip(&sortition_db.conn())
+        .expect("Could not read from SortitionDB.");
+
+    info!("tip_snapshot: {:?}", &tip_snapshot);
+    tip_snapshot.canonical_stacks_tip_height.try_into().unwrap()
+}
+
+fn get_l1_tip_height(sortition_db: &SortitionDB) -> i64 {
+    let tip_snapshot = SortitionDB::get_canonical_burn_chain_tip(&sortition_db.conn())
+        .expect("Could not read from SortitionDB.");
+
+    info!("tip_snapshot: {:?}", &tip_snapshot);
+    tip_snapshot.block_height.try_into().unwrap()
 }
 
 /// returns Some(Txid string) on success, None on failure
@@ -740,4 +784,128 @@ fn faucet_test() {
     );
 
     channel.stop_chains_coordinator();
+}
+
+
+/// Create burnchain fork, and see that the hyper-chain miner can continue to call.
+/// Does not exercise contract calls.
+#[test]
+fn no_contract_calls_forking_integration_test() {
+    let (mut conf, miner_account) = mockstack_test_conf();
+    let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
+    conf.node.prometheus_bind = Some(prom_bind.clone());
+    conf.node.miner = true;
+
+    conf.burnchain.first_burn_header_hash =
+        "0000000000000000010101010101010101010101010101010101010101010101".to_string();
+    conf.burnchain.first_burn_header_height = 0;
+    conf.burnchain.first_burn_header_timestamp = 0;
+
+    let user_addr = to_addr(&MOCKNET_PRIVATE_KEY_1);
+    conf.add_initial_balance(user_addr.to_string(), 10000000);
+
+    test_observer::spawn();
+    let http_origin = format!("http://{}", &conf.node.rpc_bind);
+
+    let burnchain = Burnchain::new(
+        &conf.get_burn_db_path(),
+        &conf.burnchain.chain,
+        &conf.burnchain.mode,
+    )
+    .unwrap();
+
+    let mut run_loop = neon::RunLoop::new(conf.clone());
+    let blocks_processed = run_loop.get_blocks_processed_arc();
+
+    let channel = run_loop.get_coordinator_channel().unwrap();
+    let l2_rpc_origin = format!("http://{}", &conf.node.rpc_bind);
+
+    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+
+    test_observer::spawn();
+    let termination_switch = run_loop.get_termination_switch();
+    let run_loop_thread = thread::spawn(move || run_loop.start(None, 0));
+
+    // btc_regtest_controller.next_block(None);
+    wait_for_runloop(&blocks_processed);
+
+    let (sortition_db, _) = burnchain.open_db(true).unwrap();
+
+    info!("stacks height @{} ={}", 44, get_stacks_tip_height(&sortition_db));
+    info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+    btc_regtest_controller.next_block(None);
+    wait_for_block(&blocks_processed);
+
+    info!("stacks height @{} ={}", 44, get_stacks_tip_height(&sortition_db));
+    info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+    btc_regtest_controller.next_block(None);
+    wait_for_block(&blocks_processed);
+
+    info!("stacks height @{} ={}", 44, get_stacks_tip_height(&sortition_db));
+    info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+    let common_ancestor = btc_regtest_controller.next_block(None);
+    wait_for_block(&blocks_processed);
+
+    info!("stacks height @{} ={}", 44, get_stacks_tip_height(&sortition_db));
+    info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+    {
+        let mut cursor = btc_regtest_controller.next_block(Some(common_ancestor));
+        for i in 0..4 {
+            cursor = btc_regtest_controller.next_block(Some(cursor));
+            wait_for_block(&blocks_processed);
+            info!("stacks height @{} ={}", i, get_stacks_tip_height(&sortition_db));
+            info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+        }
+        btc_regtest_controller.next_block(Some(cursor));
+    }
+    thread::sleep(Duration::from_millis(1000));
+
+    info!("start_the_fork, phase 1");
+    {
+        let mut cursor = btc_regtest_controller.next_block(Some(common_ancestor));
+        wait_for_block(&blocks_processed);
+        info!("stacks height @{} ={}", 99, get_stacks_tip_height(&sortition_db));
+        info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+
+        info!("start_the_fork, phase 2");
+
+        for i in 0..6 {
+            info!("check");
+            cursor = btc_regtest_controller.next_block(Some(cursor));
+        }
+
+        info!("start_the_fork, phase 3");
+
+        info!("check");
+
+        wait_for_block(&blocks_processed);
+        info!("stacks height @{} ={}", 100, get_stacks_tip_height(&sortition_db));
+        info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+
+        thread::sleep(Duration::from_millis(1000));
+
+        for i in 0..4 {
+            cursor = btc_regtest_controller.next_block(Some(cursor));
+            wait_for_block(&blocks_processed);
+            info!("stacks height @{} ={}", 299, get_stacks_tip_height(&sortition_db));
+            info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+
+        }
+        cursor = btc_regtest_controller.next_block(Some(cursor));
+    }
+    thread::sleep(Duration::from_millis(1000));
+    wait_for_block(&blocks_processed);
+    info!("stacks height @{} ={}", 100, get_stacks_tip_height(&sortition_db));
+    info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+    termination_switch.store(false, Ordering::SeqCst);
+    run_loop_thread.join().expect("Failed to join run loop.");
 }
