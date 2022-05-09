@@ -2,9 +2,13 @@ use std;
 use std::process::{Child, Command, Stdio};
 use std::thread::{self, JoinHandle};
 
+use crate::burnchains::mock_events::MockController;
 use crate::config::{EventKeyType, EventObserverConfig};
 use crate::neon;
-use crate::tests::neon_integrations::{get_account, submit_tx, test_observer};
+use crate::tests::neon_integrations::{
+    get_account, mockstack_test_conf, next_block_and_wait, submit_tx, test_observer,
+    wait_for_runloop,
+};
 use crate::tests::{make_contract_call, make_contract_publish, to_addr};
 use clarity::types::chainstate::StacksAddress;
 use clarity::util::get_epoch_time_secs;
@@ -164,7 +168,16 @@ fn get_stacks_tip_height(sortition_db: &SortitionDB) -> i64 {
     let tip_snapshot = SortitionDB::get_canonical_burn_chain_tip(&sortition_db.conn())
         .expect("Could not read from SortitionDB.");
 
+    info!("tip_snapshot: {:?}", &tip_snapshot);
     tip_snapshot.canonical_stacks_tip_height.try_into().unwrap()
+}
+
+fn get_l1_tip_height(sortition_db: &SortitionDB) -> i64 {
+    let tip_snapshot = SortitionDB::get_canonical_burn_chain_tip(&sortition_db.conn())
+        .expect("Could not read from SortitionDB.");
+
+    info!("tip_snapshot: {:?}", &tip_snapshot);
+    tip_snapshot.block_height.try_into().unwrap()
 }
 
 /// Wait for the *height* of the stacks chain tip to increment.
@@ -213,6 +226,40 @@ fn select_transactions_where(
     }
 
     return result;
+}
+
+/// Maps each block in `blocks` to its `burn_block_hash`.
+fn get_block_hashes(blocks: &Vec<serde_json::Value>) -> Vec<String> {
+    let mut result = vec![];
+    for block in blocks {
+        let burn_block_hash = block.get("burn_block_hash").unwrap().as_str().unwrap();
+        result.push(burn_block_hash.to_string());
+    }
+
+    return result;
+}
+
+/// Wait for `blocks_processed` to increment.
+pub fn wait_for_block(blocks_processed: &Arc<AtomicU64>) -> u64 {
+    let current = blocks_processed.load(Ordering::SeqCst);
+    info!(
+        "wait_for_block: Issuing block at {}, waiting for bump ({})",
+        get_epoch_time_secs(),
+        current
+    );
+    let start = Instant::now();
+    while blocks_processed.load(Ordering::SeqCst) <= current {
+        if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
+            panic!("Timed out waiting for block to process, trying to continue test");
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    info!(
+        "wait_for_block: Block bumped at {} ({})",
+        get_epoch_time_secs(),
+        blocks_processed.load(Ordering::SeqCst)
+    );
+    0
 }
 
 /// This test brings up the Stacks-L1 chain in "mocknet" mode, and ensures that our listener can hear and record burn blocks
@@ -1077,5 +1124,138 @@ fn l2_simple_contract_calls() {
     assert_eq!(small_contract_calls.len(), 2);
     termination_switch.store(false, Ordering::SeqCst);
     stacks_l1_controller.kill_process();
+    run_loop_thread.join().expect("Failed to join run loop.");
+}
+
+/// Create burnchain fork, and see that the hyper-chain miner can continue to call.
+/// Does not exercise contract calls.
+#[test]
+fn no_contract_calls_forking_integration_test() {
+    let (mut conf, miner_account) = mockstack_test_conf();
+    let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
+    conf.node.prometheus_bind = Some(prom_bind.clone());
+    conf.node.miner = true;
+
+    conf.burnchain.first_burn_header_hash =
+        "0000000000000000010101010101010101010101010101010101010101010101".to_string();
+    conf.burnchain.first_burn_header_height = 0;
+    conf.burnchain.first_burn_header_timestamp = 0;
+
+    let user_addr = to_addr(&MOCKNET_PRIVATE_KEY_1);
+    conf.add_initial_balance(user_addr.to_string(), 10000000);
+    conf.events_observers.push(EventObserverConfig {
+        endpoint: format!("localhost:{}", test_observer::EVENT_OBSERVER_PORT),
+        events_keys: vec![EventKeyType::AnyEvent],
+    });
+
+    test_observer::spawn();
+    let http_origin = format!("http://{}", &conf.node.rpc_bind);
+
+    let burnchain = Burnchain::new(
+        &conf.get_burn_db_path(),
+        &conf.burnchain.chain,
+        &conf.burnchain.mode,
+    )
+    .unwrap();
+
+    let mut run_loop = neon::RunLoop::new(conf.clone());
+    let blocks_processed = run_loop.get_blocks_processed_arc();
+
+    let channel = run_loop.get_coordinator_channel().unwrap();
+    let l2_rpc_origin = format!("http://{}", &conf.node.rpc_bind);
+
+    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+
+    test_observer::spawn();
+    let termination_switch = run_loop.get_termination_switch();
+    let run_loop_thread = thread::spawn(move || run_loop.start(None, 0));
+
+    // btc_regtest_controller.next_block(None);
+    wait_for_runloop(&blocks_processed);
+
+    let (sortition_db, _) = burnchain.open_db(true).unwrap();
+
+    info!("stacks height @{} ={}", 44, get_stacks_tip_height(&sortition_db));
+    info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+    btc_regtest_controller.next_block(None);
+    wait_for_block(&blocks_processed);
+
+    info!("stacks height @{} ={}", 44, get_stacks_tip_height(&sortition_db));
+    info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+    btc_regtest_controller.next_block(None);
+    wait_for_block(&blocks_processed);
+
+    info!("stacks height @{} ={}", 44, get_stacks_tip_height(&sortition_db));
+    info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+    let common_ancestor = btc_regtest_controller.next_block(None);
+    wait_for_block(&blocks_processed);
+
+    info!("stacks height @{} ={}", 44, get_stacks_tip_height(&sortition_db));
+    info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+    {
+        let mut cursor = btc_regtest_controller.next_block(Some(common_ancestor));
+        for i in 0..4 {
+            cursor = btc_regtest_controller.next_block(Some(cursor));
+            wait_for_block(&blocks_processed);
+            info!("stacks height @{} ={}", i, get_stacks_tip_height(&sortition_db));
+            info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+        }
+        btc_regtest_controller.next_block(Some(cursor));
+    }
+    thread::sleep(Duration::from_millis(1000));
+
+    info!("start_the_fork, phase 1");
+    {
+        let mut cursor = btc_regtest_controller.next_block(Some(common_ancestor));
+        wait_for_block(&blocks_processed);
+        info!("stacks height @{} ={}", 99, get_stacks_tip_height(&sortition_db));
+        info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+
+        info!("start_the_fork, phase 2");
+
+        for i in 0..6 {
+            info!("check");
+            cursor = btc_regtest_controller.next_block(Some(cursor));
+        }
+
+        info!("start_the_fork, phase 3");
+
+        info!("check");
+
+        wait_for_block(&blocks_processed);
+        info!("stacks height @{} ={}", 100, get_stacks_tip_height(&sortition_db));
+        info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+
+        thread::sleep(Duration::from_millis(1000));
+
+        for i in 0..4 {
+            cursor = btc_regtest_controller.next_block(Some(cursor));
+            wait_for_block(&blocks_processed);
+            info!("stacks height @{} ={}", 299, get_stacks_tip_height(&sortition_db));
+            info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+
+        }
+        cursor = btc_regtest_controller.next_block(Some(cursor));
+    }
+    thread::sleep(Duration::from_millis(1000));
+    wait_for_block(&blocks_processed);
+    info!("stacks height @{} ={}", 100, get_stacks_tip_height(&sortition_db));
+    info!("l1 height @{} ={}", 44, get_l1_tip_height(&sortition_db));
+
+    // We expect at least 8 blocks, because we have this many calls to `wait_for_block` followed
+    // by `next_block`.
+    // Note: We actually called `wait_for_block` 9 times, so why is this 8?
+    let blocks = test_observer::get_blocks();
+    info!("blocks.len(): {:?}", &blocks.len());
+
+    termination_switch.store(false, Ordering::SeqCst);
     run_loop_thread.join().expect("Failed to join run loop.");
 }

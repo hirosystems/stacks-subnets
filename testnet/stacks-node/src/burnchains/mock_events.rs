@@ -1,4 +1,5 @@
 use std::cmp;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -24,12 +25,11 @@ use stacks::util::sleep_ms;
 use stacks::vm::types::{QualifiedContractIdentifier, TupleData};
 use stacks::vm::Value as ClarityValue;
 
-use crate::burnchains::l1_events::burnchain_from_config;
 use crate::operations::BurnchainOpSigner;
 use crate::{BurnchainController, BurnchainTip, Config};
 
 use super::db_indexer::DBBurnchainIndexer;
-use super::{BurnchainChannel, Error};
+use super::{burnchain_from_config, BurnchainChannel, Error};
 
 #[derive(Clone)]
 pub struct MockChannel {
@@ -55,6 +55,8 @@ pub struct MockController {
     /// This will be a unique number for the next burn block. Starts at 1
     next_burn_block: Arc<Mutex<u64>>,
     next_commit: Arc<Mutex<Option<BlockHeaderHash>>>,
+    burn_block_to_height: HashMap<u64, u64>,
+    burn_block_to_parent: HashMap<u64, u64>,
 }
 
 pub struct MockIndexer {
@@ -189,13 +191,19 @@ impl MockController {
             chain_tip: None,
             next_burn_block: NEXT_BURN_BLOCK.clone(),
             next_commit: NEXT_COMMIT.clone(),
+            burn_block_to_height: HashMap::new(),
+            burn_block_to_parent: HashMap::new(),
         }
     }
 
     /// Produce the next mocked layer-1 block. If `next_commit` is staged,
     /// this mocked block will contain that commitment.
-    pub fn next_block(&mut self) {
-        let mut next_burn_block = self.next_burn_block.lock().unwrap();
+    ///
+    /// If `specify_parent` is set, use this as the parent, otherwise use `self.next_burn_block - 1`.
+    ///
+    /// Returns the index of the block created.
+    pub fn next_block(&mut self, specify_parent: Option<u64>) -> u64 {
+        let upcoming_burn_block = *self.next_burn_block.lock().unwrap();
         let mut next_commit = self.next_commit.lock().unwrap();
 
         let tx_event = next_commit.take().map(|next_commit| {
@@ -231,26 +239,47 @@ impl MockController {
             }
         });
 
-        let parent_index_block_hash = StacksBlockId(make_mock_byte_string(*next_burn_block - 1));
+        let effective_parent = match specify_parent {
+            Some(parent) => parent,
+            None => upcoming_burn_block - 1,
+        };
+        let parent_index_block_hash = { StacksBlockId(make_mock_byte_string(effective_parent)) };
 
-        let index_block_hash = StacksBlockId(make_mock_byte_string(*next_burn_block));
+        let parent_result = self.burn_block_to_height.get(&effective_parent);
+        let parent_block_height = match parent_result {
+            Some(parent_height) => *parent_height,
+            None => {
+                // The only node whose height has a default is 0.
+                assert_eq!(0, effective_parent);
+                0
+            }
+        };
+        let block_height = parent_block_height + 1;
+
+        let index_block_hash = StacksBlockId(make_mock_byte_string(upcoming_burn_block));
 
         let new_block = NewBlock {
-            block_height: *next_burn_block,
-            burn_block_time: *next_burn_block,
+            block_height,
+            burn_block_time: upcoming_burn_block,
             index_block_hash,
             parent_index_block_hash,
             events: tx_event.into_iter().collect(),
         };
 
-        *next_burn_block += 1;
+        info!("Layer 1 block pushed {:?}", &new_block);
 
-        info!("Layer 1 block mined, {:?}", &new_block);
+        self.burn_block_to_height
+            .insert(upcoming_burn_block, block_height);
+        self.burn_block_to_parent
+            .insert(upcoming_burn_block, effective_parent);
 
         self.indexer
             .get_channel()
             .push_block(new_block)
             .expect("`push_block` has failed.");
+
+        *self.next_burn_block.lock().unwrap() += 1;
+        upcoming_burn_block
     }
 
     fn receive_blocks(
