@@ -1,5 +1,6 @@
 use std::cmp;
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -85,13 +86,13 @@ lazy_static! {
         }])),
         minimum_recorded_height: Arc::new(Mutex::new(0)),
     });
-    static ref NEXT_BURN_BLOCK: Arc<Mutex<u64>> = Arc::new(Mutex::new(1));
+    static ref NEXT_BURN_BLOCK: Arc<Mutex<u64>> = Arc::new(Mutex::new(0));
     static ref NEXT_COMMIT: Arc<Mutex<Option<BlockHeaderHash>>> = Arc::new(Mutex::new(None));
 }
 
-fn make_mock_byte_string(from: u64) -> [u8; 32] {
-    let mut output = [1; 32];
-    output[0..8].copy_from_slice(&from.to_be_bytes());
+fn make_mock_byte_string(from: i64) -> [u8; 32] {
+    let mut output = [0; 32];
+    output[24..32].copy_from_slice(&from.to_be_bytes());
     output
 }
 
@@ -266,12 +267,15 @@ impl MockController {
             events: tx_event.into_iter().collect(),
         };
 
-        info!("Layer 1 block pushed {:?}", &new_block);
-
         self.burn_block_to_height
             .insert(upcoming_burn_block, block_height);
         self.burn_block_to_parent
             .insert(upcoming_burn_block, effective_parent);
+
+        info!("Layer 1 block mined";
+            "block_height" => new_block.block_height,
+            "index_block_hash" => %new_block.index_block_hash,
+            "parent_index_block_hash" => %new_block.parent_index_block_hash);
 
         self.indexer
             .get_channel()
