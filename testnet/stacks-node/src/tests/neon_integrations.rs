@@ -849,17 +849,29 @@ fn no_contract_calls_forking_integration_test() {
 
     // btc_regtest_controller.next_block(None);
     wait_for_runloop(&blocks_processed);
-
-    btc_regtest_controller.next_block(None);
-
-    btc_regtest_controller.next_block(None);
-    btc_regtest_controller.next_block(None);
-    btc_regtest_controller.next_block(None);
-
     let (sortition_db, _) = burnchain.open_db(true).unwrap();
+
+    btc_regtest_controller.next_block(None);
+    wait_for_block(&blocks_processed);
+    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+
+    btc_regtest_controller.next_block(None);
+    wait_for_block(&blocks_processed);
 
     info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
     info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+    btc_regtest_controller.next_block(None);
+    wait_for_block(&blocks_processed);
+
+    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+    btc_regtest_controller.next_block(None);
+    wait_for_block(&blocks_processed);
+
+    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+
 
     btc_regtest_controller.next_block(None);
     wait_for_block(&blocks_processed);
@@ -912,7 +924,8 @@ fn no_contract_calls_forking_integration_test() {
         }
 
         wait_for_block(&blocks_processed);
-
+        info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+        info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
         // New burn fork is longer. There is only 1 stacks block on this branch now.
         // assert_eq!(1, get_stacks_tip_height(&sortition_db));
         // assert_eq!(10, get_burn_tip_height(&sortition_db));
@@ -922,7 +935,8 @@ fn no_contract_calls_forking_integration_test() {
         for i in 0..5 {
             cursor = btc_regtest_controller.next_block(Some(cursor));
             wait_for_block(&blocks_processed);
-
+            info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+            info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
             // Growing the second branch.
             // assert_eq!(2 + i, get_stacks_tip_height(&sortition_db));
             // assert_eq!(11 + i, get_burn_tip_height(&sortition_db));
@@ -931,7 +945,8 @@ fn no_contract_calls_forking_integration_test() {
     }
     thread::sleep(Duration::from_millis(1000));
     wait_for_block(&blocks_processed);
-
+    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
     // assert_eq!(7, get_stacks_tip_height(&sortition_db));
     // assert_eq!(16, get_burn_tip_height(&sortition_db));
 

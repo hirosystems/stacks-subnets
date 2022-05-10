@@ -200,7 +200,7 @@ impl MockController {
     /// Produce the next mocked layer-1 block. If `next_commit` is staged,
     /// this mocked block will contain that commitment.
     ///
-    /// If `specify_parent` is set, use this as the parent, otherwise use `self.next_burn_block - 1`.
+    /// If `specify_parent` is set, use it as the parent, otherwise use `self.next_burn_block - 1`.
     ///
     /// Returns the index of the block created.
     pub fn next_block(&mut self, specify_parent: Option<u64>) -> u64 {
