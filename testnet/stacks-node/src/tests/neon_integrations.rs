@@ -326,9 +326,7 @@ pub fn next_block_and_wait(
 }
 
 /// Wait for `blocks_processed` to bump. Returns `false` on a timeout, true otherwise.
-pub fn wait_for_block(
-    blocks_processed: &Arc<AtomicU64>,
-) -> bool {
+pub fn wait_for_block(blocks_processed: &Arc<AtomicU64>) -> bool {
     let current = blocks_processed.load(Ordering::SeqCst);
     eprintln!(
         "Issuing block at {}, waiting for bump ({})",
@@ -815,7 +813,6 @@ fn faucet_test() {
     channel.stop_chains_coordinator();
 }
 
-
 /// Create burnchain fork, and see that the hyper-chain miner can continue to call.
 /// Does not exercise contract calls.
 #[test]
@@ -889,7 +886,6 @@ fn no_contract_calls_forking_integration_test() {
             wait_for_block(&blocks_processed);
             assert_eq!(2 + i, get_stacks_tip_height(&sortition_db));
             assert_eq!(4 + i, get_burn_tip_height(&sortition_db));
-
         }
         btc_regtest_controller.next_block(Some(cursor));
     }
@@ -926,8 +922,6 @@ fn no_contract_calls_forking_integration_test() {
             // Growing the second branch.
             assert_eq!(2 + i, get_stacks_tip_height(&sortition_db));
             assert_eq!(11 + i, get_burn_tip_height(&sortition_db));
-
-
         }
         cursor = btc_regtest_controller.next_block(Some(cursor));
     }
