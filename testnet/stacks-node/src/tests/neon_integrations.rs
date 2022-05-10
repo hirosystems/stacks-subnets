@@ -519,8 +519,8 @@ fn mockstack_integration_test() {
 
     // give the run loop some time to start up!
     wait_for_runloop(&blocks_processed);
-    btc_regtest_controller.next_block();
-    btc_regtest_controller.next_block();
+    btc_regtest_controller.next_block(None);
+    btc_regtest_controller.next_block(None);
 
     // first block wakes up the run loop
     next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
@@ -586,9 +586,9 @@ fn mockstack_wait_for_first_block() {
     wait_for_runloop(&blocks_processed);
 
     // Walk up 16 + 1 blocks.
-    btc_regtest_controller.next_block();
+    btc_regtest_controller.next_block(None);
     for i in 0..16 {
-        btc_regtest_controller.next_block();
+        btc_regtest_controller.next_block(None);
     }
 
     next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
@@ -736,8 +736,8 @@ fn faucet_test() {
     // give the run loop some time to start up!
     wait_for_runloop(&blocks_processed);
 
-    btc_regtest_controller.next_block();
-    btc_regtest_controller.next_block();
+    btc_regtest_controller.next_block(None);
+    btc_regtest_controller.next_block(None);
 
     // first block wakes up the run loop
     next_block_and_wait(&mut btc_regtest_controller, &blocks_processed);
@@ -821,12 +821,7 @@ fn no_contract_calls_forking_integration_test() {
     let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
     conf.node.prometheus_bind = Some(prom_bind.clone());
     conf.node.miner = true;
-
-    conf.burnchain.first_burn_header_hash =
-        "0000000000000000010101010101010101010101010101010101010101010101".to_string();
-    conf.burnchain.first_burn_header_height = 0;
-    conf.burnchain.first_burn_header_timestamp = 0;
-
+    
     let user_addr = to_addr(&MOCKNET_PRIVATE_KEY_1);
     conf.add_initial_balance(user_addr.to_string(), 10000000);
 
@@ -854,6 +849,9 @@ fn no_contract_calls_forking_integration_test() {
 
     // btc_regtest_controller.next_block(None);
     wait_for_runloop(&blocks_processed);
+
+    btc_regtest_controller.next_block(None);
+
 
     let (sortition_db, _) = burnchain.open_db(true).unwrap();
 

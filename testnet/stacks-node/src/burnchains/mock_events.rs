@@ -86,11 +86,11 @@ lazy_static! {
         }])),
         minimum_recorded_height: Arc::new(Mutex::new(0)),
     });
-    static ref NEXT_BURN_BLOCK: Arc<Mutex<u64>> = Arc::new(Mutex::new(0));
+    static ref NEXT_BURN_BLOCK: Arc<Mutex<u64>> = Arc::new(Mutex::new(1));
     static ref NEXT_COMMIT: Arc<Mutex<Option<BlockHeaderHash>>> = Arc::new(Mutex::new(None));
 }
 
-fn make_mock_byte_string(from: i64) -> [u8; 32] {
+fn make_mock_byte_string(from: u64) -> [u8; 32] {
     let mut output = [0; 32];
     output[24..32].copy_from_slice(&from.to_be_bytes());
     output
