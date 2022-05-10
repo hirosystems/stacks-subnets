@@ -3171,7 +3171,7 @@ impl<'a> SortitionHandleTx<'a> {
         assert!(snapshot.block_height < BLOCK_HEIGHT_MAX);
         assert!(snapshot.num_sortitions < BLOCK_HEIGHT_MAX);
 
-        test_debug!(
+        info!(
             "Insert block snapshot state {} for block {} ({},{}) {}",
             snapshot.index_root,
             snapshot.block_height,

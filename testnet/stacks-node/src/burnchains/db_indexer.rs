@@ -225,7 +225,6 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
     ///   1) we have already added a block
     ///   2) the new block's header hash is `self.first_burn_header_hash`
     fn push_block(&self, new_block: NewBlock) -> Result<(), BurnchainError> {
-        debug!("BurnchainChannel: try pushing; new_block {:?}", &new_block);
         // Re-open the connection.
         let open_flags = OpenFlags::SQLITE_OPEN_READ_WRITE;
         let mut connection = sqlite_open(&self.output_db_path, open_flags, true)?;
@@ -250,6 +249,8 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
                     "header_hash" => %header.header_hash
                 );
             }
+        } else {
+            debug!("BurnchainChannel: will push; new_block {:?}", &new_block);
         }
 
         // Decide if this new node is part of the canonical chain.
