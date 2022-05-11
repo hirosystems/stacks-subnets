@@ -857,11 +857,15 @@ fn no_contract_calls_forking_integration_test() {
     info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
     info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
 
-    let common_ancestor = btc_regtest_controller.next_block(None);
+    btc_regtest_controller.next_block(None);
     wait_for_block(&blocks_processed);
     info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
     info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
 
+    let common_ancestor = btc_regtest_controller.next_block(None);
+    wait_for_block(&blocks_processed);
+    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
     // btc_regtest_controller.next_block(None);
     // wait_for_block(&blocks_processed);
     // info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
@@ -874,16 +878,22 @@ fn no_contract_calls_forking_integration_test() {
         info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
     }
 
-    // let mut cursor = common_ancestor;
-    // for i in 0..3 {
-    //     cursor = btc_regtest_controller.next_block(Some(cursor));
+    let mut cursor = common_ancestor;
+    for i in 0..3 {
+        cursor = btc_regtest_controller.next_block(Some(cursor));
 
-    // }
-    // thread::sleep(Duration::from_millis(100));
+    }
+    thread::sleep(Duration::from_millis(100));
 
-    // wait_for_block(&blocks_processed);
-    // info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    // info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+    wait_for_block(&blocks_processed);
+    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+    cursor = btc_regtest_controller.next_block(Some(cursor));
+
+    wait_for_block(&blocks_processed);
+    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+
     // // assert_eq!(6, get_stacks_tip_height(&sortition_db));
     // // assert_eq!(8, get_burn_tip_height(&sortition_db));
 
