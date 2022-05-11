@@ -503,10 +503,10 @@ fn mockstack_integration_test() {
     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
 
     // first block will hold our VRF registration
-    next_block_and_wait(&mut btc_regtest_controller, None,&blocks_processed);
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
 
     // second block will be the first mined Stacks block
-    next_block_and_wait(&mut btc_regtest_controller, None,&blocks_processed);
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
 
     // let's query the miner's account nonce:
 
@@ -719,13 +719,14 @@ fn faucet_test() {
     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
 
     // first block will hold our VRF registration
-    next_block_and_wait(&mut btc_regtest_controller,None,  &blocks_processed);
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
 
     // second block will be the first mined Stacks block
-    next_block_and_wait(&mut btc_regtest_controller,None,  &blocks_processed);
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
 
     // let's query the miner's account nonce:
 
+    thread::sleep(Duration::from_millis(1000));
     eprintln!("Miner account: {}", miner_account);
 
     let account = get_account(&http_origin, &miner_account);
@@ -797,7 +798,7 @@ fn faucet_test() {
 //     let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
 //     conf.node.prometheus_bind = Some(prom_bind.clone());
 //     conf.node.miner = true;
-    
+
 //     let user_addr = to_addr(&MOCKNET_PRIVATE_KEY_1);
 //     conf.add_initial_balance(user_addr.to_string(), 10000000);
 
@@ -842,7 +843,6 @@ fn faucet_test() {
 //     wait_for_block(&blocks_processed);
 //     info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
 //     info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
-
 
 //     for i in 0..2 {
 //         btc_regtest_controller.next_block(None);

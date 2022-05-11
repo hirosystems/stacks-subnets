@@ -75,21 +75,6 @@ pub struct MockBlockDownloader {
     channel: Arc<MockChannel>,
 }
 
-lazy_static! {
-    static ref MOCK_EVENTS_STREAM: Arc<MockChannel> = Arc::new(MockChannel {
-        blocks: Arc::new(Mutex::new(vec![NewBlock {
-            block_height: 0,
-            burn_block_time: 0,
-            index_block_hash: StacksBlockId(make_mock_byte_string(0)),
-            parent_index_block_hash: StacksBlockId::sentinel(),
-            events: vec![],
-        }])),
-        minimum_recorded_height: Arc::new(Mutex::new(0)),
-    });
-    static ref NEXT_BURN_BLOCK: Arc<Mutex<u64>> = Arc::new(Mutex::new(1));
-    static ref NEXT_COMMIT: Arc<Mutex<Option<BlockHeaderHash>>> = Arc::new(Mutex::new(None));
-}
-
 fn make_mock_byte_string(from: u64) -> [u8; 32] {
     let mut output = [0; 32];
     output[24..32].copy_from_slice(&from.to_be_bytes());
@@ -190,8 +175,8 @@ impl MockController {
             should_keep_running: Some(Arc::new(AtomicBool::new(true))),
             coordinator,
             chain_tip: None,
-            next_burn_block: NEXT_BURN_BLOCK.clone(),
-            next_commit: NEXT_COMMIT.clone(),
+            next_burn_block: Arc::new(Mutex::new(1)),
+            next_commit: Arc::new(Mutex::new(None)),
             burn_block_to_height: HashMap::new(),
             burn_block_to_parent: HashMap::new(),
         }
@@ -204,8 +189,8 @@ impl MockController {
     ///
     /// Returns the index of the block created.
     pub fn next_block(&mut self, specify_parent: Option<u64>) -> u64 {
-        let mut acquired_next_burn_block = self.next_burn_block.lock().unwrap();  // acquire the lock on "next burn block"
-        let this_burn_block = *acquired_next_burn_block;  // const view on the index of the block we are adding now
+        let mut acquired_next_burn_block = self.next_burn_block.lock().unwrap(); // acquire the lock on "next burn block"
+        let this_burn_block = *acquired_next_burn_block; // const view on the index of the block we are adding now
         let mut next_commit = self.next_commit.lock().unwrap();
 
         let tx_event = next_commit.take().map(|next_commit| {
@@ -384,7 +369,7 @@ impl BurnchainController for MockController {
         )
     }
     fn get_channel(&self) -> Arc<dyn BurnchainChannel> {
-        MOCK_EVENTS_STREAM.clone()
+        self.indexer.get_channel()
     }
     fn submit_operation(
         &mut self,
@@ -615,7 +600,16 @@ impl BurnchainBlockParser for MockParser {
 impl MockIndexer {
     pub fn new(watch_contract: QualifiedContractIdentifier) -> MockIndexer {
         MockIndexer {
-            incoming_channel: MOCK_EVENTS_STREAM.clone(),
+            incoming_channel: Arc::new(MockChannel {
+                blocks: Arc::new(Mutex::new(vec![NewBlock {
+                    block_height: 0,
+                    burn_block_time: 0,
+                    index_block_hash: StacksBlockId(make_mock_byte_string(0)),
+                    parent_index_block_hash: StacksBlockId::sentinel(),
+                    events: vec![],
+                }])),
+                minimum_recorded_height: Arc::new(Mutex::new(0)),
+            }),
             watch_contract,
             blocks: vec![],
             minimum_recorded_height: 0,
