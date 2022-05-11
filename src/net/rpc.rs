@@ -1501,19 +1501,23 @@ impl ConversationHttp {
                 }
             }
             TipRequest::SpecificTip(tip) => Ok(Some(*tip).clone()),
-            TipRequest::UseLatestAnchoredTip => match chainstate.get_stacks_chain_tip(sortdb)? {
-                Some(tip) => Ok(Some(StacksBlockHeader::make_index_block_hash(
-                    &tip.consensus_hash,
-                    &tip.anchored_block_hash,
-                ))),
-                None => {
-                    let response_metadata = HttpResponseMetadata::from(req);
-                    warn!("Failed to load Stacks chain tip");
-                    let response = HttpResponseType::ServerError(
-                        response_metadata,
-                        format!("Failed to load Stacks chain tip"),
-                    );
-                    response.send(http, fd).and_then(|_| Ok(None))
+            TipRequest::UseLatestAnchoredTip => {
+                let result = chainstate.get_stacks_chain_tip(sortdb);
+                info!("result: {:?}", &result);
+                match result? {
+                    Some(tip) => Ok(Some(StacksBlockHeader::make_index_block_hash(
+                        &tip.consensus_hash,
+                        &tip.anchored_block_hash,
+                    ))),
+                    None => {
+                        let response_metadata = HttpResponseMetadata::from(req);
+                        warn!("Failed to load Stacks chain tip");
+                        let response = HttpResponseType::ServerError(
+                            response_metadata,
+                            format!("Failed to load Stacks chain tip"),
+                        );
+                        response.send(http, fd).and_then(|_| Ok(None))
+                    }
                 }
             },
         }

@@ -599,6 +599,7 @@ impl BurnchainBlockParser for MockParser {
 
 impl MockIndexer {
     pub fn new(watch_contract: QualifiedContractIdentifier) -> MockIndexer {
+        panic!("don't use this");
         MockIndexer {
             incoming_channel: Arc::new(MockChannel {
                 blocks: Arc::new(Mutex::new(vec![NewBlock {
