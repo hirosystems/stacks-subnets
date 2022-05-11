@@ -236,19 +236,37 @@ impl Burnchain {
     }
 
     pub fn reward_cycle_to_block_height(&self, reward_cycle: u64) -> u64 {
+        info!("reward_cycle: {:?}", &reward_cycle);
+        info!(
+            "self.pox_constants.reward_cycle_length: {:?}",
+            &self.pox_constants.reward_cycle_length
+        );
         // NOTE: the `+ 1` is because the height of the first block of a reward cycle is mod 1, not
         // mod 0.
-        self.first_block_height + reward_cycle * (self.pox_constants.reward_cycle_length as u64) + 1
+        let result = self.first_block_height
+            + reward_cycle * (self.pox_constants.reward_cycle_length as u64)
+            + 1;
+        info!("result: {:?}", &result);
+        result
     }
 
     pub fn block_height_to_reward_cycle(&self, block_height: u64) -> Option<u64> {
-        if block_height < self.first_block_height {
-            return None;
-        }
-        Some(
-            (block_height - self.first_block_height)
-                / (self.pox_constants.reward_cycle_length as u64),
-        )
+        info!("block_height: {:?}", &block_height);
+        info!("self.first_block_height: {:?}", &self.first_block_height);
+        info!(
+            "self.pox_constants.reward_cycle_length: {:?}",
+            &self.pox_constants.reward_cycle_length
+        );
+        let result = if block_height < self.first_block_height {
+            None
+        } else {
+            Some(
+                (block_height - self.first_block_height)
+                    / (self.pox_constants.reward_cycle_length as u64),
+            )
+        };
+        info!("result: {:?}", &result);
+        result
     }
 
     pub fn regtest(working_dir: &str) -> Burnchain {

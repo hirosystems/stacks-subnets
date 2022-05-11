@@ -464,15 +464,19 @@ impl RunLoop {
             match SortitionDB::get_block_snapshot_consensus(sortdb.conn(), &stacks_ch)
                 .expect("BUG: failed to query sortition DB")
             {
-                Some(sn) => burnchain_config.reward_cycle_to_block_height(
-                    burnchain_config
-                        .block_height_to_reward_cycle(sn.block_height)
-                        .expect("BUG: snapshot preceeds first reward cycle"),
-                ),
+                Some(sn) => {
+                    info!("sn: {:?}", &sn);
+                    burnchain_config.reward_cycle_to_block_height(
+                        burnchain_config
+                            .block_height_to_reward_cycle(sn.block_height)
+                            .expect("BUG: snapshot preceeds first reward cycle"),
+                    )
+                }
                 None => {
                     let sn = SortitionDB::get_first_block_snapshot(&sortdb.conn())
                         .expect("BUG: failed to get first-ever block snapshot");
 
+                    info!("sn: {:?}", &sn);
                     sn.block_height
                 }
             }
@@ -528,6 +532,10 @@ impl RunLoop {
         let sortdb = burnchain.sortdb_mut();
         let mut sortition_db_height = RunLoop::get_sortition_db_height(&sortdb, &burnchain_config);
 
+        info!("sortition_db_height: {:?}", &sortition_db_height);
+        for block in sortdb.get_all_snapshots() {
+            info!("block: {:?}", &block);
+        }
         // Start the runloop
         debug!("Begin run loop");
         self.start_prometheus();
@@ -544,8 +552,12 @@ impl RunLoop {
                 + 1,
         );
 
+        info!(
+            "target_burnchain_block_height: {:?}",
+            &target_burnchain_block_height
+        );
         debug!(
-            "Begin main runloop starting a burnchain block {}",
+            "Begin main runloop starting a burnchain block sortition_db_height {}",
             sortition_db_height
         );
 
@@ -594,6 +606,12 @@ impl RunLoop {
             // process them.  This loop runs for one reward cycle, so that the next pass of the
             // runloop will cause the PoX sync watchdog to wait until it believes that the node has
             // obtained all the Stacks blocks it can.
+            info!("ibd: {:?}", &ibd);
+            info!("burnchain_height: {:?}", &burnchain_height);
+            info!(
+                "target_burnchain_block_height: {:?}",
+                &target_burnchain_block_height
+            );
             while burnchain_height <= target_burnchain_block_height {
                 if !self.should_keep_running.load(Ordering::SeqCst) {
                     break;
@@ -608,6 +626,8 @@ impl RunLoop {
                         }
                     };
 
+                info!("next_burnchain_tip: {:?}", &next_burnchain_tip);
+                info!("tip_burnchain_height: {:?}", &tip_burnchain_height);
                 // *now* we know the burnchain height
                 burnchain_tip = next_burnchain_tip;
                 burnchain_height = cmp::min(burnchain_height + 1, tip_burnchain_height);
@@ -690,6 +710,9 @@ impl RunLoop {
                     + 1,
             );
 
+            info!("sortition_db_height: {:?}", &sortition_db_height);
+            info!("burnchain_height: {:?}", &burnchain_height);
+            info!("ibd: {:?}", &ibd);
             if sortition_db_height >= burnchain_height && !ibd {
                 let canonical_stacks_tip_height =
                     SortitionDB::get_canonical_burn_chain_tip(burnchain.sortdb_ref().conn())
