@@ -194,5 +194,6 @@ pub fn burnchain_from_config(
     burnchain.first_block_height = config.first_burn_header_height;
     burnchain.first_block_timestamp = config.first_burn_header_timestamp as u32;
 
+    info!("burnchain: {:?}", &burnchain);
     Ok(burnchain)
 }

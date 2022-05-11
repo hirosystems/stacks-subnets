@@ -490,6 +490,13 @@ fn mockstack_integration_test() {
 
     let channel = run_loop.get_coordinator_channel().unwrap();
 
+    let burnchain = Burnchain::new(
+        &conf.get_burn_db_path(),
+        &conf.burnchain.chain,
+        &conf.burnchain.mode,
+    )
+    .unwrap();
+
     let mut btc_regtest_controller = MockController::new(conf, channel.clone());
 
     thread::spawn(move || run_loop.start(None, 0));
@@ -497,7 +504,7 @@ fn mockstack_integration_test() {
     // give the run loop some time to start up!
     wait_for_runloop(&blocks_processed);
     btc_regtest_controller.next_block(None);
-    // btc_regtest_controller.next_block(None);
+    btc_regtest_controller.next_block(None);
 
     // first block wakes up the run loop
     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
@@ -507,7 +514,10 @@ fn mockstack_integration_test() {
 
     // second block will be the first mined Stacks block
     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
+    let (sortition_db, _) = burnchain.open_db(true).unwrap();
 
+    let stacks_tip = get_stacks_tip_height(&sortition_db);
+    info!("stacks_tip: {:?}", &stacks_tip);
     // let's query the miner's account nonce:
 
     eprintln!("Miner account: {}", miner_account);
