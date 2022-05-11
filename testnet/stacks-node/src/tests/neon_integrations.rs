@@ -862,10 +862,10 @@ fn no_contract_calls_forking_integration_test() {
     info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
     info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
 
-    btc_regtest_controller.next_block(None);
-    wait_for_block(&blocks_processed);
-    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+    // btc_regtest_controller.next_block(None);
+    // wait_for_block(&blocks_processed);
+    // info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    // info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
 
     for i in 0..2 {
         btc_regtest_controller.next_block(None);
