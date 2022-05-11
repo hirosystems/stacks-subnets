@@ -75,10 +75,32 @@ pub struct MockBlockDownloader {
     channel: Arc<MockChannel>,
 }
 
-fn make_mock_byte_string(from: u64) -> [u8; 32] {
+lazy_static! {
+    static ref MOCK_EVENTS_STREAM: Arc<MockChannel> = Arc::new(MockChannel {
+        blocks: Arc::new(Mutex::new(vec![NewBlock {
+            block_height: 0,
+            burn_block_time: 0,
+            index_block_hash: StacksBlockId(make_mock_byte_string(0)),
+            parent_index_block_hash: StacksBlockId::sentinel(),
+            events: vec![],
+        }])),
+        minimum_recorded_height: Arc::new(Mutex::new(0)),
+    });
+    static ref NEXT_BURN_BLOCK: Arc<Mutex<u64>> = Arc::new(Mutex::new(1));
+    static ref NEXT_COMMIT: Arc<Mutex<Option<BlockHeaderHash>>> = Arc::new(Mutex::new(None));
+}
+
+fn make_mock_byte_string(from: i64) -> [u8; 32] {
     let mut output = [0; 32];
     output[24..32].copy_from_slice(&from.to_be_bytes());
     output
+}
+
+/// Resets the global static variables used for `MockController`-based tests. Call
+/// this at the beginning of the test, and mark as `ignore` to run with `test-threads=1`.
+pub fn reset_static_burnblock_simulator_channel() {
+    *NEXT_BURN_BLOCK.lock().unwrap() = 1;
+    *NEXT_COMMIT.lock().unwrap() = None;
 }
 
 impl BurnchainChannel for MockChannel {
@@ -175,8 +197,8 @@ impl MockController {
             should_keep_running: Some(Arc::new(AtomicBool::new(true))),
             coordinator,
             chain_tip: None,
-            next_burn_block: Arc::new(Mutex::new(1)),
-            next_commit: Arc::new(Mutex::new(None)),
+            next_burn_block: NEXT_BURN_BLOCK.clone(),
+            next_commit: NEXT_COMMIT.clone(),
             burn_block_to_height: HashMap::new(),
             burn_block_to_parent: HashMap::new(),
         }
@@ -230,7 +252,7 @@ impl MockController {
             Some(parent) => parent,
             None => this_burn_block - 1,
         };
-        let parent_index_block_hash = { StacksBlockId(make_mock_byte_string(effective_parent)) };
+        let parent_index_block_hash = { StacksBlockId(make_mock_byte_string(effective_parent.try_into().unwrap())) };
 
         let parent_result = self.burn_block_to_height.get(&effective_parent);
         let parent_block_height = match parent_result {
@@ -243,7 +265,7 @@ impl MockController {
         };
         let block_height = parent_block_height + 1;
 
-        let index_block_hash = StacksBlockId(make_mock_byte_string(this_burn_block));
+        let index_block_hash = StacksBlockId(make_mock_byte_string(this_burn_block.try_into().unwrap()));
 
         let new_block = NewBlock {
             block_height,

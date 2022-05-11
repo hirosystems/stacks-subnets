@@ -19,7 +19,7 @@ use stacks::{
     net::RPCPoxInfoData,
 };
 
-use crate::burnchains::mock_events::MockController;
+use crate::burnchains::mock_events::{MockController, reset_static_burnblock_simulator_channel};
 use crate::neon;
 use crate::tests::l1_observer_test::MOCKNET_PRIVATE_KEY_1;
 use crate::tests::{
@@ -474,9 +474,11 @@ fn is_close_f64(a: f64, b: f64) -> bool {
 }
 
 #[test]
+#[ignore]
 /// Simple test for the mock backend: test that the hyperchain miner
 /// is capable of producing blocks
 fn mockstack_integration_test() {
+    reset_static_burnblock_simulator_channel();
     let (mut conf, miner_account) = mockstack_test_conf();
     let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
     conf.node.prometheus_bind = Some(prom_bind.clone());
@@ -550,7 +552,9 @@ fn mockstack_integration_test() {
 
 /// Test that we can set a "first burn block" far in the future and then listen until we hear it.
 #[test]
+#[ignore]
 fn mockstack_wait_for_first_block() {
+    reset_static_burnblock_simulator_channel();
     let (mut conf, miner_account) = mockstack_test_conf();
     let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
     conf.node.prometheus_bind = Some(prom_bind.clone());
@@ -690,7 +694,9 @@ const FAUCET_CONTRACT: &'static str = "
 /// several transfers and contract calls, and check that the RPC interface
 /// processes the blocks
 #[test]
+#[ignore]
 fn faucet_test() {
+    reset_static_burnblock_simulator_channel();
     let (mut conf, miner_account) = mockstack_test_conf();
 
     let contract_sk = StacksPrivateKey::from_hex(SK_1).unwrap();
