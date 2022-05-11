@@ -506,7 +506,7 @@ fn mockstack_integration_test() {
     // give the run loop some time to start up!
     wait_for_runloop(&blocks_processed);
     btc_regtest_controller.next_block(None);
-    btc_regtest_controller.next_block(None);
+    // btc_regtest_controller.next_block(None);
 
     // first block wakes up the run loop
     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
