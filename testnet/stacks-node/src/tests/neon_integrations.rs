@@ -857,63 +857,20 @@ fn no_contract_calls_forking_integration_test() {
     info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
     info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
 
-    btc_regtest_controller.next_block(None);
-    wait_for_block(&blocks_processed);
-    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
-
-    btc_regtest_controller.next_block(None);
-    wait_for_block(&blocks_processed);
-    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
-
-    btc_regtest_controller.next_block(None);
-    wait_for_block(&blocks_processed);
-    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
-    
-    // btc_regtest_controller.next_block(None);
-    // wait_for_block(&blocks_processed);
-
-    // info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    // info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
-    // btc_regtest_controller.next_block(None);
-    // wait_for_block(&blocks_processed);
-
-    // info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    // info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
-
-
-    // btc_regtest_controller.next_block(None);
-    // wait_for_block(&blocks_processed);
-
-    // info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    // info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
-
-    // btc_regtest_controller.next_block(None);
-    // wait_for_block(&blocks_processed);
-
-    // info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    // info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
-
     // let common_ancestor = btc_regtest_controller.next_block(None);
     // wait_for_block(&blocks_processed);
-
-    // // Note: Burn height gets to 3 before "stacks" height gets to 1 in this test framework.
     // info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
     // info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
 
-    // {
-    //     let mut cursor = common_ancestor; // btc_regtest_controller.next_block(Some(common_ancestor));
-    //     for i in 0..4 {
-    //         cursor = btc_regtest_controller.next_block(Some(cursor));
-    //         wait_for_block(&blocks_processed);
-    //         info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    //         info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
-    //     }
-    //     btc_regtest_controller.next_block(Some(cursor));
-    // }
-    // thread::sleep(Duration::from_millis(1000));
+
+
+        for i in 0..2 {
+            btc_regtest_controller.next_block(None);
+            wait_for_block(&blocks_processed);
+            info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+            info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+        }
+
 
     // // assert_eq!(6, get_stacks_tip_height(&sortition_db));
     // // assert_eq!(8, get_burn_tip_height(&sortition_db));
