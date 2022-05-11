@@ -474,7 +474,6 @@ fn is_close_f64(a: f64, b: f64) -> bool {
 }
 
 #[test]
-#[ignore]
 /// Simple test for the mock backend: test that the hyperchain miner
 /// is capable of producing blocks
 fn mockstack_integration_test() {
@@ -498,7 +497,7 @@ fn mockstack_integration_test() {
     // give the run loop some time to start up!
     wait_for_runloop(&blocks_processed);
     btc_regtest_controller.next_block(None);
-    btc_regtest_controller.next_block(None);
+    // btc_regtest_controller.next_block(None);
 
     // first block wakes up the run loop
     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
@@ -541,7 +540,6 @@ fn mockstack_integration_test() {
 
 /// Test that we can set a "first burn block" far in the future and then listen until we hear it.
 #[test]
-#[ignore]
 fn mockstack_wait_for_first_block() {
     let (mut conf, miner_account) = mockstack_test_conf();
     let prom_bind = format!("{}:{}", "127.0.0.1", 6000);

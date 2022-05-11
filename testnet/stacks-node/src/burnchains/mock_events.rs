@@ -204,7 +204,8 @@ impl MockController {
     ///
     /// Returns the index of the block created.
     pub fn next_block(&mut self, specify_parent: Option<u64>) -> u64 {
-        let upcoming_burn_block = *self.next_burn_block.lock().unwrap();
+        let mut acquired_next_burn_block = self.next_burn_block.lock().unwrap();  // acquire the lock on "next burn block"
+        let this_burn_block = *acquired_next_burn_block;  // const view on the index of the block we are adding now
         let mut next_commit = self.next_commit.lock().unwrap();
 
         let tx_event = next_commit.take().map(|next_commit| {
@@ -242,7 +243,7 @@ impl MockController {
 
         let effective_parent = match specify_parent {
             Some(parent) => parent,
-            None => upcoming_burn_block - 1,
+            None => this_burn_block - 1,
         };
         let parent_index_block_hash = { StacksBlockId(make_mock_byte_string(effective_parent)) };
 
@@ -257,20 +258,20 @@ impl MockController {
         };
         let block_height = parent_block_height + 1;
 
-        let index_block_hash = StacksBlockId(make_mock_byte_string(upcoming_burn_block));
+        let index_block_hash = StacksBlockId(make_mock_byte_string(this_burn_block));
 
         let new_block = NewBlock {
             block_height,
-            burn_block_time: upcoming_burn_block,
+            burn_block_time: this_burn_block,
             index_block_hash,
             parent_index_block_hash,
             events: tx_event.into_iter().collect(),
         };
 
         self.burn_block_to_height
-            .insert(upcoming_burn_block, block_height);
+            .insert(this_burn_block, block_height);
         self.burn_block_to_parent
-            .insert(upcoming_burn_block, effective_parent);
+            .insert(this_burn_block, effective_parent);
 
         info!("Layer 1 block mined";
             "block_height" => new_block.block_height,
@@ -282,8 +283,8 @@ impl MockController {
             .push_block(new_block)
             .expect("`push_block` has failed.");
 
-        *self.next_burn_block.lock().unwrap() += 1;
-        upcoming_burn_block
+        *acquired_next_burn_block += 1;
+        this_burn_block
     }
 
     fn receive_blocks(
