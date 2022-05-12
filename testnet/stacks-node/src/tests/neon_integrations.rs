@@ -844,6 +844,8 @@ fn faucet_test() {
 #[test]
 #[ignore]
 fn no_contract_calls_forking_integration_test() {
+    reset_static_burnblock_simulator_channel();
+
     let (mut conf, miner_account) = mockstack_test_conf();
     let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
     conf.node.prometheus_bind = Some(prom_bind.clone());
