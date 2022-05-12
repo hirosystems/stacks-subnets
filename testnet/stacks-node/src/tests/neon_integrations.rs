@@ -881,28 +881,18 @@ fn no_contract_calls_forking_integration_test() {
     btc_regtest_controller.next_block(None);
 
     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
-
-
-    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db)); assert_l2_l1_tip_heights(&sortition_db, 0, 2);
+    assert_l2_l1_tip_heights(&sortition_db, 0, 2);
 
     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
-
-    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db)); assert_l2_l1_tip_heights(&sortition_db, 0, 3);
+    assert_l2_l1_tip_heights(&sortition_db, 0, 3);
 
     let common_ancestor =     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
-
-    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db)); assert_l2_l1_tip_heights(&sortition_db, 1, 4);
+    assert_l2_l1_tip_heights(&sortition_db, 1, 4);
 
 
     for i in 0..2 {
         next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
-
-        info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-        info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db)); assert_l2_l1_tip_heights(&sortition_db, 2+ i, 5 + i);
-
+        assert_l2_l1_tip_heights(&sortition_db, 2+ i, 5 + i);
     }
 
     let mut cursor = common_ancestor;
@@ -912,19 +902,16 @@ fn no_contract_calls_forking_integration_test() {
     }
 
     cursor = next_block_and_wait(&mut btc_regtest_controller, Some(cursor), &blocks_processed, &sortition_db);
-
-    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db)); assert_l2_l1_tip_heights(&sortition_db, 1, 8);
+    assert_l2_l1_tip_heights(&sortition_db, 1, 8);
 
     next_block_and_wait(&mut btc_regtest_controller, Some(cursor), &blocks_processed, &sortition_db);
-
-    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db)); assert_l2_l1_tip_heights(&sortition_db, 2, 9);
+    assert_l2_l1_tip_heights(&sortition_db, 2, 9);
 
     termination_switch.store(false, Ordering::SeqCst);
     run_loop_thread.join().expect("Failed to join run loop.");
 }
 
+/// Look up the chain tip, and assert the L2 and L1 tip heights.
 fn assert_l2_l1_tip_heights(sortition_db:&SortitionDB, l2_height:u64, l1_height:u64) {
     let tip_snapshot = SortitionDB::get_canonical_burn_chain_tip(&sortition_db.conn())
     .expect("Could not read from SortitionDB.");
