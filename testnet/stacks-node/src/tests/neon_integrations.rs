@@ -637,199 +637,207 @@ pub fn get_account<F: std::fmt::Display>(http_origin: &str, account: &F) -> Acco
     }
 }
 
-// fn get_pox_info(http_origin: &str) -> RPCPoxInfoData {
-//     let client = reqwest::blocking::Client::new();
-//     let path = format!("{}/v2/pox", http_origin);
-//     client
-//         .get(&path)
-//         .send()
-//         .unwrap()
-//         .json::<RPCPoxInfoData>()
-//         .unwrap()
-// }
+fn get_pox_info(http_origin: &str) -> RPCPoxInfoData {
+    let client = reqwest::blocking::Client::new();
+    let path = format!("{}/v2/pox", http_origin);
+    client
+        .get(&path)
+        .send()
+        .unwrap()
+        .json::<RPCPoxInfoData>()
+        .unwrap()
+}
 
-// fn get_chain_tip(http_origin: &str) -> (ConsensusHash, BlockHeaderHash) {
-//     let client = reqwest::blocking::Client::new();
-//     let path = format!("{}/v2/info", http_origin);
-//     let res = client
-//         .get(&path)
-//         .send()
-//         .unwrap()
-//         .json::<serde_json::Value>()
-//         .unwrap();
-//     (
-//         ConsensusHash::from_hex(
-//             res.get("stacks_tip_consensus_hash")
-//                 .unwrap()
-//                 .as_str()
-//                 .unwrap(),
-//         )
-//         .unwrap(),
-//         BlockHeaderHash::from_hex(res.get("stacks_tip").unwrap().as_str().unwrap()).unwrap(),
-//     )
-// }
+fn get_chain_tip(http_origin: &str) -> (ConsensusHash, BlockHeaderHash) {
+    let client = reqwest::blocking::Client::new();
+    let path = format!("{}/v2/info", http_origin);
+    let res = client
+        .get(&path)
+        .send()
+        .unwrap()
+        .json::<serde_json::Value>()
+        .unwrap();
+    (
+        ConsensusHash::from_hex(
+            res.get("stacks_tip_consensus_hash")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap(),
+        BlockHeaderHash::from_hex(res.get("stacks_tip").unwrap().as_str().unwrap()).unwrap(),
+    )
+}
 
-// fn get_chain_tip_height(http_origin: &str) -> u64 {
-//     let client = reqwest::blocking::Client::new();
-//     let path = format!("{}/v2/info", http_origin);
-//     let res = client
-//         .get(&path)
-//         .send()
-//         .unwrap()
-//         .json::<RPCPeerInfoData>()
-//         .unwrap();
+fn get_chain_tip_height(http_origin: &str) -> u64 {
+    let client = reqwest::blocking::Client::new();
+    let path = format!("{}/v2/info", http_origin);
+    let res = client
+        .get(&path)
+        .send()
+        .unwrap()
+        .json::<RPCPeerInfoData>()
+        .unwrap();
 
-//     res.stacks_tip_height
-// }
+    res.stacks_tip_height
+}
 
-// fn get_contract_src(
-//     http_origin: &str,
-//     contract_addr: StacksAddress,
-//     contract_name: String,
-//     use_latest_tip: bool,
-// ) -> Result<String, String> {
-//     let client = reqwest::blocking::Client::new();
-//     let query_string = if use_latest_tip {
-//         "?tip=latest".to_string()
-//     } else {
-//         "".to_string()
-//     };
-//     let path = format!(
-//         "{}/v2/contracts/source/{}/{}{}",
-//         http_origin, contract_addr, contract_name, query_string
-//     );
-//     let res = client.get(&path).send().unwrap();
+fn get_contract_src(
+    http_origin: &str,
+    contract_addr: StacksAddress,
+    contract_name: String,
+    use_latest_tip: bool,
+) -> Result<String, String> {
+    let client = reqwest::blocking::Client::new();
+    let query_string = if use_latest_tip {
+        "?tip=latest".to_string()
+    } else {
+        "".to_string()
+    };
+    let path = format!(
+        "{}/v2/contracts/source/{}/{}{}",
+        http_origin, contract_addr, contract_name, query_string
+    );
+    let res = client.get(&path).send().unwrap();
 
-//     if res.status().is_success() {
-//         let contract_src_res = res.json::<ContractSrcResponse>().unwrap();
-//         Ok(contract_src_res.source)
-//     } else {
-//         let err_str = res.text().unwrap();
-//         Err(err_str)
-//     }
-// }
+    if res.status().is_success() {
+        let contract_src_res = res.json::<ContractSrcResponse>().unwrap();
+        Ok(contract_src_res.source)
+    } else {
+        let err_str = res.text().unwrap();
+        Err(err_str)
+    }
+}
 
-// const FAUCET_CONTRACT: &'static str = "
-//   (define-public (spout)
-//     (let ((recipient tx-sender))
-//       (print (as-contract (stx-transfer? u1 .faucet recipient)))))
-// ";
+const FAUCET_CONTRACT: &'static str = "
+  (define-public (spout)
+    (let ((recipient tx-sender))
+      (print (as-contract (stx-transfer? u1 .faucet recipient)))))
+";
 
-// /// Test the node's RPC interface using a faucet contract, issuing
-// /// several transfers and contract calls, and check that the RPC interface
-// /// processes the blocks
-// #[test]
-// #[ignore]
-// fn faucet_test() {
-//     reset_static_burnblock_simulator_channel();
-//     let (mut conf, miner_account) = mockstack_test_conf();
+/// Test the node's RPC interface using a faucet contract, issuing
+/// several transfers and contract calls, and check that the RPC interface
+/// processes the blocks
+#[test]
+#[ignore]
+fn faucet_test() {
+    reset_static_burnblock_simulator_channel();
+    let (mut conf, miner_account) = mockstack_test_conf();
 
-//     let contract_sk = StacksPrivateKey::from_hex(SK_1).unwrap();
-//     let sk_2 = StacksPrivateKey::from_hex(SK_2).unwrap();
-//     let sk_3 = StacksPrivateKey::from_hex(SK_3).unwrap();
-//     let addr_2 = to_addr(&sk_2);
-//     let addr_3 = to_addr(&sk_3);
+    let contract_sk = StacksPrivateKey::from_hex(SK_1).unwrap();
+    let sk_2 = StacksPrivateKey::from_hex(SK_2).unwrap();
+    let sk_3 = StacksPrivateKey::from_hex(SK_3).unwrap();
+    let addr_2 = to_addr(&sk_2);
+    let addr_3 = to_addr(&sk_3);
 
-//     let addr_3_init_balance = 100000;
-//     let addr_2_init_balance = 1000;
+    let addr_3_init_balance = 100000;
+    let addr_2_init_balance = 1000;
 
-//     conf.add_initial_balance(addr_3.to_string(), addr_3_init_balance);
-//     conf.add_initial_balance(addr_2.to_string(), addr_2_init_balance);
-//     conf.add_initial_balance(to_addr(&contract_sk).to_string(), 3000);
+    conf.add_initial_balance(addr_3.to_string(), addr_3_init_balance);
+    conf.add_initial_balance(addr_2.to_string(), addr_2_init_balance);
+    conf.add_initial_balance(to_addr(&contract_sk).to_string(), 3000);
 
-//     let http_origin = format!("http://{}", &conf.node.rpc_bind);
+    let http_origin = format!("http://{}", &conf.node.rpc_bind);
 
-//     eprintln!("Chain bootstrapped...");
+    let burnchain = Burnchain::new(
+        &conf.get_burn_db_path(),
+        &conf.burnchain.chain,
+        &conf.burnchain.mode,
+    )
+    .unwrap();
+    let mut run_loop = neon::RunLoop::new(conf.clone());
+    let blocks_processed = run_loop.get_blocks_processed_arc();
 
-//     let mut run_loop = neon::RunLoop::new(conf.clone());
-//     let blocks_processed = run_loop.get_blocks_processed_arc();
+    let channel = run_loop.get_coordinator_channel().unwrap();
 
-//     let channel = run_loop.get_coordinator_channel().unwrap();
+    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
 
-//     let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+    thread::spawn(move || run_loop.start(None, 0));
 
-//     thread::spawn(move || run_loop.start(None, 0));
 
-//     // give the run loop some time to start up!
-//     wait_for_runloop(&blocks_processed);
+    // give the run loop some time to start up!
+    wait_for_runloop(&blocks_processed);
 
-//     btc_regtest_controller.next_block(None);
-//     btc_regtest_controller.next_block(None);
+    let (sortition_db, _) = burnchain.open_db(true).unwrap();
 
-//     // first block wakes up the run loop
-//     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
+    
+    btc_regtest_controller.next_block(None);
+    btc_regtest_controller.next_block(None);
 
-//     // first block will hold our VRF registration
-//     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
+    // first block wakes up the run loop
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
 
-//     // second block will be the first mined Stacks block
-//     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
+    // first block will hold our VRF registration
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
 
-//     // let's query the miner's account nonce:
+    // second block will be the first mined Stacks block
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
 
-//     thread::sleep(Duration::from_millis(1000));
-//     eprintln!("Miner account: {}", miner_account);
+    // let's query the miner's account nonce:
 
-//     let account = get_account(&http_origin, &miner_account);
-//     assert_eq!(account.balance, 0);
-//     assert!(account.nonce >= 1);
+    thread::sleep(Duration::from_millis(1000));
+    eprintln!("Miner account: {}", miner_account);
 
-//     eprintln!("Tenure in 1 started!");
+    let account = get_account(&http_origin, &miner_account);
+    assert_eq!(account.balance, 0);
+    assert!(account.nonce >= 1);
 
-//     let contract_identifier = QualifiedContractIdentifier::parse(&format!(
-//         "{}.{}",
-//         to_addr(&contract_sk).to_string(),
-//         "faucet"
-//     ))
-//     .unwrap();
+    eprintln!("Tenure in 1 started!");
 
-//     let xfer_to_faucet_tx =
-//         make_stacks_transfer(&sk_3, 0, 1000, &contract_identifier.clone().into(), 1000);
-//     let _xfer_to_faucet_txid = submit_tx(&http_origin, &xfer_to_faucet_tx);
+    let contract_identifier = QualifiedContractIdentifier::parse(&format!(
+        "{}.{}",
+        to_addr(&contract_sk).to_string(),
+        "faucet"
+    ))
+    .unwrap();
 
-//     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
+    let xfer_to_faucet_tx =
+        make_stacks_transfer(&sk_3, 0, 1000, &contract_identifier.clone().into(), 1000);
+    let _xfer_to_faucet_txid = submit_tx(&http_origin, &xfer_to_faucet_tx);
 
-//     let publish_tx = make_contract_publish(&contract_sk, 0, 1000, "faucet", FAUCET_CONTRACT);
-//     let _publish_txid = submit_tx(&http_origin, &publish_tx);
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
 
-//     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
-//     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
+    let publish_tx = make_contract_publish(&contract_sk, 0, 1000, "faucet", FAUCET_CONTRACT);
+    let _publish_txid = submit_tx(&http_origin, &publish_tx);
 
-//     let publish_dup_tx = make_contract_publish(&contract_sk, 1, 1000, "faucet", FAUCET_CONTRACT);
-//     assert!(
-//         submit_tx_fallible(&http_origin, &publish_dup_tx).is_none(),
-//         "Duplicate contract publish should not be allowed"
-//     );
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
 
-//     let contract_call_tx = make_contract_call(
-//         &sk_2,
-//         0,
-//         1000,
-//         &to_addr(&contract_sk),
-//         "faucet",
-//         "spout",
-//         &[],
-//     );
-//     let _contract_call_txid = submit_tx(&http_origin, &contract_call_tx);
+    let publish_dup_tx = make_contract_publish(&contract_sk, 1, 1000, "faucet", FAUCET_CONTRACT);
+    assert!(
+        submit_tx_fallible(&http_origin, &publish_dup_tx).is_none(),
+        "Duplicate contract publish should not be allowed"
+    );
 
-//     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
-//     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed);
+    let contract_call_tx = make_contract_call(
+        &sk_2,
+        0,
+        1000,
+        &to_addr(&contract_sk),
+        "faucet",
+        "spout",
+        &[],
+    );
+    let _contract_call_txid = submit_tx(&http_origin, &contract_call_tx);
 
-//     assert_eq!(
-//         get_balance(&http_origin, &addr_3) as u64,
-//         addr_3_init_balance - 1000 - 1000
-//     );
-//     assert_eq!(
-//         get_balance(&http_origin, &addr_2) as u64,
-//         addr_2_init_balance - 1000 + 1
-//     );
-//     assert_eq!(
-//         get_balance(&http_origin, &contract_identifier) as u64,
-//         1000 - 1
-//     );
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
 
-//     channel.stop_chains_coordinator();
-// }
+    assert_eq!(
+        get_balance(&http_origin, &addr_3) as u64,
+        addr_3_init_balance - 1000 - 1000
+    );
+    assert_eq!(
+        get_balance(&http_origin, &addr_2) as u64,
+        addr_2_init_balance - 1000 + 1
+    );
+    assert_eq!(
+        get_balance(&http_origin, &contract_identifier) as u64,
+        1000 - 1
+    );
+
+    channel.stop_chains_coordinator();
+}
 
 // /// Create burnchain fork, and see that the hyper-chain miner can continue to call.
 // /// Does not exercise contract calls.
