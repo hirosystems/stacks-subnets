@@ -760,7 +760,7 @@ fn faucet_test() {
 
     let (sortition_db, _) = burnchain.open_db(true).unwrap();
 
-    
+
     btc_regtest_controller.next_block(None);
     btc_regtest_controller.next_block(None);
 
@@ -839,83 +839,86 @@ fn faucet_test() {
     channel.stop_chains_coordinator();
 }
 
-// /// Create burnchain fork, and see that the hyper-chain miner can continue to call.
-// /// Does not exercise contract calls.
-// #[test]
-// fn no_contract_calls_forking_integration_test() {
-//     let (mut conf, miner_account) = mockstack_test_conf();
-//     let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
-//     conf.node.prometheus_bind = Some(prom_bind.clone());
-//     conf.node.miner = true;
+/// Create burnchain fork, and see that the hyper-chain miner can continue to call.
+/// Does not exercise contract calls.
+#[test]
+#[ignore]
+fn no_contract_calls_forking_integration_test() {
+    let (mut conf, miner_account) = mockstack_test_conf();
+    let prom_bind = format!("{}:{}", "127.0.0.1", 6000);
+    conf.node.prometheus_bind = Some(prom_bind.clone());
+    conf.node.miner = true;
 
-//     let user_addr = to_addr(&MOCKNET_PRIVATE_KEY_1);
-//     conf.add_initial_balance(user_addr.to_string(), 10000000);
+    let user_addr = to_addr(&MOCKNET_PRIVATE_KEY_1);
+    conf.add_initial_balance(user_addr.to_string(), 10000000);
 
-//     test_observer::spawn();
-//     let http_origin = format!("http://{}", &conf.node.rpc_bind);
+    test_observer::spawn();
+    let http_origin = format!("http://{}", &conf.node.rpc_bind);
 
-//     let burnchain = Burnchain::new(
-//         &conf.get_burn_db_path(),
-//         &conf.burnchain.chain,
-//         &conf.burnchain.mode,
-//     )
-//     .unwrap();
+    let burnchain = Burnchain::new(
+        &conf.get_burn_db_path(),
+        &conf.burnchain.chain,
+        &conf.burnchain.mode,
+    )
+    .unwrap();
 
-//     let mut run_loop = neon::RunLoop::new(conf.clone());
-//     let blocks_processed = run_loop.get_blocks_processed_arc();
+    let mut run_loop = neon::RunLoop::new(conf.clone());
+    let blocks_processed = run_loop.get_blocks_processed_arc();
 
-//     let channel = run_loop.get_coordinator_channel().unwrap();
-//     let l2_rpc_origin = format!("http://{}", &conf.node.rpc_bind);
+    let channel = run_loop.get_coordinator_channel().unwrap();
+    let l2_rpc_origin = format!("http://{}", &conf.node.rpc_bind);
 
-//     let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
 
-//     test_observer::spawn();
-//     let termination_switch = run_loop.get_termination_switch();
-//     let run_loop_thread = thread::spawn(move || run_loop.start(None, 0));
+    test_observer::spawn();
+    let termination_switch = run_loop.get_termination_switch();
+    let run_loop_thread = thread::spawn(move || run_loop.start(None, 0));
 
-//     // btc_regtest_controller.next_block(None);
-//     wait_for_runloop(&blocks_processed);
-//     let (sortition_db, _) = burnchain.open_db(true).unwrap();
+    // btc_regtest_controller.next_block(None);
+    wait_for_runloop(&blocks_processed);
+    let (sortition_db, _) = burnchain.open_db(true).unwrap();
 
-//     btc_regtest_controller.next_block(None);
-//     btc_regtest_controller.next_block(None);
-//     wait_for_block(&blocks_processed);
-//     info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-//     info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+    btc_regtest_controller.next_block(None);
 
-//     btc_regtest_controller.next_block(None);
-//     wait_for_block(&blocks_processed);
-//     info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-//     info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
 
-//     let common_ancestor = btc_regtest_controller.next_block(None);
-//     wait_for_block(&blocks_processed);
-//     info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-//     info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
 
-//     for i in 0..2 {
-//         btc_regtest_controller.next_block(None);
-//         wait_for_block(&blocks_processed);
-//         info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-//         info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
-//     }
+    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
 
-//     let mut cursor = common_ancestor;
-//     for i in 0..3 {
-//         cursor = btc_regtest_controller.next_block(Some(cursor));
+    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
 
-//     }
-//     thread::sleep(Duration::from_millis(100));
+    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
 
-//     wait_for_block(&blocks_processed);
-//     info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-//     info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
-//     cursor = btc_regtest_controller.next_block(Some(cursor));
+    let common_ancestor =     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
 
-//     wait_for_block(&blocks_processed);
-//     info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
-//     info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
 
-//     termination_switch.store(false, Ordering::SeqCst);
-//     run_loop_thread.join().expect("Failed to join run loop.");
-// }
+    for i in 0..2 {
+        next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+
+        info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+        info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+    }
+
+    let mut cursor = common_ancestor;
+    for i in 0..3 {
+        cursor = btc_regtest_controller.next_block(Some(cursor));
+
+    }
+
+    cursor = next_block_and_wait(&mut btc_regtest_controller, Some(cursor), &blocks_processed, &sortition_db);
+
+    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+
+    next_block_and_wait(&mut btc_regtest_controller, Some(cursor), &blocks_processed, &sortition_db);
+
+    info!("get_stacks_tip_height(&sortition_db): {:?}", &get_stacks_tip_height(&sortition_db));
+    info!("get_burn_tip_height(&sortition_db): {:?}", &get_burn_tip_height(&sortition_db));
+
+    termination_switch.store(false, Ordering::SeqCst);
+    run_loop_thread.join().expect("Failed to join run loop.");
+}
