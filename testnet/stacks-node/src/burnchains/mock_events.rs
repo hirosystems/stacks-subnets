@@ -252,7 +252,8 @@ impl MockController {
             Some(parent) => parent,
             None => this_burn_block - 1,
         };
-        let parent_index_block_hash = { StacksBlockId(make_mock_byte_string(effective_parent.try_into().unwrap())) };
+        let parent_index_block_hash =
+            { StacksBlockId(make_mock_byte_string(effective_parent.try_into().unwrap())) };
 
         let parent_result = self.burn_block_to_height.get(&effective_parent);
         let parent_block_height = match parent_result {
@@ -265,7 +266,8 @@ impl MockController {
         };
         let block_height = parent_block_height + 1;
 
-        let index_block_hash = StacksBlockId(make_mock_byte_string(this_burn_block.try_into().unwrap()));
+        let index_block_hash =
+            StacksBlockId(make_mock_byte_string(this_burn_block.try_into().unwrap()));
 
         let new_block = NewBlock {
             block_height,

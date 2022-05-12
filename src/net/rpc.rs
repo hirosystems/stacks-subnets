@@ -1519,7 +1519,7 @@ impl ConversationHttp {
                         response.send(http, fd).and_then(|_| Ok(None))
                     }
                 }
-            },
+            }
         }
     }
 

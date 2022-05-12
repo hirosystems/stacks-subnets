@@ -19,7 +19,7 @@ use stacks::{
     net::RPCPoxInfoData,
 };
 
-use crate::burnchains::mock_events::{MockController, reset_static_burnblock_simulator_channel};
+use crate::burnchains::mock_events::{reset_static_burnblock_simulator_channel, MockController};
 use crate::neon;
 use crate::tests::l1_observer_test::MOCKNET_PRIVATE_KEY_1;
 use crate::tests::{
@@ -305,10 +305,13 @@ pub fn next_block_and_wait(
     btc_controller: &mut MockController,
     specify_parent: Option<u64>,
     blocks_processed: &Arc<AtomicU64>,
-    sortition_db:&SortitionDB,
+    sortition_db: &SortitionDB,
 ) -> u64 {
     let initial_blocks_processed = blocks_processed.load(Ordering::SeqCst);
-    let initial_all_snapshots = sortition_db.count_snapshots().expect("").expect("Couldn't count snap shots.");
+    let initial_all_snapshots = sortition_db
+        .count_snapshots()
+        .expect("")
+        .expect("Couldn't count snap shots.");
     info!(
         "next_block_and_wait: Issuing block at {}, waiting for bump ({})",
         get_epoch_time_secs(),
@@ -322,7 +325,12 @@ pub fn next_block_and_wait(
         }
         thread::sleep(Duration::from_millis(100));
     }
-    while sortition_db.count_snapshots().expect("").expect("Couldn't count snap shots.") <= initial_all_snapshots {
+    while sortition_db
+        .count_snapshots()
+        .expect("")
+        .expect("Couldn't count snap shots.")
+        <= initial_all_snapshots
+    {
         info!("next_block_and_wait: Waiting for SNAPSHOTS!");
         if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
             panic!("Timed out waiting for snapshots.");
@@ -334,7 +342,10 @@ pub fn next_block_and_wait(
         get_epoch_time_secs(),
         blocks_processed.load(Ordering::SeqCst)
     );
-    let final_all_snapshots = sortition_db.count_snapshots().expect("").expect("Couldn't count snap shots.");
+    let final_all_snapshots = sortition_db
+        .count_snapshots()
+        .expect("")
+        .expect("Couldn't count snap shots.");
     info!(
         "next_block_and_wait: final_all_snapshots {} ({})",
         get_epoch_time_secs(),
@@ -527,13 +538,28 @@ fn mockstack_integration_test() {
     let (sortition_db, _) = burnchain.open_db(true).unwrap();
 
     // first block wakes up the run loop
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
 
     // first block will hold our VRF registration
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
 
     // second block will be the first mined Stacks block
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
 
     let stacks_tip = get_stacks_tip_height(&sortition_db);
     info!("stacks_tip: {:?}", &stacks_tip);
@@ -599,14 +625,18 @@ fn mockstack_wait_for_first_block() {
 
     let (sortition_db, _) = burnchain.open_db(true).unwrap();
 
-
     // Walk up 16 + 1 blocks.
     btc_regtest_controller.next_block(None);
     for i in 0..16 {
         btc_regtest_controller.next_block(None);
     }
 
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
 
     channel.stop_chains_coordinator();
 }
@@ -754,24 +784,37 @@ fn faucet_test() {
 
     thread::spawn(move || run_loop.start(None, 0));
 
-
     // give the run loop some time to start up!
     wait_for_runloop(&blocks_processed);
 
     let (sortition_db, _) = burnchain.open_db(true).unwrap();
 
-
     btc_regtest_controller.next_block(None);
     btc_regtest_controller.next_block(None);
 
     // first block wakes up the run loop
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
 
     // first block will hold our VRF registration
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
 
     // second block will be the first mined Stacks block
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
 
     // let's query the miner's account nonce:
 
@@ -795,13 +838,28 @@ fn faucet_test() {
         make_stacks_transfer(&sk_3, 0, 1000, &contract_identifier.clone().into(), 1000);
     let _xfer_to_faucet_txid = submit_tx(&http_origin, &xfer_to_faucet_tx);
 
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
 
     let publish_tx = make_contract_publish(&contract_sk, 0, 1000, "faucet", FAUCET_CONTRACT);
     let _publish_txid = submit_tx(&http_origin, &publish_tx);
 
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
 
     let publish_dup_tx = make_contract_publish(&contract_sk, 1, 1000, "faucet", FAUCET_CONTRACT);
     assert!(
@@ -820,8 +878,18 @@ fn faucet_test() {
     );
     let _contract_call_txid = submit_tx(&http_origin, &contract_call_tx);
 
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
 
     assert_eq!(
         get_balance(&http_origin, &addr_3) as u64,
@@ -882,31 +950,59 @@ fn no_contract_calls_forking_integration_test() {
 
     btc_regtest_controller.next_block(None);
 
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
     assert_l2_l1_tip_heights(&sortition_db, 0, 2);
 
-    next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
     assert_l2_l1_tip_heights(&sortition_db, 0, 3);
 
-    let common_ancestor =     next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
+    let common_ancestor = next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
     assert_l2_l1_tip_heights(&sortition_db, 1, 4);
 
-
     for i in 0..2 {
-        next_block_and_wait(&mut btc_regtest_controller, None, &blocks_processed, &sortition_db);
-        assert_l2_l1_tip_heights(&sortition_db, 2+ i, 5 + i);
+        next_block_and_wait(
+            &mut btc_regtest_controller,
+            None,
+            &blocks_processed,
+            &sortition_db,
+        );
+        assert_l2_l1_tip_heights(&sortition_db, 2 + i, 5 + i);
     }
 
     let mut cursor = common_ancestor;
     for i in 0..3 {
         cursor = btc_regtest_controller.next_block(Some(cursor));
-
     }
 
-    cursor = next_block_and_wait(&mut btc_regtest_controller, Some(cursor), &blocks_processed, &sortition_db);
+    cursor = next_block_and_wait(
+        &mut btc_regtest_controller,
+        Some(cursor),
+        &blocks_processed,
+        &sortition_db,
+    );
     assert_l2_l1_tip_heights(&sortition_db, 1, 8);
 
-    next_block_and_wait(&mut btc_regtest_controller, Some(cursor), &blocks_processed, &sortition_db);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        Some(cursor),
+        &blocks_processed,
+        &sortition_db,
+    );
     assert_l2_l1_tip_heights(&sortition_db, 2, 9);
 
     termination_switch.store(false, Ordering::SeqCst);
@@ -914,9 +1010,9 @@ fn no_contract_calls_forking_integration_test() {
 }
 
 /// Look up the chain tip, and assert the L2 and L1 tip heights.
-fn assert_l2_l1_tip_heights(sortition_db:&SortitionDB, l2_height:u64, l1_height:u64) {
+fn assert_l2_l1_tip_heights(sortition_db: &SortitionDB, l2_height: u64, l1_height: u64) {
     let tip_snapshot = SortitionDB::get_canonical_burn_chain_tip(&sortition_db.conn())
-    .expect("Could not read from SortitionDB.");
+        .expect("Could not read from SortitionDB.");
     assert_eq!(l2_height, tip_snapshot.canonical_stacks_tip_height);
     assert_eq!(l1_height, tip_snapshot.block_height);
 }
