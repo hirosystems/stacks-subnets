@@ -311,7 +311,7 @@ pub fn next_block_and_wait(
         get_epoch_time_secs(),
         current
     );
-    let created_block = btc_controller.next_block(None);
+    let created_block = btc_controller.next_block(specify_parent);
     let start = Instant::now();
     while blocks_processed.load(Ordering::SeqCst) <= current {
         if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
