@@ -1085,7 +1085,7 @@ fn spawn_miner_relayer(
                                 let is_equal = *expected_last_block == last_mined_block.anchored_block.header.parent_block;
                                 info!("is_equal: {:?}", &is_equal);
                                 assert_eq!(*expected_last_block, last_mined_block.anchored_block.header.parent_block);
-                                assert!(is_equal);
+                                assert!(is_equal);  
                             }
                             counters.bump_blocks_processed();
                         }
@@ -1164,13 +1164,15 @@ pub fn find_last_stacks_block_this_produced<'a>(
     sortdb: &SortitionDB,
     block_produced_at_burn_block: &'a BTreeMap<(u64, BurnchainHeaderHash), BlockHeaderHash>,
 ) -> Option<&'a BlockHeaderHash> {
-    for ((height, burn_block), block_produced) in block_produced_at_burn_block.iter().rev() {
-        let burn_block_at_height_opt = sortdb
+    info!("ooo block_produced_at_burn_block: {:?}", &block_produced_at_burn_block);
+    for ((height, produced_burn_hash), block_produced) in block_produced_at_burn_block.iter().rev() {
+        let sortition_db_burnblock_at_height = sortdb
             .get_canonical_burn_block_at_height(*height)
             .expect("Error in `sortdb.get_canonical_burn_block_at_height`.");
-        match burn_block_at_height_opt {
-            Some(burn_block_at_height) => {
-                if *burn_block == burn_block_at_height {
+        info!("ooo checking row: height {} produced_burn_hash {:?}, sortition_db_burnblock_at_height {:?} block_produced {:?}", height, &produced_burn_hash, &sortition_db_burnblock_at_height, &block_produced);
+        match sortition_db_burnblock_at_height {
+            Some(sortition_db_burnblock_at_height) => {
+                if *produced_burn_hash == sortition_db_burnblock_at_height {
                     // this commit is in the canonical burn chain fork
                     return Some(block_produced);
                 }
