@@ -539,6 +539,7 @@ fn mockstack_integration_test() {
         &sortition_db,
     );
 
+    for _ in 0..10 {
     // second block will be the first mined Stacks block
     next_block_and_wait(
         &mut btc_regtest_controller,
@@ -546,6 +547,8 @@ fn mockstack_integration_test() {
         &blocks_processed,
         &sortition_db,
     );
+    }
+
 
     // let's query the miner's account nonce:
 

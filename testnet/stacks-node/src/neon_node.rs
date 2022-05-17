@@ -1048,6 +1048,14 @@ fn spawn_miner_relayer(
                     let expected_last_block_opt = find_last_stacks_block_this_produced(&sortition_db,
                      &block_produced_at_burn_block);
 
+                    match &expected_last_block_opt {
+                        Some(expected_last)  => {
+                            info!("expected_last_block: {:?}", *expected_last);
+                        }
+                        None => {
+                            info!("expected_last_block: None");
+                        }
+                    }
                     debug!(
                         "Relayer: Run tenure";
                         "height" => last_burn_block.block_height,
@@ -1068,10 +1076,15 @@ fn spawn_miner_relayer(
                         &event_dispatcher,
                     );
                     if let Some((last_mined_block, microblock_privkey)) = last_mined_block_opt {
-                        if let Some(expected_last_block) = expected_last_block_opt {
-                            assert_eq!(*expected_last_block, last_mined_block.anchored_block.header.parent_block);
-                        }
+                        info!("last_mined_block.anchored_block.header.parent_block {:?}", &last_mined_block.anchored_block.header.parent_block);
+                        info!("last_mined_block.anchored_block.block_hash() {:?}", &last_mined_block.anchored_block.block_hash());
+                        info!("last_mined_block.anchored_block.header {:?}", &last_mined_block.anchored_block.header);
+
                         if last_mined_blocks_vec.len() == 0 {
+                            if let Some(expected_last_block) = expected_last_block_opt {
+                                let is_equal = *expected_last_block == last_mined_block.anchored_block.header.parent_block;
+                                info!("is_equal: {:?}", &is_equal);
+                            }
                             counters.bump_blocks_processed();
                         }
 
