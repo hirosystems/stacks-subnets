@@ -1084,6 +1084,8 @@ fn spawn_miner_relayer(
                             if let Some(expected_last_block) = expected_last_block_opt {
                                 let is_equal = *expected_last_block == last_mined_block.anchored_block.header.parent_block;
                                 info!("is_equal: {:?}", &is_equal);
+                                assert_eq!(*expected_last_block, last_mined_block.anchored_block.header.parent_block);
+                                assert!(is_equal);
                             }
                             counters.bump_blocks_processed();
                         }
