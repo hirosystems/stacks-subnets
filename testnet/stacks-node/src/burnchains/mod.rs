@@ -22,6 +22,10 @@ pub mod mock_events;
 /// This module is for production, it's driven by the L1 chain.
 pub mod l1_events;
 
+/// This module implements an indexer which *polls* the L1 chain
+/// over the RPC interface rather than the event listener interface.
+pub mod rpc_indexer;
+
 pub mod db_indexer;
 
 #[cfg(test)]

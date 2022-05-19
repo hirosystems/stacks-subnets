@@ -10,6 +10,7 @@
 (define-constant ERR_TRANSFER_FAILED 5)
 (define-constant ERR_DISALLOWED_ASSET 6)
 (define-constant ERR_ASSET_ALREADY_ALLOWED 7)
+(define-constant ERR_TOO_MANY_DEPOSITS 8)
 
 ;; Map from Stacks block height to block commit
 (define-map block-commits uint (buff 32))
@@ -20,14 +21,86 @@
 ;; Map of allowed contracts for asset transfers
 (define-map allowed-contracts principal (string-ascii 45))
 
+;; Map from Stacks block height to stx-deposits at height
+(define-map stx-deposits uint (list 1000 { sender: principal, amount: uint }))
+;; Map from Stacks block height to nft-deposits at height
+(define-map nft-deposits uint (list 500 { nft-id: uint, l1-contract-id: principal, hc-contract-id: principal, sender: principal, hc-function-name: (string-ascii 45) }))
+;; Map from Stacks block height to ft-deposits at height
+(define-map ft-deposits uint (list 500 { ft-amount: uint, l1-contract-id: principal, hc-contract-id: principal, sender: principal, hc-function-name: (string-ascii 45), ft-name: (string-ascii 32) }))
+
+(define-private (update-stx-deposits (stacks-height uint) (entry { sender: principal, amount: uint }))
+  (let ((current-deposits (default-to (list) (map-get? stx-deposits stacks-height)))
+        (next-deposits (append current-deposits entry)))
+    (map-set stx-deposits stacks-height 
+       (unwrap! (as-max-len? next-deposits u1000) (err ERR_TOO_MANY_DEPOSITS)))
+    (ok true)))
+
+(define-private (update-nft-deposits (stacks-height uint) (entry { nft-id: uint, l1-contract-id: principal, hc-contract-id: principal, sender: principal, hc-function-name: (string-ascii 45) }))
+  (let ((current-deposits (default-to (list) (map-get? nft-deposits stacks-height)))
+        (next-deposits (append current-deposits entry)))
+    (map-set nft-deposits stacks-height 
+       (unwrap! (as-max-len? next-deposits u500) (err ERR_TOO_MANY_DEPOSITS)))
+    (ok true)))
+
+(define-private (update-ft-deposits (stacks-height uint) (entry { ft-amount: uint, l1-contract-id: principal, hc-contract-id: principal, sender: principal, hc-function-name: (string-ascii 45), ft-name: (string-ascii 32) }))
+  (let ((current-deposits (default-to (list) (map-get? ft-deposits stacks-height)))
+        (next-deposits (append current-deposits entry)))
+    (map-set ft-deposits stacks-height 
+       (unwrap! (as-max-len? next-deposits u500) (err ERR_TOO_MANY_DEPOSITS)))
+    (ok true)))
+
+(define-read-only (get-block-content (stacks-height uint))
+  (let ((block-commit (map-get? block-commits stacks-height))
+        (nft-deps (default-to (list) (map-get? nft-deposits stacks-height)))
+        (ft-deps (default-to (list) (map-get? ft-deposits stacks-height)))
+        (stx-deps (default-to (list) (map-get? stx-deposits stacks-height))))
+     { block-commit: block-commit, ft-deposits: ft-deps, nft-deposits: nft-deps, stx-deposits: stx-deps }))
+
 ;; Testing info for 'ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5:
 ;;      secret_key: 7287ba251d44a4d3fd9276c88ce34c5c52a038955511cccaf77e61068649c17801
 ;;      btc_address: mr1iPkD9N3RJZZxXRk7xF9d36gffa6exNC
 
 ;; Use trait declarations
-(use-trait nft-trait .nft-trait-standard.nft-trait)
-(use-trait ft-trait .ft-trait-standard.ft-trait)
+(define-trait ft-trait
+  (
+    ;; Transfer from the caller to a new principal
+    (transfer (uint principal principal (optional (buff 34))) (response bool uint))
 
+    ;; the human readable name of the token
+    (get-name () (response (string-ascii 32) uint))
+
+    ;; the ticker symbol, or empty if none
+    (get-symbol () (response (string-ascii 32) uint))
+
+    ;; the number of decimals used, e.g. 6 would mean 1_000_000 represents 1 token
+    (get-decimals () (response uint uint))
+
+    ;; the balance of the passed principal
+    (get-balance (principal) (response uint uint))
+
+    ;; the current total supply (which does not need to be a constant)
+    (get-total-supply () (response uint uint))
+
+    ;; an optional URI that represents metadata of this token
+    (get-token-uri () (response (optional (string-utf8 256)) uint))
+  )
+)
+
+(define-trait nft-trait
+  (
+    ;; Last token ID, limited to uint range
+    (get-last-token-id () (response uint uint))
+
+    ;; URI for metadata associated with the token
+    (get-token-uri (uint) (response (optional (string-ascii 256)) uint))
+
+     ;; Owner of a given token identifier
+    (get-owner (uint) (response (optional principal) uint))
+
+    ;; Transfer from the sender to a new principal
+    (transfer (uint principal principal) (response bool uint))
+  )
+)
 ;; This function adds contracts to the allowed-contracts map.
 ;; Once in this map, asset transfers from that contract will be allowed in the deposit and withdraw operations.
 (define-public (setup-allowed-contracts)
@@ -73,6 +146,7 @@
     (begin
         (map-set block-commits commit-block-height block)
         (print { event: "block-commit", block-commit: block})
+        (print { event: "block-commit-notice", block-commit: block, height: commit-block-height })
         (ok block)
     )
 )
@@ -106,13 +180,13 @@
 ;; The function emits a print with details of this event.
 ;; Returns response<bool, int>
 (define-public (deposit-nft-asset (id uint) (sender principal) (nft-contract <nft-trait>) (hc-contract-id principal))
-    (let (
-            ;; Check that the asset belongs to the allowed-contracts map
-            (hc-function-name (unwrap! (map-get? allowed-contracts (contract-of nft-contract)) (err ERR_DISALLOWED_ASSET)))
-        )
+    (let (;; Check that the asset belongs to the allowed-contracts map
+          (hc-function-name (unwrap! (map-get? allowed-contracts (contract-of nft-contract)) (err ERR_DISALLOWED_ASSET))))
 
         ;; Try to transfer the NFT to this contract
         (asserts! (unwrap! (inner-deposit-nft-asset id sender nft-contract) (err ERR_TRANSFER_FAILED)) (err ERR_TRANSFER_FAILED))
+        (try! (update-nft-deposits block-height  { nft-id: id, l1-contract-id: (contract-of nft-contract), hc-contract-id: hc-contract-id,
+                                                   sender: sender, hc-function-name: hc-function-name }))
 
         ;; Emit a print event - the node consumes this
         (print { event: "deposit-nft", nft-id: id, l1-contract-id: nft-contract, hc-contract-id: hc-contract-id,
@@ -184,9 +258,9 @@
         ;; Try to transfer the FT to this contract
         (asserts! (unwrap! (inner-deposit-ft-asset amount sender memo ft-contract) (err ERR_TRANSFER_FAILED)) (err ERR_TRANSFER_FAILED))
 
-        (let (
-                (ft-name (unwrap! (contract-call? ft-contract get-name) (err ERR_CONTRACT_CALL_FAILED)))
-            )
+        (let ((ft-name (unwrap! (contract-call? ft-contract get-name) (err ERR_CONTRACT_CALL_FAILED))))
+            (try! (update-ft-deposits block-height  { ft-amount: amount, l1-contract-id: (contract-of ft-contract), ft-name: ft-name, 
+                                                      hc-contract-id: hc-contract-id, sender: sender, hc-function-name: hc-function-name }))
             ;; Emit a print event - the node consumes this
             (print { event: "deposit-ft", ft-amount: amount, l1-contract-id: ft-contract,
                         ft-name: ft-name, hc-contract-id: hc-contract-id, sender: sender, hc-function-name: hc-function-name })
@@ -259,7 +333,7 @@
     (begin
         ;; Try to transfer the STX to this contract
         (asserts! (unwrap! (inner-deposit-stx amount sender) (err ERR_TRANSFER_FAILED)) (err ERR_TRANSFER_FAILED))
-
+        (try! (update-stx-deposits block-height  { sender: sender, amount: amount }))
         ;; Emit a print event - the node consumes this
         (print { event: "deposit-stx", sender: sender, amount: amount })
 

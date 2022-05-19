@@ -384,7 +384,7 @@ pub struct BurnchainStateTransition {
 pub enum Error {
     /// Unsupported burn chain
     UnsupportedBurnchain,
-    /// Bitcoin-related error
+    /// Bitcoin-or-L1-related error
     Bitcoin(String),
     /// burn database error
     DBError(db_error),
