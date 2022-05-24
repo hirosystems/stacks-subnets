@@ -1397,7 +1397,7 @@ impl StacksNode {
         if let Some(burnchain_tip) = get_last_sortition(&self.last_sortition) {
             let relay_channel = self.relay_channel.clone();
             thread::spawn(move || {
-                let time_ms = 0u64;
+                let time_ms = 2000u64;
                 debug!(
                     "relayer_issue_tenure: Spawning a thread to wait {} ms and then build off of {:?}",
                     time_ms,
