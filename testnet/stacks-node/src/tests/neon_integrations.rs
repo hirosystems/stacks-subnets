@@ -29,6 +29,8 @@ use crate::tests::{
 use crate::{Config, ConfigFile, Keychain};
 use std::convert::TryInto;
 
+use super::make_contract_call_mblock_only;
+
 pub fn mockstack_test_conf() -> (Config, StacksAddress) {
     let mut conf = super::new_test_conf();
 
@@ -1122,7 +1124,7 @@ fn micro_test() {
         &blocks_processed,
         &sortition_db,
     );
-    sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
+    // sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
 
 
     // {
@@ -1130,7 +1132,7 @@ fn micro_test() {
     //     submit_tx_and_wait(&http_origin, &publish_tx);
     // }
     {
-        let contract_call_tx = make_contract_call(
+        let contract_call_tx = make_contract_call_mblock_only(
             &sk_2,
             1,
             1000,
