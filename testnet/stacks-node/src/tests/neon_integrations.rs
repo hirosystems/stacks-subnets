@@ -999,3 +999,155 @@ fn assert_l2_l1_tip_heights(sortition_db: &SortitionDB, l2_height: u64, l1_heigh
     assert_eq!(l2_height, tip_snapshot.canonical_stacks_tip_height);
     assert_eq!(l1_height, tip_snapshot.block_height);
 }
+
+#[test]
+#[ignore]
+fn micro_test() {
+    reset_static_burnblock_simulator_channel();
+    let (mut conf, miner_account) = mockstack_test_conf();
+
+    let contract_sk = StacksPrivateKey::from_hex(SK_1).unwrap();
+    let sk_2 = StacksPrivateKey::from_hex(SK_2).unwrap();
+    let sk_3 = StacksPrivateKey::from_hex(SK_3).unwrap();
+    let addr_2 = to_addr(&sk_2);
+    let addr_3 = to_addr(&sk_3);
+
+    let addr_3_init_balance = 100000;
+    let addr_2_init_balance = 1000;
+
+    conf.add_initial_balance(addr_3.to_string(), addr_3_init_balance);
+    conf.add_initial_balance(addr_2.to_string(), addr_2_init_balance);
+    conf.add_initial_balance(to_addr(&contract_sk).to_string(), 3000);
+
+    let http_origin = format!("http://{}", &conf.node.rpc_bind);
+
+    conf.events_observers.push(EventObserverConfig {
+        endpoint: format!("localhost:{}", test_observer::EVENT_OBSERVER_PORT),
+        events_keys: vec![EventKeyType::AnyEvent],
+    });
+
+    test_observer::spawn();
+
+    let burnchain = Burnchain::new(
+        &conf.get_burn_db_path(),
+        &conf.burnchain.chain,
+        &conf.burnchain.mode,
+    )
+    .unwrap();
+    let mut run_loop = neon::RunLoop::new(conf.clone());
+    let blocks_processed = run_loop.get_blocks_processed_arc();
+
+    let channel = run_loop.get_coordinator_channel().unwrap();
+
+    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+
+    thread::spawn(move || run_loop.start(None, 0));
+
+    // give the run loop some time to start up!
+    wait_for_runloop(&blocks_processed);
+
+    let (sortition_db, _) = burnchain.open_db(true).unwrap();
+
+    btc_regtest_controller.next_block(None);
+    btc_regtest_controller.next_block(None);
+
+    // first block wakes up the run loop
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+
+    // first block will hold our VRF registration
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+
+    // second block will be the first mined Stacks block
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+
+    let small_contract = "(define-public (return-one) (ok 1))";
+
+    let contract_identifier = QualifiedContractIdentifier::parse(&format!(
+        "{}.{}",
+        to_addr(&contract_sk).to_string(),
+        "faucet"
+    ))
+    .unwrap();
+
+    {
+        let publish_tx =
+            make_contract_publish(&contract_sk, 0, 1000, "small-contract", small_contract);
+        submit_tx_and_wait(&http_origin, &publish_tx);
+    }
+
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+    {
+        let contract_call_tx = make_contract_call(
+            &sk_2,
+            0,
+            1000,
+            &to_addr(&contract_sk),
+            "small-contract",
+            "return-one",
+            &[],
+        );
+        submit_tx_and_wait(&http_origin, &contract_call_tx);
+    }
+
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+
+    // {
+    //     let publish_tx = make_contract_publish(&contract_sk, 1, 1000, "faucet", FAUCET_CONTRACT);
+    //     submit_tx_and_wait(&http_origin, &publish_tx);
+    // }
+    sleep_for_reason(Duration::from_millis(3000), "wait for micro-blocks");
+
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+    
+    channel.stop_chains_coordinator();
+}
+
+fn sleep_for_reason(sleep_duration: Duration, reason: &str) {
+    info!(
+        "sleep_for_reason: START sleep {:?} for reason: {}",
+        serde_json::to_string(&sleep_duration).expect("Serialization failed."),
+        &reason
+    );
+    thread::sleep(sleep_duration);
+    info!(
+        "sleep_for_reason: STOP sleep {:?} for reason: {}",
+        serde_json::to_string(&sleep_duration).expect("Serialization failed."),
+        &reason
+    );
+}
