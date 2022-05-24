@@ -20,6 +20,7 @@ use stacks::{
 };
 
 use crate::burnchains::mock_events::{reset_static_burnblock_simulator_channel, MockController};
+use crate::config::{EventObserverConfig, EventKeyType};
 use crate::neon;
 use crate::tests::l1_observer_test::MOCKNET_PRIVATE_KEY_1;
 use crate::tests::{
@@ -1150,4 +1151,18 @@ fn sleep_for_reason(sleep_duration: Duration, reason: &str) {
         serde_json::to_string(&sleep_duration).expect("Serialization failed."),
         &reason
     );
+}
+
+pub fn submit_tx_and_wait(http_origin: &str, tx: &Vec<u8>) -> String {
+    let start = Instant::now();
+    let original_tx_count = test_observer::get_memtxs().len();
+    let result = submit_tx(http_origin, tx);
+    info!("submitted transaction with id: {:?}", &result);
+    while test_observer::get_memtxs().len() <= original_tx_count {
+        if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
+            panic!("Timed out waiting for run loop to start");
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    result
 }
