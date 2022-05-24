@@ -1067,6 +1067,10 @@ fn spawn_miner_relayer(
                         // stale request
                         continue;
                     }
+                    if last_mined_blocks.contains_key(&burnchain_tip.burn_header_hash) {
+                        // this miner has already made an anchored block for this burn block
+                        continue;
+                    }
                     if let Some(cur_sortition) = get_last_sortition(&last_sortition) {
                         if burnchain_tip.sortition_id != cur_sortition.sortition_id {
                             debug!("Drop stale RunMicroblockTenure for {}/{}: current sortition is for {} ({})", &burnchain_tip.consensus_hash, &burnchain_tip.winning_stacks_block_hash, &cur_sortition.consensus_hash, &cur_sortition.burn_header_hash);
