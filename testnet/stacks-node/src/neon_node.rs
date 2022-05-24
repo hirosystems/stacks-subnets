@@ -1,3 +1,4 @@
+use core::time;
 use std::cmp;
 use std::collections::{BTreeMap, HashMap};
 use std::collections::{HashSet, VecDeque};
@@ -91,7 +92,7 @@ enum RelayerDirective {
 pub struct StacksNode {
     #[allow(dead_code)]
     config: Config,
-    relay_channel: SyncSender<RelayerDirective>,
+    relay_channel: Arc<SyncSender<RelayerDirective>>,
     last_sortition: Arc<Mutex<Option<BlockSnapshot>>>,
     #[allow(dead_code)]
     burnchain_signer: BurnchainSigner,
@@ -1375,7 +1376,7 @@ impl StacksNode {
 
         StacksNode {
             config,
-            relay_channel: relay_send,
+            relay_channel: Arc::new(relay_send),
             last_sortition,
             burnchain_signer,
             is_miner,
@@ -1394,17 +1395,31 @@ impl StacksNode {
         }
 
         if let Some(burnchain_tip) = get_last_sortition(&self.last_sortition) {
-            debug!(
-                "Tenure: Building off of {}",
-                &burnchain_tip.burn_header_hash
-            );
+            let relay_channel = self.relay_channel.clone();
+            thread::spawn(move || {
+                let time_ms = 0u64;
+                debug!(
+                    "relayer_issue_tenure: Spawning a thread to wait {} ms and then build off of {:?}",
+                    time_ms,
+                    &burnchain_tip.burn_header_hash
+                );
 
-            self.relay_channel
-                .send(RelayerDirective::RunTenure(
-                    burnchain_tip,
-                    get_epoch_time_ms(),
-                ))
-                .is_ok()
+                thread::sleep(time::Duration::from_millis(time_ms));
+
+                debug!(
+                    "relayer_issue_tenure: Have waited {} ms and now will build off of {:?}",
+                    time_ms, &burnchain_tip.burn_header_hash
+                );
+
+                relay_channel
+                    .send(RelayerDirective::RunTenure(
+                        burnchain_tip,
+                        get_epoch_time_ms(),
+                    ))
+                    .is_ok()
+            });
+
+            true
         } else {
             warn!("Tenure: Do not know the last burn block. As a miner, this is bad.");
             true
