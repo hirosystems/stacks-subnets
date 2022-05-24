@@ -1014,7 +1014,7 @@ fn micro_test() {
     let addr_3 = to_addr(&sk_3);
 
     let addr_3_init_balance = 100000;
-    let addr_2_init_balance = 1000;
+    let addr_2_init_balance = 2000;
 
     conf.add_initial_balance(addr_3.to_string(), addr_3_init_balance);
     conf.add_initial_balance(addr_2.to_string(), addr_2_init_balance);
@@ -1122,11 +1122,25 @@ fn micro_test() {
         &blocks_processed,
         &sortition_db,
     );
+    sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
+
 
     // {
     //     let publish_tx = make_contract_publish(&contract_sk, 1, 1000, "faucet", FAUCET_CONTRACT);
     //     submit_tx_and_wait(&http_origin, &publish_tx);
     // }
+    {
+        let contract_call_tx = make_contract_call(
+            &sk_2,
+            1,
+            1000,
+            &to_addr(&contract_sk),
+            "small-contract",
+            "return-one",
+            &[],
+        );
+        submit_tx_and_wait(&http_origin, &contract_call_tx);
+    }
     sleep_for_reason(Duration::from_millis(3000), "wait for micro-blocks");
 
     next_block_and_wait(

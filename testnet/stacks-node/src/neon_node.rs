@@ -683,9 +683,12 @@ fn spawn_peer(
                                 .push_back(RelayerDirective::HandleNetResult(network_result));
                         }
 
+                        let current_time = get_epoch_time_ms();
+                        let difference = mblock_deadline as f64 - current_time as f64;
+                        info!("considering RunMicroblockTenure: mblock_deadline {} current_time {} difference {}", mblock_deadline, current_time, difference);
                         // only do this on the Ok() path, even if we're mining, because an error in
                         // network dispatching is likely due to resource exhaustion
-                        if mblock_deadline < get_epoch_time_ms() {
+                        { // if mblock_deadline < current_time {
                             info!("P2P: schedule microblock tenure");
                             results_with_data.push_back(RelayerDirective::RunMicroblockTenure(
                                 this.burnchain_tip.clone(),
@@ -989,6 +992,7 @@ fn spawn_miner_relayer(
                     }
                 }
                 RelayerDirective::RunTenure(last_burn_block, issue_timestamp_ms) => {
+                    info!("RunTenure {:?}", &last_burn_block);
                     if let Some(cur_sortition) = get_last_sortition(&last_sortition) {
                         if last_burn_block.sortition_id != cur_sortition.sortition_id {
                             debug!("Drop stale RunTenure for {}: current sortition is for {}", &last_burn_block.burn_header_hash, &cur_sortition.burn_header_hash);
@@ -1064,6 +1068,8 @@ fn spawn_miner_relayer(
                     debug!("Relayer: RunTenure finished at {} (in {}ms)", last_tenure_issue_time, last_tenure_issue_time.saturating_sub(tenure_begin));
                 }
                 RelayerDirective::RunMicroblockTenure(burnchain_tip, tenure_issue_ms) => {
+                    info!("RunMicroblockTenure {:?}", &burnchain_tip);
+
                     if last_microblock_tenure_time > tenure_issue_ms {
                         // stale request
                         continue;
