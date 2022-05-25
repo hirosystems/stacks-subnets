@@ -62,6 +62,8 @@ pub fn mockstack_test_conf() -> (Config, StacksAddress) {
         "0000000000000000000000000000000000000000000000000000000000000001".to_string();
     conf.burnchain.first_burn_header_height = 1;
 
+    conf.node.wait_before_first_anchored_block = 5_000;
+
     let miner_account = keychain.origin_address(conf.is_mainnet()).unwrap();
 
     (conf, miner_account)
@@ -1031,6 +1033,7 @@ fn micro_test() {
         events_keys: vec![EventKeyType::AnyEvent],
     });
 
+    info!("conf.node.wait_before_first_anchored_block: {:?}", &conf.node.wait_before_first_anchored_block);
     test_observer::spawn();
 
     let burnchain = Burnchain::new(
