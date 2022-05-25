@@ -688,12 +688,13 @@ fn spawn_peer(
                         info!("considering RunMicroblockTenure: mblock_deadline {} current_time {} difference {}", mblock_deadline, current_time, difference);
                         // only do this on the Ok() path, even if we're mining, because an error in
                         // network dispatching is likely due to resource exhaustion
-                        { // if mblock_deadline < current_time {
+                        if mblock_deadline < current_time {
                             info!("P2P: schedule microblock tenure");
                             results_with_data.push_back(RelayerDirective::RunMicroblockTenure(
                                 this.burnchain_tip.clone(),
                                 get_epoch_time_ms(),
                             ));
+	                    info!("config.node.microblock_frequency: {}", config.node.microblock_frequency);
                             mblock_deadline =
                                 get_epoch_time_ms() + (config.node.microblock_frequency as u128);
                         }
