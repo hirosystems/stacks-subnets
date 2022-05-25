@@ -101,7 +101,7 @@ pub struct StacksNode {
     pub p2p_thread_handle: JoinHandle<()>,
     pub relayer_thread_handle: JoinHandle<()>,
     /// Includes the data for the next `RunTenure` directive. Once the "wait for micro-blocks" nap is over.
-    next_run_tenure_data: Arc<Mutex<Option<(BlockSnapshot, u64)>>>,
+    next_run_tenure_data: Arc<Mutex<Option<(BlockSnapshot, u128)>>>,
 }
 
 #[cfg(test)]
@@ -1412,12 +1412,13 @@ impl StacksNode {
             let mut next_run_tenure_data_mutex = self.next_run_tenure_data.lock().unwrap();
             let start_new_thread = match &*next_run_tenure_data_mutex {
                 Some(next_run_tenure_data) => {
-                    true
-                }
-                None => {
                     false
                 }
+                None => {
+                    true
+                }
             };
+            *next_run_tenure_data_mutex = Some((burnchain_tip, get_epoch_time_ms()));
             // match next_run_tenure_data {
             //     Some(existing_data) => {
             //         next_run_tenure_data = None;
@@ -1442,7 +1443,7 @@ impl StacksNode {
             //             relay_channel
             //                 .send(RelayerDirective::RunTenure(
             //                     burnchain_tip,
-            //                     get_epoch_time_ms(),
+            //                      ,
             //                 ))
             //                 .is_ok()
             //         });
