@@ -6,11 +6,13 @@ use std::time::{Duration, Instant};
 use stacks::burnchains::Burnchain;
 use stacks::chainstate::burn::db::sortdb::SortitionDB;
 use stacks::chainstate::burn::ConsensusHash;
+use stacks::chainstate::stacks::TransactionPayload;
 use stacks::codec::StacksMessageCodec;
 use stacks::net::{AccountEntryResponse, ContractSrcResponse, RPCPeerInfoData};
 use stacks::types::chainstate::{BlockHeaderHash, StacksAddress};
 use stacks::util::get_epoch_time_secs;
-use stacks::util::hash::Hash160;
+use stacks::util::hash::{Hash160, hex_bytes};
+use stacks::vm::{ContractName, ClarityName};
 use stacks::vm::types::QualifiedContractIdentifier;
 use stacks::{
     chainstate::stacks::{
@@ -27,7 +29,7 @@ use crate::tests::{
     make_contract_call, make_contract_publish, make_stacks_transfer, to_addr, SK_1, SK_2, SK_3,
 };
 use crate::{Config, ConfigFile, Keychain};
-use std::convert::TryInto;
+use std::convert::{TryInto, TryFrom};
 
 use super::make_contract_call_mblock_only;
 
@@ -1124,13 +1126,7 @@ fn micro_test() {
         &blocks_processed,
         &sortition_db,
     );
-    // sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
 
-
-    // {
-    //     let publish_tx = make_contract_publish(&contract_sk, 1, 1000, "faucet", FAUCET_CONTRACT);
-    //     submit_tx_and_wait(&http_origin, &publish_tx);
-    // }
     {
         let contract_call_tx = make_contract_call_mblock_only(
             &sk_2,
@@ -1152,7 +1148,63 @@ fn micro_test() {
         &sortition_db,
     );
     
+    {
+        let small_contract_calls = select_transactions_where(
+            &test_observer::get_blocks(),
+            |transaction| match &transaction.payload {
+                TransactionPayload::ContractCall(contract) => {
+                    contract.contract_name == ContractName::try_from("small-contract").unwrap()
+                        && contract.function_name == ClarityName::try_from("return-one").unwrap()
+                }
+                _ => false,
+            },
+        );
+        info!("small_contract_calls: {:?}", &small_contract_calls);
+        assert_eq!(1, small_contract_calls.len());
+    }
+
+    {
+        let small_contract_calls = select_transactions_where(
+            &test_observer::get_microblocks(),
+            |transaction| match &transaction.payload {
+                TransactionPayload::ContractCall(contract) => {
+                    contract.contract_name == ContractName::try_from("small-contract").unwrap()
+                        && contract.function_name == ClarityName::try_from("return-one").unwrap()
+                }
+                _ => false,
+            },
+        );
+        info!("small_contract_calls: {:?}", &small_contract_calls);
+        assert_eq!(1, small_contract_calls.len());
+
+    }
+
+
     channel.stop_chains_coordinator();
+}
+
+/// Deserializes the `StacksTransaction` objects from `blocks` and returns all those that
+/// match `test_fn`.
+fn select_transactions_where(
+    blocks: &Vec<serde_json::Value>,
+    test_fn: fn(&StacksTransaction) -> bool,
+) -> Vec<StacksTransaction> {
+    let mut result = vec![];
+    for block in blocks {
+        let transactions = block.get("transactions").unwrap().as_array().unwrap();
+        for tx in transactions.iter() {
+            info!("tx: {:?}", &tx);
+            let raw_tx = tx.get("raw_tx").unwrap().as_str().unwrap();
+            let tx_bytes = hex_bytes(&raw_tx[2..]).unwrap();
+            let parsed = StacksTransaction::consensus_deserialize(&mut &tx_bytes[..]).unwrap();
+            let test_value = test_fn(&parsed);
+            if test_value {
+                result.push(parsed);
+            }
+        }
+    }
+
+    return result;
 }
 
 fn sleep_for_reason(sleep_duration: Duration, reason: &str) {
