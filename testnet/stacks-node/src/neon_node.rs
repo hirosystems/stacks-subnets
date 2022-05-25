@@ -92,7 +92,7 @@ enum RelayerDirective {
 pub struct StacksNode {
     #[allow(dead_code)]
     config: Config,
-    relay_channel: Arc<SyncSender<RelayerDirective>>,
+    relay_channel: SyncSender<RelayerDirective>,
     last_sortition: Arc<Mutex<Option<BlockSnapshot>>>,
     #[allow(dead_code)]
     burnchain_signer: BurnchainSigner,
@@ -1383,7 +1383,7 @@ impl StacksNode {
 
         StacksNode {
             config,
-            relay_channel: Arc::new(relay_send),
+            relay_channel: relay_send,
             last_sortition,
             burnchain_signer,
             is_miner,
