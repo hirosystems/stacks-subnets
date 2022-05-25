@@ -11,9 +11,9 @@ use stacks::codec::StacksMessageCodec;
 use stacks::net::{AccountEntryResponse, ContractSrcResponse, RPCPeerInfoData};
 use stacks::types::chainstate::{BlockHeaderHash, StacksAddress};
 use stacks::util::get_epoch_time_secs;
-use stacks::util::hash::{Hash160, hex_bytes};
-use stacks::vm::{ContractName, ClarityName};
+use stacks::util::hash::{hex_bytes, Hash160};
 use stacks::vm::types::QualifiedContractIdentifier;
+use stacks::vm::{ClarityName, ContractName};
 use stacks::{
     chainstate::stacks::{
         StacksBlock, StacksBlockHeader, StacksPrivateKey, StacksPublicKey, StacksTransaction,
@@ -22,14 +22,14 @@ use stacks::{
 };
 
 use crate::burnchains::mock_events::{reset_static_burnblock_simulator_channel, MockController};
-use crate::config::{EventObserverConfig, EventKeyType};
+use crate::config::{EventKeyType, EventObserverConfig};
 use crate::neon;
 use crate::tests::l1_observer_test::MOCKNET_PRIVATE_KEY_1;
 use crate::tests::{
     make_contract_call, make_contract_publish, make_stacks_transfer, to_addr, SK_1, SK_2, SK_3,
 };
 use crate::{Config, ConfigFile, Keychain};
-use std::convert::{TryInto, TryFrom};
+use std::convert::{TryFrom, TryInto};
 
 use super::make_contract_call_mblock_only;
 
@@ -1147,7 +1147,7 @@ fn micro_test() {
         &blocks_processed,
         &sortition_db,
     );
-    
+
     {
         let small_contract_calls = select_transactions_where(
             &test_observer::get_blocks(),
@@ -1164,21 +1164,20 @@ fn micro_test() {
     }
 
     {
-        let small_contract_calls = select_transactions_where(
-            &test_observer::get_microblocks(),
-            |transaction| match &transaction.payload {
-                TransactionPayload::ContractCall(contract) => {
-                    contract.contract_name == ContractName::try_from("small-contract").unwrap()
-                        && contract.function_name == ClarityName::try_from("return-one").unwrap()
+        let small_contract_calls =
+            select_transactions_where(&test_observer::get_microblocks(), |transaction| {
+                match &transaction.payload {
+                    TransactionPayload::ContractCall(contract) => {
+                        contract.contract_name == ContractName::try_from("small-contract").unwrap()
+                            && contract.function_name
+                                == ClarityName::try_from("return-one").unwrap()
+                    }
+                    _ => false,
                 }
-                _ => false,
-            },
-        );
+            });
         info!("small_contract_calls: {:?}", &small_contract_calls);
         assert_eq!(1, small_contract_calls.len());
-
     }
-
 
     channel.stop_chains_coordinator();
 }
