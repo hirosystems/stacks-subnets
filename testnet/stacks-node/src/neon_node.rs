@@ -1410,9 +1410,14 @@ impl StacksNode {
                 self.config.node.wait_before_first_anchored_block;
             
             let mut next_run_tenure_data_mutex = self.next_run_tenure_data.lock().unwrap();
-            if next_run_tenure_data_mutex.is_some() {
-                info!("is some");
-            }
+            let start_new_thread = match &*next_run_tenure_data_mutex {
+                Some(next_run_tenure_data) => {
+                    true
+                }
+                None => {
+                    false
+                }
+            };
             // match next_run_tenure_data {
             //     Some(existing_data) => {
             //         next_run_tenure_data = None;
