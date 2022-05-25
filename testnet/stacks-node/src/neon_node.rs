@@ -1403,20 +1403,22 @@ impl StacksNode {
 
         if let Some(burnchain_tip) = get_last_sortition(&self.last_sortition) {
             let relay_channel = self.relay_channel.clone();
+            let wait_before_first_anchored_block =
+                self.config.node.wait_before_first_anchored_block;
             thread::spawn(move || {
-                // let time_ms = 12000u64;
-                let time_ms = 1_000u64;
                 debug!(
                     "relayer_issue_tenure: Spawning a thread to wait {} ms and then build off of {:?}",
-                    time_ms,
+                    wait_before_first_anchored_block,
                     &burnchain_tip.burn_header_hash
                 );
 
-                thread::sleep(time::Duration::from_millis(time_ms));
+                thread::sleep(time::Duration::from_millis(
+                    wait_before_first_anchored_block,
+                ));
 
                 debug!(
                     "relayer_issue_tenure: Have waited {} ms and now will build off of {:?}",
-                    time_ms, &burnchain_tip.burn_header_hash
+                    wait_before_first_anchored_block, &burnchain_tip.burn_header_hash
                 );
 
                 relay_channel
