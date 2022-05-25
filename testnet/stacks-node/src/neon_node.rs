@@ -100,6 +100,8 @@ pub struct StacksNode {
     pub atlas_config: AtlasConfig,
     pub p2p_thread_handle: JoinHandle<()>,
     pub relayer_thread_handle: JoinHandle<()>,
+    /// Includes the data for the next `RunTenure` directive. Once the "wait for micro-blocks" nap is over.
+    next_run_tenure_data: Arc<Mutex<Option<(BlockSnapshot, u64)>>>,
 }
 
 #[cfg(test)]
@@ -1390,6 +1392,7 @@ impl StacksNode {
             atlas_config,
             p2p_thread_handle,
             relayer_thread_handle,
+            next_run_tenure_data: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -1405,29 +1408,42 @@ impl StacksNode {
             let relay_channel = self.relay_channel.clone();
             let wait_before_first_anchored_block =
                 self.config.node.wait_before_first_anchored_block;
-            thread::spawn(move || {
-                debug!(
-                    "relayer_issue_tenure: Spawning a thread to wait {} ms and then build off of {:?}",
-                    wait_before_first_anchored_block,
-                    &burnchain_tip.burn_header_hash
-                );
+            
+            let mut next_run_tenure_data_mutex = self.next_run_tenure_data.lock().unwrap();
+            if next_run_tenure_data_mutex.is_some() {
+                info!("is some");
+            }
+            // match next_run_tenure_data {
+            //     Some(existing_data) => {
+            //         next_run_tenure_data = None;
+            //     }
+            //     None => {
+            //         thread::spawn(move || {
+            //             debug!(
+            //                 "relayer_issue_tenure: Spawning a thread to wait {} ms and then build off of {:?}",
+            //                 wait_before_first_anchored_block,
+            //                 &burnchain_tip.burn_header_hash
+            //             );
+        
+            //             thread::sleep(time::Duration::from_millis(
+            //                 wait_before_first_anchored_block,
+            //             ));
+        
+            //             debug!(
+            //                 "relayer_issue_tenure: Have waited {} ms and now will build off of {:?}",
+            //                 wait_before_first_anchored_block, &burnchain_tip.burn_header_hash
+            //             );
+        
+            //             relay_channel
+            //                 .send(RelayerDirective::RunTenure(
+            //                     burnchain_tip,
+            //                     get_epoch_time_ms(),
+            //                 ))
+            //                 .is_ok()
+            //         });
+            //     }
+            // }
 
-                thread::sleep(time::Duration::from_millis(
-                    wait_before_first_anchored_block,
-                ));
-
-                debug!(
-                    "relayer_issue_tenure: Have waited {} ms and now will build off of {:?}",
-                    wait_before_first_anchored_block, &burnchain_tip.burn_header_hash
-                );
-
-                relay_channel
-                    .send(RelayerDirective::RunTenure(
-                        burnchain_tip,
-                        get_epoch_time_ms(),
-                    ))
-                    .is_ok()
-            });
 
             true
         } else {
