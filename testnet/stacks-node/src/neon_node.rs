@@ -1408,48 +1408,54 @@ impl StacksNode {
             let relay_channel = self.relay_channel.clone();
             let wait_before_first_anchored_block =
                 self.config.node.wait_before_first_anchored_block;
-            
-            let mut next_run_tenure_data_mutex = self.next_run_tenure_data.lock().unwrap();
-            let start_new_thread = match &*next_run_tenure_data_mutex {
-                Some(next_run_tenure_data) => {
-                    false
-                }
-                None => {
-                    true
-                }
-            };
-            *next_run_tenure_data_mutex = Some((burnchain_tip, get_epoch_time_ms()));
-            // match next_run_tenure_data {
-            //     Some(existing_data) => {
-            //         next_run_tenure_data = None;
-            //     }
-            //     None => {
-            //         thread::spawn(move || {
-            //             debug!(
-            //                 "relayer_issue_tenure: Spawning a thread to wait {} ms and then build off of {:?}",
-            //                 wait_before_first_anchored_block,
-            //                 &burnchain_tip.burn_header_hash
-            //             );
-        
-            //             thread::sleep(time::Duration::from_millis(
-            //                 wait_before_first_anchored_block,
-            //             ));
-        
-            //             debug!(
-            //                 "relayer_issue_tenure: Have waited {} ms and now will build off of {:?}",
-            //                 wait_before_first_anchored_block, &burnchain_tip.burn_header_hash
-            //             );
-        
-            //             relay_channel
-            //                 .send(RelayerDirective::RunTenure(
-            //                     burnchain_tip,
-            //                      ,
-            //                 ))
-            //                 .is_ok()
-            //         });
-            //     }
-            // }
 
+            let start_new_thread = {
+                let mut next_run_tenure_data_mutex = self.next_run_tenure_data.lock().unwrap();
+
+                let result = match &*next_run_tenure_data_mutex {
+                    Some(next_run_tenure_data) => false,
+                    None => true,
+                };
+                *next_run_tenure_data_mutex = Some((burnchain_tip, get_epoch_time_ms()));
+
+                result
+            };
+
+            if start_new_thread {
+                let next_run_tenure_data = self.next_run_tenure_data.clone();
+                thread::spawn(move || {
+                    debug!(
+                            "relayer_issue_tenure: Spawning a thread to wait {} ms and then build off of then-leading tip.",
+                            wait_before_first_anchored_block,
+                        );
+
+                    thread::sleep(time::Duration::from_millis(
+                        wait_before_first_anchored_block,
+                    ));
+
+                    match &*next_run_tenure_data.lock().unwrap() {
+                        Some(relay_tenure_data) => {
+                            debug!(
+                                "relayer_issue_tenure: Have waited {} ms and now will build off of {:?}",
+                                wait_before_first_anchored_block, &relay_tenure_data.0
+                            );
+                            relay_channel
+                                .send(RelayerDirective::RunTenure(
+                                    relay_tenure_data.0.clone(),
+                                    relay_tenure_data.1,
+                                ))
+                                .is_ok()
+                        }
+                        None => {
+                            debug!(
+                                "relayer_issue_tenure: Have waited {} but there is nothing to build off of any more.",
+                                wait_before_first_anchored_block,
+                            );
+                            true
+                        }
+                    }
+                });
+            }
 
             true
         } else {

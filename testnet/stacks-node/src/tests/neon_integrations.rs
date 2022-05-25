@@ -1033,7 +1033,10 @@ fn micro_test() {
         events_keys: vec![EventKeyType::AnyEvent],
     });
 
-    info!("conf.node.wait_before_first_anchored_block: {:?}", &conf.node.wait_before_first_anchored_block);
+    info!(
+        "conf.node.wait_before_first_anchored_block: {:?}",
+        &conf.node.wait_before_first_anchored_block
+    );
     test_observer::spawn();
 
     let burnchain = Burnchain::new(
