@@ -526,7 +526,7 @@ fn mockstack_integration_test() {
     // give the run loop some time to start up!
     wait_for_runloop(&blocks_processed);
     btc_regtest_controller.next_block(None);
-    // btc_regtest_controller.next_block(None);
+    btc_regtest_controller.next_block(None);
 
     let (sortition_db, _) = burnchain.open_db(true).unwrap();
 
@@ -560,7 +560,7 @@ fn mockstack_integration_test() {
 
     let account = get_account(&http_origin, &miner_account);
     assert_eq!(account.balance, 0);
-    assert_eq!(account.nonce, 1);
+    assert_eq!(account.nonce, 2);
 
     // query for prometheus metrics
     #[cfg(feature = "monitoring_prom")]
@@ -939,14 +939,7 @@ fn no_contract_calls_forking_integration_test() {
     let (sortition_db, _) = burnchain.open_db(true).unwrap();
 
     btc_regtest_controller.next_block(None);
-
-    next_block_and_wait(
-        &mut btc_regtest_controller,
-        None,
-        &blocks_processed,
-        &sortition_db,
-    );
-    assert_l2_l1_tip_heights(&sortition_db, 0, 2);
+    btc_regtest_controller.next_block(None);
 
     next_block_and_wait(
         &mut btc_regtest_controller,
@@ -956,13 +949,21 @@ fn no_contract_calls_forking_integration_test() {
     );
     assert_l2_l1_tip_heights(&sortition_db, 0, 3);
 
-    let common_ancestor = next_block_and_wait(
+    next_block_and_wait(
         &mut btc_regtest_controller,
         None,
         &blocks_processed,
         &sortition_db,
     );
     assert_l2_l1_tip_heights(&sortition_db, 1, 4);
+
+    let common_ancestor = next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+    assert_l2_l1_tip_heights(&sortition_db, 2, 5);
 
     for i in 0..2 {
         next_block_and_wait(
@@ -971,7 +972,7 @@ fn no_contract_calls_forking_integration_test() {
             &blocks_processed,
             &sortition_db,
         );
-        assert_l2_l1_tip_heights(&sortition_db, 2 + i, 5 + i);
+        assert_l2_l1_tip_heights(&sortition_db, 3 + i, 6 + i);
     }
 
     let mut cursor = common_ancestor;
@@ -985,7 +986,7 @@ fn no_contract_calls_forking_integration_test() {
         &blocks_processed,
         &sortition_db,
     );
-    assert_l2_l1_tip_heights(&sortition_db, 1, 8);
+    assert_l2_l1_tip_heights(&sortition_db, 2, 9);
 
     next_block_and_wait(
         &mut btc_regtest_controller,
@@ -993,7 +994,7 @@ fn no_contract_calls_forking_integration_test() {
         &blocks_processed,
         &sortition_db,
     );
-    assert_l2_l1_tip_heights(&sortition_db, 2, 9);
+    assert_l2_l1_tip_heights(&sortition_db, 3, 10);
 
     termination_switch.store(false, Ordering::SeqCst);
     run_loop_thread.join().expect("Failed to join run loop.");

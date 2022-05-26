@@ -1413,7 +1413,7 @@ impl StacksNode {
                 let mut next_run_tenure_data_mutex = self.next_run_tenure_data.lock().unwrap();
 
                 let result = match &*next_run_tenure_data_mutex {
-                    Some(next_run_tenure_data) => false,
+                    Some(_) => false,
                     None => true,
                 };
                 *next_run_tenure_data_mutex = Some((burnchain_tip, get_epoch_time_ms()));
