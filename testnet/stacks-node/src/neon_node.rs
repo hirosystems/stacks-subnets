@@ -1421,6 +1421,10 @@ impl StacksNode {
                 result
             };
 
+            info!(
+                "relayer_issue_tenure: start_new_thread: {:?}",
+                &start_new_thread
+            );
             if start_new_thread {
                 let next_run_tenure_data = self.next_run_tenure_data.clone();
                 thread::spawn(move || {
@@ -1433,18 +1437,26 @@ impl StacksNode {
                         wait_before_first_anchored_block,
                     ));
 
-                    match &*next_run_tenure_data.lock().unwrap() {
+                    let mut tenure_data_copy = next_run_tenure_data.lock().unwrap();
+                    match &*tenure_data_copy {
                         Some(relay_tenure_data) => {
                             debug!(
                                 "relayer_issue_tenure: Have waited {} ms and now will build off of {:?}",
                                 wait_before_first_anchored_block, &relay_tenure_data.0
                             );
-                            relay_channel
+
+                            // Send the signal.
+                            let result = relay_channel
                                 .send(RelayerDirective::RunTenure(
                                     relay_tenure_data.0.clone(),
                                     relay_tenure_data.1,
                                 ))
-                                .is_ok()
+                                .is_ok();
+
+                            // Reset the mutex.
+                            *tenure_data_copy = None;
+
+                            result
                         }
                         None => {
                             debug!(
