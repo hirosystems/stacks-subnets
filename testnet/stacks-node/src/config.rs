@@ -7,6 +7,8 @@ use rand::RngCore;
 
 use stacks::burnchains::{MagicBytes, BLOCKSTACK_MAGIC_MAINNET};
 use stacks::chainstate::coordinator::comm::CoordinatorChannels;
+use stacks::chainstate::stacks::index::marf::MARFOpenOpts;
+use stacks::chainstate::stacks::index::storage::TrieHashCalculationMode;
 use stacks::chainstate::stacks::miner::BlockBuilderSettings;
 use stacks::chainstate::stacks::StacksPrivateKey;
 use stacks::chainstate::stacks::TransactionAnchorMode;
@@ -383,6 +385,10 @@ impl Config {
                         .wait_time_for_microblocks
                         .unwrap_or(default_node_config.wait_time_for_microblocks),
                     prometheus_bind: node.prometheus_bind,
+                    marf_cache_strategy: node.marf_cache_strategy,
+                    marf_defer_hashing: node
+                        .marf_defer_hashing
+                        .unwrap_or(default_node_config.marf_defer_hashing),
                     pox_sync_sample_secs: node
                         .pox_sync_sample_secs
                         .unwrap_or(default_node_config.pox_sync_sample_secs),
@@ -1114,6 +1120,8 @@ pub struct NodeConfig {
     /// anchored block for that burn block.
     pub wait_before_first_anchored_block: u64,
     pub prometheus_bind: Option<String>,
+    pub marf_cache_strategy: Option<String>,
+    pub marf_defer_hashing: bool,
     pub pox_sync_sample_secs: u64,
     pub use_test_genesis_chainstate: Option<bool>,
     /// Used to specify the keychain signing key exactly
@@ -1409,6 +1417,8 @@ impl NodeConfig {
             wait_time_for_microblocks: 30_000,
             wait_before_first_anchored_block: 5 * 60_000,
             prometheus_bind: None,
+            marf_cache_strategy: None,
+            marf_defer_hashing: true,
             pox_sync_sample_secs: 30,
             use_test_genesis_chainstate: None,
             mining_key: None,
@@ -1489,6 +1499,23 @@ impl NodeConfig {
             }
         }
     }
+
+    pub fn get_marf_opts(&self) -> MARFOpenOpts {
+        let hash_mode = if self.marf_defer_hashing {
+            TrieHashCalculationMode::Deferred
+        } else {
+            TrieHashCalculationMode::Immediate
+        };
+
+        MARFOpenOpts::new(
+            hash_mode,
+            &self
+                .marf_cache_strategy
+                .as_ref()
+                .unwrap_or(&"noop".to_string()),
+            false,
+        )
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1505,7 +1532,7 @@ impl MinerConfig {
         MinerConfig {
             min_tx_fee: 1,
             first_attempt_time_ms: 5_000,
-            subsequent_attempt_time_ms: 180_000,
+            subsequent_attempt_time_ms: 30_000,
             microblock_attempt_time_ms: 30_000,
             probability_pick_no_estimate_tx: 5,
         }
@@ -1574,6 +1601,8 @@ pub struct NodeConfigFile {
     pub max_microblocks: Option<u64>,
     pub wait_time_for_microblocks: Option<u64>,
     pub prometheus_bind: Option<String>,
+    pub marf_cache_strategy: Option<String>,
+    pub marf_defer_hashing: Option<bool>,
     pub pox_sync_sample_secs: Option<u64>,
     pub use_test_genesis_chainstate: Option<bool>,
     pub mining_key: Option<String>,
