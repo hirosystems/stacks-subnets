@@ -56,10 +56,15 @@
    ))
 
 ;; Helper function: determines whether the commit-block operation can be carried out
-(define-private (can-commit-block? (commit-block-height uint))
+(define-private (can-commit-block? (commit-block-height uint)  (target-block (buff 32)))
     (begin
         ;; check no block has been committed at this height
         (asserts! (is-none (map-get? block-commits commit-block-height)) (err ERR_BLOCK_ALREADY_COMMITTED))
+
+        (asserts! (is-eq 
+            target-block 
+            (unwrap! (get-block-info? id-header-hash (- block-height u1)) (err ERR_BLOCK_ALREADY_COMMITTED))
+            ) (err ERR_BLOCK_ALREADY_COMMITTED))
 
         ;; check that the tx sender is one of the miners
         (asserts! (is-miner tx-sender) (err ERR_INVALID_MINER))
@@ -78,9 +83,9 @@
 )
 
 ;; Subnets miners call this to commit a block at a particular height
-(define-public (commit-block (block (buff 32)))
+(define-public (commit-block (block (buff 32)) (target-block (buff 32)))
     (let ((commit-block-height block-height))
-        (unwrap! (can-commit-block? commit-block-height) (err ERR_VALIDATION_FAILED))
+        (unwrap! (can-commit-block? commit-block-height target-block) (err ERR_VALIDATION_FAILED))
         (inner-commit-block block commit-block-height)
     )
 )
