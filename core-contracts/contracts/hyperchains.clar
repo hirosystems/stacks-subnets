@@ -62,10 +62,11 @@
         ;; check no block has been committed at this height
         (asserts! (is-none (map-get? block-commits commit-block-height)) (err ERR_BLOCK_ALREADY_COMMITTED))
 
-        ;; (asserts! (is-eq 
-        ;;     target-block 
-        ;;     (unwrap! (get-block-info? id-header-hash (- block-height u1)) (err ERR_BLOCK_ALREADY_COMMITTED))
-        ;;     ) (err ERR_BLOCK_ALREADY_COMMITTED))
+        (print {block-height: block-height, id-header-hash: (get-block-info? id-header-hash (- block-height u1))})
+        (asserts! (is-eq 
+            target-block 
+            (unwrap! (get-block-info? id-header-hash (- block-height u1)) (err ERR_BLOCK_ALREADY_COMMITTED)) )
+            (err ERR_BLOCK_ALREADY_COMMITTED)) 
 
         ;; check that the tx sender is one of the miners
         (asserts! (is-miner tx-sender) (err ERR_INVALID_MINER))
@@ -92,7 +93,7 @@
 )
 
 (define-read-only (get-id-header-hash)
-    (ok {block-height: block-height, id-header-hash: (get-block-info? id-header-hash block-height)})
+    (ok (unwrap! (get-block-info? id-header-hash (- block-height u1)) (err ERR_VALIDATION_FAILED)))
 )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

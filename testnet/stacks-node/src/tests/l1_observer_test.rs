@@ -1063,6 +1063,9 @@ fn l2_simple_contract_calls() {
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
+    for block in &test_observer::get_blocks() {
+        info!("block: {:?}", &block);
+    }
     // Check for two calls to "return-one".
     let small_contract_calls = select_transactions_where(
         &test_observer::get_blocks(),
