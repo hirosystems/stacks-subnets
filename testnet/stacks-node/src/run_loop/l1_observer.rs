@@ -25,7 +25,10 @@ async fn handle_new_block(
 ) -> Result<impl warp::Reply, Infallible> {
     let parsed_block: NewBlock =
         serde_json::from_str(&block.to_string()).expect("Failed to parse events JSON");
-    info!("handle_new_block receives new block {:?}, with events {:?}", &parsed_block, &parsed_block.events);
+    info!(
+        "handle_new_block receives new block {:?}, with events {:?}",
+        &parsed_block, &parsed_block.events
+    );
     match channel.push_block(parsed_block) {
         Ok(_) => {}
         // TODO: It might be possible to return an error from this method for more graceful

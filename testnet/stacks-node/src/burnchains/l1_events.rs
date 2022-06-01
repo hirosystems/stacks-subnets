@@ -252,7 +252,7 @@ impl L1Controller {
         sender_nonce: u64,
         tx_fee: u64,
         commit_to: BlockHeaderHash,
-        build_off:BurnchainHeaderHash,
+        build_off: BurnchainHeaderHash,
     ) -> Result<StacksTransaction, Error> {
         let QualifiedContractIdentifier {
             issuer: contract_addr,
@@ -271,7 +271,8 @@ impl L1Controller {
             contract_name,
             function_name: ClarityName::from("commit-block"),
             function_args: vec![
-                ClarityValue::buff_from(committed_block.clone()).map_err(|_| Error::BadCommitment)?,
+                ClarityValue::buff_from(committed_block.clone())
+                    .map_err(|_| Error::BadCommitment)?,
                 ClarityValue::buff_from(build_off_bytes).map_err(|_| Error::BadCommitment)?,
             ],
         };
