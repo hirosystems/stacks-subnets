@@ -15,7 +15,7 @@
 (define-map block-commits uint (buff 32))
 
 ;; List of miners
-(define-constant miners (list 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF 'SP3X6QWWETNBZWGBK6DRGTR1KX50S74D3433WDGJY 'ST1AW6EKPGT61SQ9FNVDS17RKNWT8ZP582VF9HSCP 'ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5 'ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP 'ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8))
+(define-constant miners (list 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF 'SP3X6QWWETNBZWGBK6DRGTR1KX50S74D3433WDGJY 'ST1AW6EKPGT61SQ9FNVDS17RKNWT8ZP582VF9HSCP 'ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5 'ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP 'ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8))
 
 ;; Map of allowed contracts for asset transfers
 (define-map allowed-contracts principal (string-ascii 45))
@@ -58,13 +58,14 @@
 ;; Helper function: determines whether the commit-block operation can be carried out
 (define-private (can-commit-block? (commit-block-height uint)  (target-block (buff 32)))
     (begin
+        (print (get-block-info? id-header-hash (- block-height u1)))
         ;; check no block has been committed at this height
         (asserts! (is-none (map-get? block-commits commit-block-height)) (err ERR_BLOCK_ALREADY_COMMITTED))
 
-        (asserts! (is-eq 
-            target-block 
-            (unwrap! (get-block-info? id-header-hash (- block-height u1)) (err ERR_BLOCK_ALREADY_COMMITTED))
-            ) (err ERR_BLOCK_ALREADY_COMMITTED))
+        ;; (asserts! (is-eq 
+        ;;     target-block 
+        ;;     (unwrap! (get-block-info? id-header-hash (- block-height u1)) (err ERR_BLOCK_ALREADY_COMMITTED))
+        ;;     ) (err ERR_BLOCK_ALREADY_COMMITTED))
 
         ;; check that the tx sender is one of the miners
         (asserts! (is-miner tx-sender) (err ERR_INVALID_MINER))
@@ -90,6 +91,9 @@
     )
 )
 
+(define-read-only (get-id-header-hash)
+    (ok {block-height: block-height, id-header-hash: (get-block-info? id-header-hash block-height)})
+)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FOR NFT ASSET TRANSFERS

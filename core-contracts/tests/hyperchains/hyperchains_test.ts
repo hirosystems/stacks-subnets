@@ -11,31 +11,39 @@ Clarinet.test({
         // invalid miner
         const bob = accounts.get("wallet_2")!;
         const charlie = accounts.get("wallet_3")!;
-
         let block = chain.mineBlock([
-          // Successfully commit block at height 0 with alice.
-          Tx.contractCall("hyperchains", "commit-block",
-                [
-                    types.buff(new Uint8Array([0, 1, 1, 1, 1])),
-                    types.buff(new Uint8Array([0, 1, 1, 1, 1])),
 
-                ],
-                alice.address),
-          // Try and fail to commit a different block, but again at height 0.
-          Tx.contractCall("hyperchains", "commit-block",
-                [
-                    types.buff(new Uint8Array([0, 2, 2, 2, 2])),
-                    types.buff(new Uint8Array([0, 1, 1, 1, 1])),
-                ],
-                alice.address),
         ]);
         assertEquals(block.height, 2);
-        block.receipts[0].result
-            .expectOk()
-            .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
-        block.receipts[1].result
-            .expectErr()
-            .expectInt(3);
+        let block2 = chain.mineBlock([
+
+        ]);
+        const count = chain.callReadOnlyFn('hyperchains', 'get-id-header-hash', [], alice.address);
+        console.log({count})
+        // let block = chain.mineBlock([
+        //   // Successfully commit block at height 0 with alice.
+        //   Tx.contractCall("hyperchains", "commit-block",
+        //         [
+        //             types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+        //             types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+
+        //         ],
+        //         alice.address),
+        //   // Try and fail to commit a different block, but again at height 0.
+        //   Tx.contractCall("hyperchains", "commit-block",
+        //         [
+        //             types.buff(new Uint8Array([0, 2, 2, 2, 2])),
+        //             types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+        //         ],
+        //         alice.address),
+        // ]);
+        // assertEquals(block.height, 2);
+        // block.receipts[0].result
+        //     .expectOk()
+        //     .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
+        // block.receipts[1].result
+        //     .expectErr()
+        //     .expectInt(3);
 
 
         // // Try and fail to commit a block at height 1 with an invalid miner.
