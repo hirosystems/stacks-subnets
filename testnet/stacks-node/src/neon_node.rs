@@ -1004,6 +1004,7 @@ fn spawn_miner_relayer(
                     }
                 }
                 RelayerDirective::RunTenure(last_burn_block, issue_timestamp_ms) => {
+                    debug!("RunTenure({:?}, {})", &last_burn_block, issue_timestamp_ms);
                     if let Some(cur_sortition) = get_last_sortition(&last_sortition) {
                         if last_burn_block.sortition_id != cur_sortition.sortition_id {
                             debug!("Drop stale RunTenure for {}: current sortition is for {}", &last_burn_block.burn_header_hash, &cur_sortition.burn_header_hash);
@@ -1056,6 +1057,7 @@ fn spawn_miner_relayer(
                         "last_burn_header_hash" => %burn_header_hash,
                         "last_mined_blocks_vec.len()" => last_mined_blocks_vec.len(),
                     );
+                    debug!("RunTenure");
 
                     let last_mined_block_opt = StacksNode::relayer_run_tenure(
                         &config,
@@ -1071,6 +1073,8 @@ fn spawn_miner_relayer(
                     if let Some((last_mined_block, microblock_privkey)) = last_mined_block_opt {
                         if last_mined_blocks_vec.len() == 0 {
                             counters.bump_blocks_processed();
+                            debug!("RunTenure");
+
                         }
                         last_mined_blocks_vec.push((last_mined_block, microblock_privkey));
                     }
@@ -1080,14 +1084,21 @@ fn spawn_miner_relayer(
                     debug!("Relayer: RunTenure finished at {} (in {}ms)", last_tenure_issue_time, last_tenure_issue_time.saturating_sub(tenure_begin));
                 }
                 RelayerDirective::RunMicroblockTenure(burnchain_tip, tenure_issue_ms) => {
+                    debug!("RunMicroblockTenure({:?}, {})", &burnchain_tip, tenure_issue_ms);
+
+                    debug!("RunMicroblockTenure");
                     if last_microblock_tenure_time > tenure_issue_ms {
                         // stale request
                         continue;
                     }
+                    debug!("RunMicroblockTenure");
+
                     if last_mined_blocks.contains_key(&burnchain_tip.burn_header_hash) {
                         // this miner has already made an anchored block for this burn block
                         continue;
                     }
+                    debug!("RunMicroblockTenure");
+
                     if let Some(cur_sortition) = get_last_sortition(&last_sortition) {
                         if burnchain_tip.sortition_id != cur_sortition.sortition_id {
                             debug!("Drop stale RunMicroblockTenure for {}/{}: current sortition is for {} ({})", &burnchain_tip.consensus_hash, &burnchain_tip.winning_stacks_block_hash, &cur_sortition.consensus_hash, &cur_sortition.burn_header_hash);
@@ -1097,9 +1108,13 @@ fn spawn_miner_relayer(
 
                     debug!("Relayer: Run microblock tenure");
 
+                    debug!("RunMicroblockTenure");
+
                     // unconfirmed state must be consistent with the chain tip, as must the
                     // microblock mining state.
                     if let Some((ch, bh, mblock_pkey)) = miner_tip.clone() {
+                        debug!("RunMicroblockTenure");
+
                         if let Some(miner_state) = microblock_miner_state.take() {
                             if miner_state.parent_consensus_hash == ch || miner_state.parent_block_hash == bh {
                                 // preserve -- chaintip is unchanged
@@ -1111,6 +1126,8 @@ fn spawn_miner_relayer(
                                 counters.set_microblocks_processed(0);
                             }
                         }
+
+                        debug!("RunMicroblockTenure");
 
                         run_microblock_tenure(
                             &config,

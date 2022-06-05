@@ -1223,13 +1223,226 @@ fn sleep_for_reason(sleep_duration: Duration, reason: &str) {
 pub fn submit_tx_and_wait(http_origin: &str, tx: &Vec<u8>) -> String {
     let start = Instant::now();
     let original_tx_count = test_observer::get_memtxs().len();
-    let result = submit_tx(http_origin, tx);
-    info!("submitted transaction with id: {:?}", &result);
+    let resulting_txid = submit_tx(http_origin, tx);
+    info!("submit_tx_and_wait: submitted transaction with id: {:?}", &resulting_txid);
     while test_observer::get_memtxs().len() <= original_tx_count {
         if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
-            panic!("Timed out waiting for run loop to start");
+            panic!("submit_tx_and_wait: Timed out waiting for transaction to hit mempool: {}", &resulting_txid);
         }
         thread::sleep(Duration::from_millis(100));
     }
-    result
+    resulting_txid
+}
+
+/// Test that we can follow up microblock transactions with a block transaction.
+#[test]
+#[ignore]
+fn transactions_microblocks_then_block() {
+    reset_static_burnblock_simulator_channel();
+    let (mut conf, miner_account) = mockstack_test_conf();
+    conf.node.microblock_frequency = 100;
+    info!("conf.node {:#?}", &conf.node);
+    let contract_sk = StacksPrivateKey::from_hex(SK_1).unwrap();
+    let sk_2 = StacksPrivateKey::from_hex(SK_2).unwrap();
+    let sk_3 = StacksPrivateKey::from_hex(SK_3).unwrap();
+    let addr_2 = to_addr(&sk_2);
+    let addr_3 = to_addr(&sk_3);
+
+    let addr_3_init_balance = 100000;
+    let addr_2_init_balance = 2000;
+
+    conf.add_initial_balance(addr_3.to_string(), addr_3_init_balance);
+    conf.add_initial_balance(addr_2.to_string(), addr_2_init_balance);
+    conf.add_initial_balance(to_addr(&contract_sk).to_string(), 3000);
+
+    let http_origin = format!("http://{}", &conf.node.rpc_bind);
+
+    conf.events_observers.push(EventObserverConfig {
+        endpoint: format!("localhost:{}", test_observer::EVENT_OBSERVER_PORT),
+        events_keys: vec![EventKeyType::AnyEvent],
+    });
+
+    info!(
+        "conf.node.wait_before_first_anchored_block: {:?}",
+        &conf.node.wait_before_first_anchored_block
+    );
+    test_observer::spawn();
+
+    let burnchain = Burnchain::new(
+        &conf.get_burn_db_path(),
+        &conf.burnchain.chain,
+        &conf.burnchain.mode,
+    )
+    .unwrap();
+    let mut run_loop = neon::RunLoop::new(conf.clone());
+    let blocks_processed = run_loop.get_blocks_processed_arc();
+
+    let channel = run_loop.get_coordinator_channel().unwrap();
+
+    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+
+    thread::spawn(move || run_loop.start(None, 0));
+
+    // give the run loop some time to start up!
+    wait_for_runloop(&blocks_processed);
+
+    let (sortition_db, _) = burnchain.open_db(true).unwrap();
+
+    btc_regtest_controller.next_block(None);
+    btc_regtest_controller.next_block(None);
+
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+
+    {
+        let small_contract = "(define-public (return-one) (ok 1))";
+        let publish_tx =
+            make_contract_publish(&contract_sk, 0, 1000, "small-contract", small_contract);
+        submit_tx_and_wait(&http_origin, &publish_tx);
+    }
+
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+    {
+        let contract_call_tx = make_contract_call(
+            &sk_2,
+            0,
+            1000,
+            &to_addr(&contract_sk),
+            "small-contract",
+            "return-one",
+            &[],
+        );
+        submit_tx_and_wait(&http_origin, &contract_call_tx);
+    }
+
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+
+    {
+        let contract_call_tx = make_contract_call_mblock_only(
+            &sk_2,
+            1,
+            1000,
+            &to_addr(&contract_sk),
+            "small-contract",
+            "return-one",
+            &[],
+        );
+        submit_tx_and_wait(&http_origin, &contract_call_tx);
+    }
+    {
+        let contract_call_tx = make_contract_call_mblock_only(
+            &sk_2,
+            2,
+            1000,
+            &to_addr(&contract_sk),
+            "small-contract",
+            "return-one",
+            &[],
+        );
+        submit_tx_and_wait(&http_origin, &contract_call_tx);
+    }
+
+    {
+        let contract_call_tx = make_contract_call_mblock_only(
+            &sk_2,
+            3,
+            1000,
+            &to_addr(&contract_sk),
+            "small-contract",
+            "return-one",
+            &[],
+        );
+        submit_tx_and_wait(&http_origin, &contract_call_tx);
+    }
+    sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
+
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+    {
+        let contract_call_tx = make_contract_call(
+            &sk_2,
+            4,
+            1000,
+            &to_addr(&contract_sk),
+            "small-contract",
+            "return-one",
+            &[],
+        );
+        submit_tx_and_wait(&http_origin, &contract_call_tx);
+    }
+
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+
+    // We should have 1 anchored block with a "return-one" transaction, and one micro-block with
+    // a "return-one" transaction.
+    {
+        let small_contract_calls = select_transactions_where(
+            &test_observer::get_blocks(),
+            |transaction| match &transaction.payload {
+                TransactionPayload::ContractCall(contract) => {
+                    contract.contract_name == ContractName::try_from("small-contract").unwrap()
+                        && contract.function_name == ClarityName::try_from("return-one").unwrap()
+                }
+                _ => false,
+            },
+        );
+        info!("small_contract_calls.len() {:?}", small_contract_calls.len());
+    }
+    {
+        let small_contract_calls =
+            select_transactions_where(&test_observer::get_microblocks(), |transaction| {
+                match &transaction.payload {
+                    TransactionPayload::ContractCall(contract) => {
+                        contract.contract_name == ContractName::try_from("small-contract").unwrap()
+                            && contract.function_name
+                                == ClarityName::try_from("return-one").unwrap()
+                    }
+                    _ => false,
+                }
+            });
+            info!("small_contract_calls.len() {:?}", small_contract_calls.len());
+        }
+
+    channel.stop_chains_coordinator();
 }
