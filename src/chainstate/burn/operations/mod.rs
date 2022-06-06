@@ -21,39 +21,44 @@ use std::fmt;
 use std::fs;
 use std::io;
 
-use crate::types::chainstate::BlockHeaderHash;
-use crate::types::chainstate::StacksAddress;
-use crate::types::chainstate::VRFSeed;
-use crate::types::proof::TrieHash;
-use burnchains::Burnchain;
-use burnchains::BurnchainBlockHeader;
-use burnchains::Error as BurnchainError;
-use burnchains::Txid;
-use burnchains::{Address, PublicKey};
-use burnchains::{BurnchainRecipient, BurnchainSigner, BurnchainTransaction};
-use chainstate::burn::db::sortdb::SortitionHandleTx;
-use chainstate::burn::operations::leader_block_commit::{
+use crate::burnchains::Burnchain;
+use crate::burnchains::BurnchainBlockHeader;
+use crate::burnchains::Error as BurnchainError;
+use crate::burnchains::Txid;
+use crate::burnchains::{Address, PublicKey};
+use crate::burnchains::{BurnchainRecipient, BurnchainSigner, BurnchainTransaction};
+use crate::chainstate::burn::db::sortdb::SortitionHandleTx;
+use crate::chainstate::burn::operations::leader_block_commit::{
     MissedBlockCommit, BURN_BLOCK_MINED_AT_MODULUS,
 };
+use crate::types::chainstate::BlockHeaderHash;
+use crate::types::chainstate::StacksAddress;
+use crate::types::chainstate::StacksBlockId;
+use crate::types::chainstate::TrieHash;
+use crate::types::chainstate::VRFSeed;
 
-use chainstate::burn::ConsensusHash;
-use chainstate::burn::Opcodes;
-use util::db::DBConn;
-use util::db::DBTx;
-use util::db::Error as db_error;
-use util::hash::Hash160;
-use util::hash::Sha512Trunc256Sum;
-use util::secp256k1::MessageSignature;
-use util::vrf::VRFPublicKey;
+use crate::chainstate::burn::ConsensusHash;
+use crate::chainstate::burn::Opcodes;
+use crate::util_lib::db::DBConn;
+use crate::util_lib::db::DBTx;
+use crate::util_lib::db::Error as db_error;
+use stacks_common::util::hash::Hash160;
+use stacks_common::util::hash::Sha512Trunc256Sum;
+use stacks_common::util::secp256k1::MessageSignature;
+use stacks_common::util::vrf::VRFPublicKey;
 
 use crate::types::chainstate::BurnchainHeaderHash;
+use clarity::vm::types::{PrincipalData, QualifiedContractIdentifier};
+use clarity::vm::ClarityName;
 
+pub mod deposit_ft;
+pub mod deposit_nft;
+pub mod deposit_stx;
 pub mod leader_block_commit;
+pub mod withdraw_ft;
+pub mod withdraw_nft;
+
 /// This module contains all burn-chain operations
-pub mod leader_key_register;
-pub mod stack_stx;
-pub mod transfer_stx;
-pub mod user_burn_support;
 
 #[derive(Debug)]
 pub enum Error {
@@ -207,37 +212,105 @@ pub struct PreStxOp {
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct LeaderBlockCommitOp {
-    pub block_header_hash: BlockHeaderHash, // hash of Stacks block header (sha512/256)
+    /// Hash of the committed block (anchor block hash)
+    pub block_header_hash: BlockHeaderHash,
+    /// Transaction ID of this commit op
+    pub txid: Txid,
+    /// Hash of the base chain block that produced this commit op.
+    pub burn_header_hash: BurnchainHeaderHash,
+}
 
-    pub new_seed: VRFSeed,     // new seed for this block
-    pub parent_block_ptr: u32, // block height of the block that contains the parent block hash
-    pub parent_vtxindex: u16, // offset in the parent block where the parent block hash can be found
-    pub key_block_ptr: u32,   // pointer to the block that contains the leader key registration
-    pub key_vtxindex: u16,    // offset in the block where the leader key can be found
-    pub memo: Vec<u8>,        // extra unused byte
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+pub struct DepositStxOp {
+    /// Transaction ID of this commit op
+    pub txid: Txid,
+    /// Hash of the base chain block that produced this commit op.
+    pub burn_header_hash: BurnchainHeaderHash,
 
-    /// how many burn tokens (e.g. satoshis) were committed to produce this block
-    pub burn_fee: u64,
-    /// the input transaction, used in mining commitment smoothing
-    pub input: (Txid, u32),
+    // Amount of STX that was deposited
+    pub amount: u128,
+    // The principal that performed the deposit
+    pub sender: PrincipalData,
+}
 
-    pub burn_parent_modulus: u8,
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+pub struct DepositFtOp {
+    /// Transaction ID of this commit op
+    pub txid: Txid,
+    /// Hash of the base chain block that produced this commit op.
+    pub burn_header_hash: BurnchainHeaderHash,
 
-    /// the apparent sender of the transaction. note: this
-    ///  is *not* authenticated, and should be used only
-    ///  for informational purposes (e.g., log messages)
-    pub apparent_sender: BurnchainSigner,
+    // Contract ID on L1 chain for this fungible token
+    pub l1_contract_id: QualifiedContractIdentifier,
+    // Contract ID on hyperchain for this fungible token
+    pub hc_contract_id: QualifiedContractIdentifier,
+    // Name of the function to call in the hyperchains contract to execute deposit
+    pub hc_function_name: ClarityName,
+    // Name of fungible token
+    pub name: String,
+    // Amount of the fungible token that was deposited
+    pub amount: u128,
+    // The principal that performed the deposit
+    pub sender: PrincipalData,
+}
 
-    /// PoX/Burn outputs
-    pub commit_outs: Vec<StacksAddress>,
-    /// how much sunset burn this block performed
-    pub sunset_burn: u64,
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+pub struct DepositNftOp {
+    /// Transaction ID of this commit op
+    pub txid: Txid,
+    /// Hash of the base chain block that produced this commit op.
+    pub burn_header_hash: BurnchainHeaderHash,
 
-    // common to all transactions
-    pub txid: Txid,                            // transaction ID
-    pub vtxindex: u32,                         // index in the block where this tx occurs
-    pub block_height: u64,                     // block height at which this tx occurs
-    pub burn_header_hash: BurnchainHeaderHash, // hash of the burn chain block header
+    // Contract ID on L1 chain for this NFT
+    pub l1_contract_id: QualifiedContractIdentifier,
+    // Contract ID on hyperchain for this NFT
+    pub hc_contract_id: QualifiedContractIdentifier,
+    // Name of the function to call in the hyperchains contract to execute deposit
+    pub hc_function_name: ClarityName,
+    // The ID of the NFT transferred
+    pub id: u128,
+    // The principal that performed the deposit
+    pub sender: PrincipalData,
+}
+
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+pub struct WithdrawFtOp {
+    /// Transaction ID of this commit op
+    pub txid: Txid,
+    /// Hash of the base chain block that produced this commit op.
+    pub burn_header_hash: BurnchainHeaderHash,
+
+    // Contract ID on L1 chain for this fungible token
+    pub l1_contract_id: QualifiedContractIdentifier,
+    // Contract ID on hyperchain for this fungible token
+    pub hc_contract_id: QualifiedContractIdentifier,
+    // Name of the function to call in the hyperchains contract to execute withdrawal
+    pub hc_function_name: ClarityName,
+    // The name of the fungible token
+    pub name: String,
+    // Amount of the fungible token that was deposited
+    pub amount: u128,
+    // The principal the contract is sending the fungible token to
+    pub recipient: PrincipalData,
+}
+
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+pub struct WithdrawNftOp {
+    /// Transaction ID of this commit op
+    pub txid: Txid,
+    /// Hash of the base chain block that produced this commit op.
+    pub burn_header_hash: BurnchainHeaderHash,
+
+    // Contract ID on L1 chain for this NFT
+    pub l1_contract_id: QualifiedContractIdentifier,
+    // Contract ID on hyperchain for this NFT
+    pub hc_contract_id: QualifiedContractIdentifier,
+    // Name of the function to call in the hyperchains contract to execute withdrawal
+    pub hc_function_name: ClarityName,
+    // The ID of the NFT being withdrawn
+    pub id: u128,
+    // The principal the contract is sending the NFT to
+    pub recipient: PrincipalData,
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
@@ -274,101 +347,110 @@ pub struct UserBurnSupportOp {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BlockstackOperationType {
-    LeaderKeyRegister(LeaderKeyRegisterOp),
     LeaderBlockCommit(LeaderBlockCommitOp),
-    UserBurnSupport(UserBurnSupportOp),
-    PreStx(PreStxOp),
-    StackStx(StackStxOp),
-    TransferStx(TransferStxOp),
+    DepositStx(DepositStxOp),
+    DepositFt(DepositFtOp),
+    DepositNft(DepositNftOp),
+    WithdrawFt(WithdrawFtOp),
+    WithdrawNft(WithdrawNftOp),
+}
+
+impl From<LeaderBlockCommitOp> for BlockstackOperationType {
+    fn from(op: LeaderBlockCommitOp) -> Self {
+        BlockstackOperationType::LeaderBlockCommit(op)
+    }
+}
+
+impl From<DepositStxOp> for BlockstackOperationType {
+    fn from(op: DepositStxOp) -> Self {
+        BlockstackOperationType::DepositStx(op)
+    }
+}
+
+impl From<DepositFtOp> for BlockstackOperationType {
+    fn from(op: DepositFtOp) -> Self {
+        BlockstackOperationType::DepositFt(op)
+    }
+}
+
+impl From<DepositNftOp> for BlockstackOperationType {
+    fn from(op: DepositNftOp) -> Self {
+        BlockstackOperationType::DepositNft(op)
+    }
+}
+
+impl From<WithdrawFtOp> for BlockstackOperationType {
+    fn from(op: WithdrawFtOp) -> Self {
+        BlockstackOperationType::WithdrawFt(op)
+    }
+}
+
+impl From<WithdrawNftOp> for BlockstackOperationType {
+    fn from(op: WithdrawNftOp) -> Self {
+        BlockstackOperationType::WithdrawNft(op)
+    }
 }
 
 impl BlockstackOperationType {
-    pub fn opcode(&self) -> Opcodes {
-        match *self {
-            BlockstackOperationType::LeaderKeyRegister(_) => Opcodes::LeaderKeyRegister,
-            BlockstackOperationType::LeaderBlockCommit(_) => Opcodes::LeaderBlockCommit,
-            BlockstackOperationType::UserBurnSupport(_) => Opcodes::UserBurnSupport,
-            BlockstackOperationType::StackStx(_) => Opcodes::StackStx,
-            BlockstackOperationType::PreStx(_) => Opcodes::PreStx,
-            BlockstackOperationType::TransferStx(_) => Opcodes::TransferStx,
-        }
-    }
-
     pub fn txid(&self) -> Txid {
         self.txid_ref().clone()
     }
 
     pub fn txid_ref(&self) -> &Txid {
         match *self {
-            BlockstackOperationType::LeaderKeyRegister(ref data) => &data.txid,
             BlockstackOperationType::LeaderBlockCommit(ref data) => &data.txid,
-            BlockstackOperationType::UserBurnSupport(ref data) => &data.txid,
-            BlockstackOperationType::StackStx(ref data) => &data.txid,
-            BlockstackOperationType::PreStx(ref data) => &data.txid,
-            BlockstackOperationType::TransferStx(ref data) => &data.txid,
+            BlockstackOperationType::DepositStx(ref data) => &data.txid,
+            BlockstackOperationType::DepositFt(ref data) => &data.txid,
+            BlockstackOperationType::DepositNft(ref data) => &data.txid,
+            BlockstackOperationType::WithdrawFt(ref data) => &data.txid,
+            BlockstackOperationType::WithdrawNft(ref data) => &data.txid,
         }
     }
 
     pub fn vtxindex(&self) -> u32 {
-        match *self {
-            BlockstackOperationType::LeaderKeyRegister(ref data) => data.vtxindex,
-            BlockstackOperationType::LeaderBlockCommit(ref data) => data.vtxindex,
-            BlockstackOperationType::UserBurnSupport(ref data) => data.vtxindex,
-            BlockstackOperationType::StackStx(ref data) => data.vtxindex,
-            BlockstackOperationType::PreStx(ref data) => data.vtxindex,
-            BlockstackOperationType::TransferStx(ref data) => data.vtxindex,
-        }
+        0
     }
 
     pub fn block_height(&self) -> u64 {
-        match *self {
-            BlockstackOperationType::LeaderKeyRegister(ref data) => data.block_height,
-            BlockstackOperationType::LeaderBlockCommit(ref data) => data.block_height,
-            BlockstackOperationType::UserBurnSupport(ref data) => data.block_height,
-            BlockstackOperationType::StackStx(ref data) => data.block_height,
-            BlockstackOperationType::PreStx(ref data) => data.block_height,
-            BlockstackOperationType::TransferStx(ref data) => data.block_height,
-        }
+        panic!("Not implemented")
     }
 
     pub fn burn_header_hash(&self) -> BurnchainHeaderHash {
         match *self {
-            BlockstackOperationType::LeaderKeyRegister(ref data) => data.burn_header_hash.clone(),
             BlockstackOperationType::LeaderBlockCommit(ref data) => data.burn_header_hash.clone(),
-            BlockstackOperationType::UserBurnSupport(ref data) => data.burn_header_hash.clone(),
-            BlockstackOperationType::StackStx(ref data) => data.burn_header_hash.clone(),
-            BlockstackOperationType::PreStx(ref data) => data.burn_header_hash.clone(),
-            BlockstackOperationType::TransferStx(ref data) => data.burn_header_hash.clone(),
+            BlockstackOperationType::DepositStx(ref data) => data.burn_header_hash.clone(),
+            BlockstackOperationType::DepositFt(ref data) => data.burn_header_hash.clone(),
+            BlockstackOperationType::DepositNft(ref data) => data.burn_header_hash.clone(),
+            BlockstackOperationType::WithdrawFt(ref data) => data.burn_header_hash.clone(),
+            BlockstackOperationType::WithdrawNft(ref data) => data.burn_header_hash.clone(),
         }
     }
 
     #[cfg(test)]
     pub fn set_block_height(&mut self, height: u64) {
         match self {
-            BlockstackOperationType::LeaderKeyRegister(ref mut data) => data.block_height = height,
             BlockstackOperationType::LeaderBlockCommit(ref mut data) => {
                 data.set_burn_height(height)
             }
-            BlockstackOperationType::UserBurnSupport(ref mut data) => data.block_height = height,
-            BlockstackOperationType::StackStx(ref mut data) => data.block_height = height,
-            BlockstackOperationType::PreStx(ref mut data) => data.block_height = height,
-            BlockstackOperationType::TransferStx(ref mut data) => data.block_height = height,
+            BlockstackOperationType::DepositStx(ref mut data) => data.set_burn_height(height),
+            BlockstackOperationType::DepositFt(ref mut data) => data.set_burn_height(height),
+            BlockstackOperationType::DepositNft(ref mut data) => data.set_burn_height(height),
+            BlockstackOperationType::WithdrawFt(ref mut data) => data.set_burn_height(height),
+            BlockstackOperationType::WithdrawNft(ref mut data) => data.set_burn_height(height),
         };
     }
 
     #[cfg(test)]
     pub fn set_burn_header_hash(&mut self, hash: BurnchainHeaderHash) {
         match self {
-            BlockstackOperationType::LeaderKeyRegister(ref mut data) => {
-                data.burn_header_hash = hash
-            }
             BlockstackOperationType::LeaderBlockCommit(ref mut data) => {
                 data.burn_header_hash = hash
             }
-            BlockstackOperationType::UserBurnSupport(ref mut data) => data.burn_header_hash = hash,
-            BlockstackOperationType::StackStx(ref mut data) => data.burn_header_hash = hash,
-            BlockstackOperationType::PreStx(ref mut data) => data.burn_header_hash = hash,
-            BlockstackOperationType::TransferStx(ref mut data) => data.burn_header_hash = hash,
+            BlockstackOperationType::DepositStx(ref mut data) => data.burn_header_hash = hash,
+            BlockstackOperationType::DepositFt(ref mut data) => data.burn_header_hash = hash,
+            BlockstackOperationType::DepositNft(ref mut data) => data.burn_header_hash = hash,
+            BlockstackOperationType::WithdrawFt(ref mut data) => data.burn_header_hash = hash,
+            BlockstackOperationType::WithdrawNft(ref mut data) => data.burn_header_hash = hash,
         };
     }
 }
@@ -376,12 +458,12 @@ impl BlockstackOperationType {
 impl fmt::Display for BlockstackOperationType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            BlockstackOperationType::LeaderKeyRegister(ref op) => write!(f, "{:?}", op),
-            BlockstackOperationType::PreStx(ref op) => write!(f, "{:?}", op),
-            BlockstackOperationType::StackStx(ref op) => write!(f, "{:?}", op),
             BlockstackOperationType::LeaderBlockCommit(ref op) => write!(f, "{:?}", op),
-            BlockstackOperationType::UserBurnSupport(ref op) => write!(f, "{:?}", op),
-            BlockstackOperationType::TransferStx(ref op) => write!(f, "{:?}", op),
+            BlockstackOperationType::DepositStx(ref op) => write!(f, "{:?}", op),
+            BlockstackOperationType::DepositFt(ref op) => write!(f, "{:?}", op),
+            BlockstackOperationType::DepositNft(ref op) => write!(f, "{:?}", op),
+            BlockstackOperationType::WithdrawFt(ref op) => write!(f, "{:?}", op),
+            BlockstackOperationType::WithdrawNft(ref op) => write!(f, "{:?}", op),
         }
     }
 }

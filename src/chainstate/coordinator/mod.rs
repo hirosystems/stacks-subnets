@@ -21,19 +21,19 @@ use std::path::PathBuf;
 use std::sync::mpsc::SyncSender;
 use std::time::Duration;
 
-use burnchains::{
+use crate::burnchains::{
     db::{BurnchainBlockData, BurnchainDB},
     Address, Burnchain, BurnchainBlockHeader, Error as BurnchainError, Txid,
 };
-use chainstate::burn::{
+use crate::chainstate::burn::{
     db::sortdb::SortitionDB, operations::leader_block_commit::RewardSetInfo,
     operations::BlockstackOperationType, BlockSnapshot, ConsensusHash,
 };
-use chainstate::coordinator::comm::{
+use crate::chainstate::coordinator::comm::{
     ArcCounterCoordinatorNotices, CoordinatorEvents, CoordinatorNotices, CoordinatorReceivers,
 };
-use chainstate::stacks::index::MarfTrieId;
-use chainstate::stacks::{
+use crate::chainstate::stacks::index::MarfTrieId;
+use crate::chainstate::stacks::{
     db::{
         accounts::MinerReward, ChainStateBootData, ClarityTx, MinerRewardInfo, StacksChainState,
         StacksHeaderInfo,
@@ -41,14 +41,13 @@ use chainstate::stacks::{
     events::{StacksTransactionEvent, StacksTransactionReceipt, TransactionOrigin},
     Error as ChainstateError, StacksBlock, TransactionPayload,
 };
-use core::StacksEpoch;
-use monitoring::{
+use crate::core::StacksEpoch;
+use crate::monitoring::{
     increment_contract_calls_processed, increment_stx_blocks_processed_counter,
-    update_stacks_tip_height,
 };
-use net::atlas::{AtlasConfig, AttachmentInstance};
-use util::db::Error as DBError;
-use vm::{
+use crate::net::atlas::{AtlasConfig, AttachmentInstance};
+use crate::util_lib::db::Error as DBError;
+use clarity::vm::{
     costs::ExecutionCost,
     types::{PrincipalData, QualifiedContractIdentifier},
     Value,
@@ -56,11 +55,11 @@ use vm::{
 
 use crate::cost_estimates::{CostEstimator, FeeEstimator, PessimisticEstimator};
 use crate::types::chainstate::{
-    BlockHeaderHash, BurnchainHeaderHash, PoxId, SortitionId, StacksAddress, StacksBlockHeader,
-    StacksBlockId,
+    BlockHeaderHash, BurnchainHeaderHash, SortitionId, StacksAddress, StacksBlockId,
 };
-use crate::util::boot::boot_code_id;
-use vm::database::BurnStateDB;
+use clarity::vm::database::BurnStateDB;
+
+use crate::chainstate::stacks::index::marf::MARFOpenOpts;
 
 pub use self::comm::CoordinatorCommunication;
 
@@ -118,13 +117,13 @@ impl RewardCycleInfo {
 pub trait BlockEventDispatcher {
     fn announce_block(
         &self,
-        block: StacksBlock,
-        metadata: StacksHeaderInfo,
-        receipts: Vec<StacksTransactionReceipt>,
+        block: &StacksBlock,
+        metadata: &StacksHeaderInfo,
+        receipts: &Vec<StacksTransactionReceipt>,
         parent: &StacksBlockId,
         winner_txid: Txid,
-        matured_rewards: Vec<MinerReward>,
-        matured_rewards_info: Option<MinerRewardInfo>,
+        matured_rewards: &Vec<MinerReward>,
+        matured_rewards_info: Option<&MinerRewardInfo>,
         parent_burn_block_hash: BurnchainHeaderHash,
         parent_burn_block_height: u32,
         parent_burn_block_timestamp: u64,
@@ -158,7 +157,6 @@ pub struct ChainsCoordinator<
 > {
     canonical_sortition_tip: Option<SortitionId>,
     canonical_chain_tip: Option<StacksBlockId>,
-    canonical_pox_id: Option<PoxId>,
     burnchain_blocks_db: BurnchainDB,
     chain_state_db: StacksChainState,
     sortition_db: SortitionDB,
@@ -213,9 +211,11 @@ pub trait RewardSetProvider {
     ) -> Result<Vec<StacksAddress>, Error>;
 }
 
+/// The reward set is always empty. This is a holdover from the mainchain reward provider.
+/// TODO: Delete this class once baseline subnet system is stable.
 pub struct OnChainRewardSetProvider();
-
 impl RewardSetProvider for OnChainRewardSetProvider {
+    #[allow(unused_variables)]
     fn get_reward_set(
         &self,
         current_burn_height: u64,
@@ -224,40 +224,7 @@ impl RewardSetProvider for OnChainRewardSetProvider {
         sortdb: &SortitionDB,
         block_id: &StacksBlockId,
     ) -> Result<Vec<StacksAddress>, Error> {
-        let registered_addrs =
-            chainstate.get_reward_addresses(burnchain, sortdb, current_burn_height, block_id)?;
-
-        let liquid_ustx = chainstate.get_liquid_ustx(block_id);
-
-        let (threshold, participation) = StacksChainState::get_reward_threshold_and_participation(
-            &burnchain.pox_constants,
-            &registered_addrs,
-            liquid_ustx,
-        );
-
-        if !burnchain
-            .pox_constants
-            .enough_participation(participation, liquid_ustx)
-        {
-            info!("PoX reward cycle did not have enough participation. Defaulting to burn";
-                  "burn_height" => current_burn_height,
-                  "participation" => participation,
-                  "liquid_ustx" => liquid_ustx,
-                  "registered_addrs" => registered_addrs.len());
-            return Ok(vec![]);
-        } else {
-            info!("PoX reward cycle threshold computed";
-                  "burn_height" => current_burn_height,
-                  "threshold" => threshold,
-                  "participation" => participation,
-                  "liquid_ustx" => liquid_ustx,
-                  "registered_addrs" => registered_addrs.len());
-        }
-
-        Ok(StacksChainState::make_reward_set(
-            threshold,
-            registered_addrs,
-        ))
+        Ok(vec![])
     }
 }
 
@@ -294,7 +261,6 @@ impl<'a, T: BlockEventDispatcher, CE: CostEstimator + ?Sized, FE: FeeEstimator +
         let mut inst = ChainsCoordinator {
             canonical_chain_tip: None,
             canonical_sortition_tip: Some(canonical_sortition_tip),
-            canonical_pox_id: None,
             burnchain_blocks_db,
             chain_state_db,
             sortition_db,
@@ -318,7 +284,7 @@ impl<'a, T: BlockEventDispatcher, CE: CostEstimator + ?Sized, FE: FeeEstimator +
                     }
                 }
                 CoordinatorEvents::NEW_BURN_BLOCK => {
-                    debug!("Received new burn block notice");
+                    info!("Received new burn block notice");
                     if let Err(e) = inst.handle_new_burnchain_block() {
                         warn!("Error processing new burn block: {:?}", e);
                     }
@@ -373,6 +339,7 @@ impl<'a, T: BlockEventDispatcher, U: RewardSetProvider> ChainsCoordinator<'a, T,
             chain_id,
             &format!("{}/chainstate/", path),
             Some(&mut boot_data),
+            None,
         )
         .unwrap();
         let canonical_sortition_tip =
@@ -381,7 +348,6 @@ impl<'a, T: BlockEventDispatcher, U: RewardSetProvider> ChainsCoordinator<'a, T,
         ChainsCoordinator {
             canonical_chain_tip: None,
             canonical_sortition_tip: Some(canonical_sortition_tip),
-            canonical_pox_id: None,
             burnchain_blocks_db,
             chain_state_db,
             sortition_db,
@@ -423,6 +389,7 @@ pub fn get_next_recipients<U: RewardSetProvider>(
 ///                     in our current sortition view:
 ///           * PoX anchor block
 ///           * Was PoX anchor block known?
+#[allow(unused_variables)]
 pub fn get_reward_cycle_info<U: RewardSetProvider>(
     burn_height: u64,
     parent_bhh: &BurnchainHeaderHash,
@@ -432,52 +399,7 @@ pub fn get_reward_cycle_info<U: RewardSetProvider>(
     sort_db: &SortitionDB,
     provider: &U,
 ) -> Result<Option<RewardCycleInfo>, Error> {
-    if burnchain.is_reward_cycle_start(burn_height) {
-        if burn_height >= burnchain.pox_constants.sunset_end {
-            return Ok(Some(RewardCycleInfo {
-                anchor_status: PoxAnchorBlockStatus::NotSelected,
-            }));
-        }
-
-        debug!("Beginning reward cycle";
-              "burn_height" => burn_height,
-              "reward_cycle_length" => burnchain.pox_constants.reward_cycle_length,
-              "prepare_phase_length" => burnchain.pox_constants.prepare_length);
-
-        let reward_cycle_info = {
-            let ic = sort_db.index_handle(sortition_tip);
-            ic.get_chosen_pox_anchor(&parent_bhh, &burnchain.pox_constants)
-        }?;
-        if let Some((consensus_hash, stacks_block_hash)) = reward_cycle_info {
-            info!("Anchor block selected: {}", stacks_block_hash);
-            let anchor_block_known = StacksChainState::is_stacks_block_processed(
-                &chain_state.db(),
-                &consensus_hash,
-                &stacks_block_hash,
-            )?;
-            let anchor_status = if anchor_block_known {
-                let block_id =
-                    StacksBlockHeader::make_index_block_hash(&consensus_hash, &stacks_block_hash);
-                let reward_set = provider.get_reward_set(
-                    burn_height,
-                    chain_state,
-                    burnchain,
-                    sort_db,
-                    &block_id,
-                )?;
-                PoxAnchorBlockStatus::SelectedAndKnown(stacks_block_hash, reward_set)
-            } else {
-                PoxAnchorBlockStatus::SelectedAndUnknown(stacks_block_hash)
-            };
-            Ok(Some(RewardCycleInfo { anchor_status }))
-        } else {
-            Ok(Some(RewardCycleInfo {
-                anchor_status: PoxAnchorBlockStatus::NotSelected,
-            }))
-        }
-    } else {
-        Ok(None)
-    }
+    Ok(None)
 }
 
 struct PaidRewards {
@@ -485,31 +407,10 @@ struct PaidRewards {
     burns: u64,
 }
 
-fn calculate_paid_rewards(ops: &[BlockstackOperationType]) -> PaidRewards {
-    let mut reward_recipients: HashMap<_, u64> = HashMap::new();
-    let mut burn_amt = 0;
-    for op in ops.iter() {
-        if let BlockstackOperationType::LeaderBlockCommit(commit) = op {
-            if commit.commit_outs.len() == 0 {
-                continue;
-            }
-            let amt_per_address = commit.burn_fee / (commit.commit_outs.len() as u64);
-            for addr in commit.commit_outs.iter() {
-                if addr.is_burn() {
-                    burn_amt += amt_per_address;
-                } else {
-                    if let Some(prior_amt) = reward_recipients.get_mut(addr) {
-                        *prior_amt += amt_per_address;
-                    } else {
-                        reward_recipients.insert(addr.clone(), amt_per_address);
-                    }
-                }
-            }
-        }
-    }
+fn calculate_paid_rewards(_ops: &[BlockstackOperationType]) -> PaidRewards {
     PaidRewards {
-        pox: reward_recipients.into_iter().collect(),
-        burns: burn_amt,
+        pox: vec![],
+        burns: 1,
     }
 }
 
@@ -558,9 +459,9 @@ impl<
     pub fn handle_new_burnchain_block(&mut self) -> Result<(), Error> {
         // Retrieve canonical burnchain chain tip from the BurnchainBlocksDB
         let canonical_burnchain_tip = self.burnchain_blocks_db.get_canonical_chain_tip()?;
-        debug!("Handle new canonical burnchain tip";
-               "height" => %canonical_burnchain_tip.block_height,
-               "block_hash" => %canonical_burnchain_tip.block_hash.to_string());
+        info!("Handle new canonical burnchain tip";
+              "height" => %canonical_burnchain_tip.block_height,
+              "block_hash" => %canonical_burnchain_tip.block_hash.to_string());
 
         // Retrieve all the direct ancestors of this block with an unprocessed sortition
         let mut cursor = canonical_burnchain_tip.block_hash.clone();
@@ -584,6 +485,18 @@ impl<
                 })?;
 
             let parent = current_block.header.parent_block_hash.clone();
+            if current_block.header.block_height <= self.sortition_db.first_block_height {
+                break SortitionDB::get_first_block_snapshot(self.sortition_db.conn())?
+                    .sortition_id;
+            }
+
+            // if parent is sentinel, fast return
+            if current_block.header.block_height == self.sortition_db.first_block_height + 1 {
+                sortitions_to_process.push_front(current_block);
+                break SortitionDB::get_first_block_snapshot(self.sortition_db.conn())?
+                    .sortition_id;
+            }
+
             sortitions_to_process.push_front(current_block);
             cursor = parent;
         };
@@ -593,7 +506,7 @@ impl<
             .map(|block| block.header.block_hash.to_string())
             .collect();
 
-        debug!(
+        info!(
             "Unprocessed burn chain blocks [{}]",
             burn_header_hashes.join(", ")
         );
@@ -615,7 +528,9 @@ impl<
             // at this point, we need to figure out if the sortition we are
             //  about to process is the first block in reward cycle.
             let reward_cycle_info = self.get_reward_cycle_info(&header)?;
-            let (next_snapshot, _, reward_set_info) = self
+            // bind a reference here to avoid tripping up the borrow-checker
+            let dispatcher_ref = &self.dispatcher;
+            let (next_snapshot, _) = self
                 .sortition_db
                 .evaluate_sortition(
                     &header,
@@ -623,21 +538,27 @@ impl<
                     &self.burnchain,
                     &last_processed_ancestor,
                     reward_cycle_info,
+                    |reward_set_info| {
+                        if let Some(dispatcher) = dispatcher_ref {
+                            dispatcher_announce_burn_ops(
+                                *dispatcher,
+                                &header,
+                                paid_rewards,
+                                reward_set_info,
+                            );
+                        }
+                    },
                 )
                 .map_err(|e| {
                     error!("ChainsCoordinator: unable to evaluate sortition {:?}", e);
                     Error::FailedToProcessSortition(e)
                 })?;
 
-            if let Some(dispatcher) = self.dispatcher {
-                dispatcher_announce_burn_ops(dispatcher, &header, paid_rewards, reward_set_info);
-            }
-
             let sortition_id = next_snapshot.sortition_id;
 
             self.notifier.notify_sortition_processed();
 
-            debug!(
+            info!(
                 "Sortition processed";
                 "sortition_id" => &sortition_id.to_string(),
                 "burn_header_hash" => &next_snapshot.burn_header_hash.to_string(),
@@ -697,9 +618,9 @@ impl<
         );
 
         let sortdb_handle = self.sortition_db.tx_handle_begin(canonical_sortition_tip)?;
-        let mut processed_blocks = self.chain_state_db.process_blocks(sortdb_handle, 1)?;
-        let stacks_tip = SortitionDB::get_canonical_burn_chain_tip(self.sortition_db.conn())?;
-        update_stacks_tip_height(stacks_tip.canonical_stacks_tip_height as i64);
+        let mut processed_blocks =
+            self.chain_state_db
+                .process_blocks(sortdb_handle, 1, self.dispatcher)?;
 
         while let Some(block_result) = processed_blocks.pop() {
             if let (Some(block_receipt), _) = block_result {
@@ -747,8 +668,12 @@ impl<
                                                 &event_data.value,
                                                 &contract_id,
                                                 block_receipt.header.index_block_hash(),
-                                                block_receipt.header.block_height,
+                                                block_receipt.header.stacks_block_height,
                                                 receipt.transaction.txid(),
+                                                Some(
+                                                    new_canonical_block_snapshot
+                                                        .canonical_stacks_tip_height,
+                                                ),
                                             );
                                             if let Some(attachment_instance) = res {
                                                 attachments_instances.insert(attachment_instance);
@@ -796,53 +721,9 @@ impl<
                         {
                             warn!("FeeEstimator failed to process block receipt";
                                   "stacks_block" => %block_hash,
-                                  "stacks_height" => %block_receipt.header.block_height,
+                                  "stacks_height" => %block_receipt.header.stacks_block_height,
                                   "error" => %e);
                         }
-                    }
-
-                    if let Some(dispatcher) = self.dispatcher {
-                        let metadata = &block_receipt.header;
-                        let winner_txid = SortitionDB::get_block_snapshot_for_winning_stacks_block(
-                            &self.sortition_db.index_conn(),
-                            canonical_sortition_tip,
-                            &block_hash,
-                        )
-                        .expect("FAIL: could not find block snapshot for winning block hash")
-                        .expect("FAIL: could not find block snapshot for winning block hash")
-                        .winning_block_txid;
-
-                        let block: StacksBlock = {
-                            let block_path = StacksChainState::get_block_path(
-                                &self.chain_state_db.blocks_path,
-                                &metadata.consensus_hash,
-                                &block_hash,
-                            )
-                            .unwrap();
-                            StacksChainState::consensus_load(&block_path).unwrap()
-                        };
-                        let stacks_block =
-                            StacksBlockId::new(&metadata.consensus_hash, &block_hash);
-
-                        let parent = self
-                            .chain_state_db
-                            .get_parent(&stacks_block)
-                            .expect("BUG: failed to get parent for processed block");
-
-                        dispatcher.announce_block(
-                            block,
-                            block_receipt.header,
-                            block_receipt.tx_receipts,
-                            &parent,
-                            winner_txid,
-                            block_receipt.matured_rewards,
-                            block_receipt.matured_rewards_info,
-                            block_receipt.parent_burn_block_hash,
-                            block_receipt.parent_burn_block_height,
-                            block_receipt.parent_burn_block_timestamp,
-                            &block_receipt.anchored_block_cost,
-                            &block_receipt.parent_microblocks_cost,
-                        );
                     }
 
                     // if, just after processing the block, we _know_ that this block is a pox anchor, that means
@@ -860,7 +741,10 @@ impl<
             // TODO: do something with a poison result
 
             let sortdb_handle = self.sortition_db.tx_handle_begin(canonical_sortition_tip)?;
-            processed_blocks = self.chain_state_db.process_blocks(sortdb_handle, 1)?;
+            // Right before a block is set to processed, the event dispatcher will emit a new block event
+            processed_blocks =
+                self.chain_state_db
+                    .process_blocks(sortdb_handle, 1, self.dispatcher)?;
         }
 
         Ok(None)
@@ -895,8 +779,6 @@ impl<
             "Reprocessing with anchor block information, starting at block height: {}",
             prep_end.block_height
         );
-        let mut pox_id = self.sortition_db.get_pox_id(sortition_id)?;
-        pox_id.extend_with_present_block();
 
         // invalidate all the sortitions > canonical_sortition_tip, in the same burnchain fork
         self.sortition_db
@@ -908,7 +790,6 @@ impl<
             &prep_end.canonical_stacks_tip_hash,
         ));
         self.canonical_sortition_tip = Some(prep_end.sortition_id);
-        self.canonical_pox_id = Some(pox_id);
 
         // Start processing from the beginning of the new PoX reward set
         self.handle_new_burnchain_block()
@@ -966,4 +847,36 @@ pub fn check_chainstate_db_versions(
     }
 
     Ok(true)
+}
+
+/// Migrate all databases to their latest schemas.
+/// Verifies that this is possible as well
+pub fn migrate_chainstate_dbs(
+    epochs: &[StacksEpoch],
+    sortdb_path: &str,
+    chainstate_path: &str,
+    chainstate_marf_opts: Option<MARFOpenOpts>,
+) -> Result<(), Error> {
+    if !check_chainstate_db_versions(epochs, sortdb_path, chainstate_path)? {
+        warn!("Unable to migrate chainstate DBs to the latest schemas in the current epoch");
+        return Err(DBError::TooOldForEpoch.into());
+    }
+
+    if fs::metadata(&sortdb_path).is_ok() {
+        info!("Migrating sortition DB to the latest schema version");
+        SortitionDB::migrate_if_exists(&sortdb_path, epochs)?;
+    }
+    if fs::metadata(&chainstate_path).is_ok() {
+        info!("Migrating chainstate DB to the latest schema version");
+        let db_config = StacksChainState::get_db_config_from_path(&chainstate_path)?;
+
+        // this does the migration internally
+        let _ = StacksChainState::open(
+            db_config.mainnet,
+            db_config.chain_id,
+            chainstate_path,
+            chainstate_marf_opts,
+        )?;
+    }
+    Ok(())
 }

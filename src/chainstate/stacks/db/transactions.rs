@@ -22,50 +22,43 @@ use std::io::prelude::*;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use chainstate::burn::db::sortdb::*;
-use chainstate::stacks::db::*;
-use chainstate::stacks::Error;
-use chainstate::stacks::*;
-use clarity_vm::clarity::{
+use crate::chainstate::burn::db::sortdb::*;
+use crate::chainstate::stacks::db::*;
+use crate::chainstate::stacks::Error;
+use crate::chainstate::stacks::*;
+use crate::clarity_vm::clarity::{
     ClarityBlockConnection, ClarityConnection, ClarityInstance, ClarityTransactionConnection,
     Error as clarity_error,
 };
-use net::Error as net_error;
-use util::db::Error as db_error;
-use util::db::{query_count, query_rows, DBConn};
-use util::hash::to_hex;
-use util::strings::{StacksString, VecDisplay};
-pub use vm::analysis::errors::CheckErrors;
-use vm::analysis::run_analysis;
-use vm::analysis::types::ContractAnalysis;
-use vm::ast::build_ast;
-use vm::contexts::{AssetMap, AssetMapEntry, Environment};
-use vm::contracts::Contract;
-use vm::costs::cost_functions;
-use vm::costs::cost_functions::ClarityCostFunction;
-use vm::costs::runtime_cost;
-use vm::costs::CostTracker;
-use vm::costs::ExecutionCost;
-use vm::database::ClarityDatabase;
-use vm::errors::Error as InterpreterError;
-use vm::representations::ClarityName;
-use vm::representations::ContractName;
-use vm::types::{
+use crate::net::Error as net_error;
+use crate::util_lib::db::Error as db_error;
+use crate::util_lib::db::{query_count, query_rows, DBConn};
+use stacks_common::util::hash::to_hex;
+
+use crate::util_lib::strings::{StacksString, VecDisplay};
+pub use clarity::vm::analysis::errors::CheckErrors;
+use clarity::vm::analysis::run_analysis;
+use clarity::vm::analysis::types::ContractAnalysis;
+use clarity::vm::ast::build_ast;
+use clarity::vm::clarity::TransactionConnection;
+use clarity::vm::contexts::{AssetMap, AssetMapEntry, Environment};
+use clarity::vm::contracts::Contract;
+use clarity::vm::costs::cost_functions;
+use clarity::vm::costs::cost_functions::ClarityCostFunction;
+use clarity::vm::costs::runtime_cost;
+use clarity::vm::costs::CostTracker;
+use clarity::vm::costs::ExecutionCost;
+use clarity::vm::database::ClarityDatabase;
+use clarity::vm::errors::Error as InterpreterError;
+use clarity::vm::representations::ClarityName;
+use clarity::vm::representations::ContractName;
+use clarity::vm::types::{
     AssetIdentifier, BuffData, PrincipalData, QualifiedContractIdentifier, SequenceData,
     StandardPrincipalData, TupleData, TypeSignature, Value,
 };
 
-use crate::types::chainstate::StacksMicroblockHeader;
-
-// make it possible to have a set of Values
-impl std::hash::Hash for Value {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let mut s = vec![];
-        self.consensus_serialize(&mut s)
-            .expect("FATAL: failed to serialize to vec");
-        s.hash(state);
-    }
-}
+use crate::chainstate::stacks::StacksMicroblockHeader;
+use clarity::vm::types::StacksAddressExtensions as ClarityStacksAddressExt;
 
 impl StacksTransactionReceipt {
     pub fn from_stx_transfer(
@@ -83,6 +76,7 @@ impl StacksTransactionReceipt {
             transaction: tx.into(),
             execution_cost: cost,
             microblock_header: None,
+            tx_index: 0,
         }
     }
 
@@ -102,6 +96,7 @@ impl StacksTransactionReceipt {
             contract_analysis: None,
             execution_cost: cost,
             microblock_header: None,
+            tx_index: 0,
         }
     }
 
@@ -121,6 +116,7 @@ impl StacksTransactionReceipt {
             contract_analysis: None,
             execution_cost: cost,
             microblock_header: None,
+            tx_index: 0,
         }
     }
 
@@ -140,6 +136,7 @@ impl StacksTransactionReceipt {
             contract_analysis: Some(analysis),
             execution_cost: cost,
             microblock_header: None,
+            tx_index: 0,
         }
     }
 
@@ -159,6 +156,7 @@ impl StacksTransactionReceipt {
             contract_analysis: Some(analysis),
             execution_cost: cost,
             microblock_header: None,
+            tx_index: 0,
         }
     }
 
@@ -172,6 +170,7 @@ impl StacksTransactionReceipt {
             contract_analysis: None,
             execution_cost: ExecutionCost::zero(),
             microblock_header: None,
+            tx_index: 0,
         }
     }
 
@@ -188,6 +187,7 @@ impl StacksTransactionReceipt {
             contract_analysis: None,
             execution_cost: analysis_cost,
             microblock_header: None,
+            tx_index: 0,
         }
     }
 
@@ -205,6 +205,7 @@ impl StacksTransactionReceipt {
             contract_analysis: None,
             execution_cost: cost,
             microblock_header: None,
+            tx_index: 0,
         }
     }
 
@@ -628,7 +629,7 @@ impl StacksChainState {
     fn check_microblock_header_signer(
         mblock_hdr_1: &StacksMicroblockHeader,
         mblock_hdr_2: &StacksMicroblockHeader,
-    ) -> Result<Hash160, Error> {
+    ) -> Result<Vec<Hash160>, Error> {
         let pkh1 = mblock_hdr_1.check_recover_pubkey().map_err(|e| {
             Error::InvalidStacksTransaction(
                 format!("Failed to recover public key: {:?}", &e),
@@ -645,175 +646,13 @@ impl StacksChainState {
 
         if pkh1 != pkh2 {
             let msg = format!(
-                "Invalid PoisonMicroblock transaction -- signature pubkey hash {} != {}",
+                "Invalid PoisonMicroblock transaction -- signature pubkey hash {:?} != {:?}",
                 &pkh1, &pkh2
             );
             warn!("{}", &msg);
-            return Err(Error::InvalidStacksTransaction(msg, false));
+            return Err(Error::InvalidStacksTransaction(msg.to_string(), false));
         }
         Ok(pkh1)
-    }
-
-    /// Process a poison-microblock transaction within a Clarity environment.
-    /// The code in vm::contexts will call this, via a similarly-named method.
-    /// Returns a Value that represents the miner slashed:
-    /// * contains the block height of the block with the slashed microblock public key hash
-    /// * contains the microblock public key hash
-    /// * contains the sender that reported the poison-microblock
-    /// * contains the sequence number at which the fork occured
-    pub fn handle_poison_microblock(
-        env: &mut Environment,
-        mblock_header_1: &StacksMicroblockHeader,
-        mblock_header_2: &StacksMicroblockHeader,
-    ) -> Result<Value, Error> {
-        let cost_before = env.global_context.cost_track.get_total();
-
-        // encodes MARF reads for loading microblock height and current height, and loading and storing a
-        // poison-microblock report
-        runtime_cost(ClarityCostFunction::PoisonMicroblock, env, 0)
-            .map_err(|e| Error::from_cost_error(e, cost_before.clone(), &env.global_context))?;
-
-        let sender_principal = match &env.sender {
-            Some(ref sender) => {
-                if let PrincipalData::Standard(sender) = sender.clone() {
-                    sender
-                } else {
-                    panic!(
-                        "BUG: tried to handle poison microblock without a standard principal sender"
-                    );
-                }
-            }
-            None => {
-                panic!("BUG: tried to handle poison microblock without a sender");
-            }
-        };
-
-        // is this valid -- were both headers signed by the same key?
-        let pubkh =
-            StacksChainState::check_microblock_header_signer(mblock_header_1, mblock_header_2)?;
-
-        let microblock_height_opt = env
-            .global_context
-            .database
-            .get_microblock_pubkey_hash_height(&pubkh);
-        let current_height = env.global_context.database.get_current_block_height();
-
-        // for the microblock public key hash we had to process
-        env.add_memory(20)
-            .map_err(|e| Error::from_cost_error(e, cost_before.clone(), &env.global_context))?;
-
-        // for the block height we had to load
-        env.add_memory(4)
-            .map_err(|e| Error::from_cost_error(e, cost_before.clone(), &env.global_context))?;
-
-        // was the referenced public key hash used anytime in the past
-        // MINER_REWARD_MATURITY blocks?
-        let mblock_pubk_height = match microblock_height_opt {
-            None => {
-                // public key has never been seen before
-                let msg = format!(
-                    "Invalid Stacks transaction: microblock public key hash {} never seen in this fork",
-                    &pubkh
-                );
-                warn!("{}", &msg;
-                      "microblock_pubkey_hash" => %pubkh
-                );
-
-                return Err(Error::InvalidStacksTransaction(msg, false));
-            }
-            Some(height) => {
-                if height
-                    .checked_add(MINER_REWARD_MATURITY as u32)
-                    .expect("BUG: too many blocks")
-                    < current_height
-                {
-                    let msg = format!("Invalid Stacks transaction: microblock public key hash from height {} has matured relative to current height {}", height, current_height);
-                    warn!("{}", &msg;
-                          "microblock_pubkey_hash" => %pubkh
-                    );
-
-                    return Err(Error::InvalidStacksTransaction(msg, false));
-                }
-                height
-            }
-        };
-
-        // add punishment / commission record, if one does not already exist at lower sequence
-        let (reporter_principal, reported_seq) = if let Some((reporter, seq)) = env
-            .global_context
-            .database
-            .get_microblock_poison_report(mblock_pubk_height)
-        {
-            // account for report loaded
-            env.add_memory(TypeSignature::PrincipalType.size() as u64)
-                .map_err(|e| Error::from_cost_error(e, cost_before.clone(), &env.global_context))?;
-
-            // u128 sequence
-            env.add_memory(16)
-                .map_err(|e| Error::from_cost_error(e, cost_before.clone(), &env.global_context))?;
-
-            if mblock_header_1.sequence < seq {
-                // this sender reports a point lower in the stream where a fork occurred, and is now
-                // entitled to a commission of the punished miner's coinbase
-                debug!("Sender {} reports a better poison-miroblock record (at {}) for key {} at height {} than {} (at {})", &sender_principal, mblock_header_1.sequence, &pubkh, mblock_pubk_height, &reporter, seq;
-                    "sender" => %sender_principal,
-                    "microblock_pubkey_hash" => %pubkh
-                );
-                env.global_context.database.insert_microblock_poison(
-                    mblock_pubk_height,
-                    &sender_principal,
-                    mblock_header_1.sequence,
-                )?;
-                (sender_principal, mblock_header_1.sequence)
-            } else {
-                // someone else beat the sender to this report
-                debug!("Sender {} reports an equal or worse poison-microblock record (at {}, but already have one for {}); dropping...", &sender_principal, mblock_header_1.sequence, seq;
-                    "sender" => %sender_principal,
-                    "microblock_pubkey_hash" => %pubkh
-                );
-                (reporter, seq)
-            }
-        } else {
-            // first-ever report of a fork
-            debug!(
-                "Sender {} reports a poison-microblock record at seq {} for key {} at height {}",
-                &sender_principal, mblock_header_1.sequence, &pubkh, &mblock_pubk_height;
-                "sender" => %sender_principal,
-                "microblock_pubkey_hash" => %pubkh
-            );
-            env.global_context.database.insert_microblock_poison(
-                mblock_pubk_height,
-                &sender_principal,
-                mblock_header_1.sequence,
-            )?;
-            (sender_principal, mblock_header_1.sequence)
-        };
-
-        let hash_data = BuffData {
-            data: pubkh.as_bytes().to_vec(),
-        };
-        let tuple_data = TupleData::from_data(vec![
-            (
-                ClarityName::try_from("block_height").expect("BUG: valid string representation"),
-                Value::UInt(mblock_pubk_height as u128),
-            ),
-            (
-                ClarityName::try_from("microblock_pubkey_hash")
-                    .expect("BUG: valid string representation"),
-                Value::Sequence(SequenceData::Buffer(hash_data)),
-            ),
-            (
-                ClarityName::try_from("reporter").expect("BUG: valid string representation"),
-                Value::Principal(PrincipalData::Standard(reporter_principal)),
-            ),
-            (
-                ClarityName::try_from("sequence").expect("BUG: valid string representation"),
-                Value::UInt(reported_seq as u128),
-            ),
-        ])
-        .expect("BUG: valid tuple representation");
-
-        Ok(Value::Tuple(tuple_data))
     }
 
     /// Process the transaction's payload, and run the post-conditions against the resulting state.
@@ -1087,30 +926,8 @@ impl StacksChainState {
                 );
                 Ok(receipt)
             }
-            TransactionPayload::PoisonMicroblock(ref mblock_header_1, ref mblock_header_2) => {
-                // post-conditions are not allowed for this variant, since they're non-sensical.
-                // Their presence in this variant makes the transaction invalid.
-                if tx.post_conditions.len() > 0 {
-                    let msg = format!("Invalid Stacks transaction: PoisonMicroblock transactions do not support post-conditions");
-                    warn!("{}", &msg);
-
-                    return Err(Error::InvalidStacksTransaction(msg, false));
-                }
-
-                let cost_before = clarity_tx.cost_so_far();
-                let res = clarity_tx.run_poison_microblock(
-                    &origin_account.principal,
-                    mblock_header_1,
-                    mblock_header_2,
-                )?;
-                let mut cost = clarity_tx.cost_so_far();
-                cost.sub(&cost_before)
-                    .expect("BUG: running poison microblock tx has negative cost");
-
-                let receipt =
-                    StacksTransactionReceipt::from_poison_microblock(tx.clone(), res, cost);
-
-                Ok(receipt)
+            TransactionPayload::PoisonMicroblock(ref _mblock_header_1, ref _mblock_header_2) => {
+                panic!("`TransactionPayload::PoisonMicroblock` case received, but poison microblocks are not supported in hyper-chains.")
             }
             TransactionPayload::Coinbase(_) => {
                 // no-op; not handled here
@@ -1167,19 +984,19 @@ impl StacksChainState {
 pub mod test {
     use rand::Rng;
 
-    use burnchains::Address;
-    use chainstate::stacks::db::test::*;
-    use chainstate::stacks::index::storage::*;
-    use chainstate::stacks::index::*;
-    use chainstate::stacks::Error;
-    use chainstate::stacks::*;
-    use chainstate::*;
-    use util::hash::*;
-    use vm::contracts::Contract;
-    use vm::representations::ClarityName;
-    use vm::representations::ContractName;
-    use vm::tests::TEST_BURN_STATE_DB;
-    use vm::types::*;
+    use crate::burnchains::Address;
+    use crate::chainstate::stacks::db::test::*;
+    use crate::chainstate::stacks::index::storage::*;
+    use crate::chainstate::stacks::index::*;
+    use crate::chainstate::stacks::Error;
+    use crate::chainstate::stacks::*;
+    use crate::chainstate::*;
+    use clarity::vm::contracts::Contract;
+    use clarity::vm::representations::ClarityName;
+    use clarity::vm::representations::ContractName;
+    use clarity::vm::test_util::TEST_BURN_STATE_DB;
+    use clarity::vm::types::*;
+    use stacks_common::util::hash::*;
 
     use super::*;
 
@@ -7166,362 +6983,11 @@ pub mod test {
                 sequence: seq,
                 prev_block: parent_block,
                 tx_merkle_root: tx_merkle_root,
-                signature: MessageSignature([0u8; 65]),
+                miner_signatures: MessageSignatureList::empty(),
             },
             txs: txs,
         };
         mblock.sign(block_privk).unwrap();
         mblock
-    }
-
-    #[test]
-    fn process_poison_microblock_same_block() {
-        let privk = StacksPrivateKey::from_hex(
-            "6d430bb91222408e7706c9001cfaeb91b08c2be6d5ac95779ab52c6b431950e001",
-        )
-        .unwrap();
-        let auth = TransactionAuth::from_p2pkh(&privk).unwrap();
-        let addr = auth.origin().address_testnet();
-
-        let balances = vec![(addr.clone(), 1000000000)];
-
-        let mut chainstate = instantiate_chainstate_with_balances(
-            false,
-            0x80000000,
-            "process-poison-microblock",
-            balances,
-        );
-
-        let block_privk = StacksPrivateKey::from_hex(
-            "2f90f1b148207a110aa58d1b998510407420d7a8065d4fdfc0bbe22c5d9f1c6a01",
-        )
-        .unwrap();
-
-        let block_pubkh =
-            Hash160::from_node_public_key(&StacksPublicKey::from_private(&block_privk));
-
-        let reporter_privk = StacksPrivateKey::from_hex(
-            "e606e944014b2a9788d0e3c8defaf6bc44b1e3ab881aaba32faa6e32002b7e1f01",
-        )
-        .unwrap();
-        let reporter_addr = TransactionAuth::from_p2pkh(&reporter_privk)
-            .unwrap()
-            .origin()
-            .address_testnet();
-
-        let mut conn = chainstate.block_begin(
-            &TEST_BURN_STATE_DB,
-            &FIRST_BURNCHAIN_CONSENSUS_HASH,
-            &FIRST_STACKS_BLOCK_HASH,
-            &ConsensusHash([1u8; 20]),
-            &BlockHeaderHash([1u8; 32]),
-        );
-
-        StacksChainState::insert_microblock_pubkey_hash(&mut conn, 1, &block_pubkh).unwrap();
-
-        let height_opt =
-            StacksChainState::has_microblock_pubkey_hash(&mut conn, &block_pubkh).unwrap();
-        assert_eq!(height_opt.unwrap(), 1);
-
-        // make poison
-        let mblock_1 =
-            make_signed_microblock(&block_privk, &privk, BlockHeaderHash([0x11; 32]), 123);
-        let mblock_2 =
-            make_signed_microblock(&block_privk, &privk, BlockHeaderHash([0x11; 32]), 123);
-        assert!(mblock_1 != mblock_2);
-
-        // report poison (in the same block)
-        let mut tx_poison_microblock = StacksTransaction::new(
-            TransactionVersion::Testnet,
-            TransactionAuth::from_p2pkh(&reporter_privk).unwrap(),
-            TransactionPayload::PoisonMicroblock(mblock_1.header.clone(), mblock_2.header.clone()),
-        );
-
-        tx_poison_microblock.chain_id = 0x80000000;
-        tx_poison_microblock.set_tx_fee(0);
-
-        let mut signer = StacksTransactionSigner::new(&tx_poison_microblock);
-        signer.sign_origin(&reporter_privk).unwrap();
-        let signed_tx_poison_microblock = signer.get_tx().unwrap();
-
-        // process it!
-        let (fee, receipt) =
-            StacksChainState::process_transaction(&mut conn, &signed_tx_poison_microblock, false)
-                .unwrap();
-
-        // there must be a poison record for this microblock, from the reporter, for the microblock
-        // sequence.
-        let report_opt = StacksChainState::get_poison_microblock_report(&mut conn, 1).unwrap();
-        assert_eq!(report_opt.unwrap(), (reporter_addr, 123));
-
-        // result must encode poison information
-        let result_data = receipt.result.expect_tuple();
-
-        let height = result_data
-            .get("block_height")
-            .unwrap()
-            .to_owned()
-            .expect_u128();
-        let mblock_pubkh = result_data
-            .get("microblock_pubkey_hash")
-            .unwrap()
-            .to_owned()
-            .expect_buff(20);
-        let reporter = result_data
-            .get("reporter")
-            .unwrap()
-            .to_owned()
-            .expect_principal();
-        let seq = result_data
-            .get("sequence")
-            .unwrap()
-            .to_owned()
-            .expect_u128();
-
-        assert_eq!(height, 1);
-        assert_eq!(mblock_pubkh, block_pubkh.0.to_vec());
-        assert_eq!(seq, 123);
-        assert_eq!(reporter, reporter_addr.to_account_principal());
-
-        conn.commit_block();
-    }
-
-    #[test]
-    fn process_poison_microblock_invalid_transaction() {
-        let privk = StacksPrivateKey::from_hex(
-            "6d430bb91222408e7706c9001cfaeb91b08c2be6d5ac95779ab52c6b431950e001",
-        )
-        .unwrap();
-        let auth = TransactionAuth::from_p2pkh(&privk).unwrap();
-        let addr = auth.origin().address_testnet();
-
-        let balances = vec![(addr.clone(), 1000000000)];
-
-        let mut chainstate = instantiate_chainstate_with_balances(
-            false,
-            0x80000000,
-            "process-poison-microblock-invalid-transaction",
-            balances,
-        );
-
-        let block_privk = StacksPrivateKey::from_hex(
-            "2f90f1b148207a110aa58d1b998510407420d7a8065d4fdfc0bbe22c5d9f1c6a01",
-        )
-        .unwrap();
-
-        let block_pubkh =
-            Hash160::from_node_public_key(&StacksPublicKey::from_private(&block_privk));
-
-        let reporter_privk = StacksPrivateKey::from_hex(
-            "e606e944014b2a9788d0e3c8defaf6bc44b1e3ab881aaba32faa6e32002b7e1f01",
-        )
-        .unwrap();
-        let reporter_addr = TransactionAuth::from_p2pkh(&reporter_privk)
-            .unwrap()
-            .origin()
-            .address_testnet();
-
-        let mut conn = chainstate.block_begin(
-            &TEST_BURN_STATE_DB,
-            &FIRST_BURNCHAIN_CONSENSUS_HASH,
-            &FIRST_STACKS_BLOCK_HASH,
-            &ConsensusHash([1u8; 20]),
-            &BlockHeaderHash([1u8; 32]),
-        );
-
-        StacksChainState::insert_microblock_pubkey_hash(&mut conn, 1, &block_pubkh).unwrap();
-
-        let height_opt =
-            StacksChainState::has_microblock_pubkey_hash(&mut conn, &block_pubkh).unwrap();
-        assert_eq!(height_opt.unwrap(), 1);
-
-        // make poison, but for an unknown microblock fork
-        let mblock_1 = make_signed_microblock(&privk, &privk, BlockHeaderHash([0x11; 32]), 123);
-        let mblock_2 = make_signed_microblock(&privk, &privk, BlockHeaderHash([0x11; 32]), 123);
-        assert!(mblock_1 != mblock_2);
-
-        // report poison (in the same block)
-        let mut tx_poison_microblock = StacksTransaction::new(
-            TransactionVersion::Testnet,
-            TransactionAuth::from_p2pkh(&reporter_privk).unwrap(),
-            TransactionPayload::PoisonMicroblock(mblock_1.header.clone(), mblock_2.header.clone()),
-        );
-
-        tx_poison_microblock.chain_id = 0x80000000;
-        tx_poison_microblock.set_tx_fee(0);
-
-        let mut signer = StacksTransactionSigner::new(&tx_poison_microblock);
-        signer.sign_origin(&reporter_privk).unwrap();
-        let signed_tx_poison_microblock = signer.get_tx().unwrap();
-
-        // should fail to process -- the transaction is invalid if it doesn't point to a known
-        // microblock pubkey hash.
-        let err =
-            StacksChainState::process_transaction(&mut conn, &signed_tx_poison_microblock, false)
-                .unwrap_err();
-        if let Error::ClarityError(clarity_error::BadTransaction(msg)) = err {
-            assert!(msg.find("never seen in this fork").is_some());
-        } else {
-            assert!(false);
-        }
-        conn.commit_block();
-    }
-
-    #[test]
-    fn process_poison_microblock_multiple_same_block() {
-        let privk = StacksPrivateKey::from_hex(
-            "6d430bb91222408e7706c9001cfaeb91b08c2be6d5ac95779ab52c6b431950e001",
-        )
-        .unwrap();
-        let auth = TransactionAuth::from_p2pkh(&privk).unwrap();
-        let addr = auth.origin().address_testnet();
-
-        let balances = vec![(addr.clone(), 1000000000)];
-
-        let mut chainstate = instantiate_chainstate_with_balances(
-            false,
-            0x80000000,
-            "process-poison-microblock-multiple-same-block",
-            balances,
-        );
-
-        let block_privk = StacksPrivateKey::from_hex(
-            "2f90f1b148207a110aa58d1b998510407420d7a8065d4fdfc0bbe22c5d9f1c6a01",
-        )
-        .unwrap();
-
-        let block_pubkh =
-            Hash160::from_node_public_key(&StacksPublicKey::from_private(&block_privk));
-
-        let reporter_privk_1 = StacksPrivateKey::from_hex(
-            "e606e944014b2a9788d0e3c8defaf6bc44b1e3ab881aaba32faa6e32002b7e1f01",
-        )
-        .unwrap();
-        let reporter_privk_2 = StacksPrivateKey::from_hex(
-            "ca7ba28b9604418413a16d74e7dbe5c3e0012281183f590940bab0208c40faee01",
-        )
-        .unwrap();
-        let reporter_addr_1 = TransactionAuth::from_p2pkh(&reporter_privk_1)
-            .unwrap()
-            .origin()
-            .address_testnet();
-        let reporter_addr_2 = TransactionAuth::from_p2pkh(&reporter_privk_2)
-            .unwrap()
-            .origin()
-            .address_testnet();
-
-        let mut conn = chainstate.block_begin(
-            &TEST_BURN_STATE_DB,
-            &FIRST_BURNCHAIN_CONSENSUS_HASH,
-            &FIRST_STACKS_BLOCK_HASH,
-            &ConsensusHash([1u8; 20]),
-            &BlockHeaderHash([1u8; 32]),
-        );
-
-        StacksChainState::insert_microblock_pubkey_hash(&mut conn, 1, &block_pubkh).unwrap();
-
-        let height_opt =
-            StacksChainState::has_microblock_pubkey_hash(&mut conn, &block_pubkh).unwrap();
-        assert_eq!(height_opt.unwrap(), 1);
-
-        // make two sets of poisons
-        let mblock_1_1 =
-            make_signed_microblock(&block_privk, &privk, BlockHeaderHash([0x11; 32]), 123);
-        let mblock_1_2 =
-            make_signed_microblock(&block_privk, &privk, BlockHeaderHash([0x11; 32]), 123);
-        assert!(mblock_1_1 != mblock_1_2);
-
-        // report poison (in the same block)
-        let mut tx_poison_microblock_1 = StacksTransaction::new(
-            TransactionVersion::Testnet,
-            TransactionAuth::from_p2pkh(&reporter_privk_1).unwrap(),
-            TransactionPayload::PoisonMicroblock(
-                mblock_1_1.header.clone(),
-                mblock_1_2.header.clone(),
-            ),
-        );
-
-        tx_poison_microblock_1.chain_id = 0x80000000;
-        tx_poison_microblock_1.set_tx_fee(0);
-
-        let mut signer = StacksTransactionSigner::new(&tx_poison_microblock_1);
-        signer.sign_origin(&reporter_privk_1).unwrap();
-        let signed_tx_poison_microblock_1 = signer.get_tx().unwrap();
-
-        // make two sets of poisons
-        let mblock_2_1 =
-            make_signed_microblock(&block_privk, &privk, BlockHeaderHash([0x10; 32]), 122);
-        let mblock_2_2 =
-            make_signed_microblock(&block_privk, &privk, BlockHeaderHash([0x10; 32]), 122);
-        assert!(mblock_2_1 != mblock_2_2);
-
-        // report poison (in the same block)
-        let mut tx_poison_microblock_2 = StacksTransaction::new(
-            TransactionVersion::Testnet,
-            TransactionAuth::from_p2pkh(&reporter_privk_2).unwrap(),
-            TransactionPayload::PoisonMicroblock(
-                mblock_2_1.header.clone(),
-                mblock_2_2.header.clone(),
-            ),
-        );
-
-        tx_poison_microblock_2.chain_id = 0x80000000;
-        tx_poison_microblock_2.set_tx_fee(0);
-
-        let mut signer = StacksTransactionSigner::new(&tx_poison_microblock_2);
-        signer.sign_origin(&reporter_privk_2).unwrap();
-        let signed_tx_poison_microblock_2 = signer.get_tx().unwrap();
-
-        // process it!
-        let (fee, receipt) =
-            StacksChainState::process_transaction(&mut conn, &signed_tx_poison_microblock_1, false)
-                .unwrap();
-
-        // there must be a poison record for this microblock, from the reporter, for the microblock
-        // sequence.
-        let report_opt = StacksChainState::get_poison_microblock_report(&mut conn, 1).unwrap();
-        assert_eq!(report_opt.unwrap(), (reporter_addr_1, 123));
-
-        // process the second one!
-        let (fee, receipt) =
-            StacksChainState::process_transaction(&mut conn, &signed_tx_poison_microblock_2, false)
-                .unwrap();
-
-        // there must be a poison record for this microblock, from the reporter, for the microblock
-        // sequence.  Moreover, since the fork was earlier in the stream, the second reporter gets
-        // it.
-        let report_opt = StacksChainState::get_poison_microblock_report(&mut conn, 1).unwrap();
-        assert_eq!(report_opt.unwrap(), (reporter_addr_2, 122));
-
-        // result must encode poison information
-        let result_data = receipt.result.expect_tuple();
-
-        let height = result_data
-            .get("block_height")
-            .unwrap()
-            .to_owned()
-            .expect_u128();
-        let mblock_pubkh = result_data
-            .get("microblock_pubkey_hash")
-            .unwrap()
-            .to_owned()
-            .expect_buff(20);
-        let reporter = result_data
-            .get("reporter")
-            .unwrap()
-            .to_owned()
-            .expect_principal();
-        let seq = result_data
-            .get("sequence")
-            .unwrap()
-            .to_owned()
-            .expect_u128();
-
-        assert_eq!(height, 1);
-        assert_eq!(mblock_pubkh, block_pubkh.0.to_vec());
-        assert_eq!(seq, 122);
-        assert_eq!(reporter, reporter_addr_2.to_account_principal());
-
-        conn.commit_block();
     }
 }

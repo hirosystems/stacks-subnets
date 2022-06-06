@@ -20,90 +20,36 @@ use std::io::prelude::*;
 use std::io::{Read, Write};
 
 use sha2::Digest;
-use sha2::Sha512Trunc256;
+use sha2::Sha512_256;
 
+use crate::burnchains::PrivateKey;
+use crate::burnchains::PublicKey;
+use crate::chainstate::burn::operations::*;
+use crate::chainstate::burn::ConsensusHash;
+use crate::chainstate::burn::*;
+use crate::chainstate::stacks::Error;
+use crate::chainstate::stacks::*;
 use crate::codec::MAX_MESSAGE_LEN;
+use crate::core::*;
+use crate::net::Error as net_error;
 use crate::types::StacksPublicKeyBuffer;
-use burnchains::PrivateKey;
-use burnchains::PublicKey;
-use chainstate::burn::operations::*;
-use chainstate::burn::ConsensusHash;
-use chainstate::burn::*;
-use chainstate::stacks::Error;
-use chainstate::stacks::*;
-use core::*;
-use net::Error as net_error;
-use util::hash::MerkleTree;
-use util::hash::Sha512Trunc256Sum;
-use util::retry::BoundReader;
-use util::secp256k1::MessageSignature;
-use util::vrf::*;
+use stacks_common::util::hash::MerkleTree;
+use stacks_common::util::hash::Sha512Trunc256Sum;
+use stacks_common::util::retry::BoundReader;
+use stacks_common::util::secp256k1::MessageSignature;
+use stacks_common::util::vrf::*;
 
+use crate::chainstate::stacks::StacksBlockHeader;
+use crate::chainstate::stacks::StacksMicroblockHeader;
 use crate::codec::{read_next, write_next, Error as codec_error, StacksMessageCodec};
 use crate::types::chainstate::BurnchainHeaderHash;
+use crate::types::chainstate::StacksBlockId;
+use crate::types::chainstate::TrieHash;
 use crate::types::chainstate::{BlockHeaderHash, StacksWorkScore, VRFSeed};
-use crate::types::chainstate::{StacksBlockHeader, StacksBlockId, StacksMicroblockHeader};
-use crate::types::proof::TrieHash;
-
-impl StacksMessageCodec for VRFProof {
-    fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
-        fd.write_all(&self.to_bytes())
-            .map_err(codec_error::WriteError)
-    }
-
-    fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<VRFProof, codec_error> {
-        let mut bytes = [0u8; VRF_PROOF_ENCODED_SIZE as usize];
-        fd.read_exact(&mut bytes).map_err(codec_error::ReadError)?;
-        let res = VRFProof::from_slice(&bytes).ok_or(codec_error::DeserializeError(
-            "Failed to parse VRF proof".to_string(),
-        ))?;
-
-        Ok(res)
-    }
-}
-
-impl StacksMessageCodec for StacksWorkScore {
-    fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
-        write_next(fd, &self.burn)?;
-        write_next(fd, &self.work)?;
-        Ok(())
-    }
-
-    fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<StacksWorkScore, codec_error> {
-        let burn = read_next(fd)?;
-        let work = read_next(fd)?;
-
-        Ok(StacksWorkScore { burn, work })
-    }
-}
-
-impl StacksWorkScore {
-    /// Stacks work score for the first-mined block
-    pub fn initial() -> StacksWorkScore {
-        StacksWorkScore {
-            burn: 0,
-            work: 1, // block 0 is the boot code
-        }
-    }
-
-    /// Stacks work score for the boot code block
-    pub fn genesis() -> StacksWorkScore {
-        StacksWorkScore { burn: 0, work: 0 }
-    }
-}
 
 impl StacksMessageCodec for StacksBlockHeader {
     fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
-        write_next(fd, &self.version)?;
-        write_next(fd, &self.total_work)?;
-        write_next(fd, &self.proof)?;
-        write_next(fd, &self.parent_block)?;
-        write_next(fd, &self.parent_microblock)?;
-        write_next(fd, &self.parent_microblock_sequence)?;
-        write_next(fd, &self.tx_merkle_root)?;
-        write_next(fd, &self.state_index_root)?;
-        write_next(fd, &self.microblock_pubkey_hash)?;
-        Ok(())
+        self.serialize(fd, false)
     }
 
     fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<StacksBlockHeader, codec_error> {
@@ -116,6 +62,7 @@ impl StacksMessageCodec for StacksBlockHeader {
         let tx_merkle_root: Sha512Trunc256Sum = read_next(fd)?;
         let state_index_root: TrieHash = read_next(fd)?;
         let pubkey_hash_buf: Hash160 = read_next(fd)?;
+        let miner_signatures: MessageSignatureList = read_next(fd)?;
 
         Ok(StacksBlockHeader {
             version,
@@ -127,11 +74,48 @@ impl StacksMessageCodec for StacksBlockHeader {
             tx_merkle_root,
             state_index_root,
             microblock_pubkey_hash: pubkey_hash_buf,
+            miner_signatures,
         })
     }
 }
 
 impl StacksBlockHeader {
+    /// Serialize the transaction without the other signatures, and sign the result.
+    pub fn sign(&mut self, privk: &StacksPrivateKey) -> Result<(), net_error> {
+        let mut bytes = vec![];
+        self.serialize(&mut bytes, true)
+            .expect("BUG: failed to serialize to a vec");
+        let sha2 = Sha512Trunc256Sum::from_data(bytes.as_slice());
+        let sig = privk
+            .sign(sha2.as_ref())
+            .map_err(|se| net_error::SigningError(se.to_string()))?;
+
+        self.miner_signatures.add_signature(sig);
+        Ok(())
+    }
+
+    /// Serialize `this` to to `fd` in an internally decided order.
+    ///
+    /// If `empty_sig` is true, write an empty list for `miner_signatures`, instead of whatever is
+    /// actually in `this`. This is used to create a consistent object that can be signed multiple
+    /// times.
+    fn serialize<W: Write>(&self, fd: &mut W, empty_sig: bool) -> Result<(), codec_error> {
+        write_next(fd, &self.version)?;
+        write_next(fd, &self.total_work)?;
+        write_next(fd, &self.proof)?;
+        write_next(fd, &self.parent_block)?;
+        write_next(fd, &self.parent_microblock)?;
+        write_next(fd, &self.parent_microblock_sequence)?;
+        write_next(fd, &self.tx_merkle_root)?;
+        write_next(fd, &self.state_index_root)?;
+        write_next(fd, &self.microblock_pubkey_hash)?;
+        if empty_sig {
+            write_next(fd, &MessageSignatureList::empty())?;
+        } else {
+            write_next(fd, &self.miner_signatures)?;
+        }
+        Ok(())
+    }
     pub fn pubkey_hash(pubk: &StacksPublicKey) -> Hash160 {
         Hash160::from_node_public_key(pubk)
     }
@@ -147,6 +131,7 @@ impl StacksBlockHeader {
             tx_merkle_root: Sha512Trunc256Sum([0u8; 32]),
             state_index_root: TrieHash([0u8; 32]),
             microblock_pubkey_hash: Hash160([0u8; 20]),
+            miner_signatures: MessageSignatureList::empty(),
         }
     }
 
@@ -175,12 +160,7 @@ impl StacksBlockHeader {
         consensus_hash: &ConsensusHash,
         block_hash: &BlockHeaderHash,
     ) -> StacksBlockId {
-        let mut hasher = Sha512Trunc256::new();
-        hasher.input(block_hash);
-        hasher.input(consensus_hash);
-
-        let h = Sha512Trunc256Sum::from_hasher(hasher);
-        StacksBlockId(h.0)
+        StacksBlockId::new(consensus_hash, block_hash)
     }
 
     pub fn index_block_hash(&self, consensus_hash: &ConsensusHash) -> StacksBlockId {
@@ -196,6 +176,7 @@ impl StacksBlockHeader {
         tx_merkle_root: &Sha512Trunc256Sum,
         state_index_root: &TrieHash,
         microblock_pubkey_hash: &Hash160,
+        miner_signatures: &MessageSignatureList,
     ) -> StacksBlockHeader {
         let (parent_microblock, parent_microblock_sequence) = match parent_microblock_header {
             Some(header) => (header.block_hash(), header.sequence),
@@ -212,6 +193,7 @@ impl StacksBlockHeader {
             tx_merkle_root: tx_merkle_root.clone(),
             state_index_root: state_index_root.clone(),
             microblock_pubkey_hash: microblock_pubkey_hash.clone(),
+            miner_signatures: miner_signatures.clone(),
         }
     }
 
@@ -221,6 +203,7 @@ impl StacksBlockHeader {
         work_delta: &StacksWorkScore,
         proof: &VRFProof,
         microblock_pubkey_hash: &Hash160,
+        miner_signatures: &MessageSignatureList,
     ) -> StacksBlockHeader {
         StacksBlockHeader::from_parent(
             parent_header,
@@ -230,6 +213,7 @@ impl StacksBlockHeader {
             &Sha512Trunc256Sum([0u8; 32]),
             &TrieHash([0u8; 32]),
             microblock_pubkey_hash,
+            miner_signatures,
         )
     }
 
@@ -242,10 +226,7 @@ impl StacksBlockHeader {
     pub fn validate_burnchain(
         &self,
         burn_chain_tip: &BlockSnapshot,
-        sortition_chain_tip: &BlockSnapshot,
-        leader_key: &LeaderKeyRegisterOp,
         block_commit: &LeaderBlockCommitOp,
-        stacks_chain_tip: &BlockSnapshot,
     ) -> Result<(), Error> {
         // the burn chain tip's sortition must have chosen given block commit
         assert_eq!(
@@ -263,72 +244,6 @@ impl StacksBlockHeader {
                 burn_chain_tip.winning_stacks_block_hash
             );
             debug!("{}", msg);
-            return Err(Error::InvalidStacksBlock(msg));
-        }
-
-        // this header must match the parent header as recorded on the burn chain
-        if self.parent_block != stacks_chain_tip.winning_stacks_block_hash {
-            let msg = format!(
-                "Invalid Stacks block header {}: invalid parent hash: {} != {}",
-                self.block_hash(),
-                self.parent_block,
-                stacks_chain_tip.winning_stacks_block_hash
-            );
-            debug!("{}", msg);
-            return Err(Error::InvalidStacksBlock(msg));
-        }
-
-        // this header's proof must hash to the burn chain tip's VRF seed
-        if !block_commit.new_seed.is_from_proof(&self.proof) {
-            let msg = format!(
-                "Invalid Stacks block header {}: invalid VRF proof: hash({}) != {} (but {})",
-                self.block_hash(),
-                self.proof.to_hex(),
-                block_commit.new_seed,
-                VRFSeed::from_proof(&self.proof)
-            );
-            debug!("{}", msg);
-            return Err(Error::InvalidStacksBlock(msg));
-        }
-
-        // this header must commit to all of the work seen so far in this stacks blockchain fork.
-        if self.total_work.burn != stacks_chain_tip.total_burn {
-            let msg = format!(
-                "Invalid Stacks block header {}: invalid total burns: {} != {}",
-                self.block_hash(),
-                self.total_work.burn,
-                stacks_chain_tip.total_burn
-            );
-            debug!("{}", msg);
-            return Err(Error::InvalidStacksBlock(msg));
-        }
-
-        // this header's VRF proof must have been generated from the last sortition's sortition
-        // hash (which includes the last commit's VRF seed)
-        let valid = match VRF::verify(
-            &leader_key.public_key,
-            &self.proof,
-            &sortition_chain_tip.sortition_hash.as_bytes().to_vec(),
-        ) {
-            Ok(v) => {
-                if !v {
-                    warn!("Failed to verify proof '{}'", &self.proof.to_hex());
-                }
-                v
-            }
-            Err(e) => {
-                warn!(
-                    "Invalid Stacks block header {}: failed to verify VRF proof: {}",
-                    self.block_hash(),
-                    e
-                );
-                false
-            }
-        };
-
-        if !valid {
-            let msg = format!("Invalid Stacks block header {}: leader VRF key {} did not produce a valid proof over {}", self.block_hash(), leader_key.public_key.to_hex(), burn_chain_tip.sortition_hash);
-            warn!("{}", msg);
             return Err(Error::InvalidStacksBlock(msg));
         }
 
@@ -438,6 +353,7 @@ impl StacksBlock {
         proof: &VRFProof,
         state_index_root: &TrieHash,
         microblock_pubkey_hash: &Hash160,
+        miner_signatures: &MessageSignatureList,
     ) -> StacksBlock {
         let txids = txs
             .iter()
@@ -453,6 +369,7 @@ impl StacksBlock {
             &tx_merkle_root,
             state_index_root,
             microblock_pubkey_hash,
+            miner_signatures,
         );
         StacksBlock { header, txs }
     }
@@ -641,6 +558,28 @@ impl StacksBlock {
     }
 }
 
+impl StacksMessageCodec for MessageSignatureList {
+    fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
+        let sigs = self.signatures();
+        write_next(fd, sigs)
+    }
+
+    fn consensus_deserialize<R: Read>(fd: &mut R) -> Result<MessageSignatureList, codec_error> {
+        let signatures: Vec<MessageSignature> = read_next(fd)?;
+
+        // signature must be well-formed
+        for signature in &signatures {
+            let _ = signature
+                .to_secp256k1_recoverable()
+                .ok_or(codec_error::DeserializeError(
+                    "Failed to parse signature".to_string(),
+                ))?;
+        }
+
+        Ok(MessageSignatureList::from_vec(signatures))
+    }
+}
+
 impl StacksMessageCodec for StacksMicroblockHeader {
     fn consensus_serialize<W: Write>(&self, fd: &mut W) -> Result<(), codec_error> {
         self.serialize(fd, false)
@@ -651,43 +590,36 @@ impl StacksMessageCodec for StacksMicroblockHeader {
         let sequence: u16 = read_next(fd)?;
         let prev_block: BlockHeaderHash = read_next(fd)?;
         let tx_merkle_root: Sha512Trunc256Sum = read_next(fd)?;
-        let signature: MessageSignature = read_next(fd)?;
-
-        // signature must be well-formed
-        let _ = signature
-            .to_secp256k1_recoverable()
-            .ok_or(codec_error::DeserializeError(
-                "Failed to parse signature".to_string(),
-            ))?;
+        let miner_signatures: MessageSignatureList = read_next(fd)?;
 
         Ok(StacksMicroblockHeader {
             version,
             sequence,
             prev_block,
             tx_merkle_root,
-            signature,
+            miner_signatures,
         })
     }
 }
 
 impl StacksMicroblockHeader {
     pub fn sign(&mut self, privk: &StacksPrivateKey) -> Result<(), net_error> {
-        self.signature = MessageSignature::empty();
+        self.miner_signatures = MessageSignatureList::empty();
         let mut bytes = vec![];
-        self.consensus_serialize(&mut bytes)
+        self.serialize(&mut bytes, true)
             .expect("BUG: failed to serialize to a vec");
 
         let mut digest_bits = [0u8; 32];
-        let mut sha2 = Sha512Trunc256::new();
+        let mut sha2 = Sha512_256::new();
 
-        sha2.input(&bytes[..]);
-        digest_bits.copy_from_slice(sha2.result().as_slice());
+        sha2.update(&bytes[..]);
+        digest_bits.copy_from_slice(sha2.finalize().as_slice());
 
         let sig = privk
             .sign(&digest_bits)
             .map_err(|se| net_error::SigningError(se.to_string()))?;
 
-        self.signature = sig;
+        self.miner_signatures.add_signature(sig);
         Ok(())
     }
 
@@ -697,52 +629,60 @@ impl StacksMicroblockHeader {
         write_next(fd, &self.prev_block)?;
         write_next(fd, &self.tx_merkle_root)?;
         if empty_sig {
-            write_next(fd, &MessageSignature::empty())?;
+            write_next(fd, &MessageSignatureList::empty())?;
         } else {
-            write_next(fd, &self.signature)?;
+            write_next(fd, self.miner_signatures.signatures())?;
         }
         Ok(())
     }
 
-    pub fn check_recover_pubkey(&self) -> Result<Hash160, net_error> {
+    pub fn check_recover_pubkey(&self) -> Result<Vec<Hash160>, net_error> {
         let mut digest_bits = [0u8; 32];
-        let mut sha2 = Sha512Trunc256::new();
+        let mut sha2 = Sha512_256::new();
 
-        self.serialize(&mut sha2, true)
+        let mut bytes = vec![];
+        self.serialize(&mut bytes, true)
             .expect("BUG: failed to serialize to a vec");
-        digest_bits.copy_from_slice(sha2.result().as_slice());
 
-        let mut pubk =
-            StacksPublicKey::recover_to_pubkey(&digest_bits, &self.signature).map_err(|_ve| {
-                test_debug!(
-                    "Failed to verify signature: failed to recover public key from {:?}: {:?}",
-                    &self.signature,
-                    &_ve
-                );
-                net_error::VerifyingError(
-                    "Failed to verify signature: failed to recover public key".to_string(),
-                )
-            })?;
+        sha2.update(&bytes[..]);
+        digest_bits.copy_from_slice(sha2.finalize().as_slice());
 
-        pubk.set_compressed(true);
-        Ok(StacksBlockHeader::pubkey_hash(&pubk))
+        let mut hashes = vec![];
+        for signature in self.miner_signatures.signatures() {
+            let mut pubk =
+                StacksPublicKey::recover_to_pubkey(&digest_bits, &signature).map_err(|_ve| {
+                    test_debug!(
+                        "Failed to verify signature: failed to recover public key from {:?}: {:?}",
+                        &signature,
+                        &_ve
+                    );
+                    net_error::VerifyingError(
+                        "Failed to verify signature: failed to recover public key".to_string(),
+                    )
+                })?;
+
+            pubk.set_compressed(true);
+            hashes.push(StacksBlockHeader::pubkey_hash(&pubk));
+        }
+        Ok(hashes)
     }
 
     pub fn verify(&self, pubk_hash: &Hash160) -> Result<(), net_error> {
-        let pubkh = self.check_recover_pubkey()?;
+        let pubkh_vec = self.check_recover_pubkey()?;
 
-        if pubkh != *pubk_hash {
-            test_debug!(
-                "Failed to verify signature: public key did not recover to hash {}",
-                &pubkh.to_hex()
-            );
-            return Err(net_error::VerifyingError(format!(
-                "Failed to verify signature: public key did not recover to expected hash {}",
-                pubkh.to_hex()
-            )));
+        for pubkh in &pubkh_vec {
+            if *pubkh == *pubk_hash {
+                return Ok(());
+            }
         }
-
-        Ok(())
+        info!(
+            "Failed to verify miner_signatures: public key did not recover to hash {:?}",
+            &pubkh_vec
+        );
+        return Err(net_error::VerifyingError(format!(
+            "Failed to verify miner_signatures: public key did not recover to expected hash {:?}",
+            &pubkh_vec
+        )));
     }
 
     pub fn block_hash(&self) -> BlockHeaderHash {
@@ -763,7 +703,7 @@ impl StacksMicroblockHeader {
             sequence: 0,
             prev_block: parent_block_hash.clone(),
             tx_merkle_root: tx_merkle_root.clone(),
-            signature: MessageSignature::empty(),
+            miner_signatures: MessageSignatureList::empty(),
         }
     }
 
@@ -791,7 +731,7 @@ impl StacksMicroblockHeader {
             sequence: next_sequence,
             prev_block: parent_header.block_hash(),
             tx_merkle_root: tx_merkle_root.clone(),
-            signature: MessageSignature::empty(),
+            miner_signatures: MessageSignatureList::empty(),
         })
     }
 }
@@ -932,24 +872,20 @@ impl StacksMicroblock {
 
 #[cfg(test)]
 mod test {
+    use crate::burnchains::BurnchainBlockHeader;
+    use crate::burnchains::BurnchainSigner;
+    use crate::burnchains::Txid;
+    use crate::chainstate::burn::operations::leader_block_commit::BURN_BLOCK_MINED_AT_MODULUS;
+    use crate::chainstate::stacks::address::StacksAddressExtensions;
+    use crate::chainstate::stacks::test::make_codec_test_block;
+    use crate::chainstate::stacks::test::*;
+    use crate::chainstate::stacks::*;
+    use crate::net::codec::test::*;
+    use crate::net::codec::*;
+    use crate::net::*;
+    use stacks_common::address::*;
+    use stacks_common::util::hash::*;
     use std::error::Error;
-
-    use address::*;
-    use burnchains::bitcoin::address::BitcoinAddress;
-    use burnchains::bitcoin::blocks::BitcoinBlockParser;
-    use burnchains::bitcoin::keys::BitcoinPublicKey;
-    use burnchains::bitcoin::BitcoinNetworkType;
-    use burnchains::BurnchainBlockHeader;
-    use burnchains::BurnchainSigner;
-    use burnchains::Txid;
-    use chainstate::burn::operations::leader_block_commit::BURN_BLOCK_MINED_AT_MODULUS;
-    use chainstate::stacks::test::make_codec_test_block;
-    use chainstate::stacks::test::*;
-    use chainstate::stacks::*;
-    use net::codec::test::*;
-    use net::codec::*;
-    use net::*;
-    use util::hash::*;
 
     use crate::types::chainstate::StacksAddress;
 
@@ -978,6 +914,28 @@ mod test {
     }
 
     #[test]
+    fn codec_encode_message_signature_list() {
+        // Empty list, edge case.
+        let list = MessageSignatureList::empty();
+        let expected_bytes = vec![0, 0, 0, 0];
+        check_codec_and_corruption::<MessageSignatureList>(&list, &expected_bytes);
+
+        // Two-element list, typical case.
+        let list = MessageSignatureList::from_vec(vec![
+            MessageSignature([0u8; 65]),
+            MessageSignature([1u8; 65]),
+        ]);
+        let expected_bytes = vec![
+            0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        ];
+        check_codec_and_corruption::<MessageSignatureList>(&list, &expected_bytes);
+    }
+
+    #[test]
     fn codec_stacks_block_header() {
         let proof_bytes = hex_bytes("9275df67a68c8745c0ff97b48201ee6db447f7c93b23ae24cdc2400f52fdb08a1a6ac7ec71bf9c9c76e96ee4675ebff60625af28718501047bfd87b810c2d2139b73c23bd69de66360953a642c2a330a").unwrap();
         let proof = VRFProof::from_bytes(&proof_bytes[..].to_vec()).unwrap();
@@ -995,6 +953,7 @@ mod test {
             tx_merkle_root: Sha512Trunc256Sum([2u8; 32]),
             state_index_root: TrieHash([3u8; 32]),
             microblock_pubkey_hash: Hash160([4u8; 20]),
+            miner_signatures: MessageSignatureList::empty(),
         };
 
         let header_bytes = vec![
@@ -1022,7 +981,8 @@ mod test {
             0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03,
             0x03, 0x03, 0x03, 0x03, // public key hash buf
             0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,
-            0x04, 0x04, 0x04, 0x04, 0x04, 0x04,
+            0x04, 0x04, 0x04, 0x04, 0x04, 0x04, // signature list (empty)
+            0x00, 0x00, 0x00, 0x00,
         ];
 
         check_codec_and_corruption::<StacksBlockHeader>(&header, &header_bytes);
@@ -1035,7 +995,7 @@ mod test {
             sequence: 0x34,
             prev_block: EMPTY_MICROBLOCK_PARENT_HASH.clone(),
             tx_merkle_root: Sha512Trunc256Sum([1u8; 32]),
-            signature: MessageSignature([2u8; 65]),
+            miner_signatures: MessageSignatureList::from_single(MessageSignature([2u8; 65])),
         };
 
         let header_bytes = vec![
@@ -1047,12 +1007,12 @@ mod test {
             0x00, 0x00, 0x00, 0x00, // tx merkle root
             0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
             0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-            0x01, 0x01, 0x01, 0x01, // signature
+            0x01, 0x01, 0x01, 0x01, // miner_signatures
+            0x00, 0x00, 0x00, 0x01, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
             0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
             0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
             0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
-            0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
-            0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
+            0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
         ];
 
         check_codec_and_corruption::<StacksMicroblockHeader>(&header, &header_bytes);
@@ -1123,14 +1083,6 @@ mod test {
         block.header.version = 0x24;
         */
 
-        let parent_microblock_header = StacksMicroblockHeader {
-            version: 0x12,
-            sequence: 0x34,
-            prev_block: BlockHeaderHash([0x0au8; 32]),
-            tx_merkle_root: Sha512Trunc256Sum([0x0bu8; 32]),
-            signature: MessageSignature([0x0cu8; 65]),
-        };
-
         let mut block = make_codec_test_block(100000000);
         block.header.version = 0x24;
 
@@ -1171,6 +1123,8 @@ mod test {
             // public key hash buf
             pk[0], pk[1], pk[2], pk[3], pk[4], pk[5], pk[6], pk[7], pk[8], pk[9], pk[10], pk[11],
             pk[12], pk[13], pk[14], pk[15], pk[16], pk[17], pk[18], pk[19],
+            // signature list
+            0x00, 0x00, 0x00, 0x00,
         ];
 
         check_codec_and_corruption::<StacksBlockHeader>(&block.header, &block_bytes);
@@ -1229,13 +1183,13 @@ mod test {
                 sequence: 0x34,
                 prev_block: EMPTY_MICROBLOCK_PARENT_HASH.clone(),
                 tx_merkle_root: tx_merkle_root,
-                signature: MessageSignature([
+                miner_signatures: MessageSignatureList::from_single(MessageSignature([
                     0x00, 0x35, 0x44, 0x45, 0xa1, 0xdc, 0x98, 0xa1, 0xbd, 0x27, 0x98, 0x4d, 0xbe,
                     0x69, 0x97, 0x9a, 0x5c, 0xd7, 0x78, 0x86, 0xb4, 0xd9, 0x13, 0x4a, 0xf5, 0xc4,
                     0x0e, 0x63, 0x4d, 0x96, 0xe1, 0xcb, 0x44, 0x5b, 0x97, 0xde, 0x5b, 0x63, 0x25,
                     0x82, 0xd3, 0x17, 0x04, 0xf8, 0x67, 0x06, 0xa7, 0x80, 0x88, 0x6e, 0x6e, 0x38,
                     0x1b, 0xfe, 0xd6, 0x52, 0x28, 0x26, 0x73, 0x58, 0x26, 0x2d, 0x20, 0x3f, 0xe6,
-                ]),
+                ])),
             };
 
             let mut block_bytes = vec![
@@ -1249,12 +1203,12 @@ mod test {
                 tr[0], tr[1], tr[2], tr[3], tr[4], tr[5], tr[6], tr[7], tr[8], tr[9], tr[10],
                 tr[11], tr[12], tr[13], tr[14], tr[15], tr[16], tr[17], tr[18], tr[19], tr[20],
                 tr[21], tr[22], tr[23], tr[24], tr[25], tr[26], tr[27], tr[28], tr[29], tr[30],
-                tr[31], // signature
-                0x00, 0x35, 0x44, 0x45, 0xa1, 0xdc, 0x98, 0xa1, 0xbd, 0x27, 0x98, 0x4d, 0xbe, 0x69,
-                0x97, 0x9a, 0x5c, 0xd7, 0x78, 0x86, 0xb4, 0xd9, 0x13, 0x4a, 0xf5, 0xc4, 0x0e, 0x63,
-                0x4d, 0x96, 0xe1, 0xcb, 0x44, 0x5b, 0x97, 0xde, 0x5b, 0x63, 0x25, 0x82, 0xd3, 0x17,
-                0x04, 0xf8, 0x67, 0x06, 0xa7, 0x80, 0x88, 0x6e, 0x6e, 0x38, 0x1b, 0xfe, 0xd6, 0x52,
-                0x28, 0x26, 0x73, 0x58, 0x26, 0x2d, 0x20, 0x3f, 0xe6,
+                tr[31], // miner_signatures
+                0x00, 0x00, 0x00, 0x01, 0x00, 0x35, 0x44, 0x45, 0xa1, 0xdc, 0x98, 0xa1, 0xbd, 0x27,
+                0x98, 0x4d, 0xbe, 0x69, 0x97, 0x9a, 0x5c, 0xd7, 0x78, 0x86, 0xb4, 0xd9, 0x13, 0x4a,
+                0xf5, 0xc4, 0x0e, 0x63, 0x4d, 0x96, 0xe1, 0xcb, 0x44, 0x5b, 0x97, 0xde, 0x5b, 0x63,
+                0x25, 0x82, 0xd3, 0x17, 0x04, 0xf8, 0x67, 0x06, 0xa7, 0x80, 0x88, 0x6e, 0x6e, 0x38,
+                0x1b, 0xfe, 0xd6, 0x52, 0x28, 0x26, 0x73, 0x58, 0x26, 0x2d, 0x20, 0x3f, 0xe6,
             ];
 
             let mut tx_bytes: Vec<u8> = vec![];
@@ -1281,7 +1235,7 @@ mod test {
             sequence: 0x34,
             prev_block: EMPTY_MICROBLOCK_PARENT_HASH.clone(),
             tx_merkle_root: Sha512Trunc256Sum([0u8; 32]),
-            signature: MessageSignature::empty(),
+            miner_signatures: MessageSignatureList::empty(),
         };
 
         let pubk = StacksPublicKey::from_private(&privk);
@@ -1302,7 +1256,7 @@ mod test {
             sequence: 0x34,
             prev_block: EMPTY_MICROBLOCK_PARENT_HASH.clone(),
             tx_merkle_root: Sha512Trunc256Sum([0u8; 32]),
-            signature: MessageSignature::empty(),
+            miner_signatures: MessageSignatureList::empty(),
         };
 
         let mut pubk = StacksPublicKey::from_private(&privk);
@@ -1334,72 +1288,20 @@ mod test {
             tx_merkle_root: Sha512Trunc256Sum([7u8; 32]),
             state_index_root: TrieHash([8u8; 32]),
             microblock_pubkey_hash: Hash160([9u8; 20]),
+            miner_signatures: MessageSignatureList::empty(),
         };
 
-        let mut burn_chain_tip = BlockSnapshot::initial(122, &BurnchainHeaderHash([3u8; 32]), 0);
-        let mut stacks_chain_tip = BlockSnapshot::initial(122, &BurnchainHeaderHash([3u8; 32]), 1);
-        let sortition_chain_tip = BlockSnapshot::initial(122, &BurnchainHeaderHash([3u8; 32]), 2);
+        let mut burn_chain_tip = BlockSnapshot::initial(122);
+        let mut stacks_chain_tip = BlockSnapshot::initial(122);
+        let sortition_chain_tip = BlockSnapshot::initial(122);
 
-        let leader_key = LeaderKeyRegisterOp {
-            consensus_hash: ConsensusHash::from_bytes(
-                &hex_bytes("0000000000000000000000000000000000000000").unwrap(),
-            )
-            .unwrap(),
-            public_key: VRFPublicKey::from_bytes(
-                &hex_bytes("a366b51292bef4edd64063d9145c617fec373bceb0758e98cd72becd84d54c7a")
-                    .unwrap(),
-            )
-            .unwrap(),
-            memo: vec![01, 02, 03, 04, 05],
-            address: StacksAddress::from_bitcoin_address(
-                &BitcoinAddress::from_scriptpubkey(
-                    BitcoinNetworkType::Testnet,
-                    &hex_bytes("76a9140be3e286a15ea85882761618e366586b5574100d88ac").unwrap(),
-                )
-                .unwrap(),
-            ),
-
-            txid: Txid::from_bytes_be(
-                &hex_bytes("1bfa831b5fc56c858198acb8e77e5863c1e9d8ac26d49ddb914e24d8d4083562")
-                    .unwrap(),
-            )
-            .unwrap(),
-            vtxindex: 455,
-            block_height: 123,
-            burn_header_hash: BurnchainHeaderHash([0xfe; 32]),
-        };
-
-        let mut block_commit = LeaderBlockCommitOp {
-            sunset_burn: 0,
+        let block_commit = LeaderBlockCommitOp {
             block_header_hash: header.block_hash(),
-            new_seed: VRFSeed::from_proof(&header.proof),
-            parent_block_ptr: 0,
-            parent_vtxindex: 0,
-            key_block_ptr: leader_key.block_height as u32,
-            key_vtxindex: leader_key.vtxindex as u16,
-            memo: vec![0x80],
-            commit_outs: vec![],
-
-            burn_fee: 12345,
-            input: (Txid([0; 32]), 0),
-            apparent_sender: BurnchainSigner {
-                public_keys: vec![StacksPublicKey::from_hex(
-                    "02d8015134d9db8178ac93acbc43170a2f20febba5087a5b0437058765ad5133d0",
-                )
-                .unwrap()],
-                num_sigs: 1,
-                hash_mode: AddressHashMode::SerializeP2PKH,
-            },
-
             txid: Txid::from_bytes_be(
                 &hex_bytes("3c07a0a93360bc85047bbaadd49e30c8af770f73a37e10fec400174d2e5f27cf")
                     .unwrap(),
             )
             .unwrap(),
-            vtxindex: 444,
-            block_height: 125,
-            burn_parent_modulus: (124 % BURN_BLOCK_MINED_AT_MODULUS) as u8,
-
             burn_header_hash: BurnchainHeaderHash([0xff; 32]),
         };
 
@@ -1409,75 +1311,10 @@ mod test {
         stacks_chain_tip.winning_stacks_block_hash = header.parent_block.clone();
         stacks_chain_tip.total_burn = header.total_work.burn;
 
-        // should fail due to invalid proof
-        assert!(header
-            .validate_burnchain(
-                &burn_chain_tip,
-                &sortition_chain_tip,
-                &leader_key,
-                &block_commit,
-                &stacks_chain_tip
-            )
-            .unwrap_err()
-            .to_string()
-            .find("did not produce a valid proof")
-            .is_some());
-
-        // should fail due to invalid burns
-        stacks_chain_tip.total_burn += 1;
-        assert!(header
-            .validate_burnchain(
-                &burn_chain_tip,
-                &sortition_chain_tip,
-                &leader_key,
-                &block_commit,
-                &stacks_chain_tip
-            )
-            .unwrap_err()
-            .to_string()
-            .find("invalid total burns")
-            .is_some());
-
-        // should fail due to invalid VRF seed
-        block_commit.new_seed = VRFSeed::initial();
-        assert!(header
-            .validate_burnchain(
-                &burn_chain_tip,
-                &sortition_chain_tip,
-                &leader_key,
-                &block_commit,
-                &stacks_chain_tip
-            )
-            .unwrap_err()
-            .to_string()
-            .find("invalid VRF proof")
-            .is_some());
-
-        // should fail due to invalid parent hash
-        stacks_chain_tip.winning_stacks_block_hash = BlockHeaderHash([0u8; 32]);
-        assert!(header
-            .validate_burnchain(
-                &burn_chain_tip,
-                &sortition_chain_tip,
-                &leader_key,
-                &block_commit,
-                &stacks_chain_tip
-            )
-            .unwrap_err()
-            .to_string()
-            .find("invalid parent hash")
-            .is_some());
-
         // should fail due to bad commit
         header.version += 1;
         assert!(header
-            .validate_burnchain(
-                &burn_chain_tip,
-                &sortition_chain_tip,
-                &leader_key,
-                &block_commit,
-                &stacks_chain_tip
-            )
+            .validate_burnchain(&burn_chain_tip, &block_commit,)
             .unwrap_err()
             .to_string()
             .find("invalid commit")
@@ -1499,6 +1336,7 @@ mod test {
             tx_merkle_root: Sha512Trunc256Sum([7u8; 32]),
             state_index_root: TrieHash([8u8; 32]),
             microblock_pubkey_hash: Hash160([9u8; 20]),
+            miner_signatures: MessageSignatureList::empty(),
         };
 
         let privk = StacksPrivateKey::from_hex(
@@ -1632,7 +1470,7 @@ mod test {
             sequence: 0x34,
             prev_block: EMPTY_MICROBLOCK_PARENT_HASH.clone(),
             tx_merkle_root: Sha512Trunc256Sum([0u8; 32]),
-            signature: MessageSignature::empty(),
+            miner_signatures: MessageSignatureList::empty(),
         };
 
         let privk = StacksPrivateKey::from_hex(

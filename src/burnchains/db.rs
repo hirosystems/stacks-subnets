@@ -22,17 +22,17 @@ use rusqlite::{
 };
 use serde_json;
 
-use burnchains::Txid;
-use burnchains::{Burnchain, BurnchainBlock, BurnchainBlockHeader, Error as BurnchainError};
-use chainstate::burn::operations::BlockstackOperationType;
-use chainstate::stacks::index::MarfTrieId;
-use util::db::{
+use crate::burnchains::Txid;
+use crate::burnchains::{Burnchain, BurnchainBlock, BurnchainBlockHeader, Error as BurnchainError};
+use crate::chainstate::burn::operations::BlockstackOperationType;
+use crate::chainstate::stacks::index::MarfTrieId;
+use crate::util_lib::db::{
     query_row, query_rows, sql_pragma, sqlite_open, tx_begin_immediate, tx_busy_handler,
     u64_to_sql, Error as DBError, FromColumn, FromRow,
 };
 
-use crate::types::chainstate::BurnchainHeaderHash;
-use crate::types::proof::ClarityMarfTrieId;
+use crate::chainstate::stacks::index::ClarityMarfTrieId;
+use stacks_common::types::chainstate::BurnchainHeaderHash;
 
 pub struct BurnchainDB {
     conn: Connection,
@@ -51,35 +51,11 @@ pub struct BurnchainBlockData {
 /// - put them in order by vtxindex
 /// - make sure there are no vtxindex duplicates
 fn apply_blockstack_txs_safety_checks(
-    block_height: u64,
+    _block_height: u64,
     blockstack_txs: &mut Vec<BlockstackOperationType>,
 ) -> () {
     // safety -- make sure these are in order
     blockstack_txs.sort_by(|ref a, ref b| a.vtxindex().partial_cmp(&b.vtxindex()).unwrap());
-
-    // safety -- no duplicate vtxindex (shouldn't happen but crash if so)
-    if blockstack_txs.len() > 1 {
-        for i in 0..blockstack_txs.len() - 1 {
-            if blockstack_txs[i].vtxindex() == blockstack_txs[i + 1].vtxindex() {
-                panic!(
-                    "FATAL: BUG: duplicate vtxindex {} in block {}",
-                    blockstack_txs[i].vtxindex(),
-                    blockstack_txs[i].block_height()
-                );
-            }
-        }
-    }
-
-    // safety -- block heights all match
-    for tx in blockstack_txs.iter() {
-        if tx.block_height() != block_height {
-            panic!(
-                "FATAL: BUG: block height mismatch: {} != {}",
-                tx.block_height(),
-                block_height
-            );
-        }
-    }
 }
 
 impl FromRow<BurnchainBlockHeader> for BurnchainBlockHeader {
@@ -132,6 +108,12 @@ CREATE TABLE burnchain_db_block_ops (
 
 CREATE TABLE db_config(version TEXT NOT NULL);";
 
+const BURNCHAIN_DB_INDEXES: &'static [&'static str] = &[
+    "CREATE INDEX IF NOT EXISTS index_burnchain_db_block_headers_height_hash ON burnchain_db_block_headers(block_height DESC, block_hash ASC);",
+    "CREATE INDEX IF NOT EXISTS index_burnchain_db_block_hash ON burnchain_db_block_ops(block_hash);",
+    "CREATE INDEX IF NOT EXISTS index_burnchain_db_txid ON burnchain_db_block_ops(txid);",
+];
+
 impl<'a> BurnchainDBTransaction<'a> {
     fn store_burnchain_db_entry(
         &self,
@@ -177,11 +159,18 @@ impl<'a> BurnchainDBTransaction<'a> {
 }
 
 impl BurnchainDB {
+    fn add_indexes(&mut self) -> Result<(), BurnchainError> {
+        let db_tx = self.tx_begin()?;
+        for index in BURNCHAIN_DB_INDEXES.iter() {
+            db_tx.sql_tx.execute_batch(index)?;
+        }
+        db_tx.commit()?;
+        Ok(())
+    }
+
     pub fn connect(
         path: &str,
         first_block_height: u64,
-        first_burn_header_hash: &BurnchainHeaderHash,
-        first_burn_header_timestamp: u64,
         readwrite: bool,
     ) -> Result<BurnchainDB, BurnchainError> {
         let mut create_flag = false;
@@ -223,8 +212,8 @@ impl BurnchainDB {
 
             let first_block_header = BurnchainBlockHeader {
                 block_height: first_block_height,
-                block_hash: first_burn_header_hash.clone(),
-                timestamp: first_burn_header_timestamp,
+                block_hash: BurnchainHeaderHash([0; 32]),
+                timestamp: 0,
                 num_txs: 0,
                 parent_block_hash: BurnchainHeaderHash::sentinel(),
             };
@@ -233,6 +222,9 @@ impl BurnchainDB {
             db_tx.commit()?;
         }
 
+        if readwrite {
+            db.add_indexes()?;
+        }
         Ok(db)
     }
 
@@ -243,7 +235,12 @@ impl BurnchainDB {
             OpenFlags::SQLITE_OPEN_READ_ONLY
         };
         let conn = sqlite_open(path, open_flags, true)?;
-        Ok(BurnchainDB { conn })
+        let mut db = BurnchainDB { conn };
+
+        if readwrite {
+            db.add_indexes()?;
+        }
+        Ok(db)
     }
 
     fn tx_begin<'a>(&'a mut self) -> Result<BurnchainDBTransaction<'a>, BurnchainError> {
@@ -254,7 +251,7 @@ impl BurnchainDB {
     pub fn get_canonical_chain_tip(&self) -> Result<BurnchainBlockHeader, BurnchainError> {
         let qry = "SELECT * FROM burnchain_db_block_headers ORDER BY block_height DESC, block_hash ASC LIMIT 1";
         let opt = query_row(&self.conn, qry, NO_PARAMS)?;
-        Ok(opt.expect("CORRUPTION: No canonical burnchain tip"))
+        opt.ok_or(BurnchainError::MissingParentBlock)
     }
 
     pub fn get_burnchain_block(
@@ -305,25 +302,13 @@ impl BurnchainDB {
         );
 
         let mut ops = Vec::new();
-        let mut pre_stx_ops = HashMap::new();
 
         for tx in block.txs().iter() {
-            let result =
-                Burnchain::classify_transaction(burnchain, self, block_header, &tx, &pre_stx_ops);
+            let result = Burnchain::classify_transaction(burnchain, self, block_header, &tx);
             if let Some(classified_tx) = result {
-                if let BlockstackOperationType::PreStx(pre_stx_op) = classified_tx {
-                    pre_stx_ops.insert(pre_stx_op.txid.clone(), pre_stx_op);
-                } else {
-                    ops.push(classified_tx);
-                }
+                ops.push(classified_tx);
             }
         }
-
-        ops.extend(
-            pre_stx_ops
-                .into_iter()
-                .map(|(_, op)| BlockstackOperationType::PreStx(op)),
-        );
 
         ops.sort_by_key(|op| op.vtxindex());
 
@@ -367,374 +352,5 @@ impl BurnchainDB {
         db_tx.commit()?;
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::convert::TryInto;
-
-    use burnchains::bitcoin::address::*;
-    use burnchains::bitcoin::blocks::*;
-    use burnchains::bitcoin::*;
-    use burnchains::PoxConstants;
-    use burnchains::BLOCKSTACK_MAGIC_MAINNET;
-    use chainstate::burn::*;
-    use chainstate::stacks::*;
-    use deps::bitcoin::blockdata::transaction::Transaction as BtcTx;
-    use deps::bitcoin::network::serialize::deserialize;
-    use util::hash::*;
-
-    use crate::types::chainstate::StacksAddress;
-
-    use super::*;
-
-    fn make_tx(hex_str: &str) -> BtcTx {
-        let tx_bin = hex_bytes(hex_str).unwrap();
-        deserialize(&tx_bin.to_vec()).unwrap()
-    }
-
-    #[test]
-    fn test_store_and_fetch() {
-        let first_bhh = BurnchainHeaderHash([0; 32]);
-        let first_timestamp = 321;
-        let first_height = 1;
-
-        let mut burnchain_db =
-            BurnchainDB::connect(":memory:", first_height, &first_bhh, first_timestamp, true)
-                .unwrap();
-
-        let mut burnchain = Burnchain::regtest(":memory:");
-        burnchain.pox_constants = PoxConstants::test_default();
-        burnchain.pox_constants.sunset_start = 999;
-        burnchain.pox_constants.sunset_end = 1000;
-
-        let first_block_header = burnchain_db.get_canonical_chain_tip().unwrap();
-        assert_eq!(&first_block_header.block_hash, &first_bhh);
-        assert_eq!(&first_block_header.block_height, &first_height);
-        assert_eq!(&first_block_header.timestamp, &first_timestamp);
-        assert_eq!(
-            &first_block_header.parent_block_hash,
-            &BurnchainHeaderHash::sentinel()
-        );
-
-        let canon_hash = BurnchainHeaderHash([1; 32]);
-
-        let canonical_block = BurnchainBlock::Bitcoin(BitcoinBlock::new(
-            500,
-            &canon_hash,
-            &first_bhh,
-            &vec![],
-            485,
-        ));
-        let ops = burnchain_db
-            .store_new_burnchain_block(&burnchain, &canonical_block)
-            .unwrap();
-        assert_eq!(ops.len(), 0);
-
-        let vtxindex = 1;
-        let noncanon_block_height = 400;
-        let non_canon_hash = BurnchainHeaderHash([2; 32]);
-
-        let fixtures = operations::leader_key_register::tests::get_test_fixtures(
-            vtxindex,
-            noncanon_block_height,
-            non_canon_hash,
-        );
-
-        let parser = BitcoinBlockParser::new(BitcoinNetworkType::Testnet, BLOCKSTACK_MAGIC_MAINNET);
-        let mut broadcast_ops = vec![];
-        let mut expected_ops = vec![];
-
-        for (ix, tx_fixture) in fixtures.iter().enumerate() {
-            let tx = make_tx(&tx_fixture.txstr);
-            let burnchain_tx = parser.parse_tx(&tx, ix + 1).unwrap();
-            if let Some(res) = &tx_fixture.result {
-                let mut res = res.clone();
-                res.vtxindex = (ix + 1).try_into().unwrap();
-                expected_ops.push(res.clone());
-            }
-            broadcast_ops.push(burnchain_tx);
-        }
-
-        let non_canonical_block = BurnchainBlock::Bitcoin(BitcoinBlock::new(
-            400,
-            &non_canon_hash,
-            &first_bhh,
-            &broadcast_ops,
-            350,
-        ));
-
-        let ops = burnchain_db
-            .store_new_burnchain_block(&burnchain, &non_canonical_block)
-            .unwrap();
-        assert_eq!(ops.len(), expected_ops.len());
-        for op in ops.iter() {
-            let expected_op = expected_ops
-                .iter()
-                .find(|candidate| candidate.txid == op.txid())
-                .expect("FAILED to find parsed op in expected ops");
-            if let BlockstackOperationType::LeaderKeyRegister(op) = op {
-                assert_eq!(op, expected_op);
-            } else {
-                panic!("EXPECTED to parse a LeaderKeyRegister");
-            }
-        }
-
-        let BurnchainBlockData { header, ops } =
-            burnchain_db.get_burnchain_block(&non_canon_hash).unwrap();
-        assert_eq!(ops.len(), expected_ops.len());
-        for op in ops.iter() {
-            let expected_op = expected_ops
-                .iter()
-                .find(|candidate| candidate.txid == op.txid())
-                .expect("FAILED to find parsed op in expected ops");
-            if let BlockstackOperationType::LeaderKeyRegister(op) = op {
-                assert_eq!(op, expected_op);
-            } else {
-                panic!("EXPECTED to parse a LeaderKeyRegister");
-            }
-        }
-        assert_eq!(&header, &non_canonical_block.header());
-
-        let looked_up_canon = burnchain_db.get_canonical_chain_tip().unwrap();
-        assert_eq!(&looked_up_canon, &canonical_block.header());
-
-        let BurnchainBlockData { header, ops } =
-            burnchain_db.get_burnchain_block(&canon_hash).unwrap();
-        assert_eq!(ops.len(), 0);
-        assert_eq!(&header, &looked_up_canon);
-    }
-
-    #[test]
-    fn test_classify_stack_stx() {
-        let first_bhh = BurnchainHeaderHash([0; 32]);
-        let first_timestamp = 321;
-        let first_height = 1;
-
-        let mut burnchain_db =
-            BurnchainDB::connect(":memory:", first_height, &first_bhh, first_timestamp, true)
-                .unwrap();
-
-        let mut burnchain = Burnchain::regtest(":memory:");
-        burnchain.pox_constants = PoxConstants::test_default();
-        burnchain.pox_constants.sunset_start = 999;
-        burnchain.pox_constants.sunset_end = 1000;
-
-        let first_block_header = burnchain_db.get_canonical_chain_tip().unwrap();
-        assert_eq!(&first_block_header.block_hash, &first_bhh);
-        assert_eq!(&first_block_header.block_height, &first_height);
-        assert_eq!(&first_block_header.timestamp, &first_timestamp);
-        assert_eq!(
-            &first_block_header.parent_block_hash,
-            &BurnchainHeaderHash::sentinel()
-        );
-
-        let canon_hash = BurnchainHeaderHash([1; 32]);
-
-        let canonical_block = BurnchainBlock::Bitcoin(BitcoinBlock::new(
-            500,
-            &canon_hash,
-            &first_bhh,
-            &vec![],
-            485,
-        ));
-        let ops = burnchain_db
-            .store_new_burnchain_block(&burnchain, &canonical_block)
-            .unwrap();
-        assert_eq!(ops.len(), 0);
-
-        // let's mine a block with a pre-stack-stx tx, and a stack-stx tx,
-        //    the stack-stx tx should _fail_ to verify, because there's no
-        //    corresponding pre-stack-stx.
-
-        let parser = BitcoinBlockParser::new(BitcoinNetworkType::Testnet, BLOCKSTACK_MAGIC_MAINNET);
-
-        let pre_stack_stx_0_txid = Txid([5; 32]);
-        let pre_stack_stx_0 = BitcoinTransaction {
-            txid: pre_stack_stx_0_txid.clone(),
-            vtxindex: 0,
-            opcode: Opcodes::PreStx as u8,
-            data: vec![0; 80],
-            data_amt: 0,
-            inputs: vec![BitcoinTxInput {
-                keys: vec![],
-                num_required: 0,
-                in_type: BitcoinInputType::Standard,
-                tx_ref: (Txid([0; 32]), 1),
-            }],
-            outputs: vec![BitcoinTxOutput {
-                units: 10,
-                address: BitcoinAddress {
-                    addrtype: BitcoinAddressType::PublicKeyHash,
-                    network_id: BitcoinNetworkType::Mainnet,
-                    bytes: Hash160([1; 20]),
-                },
-            }],
-        };
-
-        // this one will not have a corresponding pre_stack_stx tx.
-        let stack_stx_0 = BitcoinTransaction {
-            txid: Txid([4; 32]),
-            vtxindex: 1,
-            opcode: Opcodes::StackStx as u8,
-            data: vec![1; 80],
-            data_amt: 0,
-            inputs: vec![BitcoinTxInput {
-                keys: vec![],
-                num_required: 0,
-                in_type: BitcoinInputType::Standard,
-                tx_ref: (Txid([0; 32]), 1),
-            }],
-            outputs: vec![BitcoinTxOutput {
-                units: 10,
-                address: BitcoinAddress {
-                    addrtype: BitcoinAddressType::PublicKeyHash,
-                    network_id: BitcoinNetworkType::Mainnet,
-                    bytes: Hash160([1; 20]),
-                },
-            }],
-        };
-
-        // this one will have a corresponding pre_stack_stx tx.
-        let stack_stx_0_second_attempt = BitcoinTransaction {
-            txid: Txid([4; 32]),
-            vtxindex: 2,
-            opcode: Opcodes::StackStx as u8,
-            data: vec![1; 80],
-            data_amt: 0,
-            inputs: vec![BitcoinTxInput {
-                keys: vec![],
-                num_required: 0,
-                in_type: BitcoinInputType::Standard,
-                tx_ref: (pre_stack_stx_0_txid.clone(), 1),
-            }],
-            outputs: vec![BitcoinTxOutput {
-                units: 10,
-                address: BitcoinAddress {
-                    addrtype: BitcoinAddressType::PublicKeyHash,
-                    network_id: BitcoinNetworkType::Mainnet,
-                    bytes: Hash160([2; 20]),
-                },
-            }],
-        };
-
-        // this one won't have a corresponding pre_stack_stx tx.
-        let stack_stx_1 = BitcoinTransaction {
-            txid: Txid([3; 32]),
-            vtxindex: 3,
-            opcode: Opcodes::StackStx as u8,
-            data: vec![1; 80],
-            data_amt: 0,
-            inputs: vec![BitcoinTxInput {
-                keys: vec![],
-                num_required: 0,
-                in_type: BitcoinInputType::Standard,
-                tx_ref: (Txid([0; 32]), 1),
-            }],
-            outputs: vec![BitcoinTxOutput {
-                units: 10,
-                address: BitcoinAddress {
-                    addrtype: BitcoinAddressType::PublicKeyHash,
-                    network_id: BitcoinNetworkType::Mainnet,
-                    bytes: Hash160([1; 20]),
-                },
-            }],
-        };
-
-        // this one won't use the correct output
-        let stack_stx_2 = BitcoinTransaction {
-            txid: Txid([8; 32]),
-            vtxindex: 4,
-            opcode: Opcodes::StackStx as u8,
-            data: vec![1; 80],
-            data_amt: 0,
-            inputs: vec![BitcoinTxInput {
-                keys: vec![],
-                num_required: 0,
-                in_type: BitcoinInputType::Standard,
-                tx_ref: (pre_stack_stx_0_txid.clone(), 2),
-            }],
-            outputs: vec![BitcoinTxOutput {
-                units: 10,
-                address: BitcoinAddress {
-                    addrtype: BitcoinAddressType::PublicKeyHash,
-                    network_id: BitcoinNetworkType::Mainnet,
-                    bytes: Hash160([1; 20]),
-                },
-            }],
-        };
-
-        let ops_0 = vec![pre_stack_stx_0, stack_stx_0];
-
-        let ops_1 = vec![stack_stx_1, stack_stx_0_second_attempt, stack_stx_2];
-
-        let block_height_0 = 501;
-        let block_hash_0 = BurnchainHeaderHash([2; 32]);
-        let block_height_1 = 502;
-        let block_hash_1 = BurnchainHeaderHash([3; 32]);
-
-        let block_0 = BurnchainBlock::Bitcoin(BitcoinBlock::new(
-            block_height_0,
-            &block_hash_0,
-            &first_bhh,
-            &ops_0,
-            350,
-        ));
-
-        let block_1 = BurnchainBlock::Bitcoin(BitcoinBlock::new(
-            block_height_1,
-            &block_hash_1,
-            &block_hash_0,
-            &ops_1,
-            360,
-        ));
-
-        let processed_ops_0 = burnchain_db
-            .store_new_burnchain_block(&burnchain, &block_0)
-            .unwrap();
-
-        assert_eq!(
-            processed_ops_0.len(),
-            1,
-            "Only pre_stack_stx op should have been accepted"
-        );
-
-        let processed_ops_1 = burnchain_db
-            .store_new_burnchain_block(&burnchain, &block_1)
-            .unwrap();
-
-        assert_eq!(
-            processed_ops_1.len(),
-            1,
-            "Only one stack_stx op should have been accepted"
-        );
-
-        let expected_pre_stack_addr = StacksAddress::from_bitcoin_address(&BitcoinAddress {
-            addrtype: BitcoinAddressType::PublicKeyHash,
-            network_id: BitcoinNetworkType::Mainnet,
-            bytes: Hash160([1; 20]),
-        });
-
-        let expected_reward_addr = StacksAddress::from_bitcoin_address(&BitcoinAddress {
-            addrtype: BitcoinAddressType::PublicKeyHash,
-            network_id: BitcoinNetworkType::Mainnet,
-            bytes: Hash160([2; 20]),
-        });
-
-        if let BlockstackOperationType::PreStx(op) = &processed_ops_0[0] {
-            assert_eq!(&op.output, &expected_pre_stack_addr);
-        } else {
-            panic!("EXPECTED to parse a pre stack stx op");
-        }
-
-        if let BlockstackOperationType::StackStx(op) = &processed_ops_1[0] {
-            assert_eq!(&op.sender, &expected_pre_stack_addr);
-            assert_eq!(&op.reward_addr, &expected_reward_addr);
-            assert_eq!(op.stacked_ustx, u128::from_be_bytes([1; 16]));
-            assert_eq!(op.num_cycles, 1);
-        } else {
-            panic!("EXPECTED to parse a stack stx op");
-        }
     }
 }

@@ -28,10 +28,8 @@ use std::{env, fs, io};
 
 use blockstack_lib::address::b58;
 use blockstack_lib::address::AddressHashMode;
-use blockstack_lib::burnchains::bitcoin::address::{
-    ADDRESS_VERSION_MAINNET_SINGLESIG, ADDRESS_VERSION_TESTNET_SINGLESIG,
-};
 use blockstack_lib::burnchains::Address;
+use blockstack_lib::chainstate::stacks::StacksBlockHeader;
 use blockstack_lib::chainstate::stacks::{
     StacksBlock, StacksMicroblock, StacksPrivateKey, StacksPublicKey, StacksTransaction,
     StacksTransactionSigner, TokenTransferMemo, TransactionAnchorMode, TransactionAuth,
@@ -43,10 +41,8 @@ use blockstack_lib::codec::{Error as CodecError, StacksMessageCodec};
 use blockstack_lib::core::{CHAIN_ID_MAINNET, CHAIN_ID_TESTNET};
 use blockstack_lib::net::Error as NetError;
 use blockstack_lib::types::chainstate::StacksAddress;
-use blockstack_lib::types::chainstate::StacksBlockHeader;
-use blockstack_lib::util::{
-    hash::hex_bytes, hash::to_hex, log, retry::LogReader, strings::StacksString,
-};
+use blockstack_lib::util::{hash::hex_bytes, hash::to_hex, log, retry::LogReader};
+use blockstack_lib::util_lib::strings::StacksString;
 use blockstack_lib::vm::{
     errors::{Error as ClarityError, RuntimeErrorType},
     types::PrincipalData,
@@ -455,7 +451,7 @@ fn handle_contract_call(
                 Value::try_deserialize_hex_untyped(input)?
             },
             "-e" => {
-                blockstack_lib::clarity::vm_execute(input)?
+                blockstack_lib::clarity_cli::vm_execute(input)?
                     .ok_or("Supplied argument did not evaluate to a Value")?
             },
             _ => {
@@ -604,11 +600,6 @@ fn get_addresses(args: &[String], version: TransactionVersion) -> Result<String,
         TransactionVersion::Testnet => C32_ADDRESS_VERSION_TESTNET_SINGLESIG,
     };
 
-    let b58_version = match version {
-        TransactionVersion::Mainnet => ADDRESS_VERSION_MAINNET_SINGLESIG,
-        TransactionVersion::Testnet => ADDRESS_VERSION_TESTNET_SINGLESIG,
-    };
-
     let stx_address = StacksAddress::from_public_keys(
         c32_version,
         &AddressHashMode::SerializeP2PKH,
@@ -617,16 +608,11 @@ fn get_addresses(args: &[String], version: TransactionVersion) -> Result<String,
     )
     .expect("Failed to generate address from public key");
 
-    let mut b58_addr_slice = [0u8; 21];
-    b58_addr_slice[0] = b58_version;
-    b58_addr_slice[1..].copy_from_slice(&stx_address.bytes.0);
-    let b58_address_string = b58::check_encode_slice(&b58_addr_slice);
     Ok(format!(
         "{{
     \"STX\": \"{}\",
-    \"BTC\": \"{}\"
 }}",
-        &stx_address, &b58_address_string
+        &stx_address
     ))
 }
 
@@ -1123,8 +1109,8 @@ mod test {
         ];
 
         let result = main_handler(to_string_vec(&addr_args)).unwrap();
+        eprintln!("{}", result);
         assert!(result.contains("SP36T883PDD2EK4PHVTA5GFHC8NQW6558XG7YX1GD"));
-        assert!(result.contains("1KkL94EPD3mz7RFCZPmRBy3KjbWZ4qo58E"));
 
         let addr_args = [
             "--testnet",
@@ -1133,7 +1119,7 @@ mod test {
         ];
 
         let result = main_handler(to_string_vec(&addr_args)).unwrap();
-        assert!(result.contains("mzGHS7KN25DEtXipGxjo1tFebb7Fw5aAkp"));
+        eprintln!("{}", result);
         assert!(result.contains("ST36T883PDD2EK4PHVTA5GFHC8NQW6558XJQX6Q3K"));
     }
 

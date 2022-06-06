@@ -5,15 +5,21 @@ use std::path::PathBuf;
 
 use rand::RngCore;
 
-use stacks::burnchains::bitcoin::BitcoinNetworkType;
 use stacks::burnchains::{MagicBytes, BLOCKSTACK_MAGIC_MAINNET};
+use stacks::chainstate::coordinator::comm::CoordinatorChannels;
+use stacks::chainstate::stacks::index::marf::MARFOpenOpts;
+use stacks::chainstate::stacks::index::storage::TrieHashCalculationMode;
 use stacks::chainstate::stacks::miner::BlockBuilderSettings;
+use stacks::chainstate::stacks::StacksPrivateKey;
+use stacks::chainstate::stacks::TransactionAnchorMode;
 use stacks::chainstate::stacks::MAX_BLOCK_LEN;
 use stacks::core::mempool::MemPoolWalkSettings;
 use stacks::core::StacksEpoch;
 use stacks::core::{
     CHAIN_ID_MAINNET, CHAIN_ID_TESTNET, PEER_VERSION_MAINNET, PEER_VERSION_TESTNET,
 };
+use stacks::cost_estimates::fee_medians::WeightedMedianFeeRateEstimator;
+use stacks::cost_estimates::fee_rate_fuzzer::FeeRateFuzzer;
 use stacks::cost_estimates::fee_scalar::ScalarFeeRateEstimator;
 use stacks::cost_estimates::metrics::CostMetric;
 use stacks::cost_estimates::metrics::ProportionalDotProduct;
@@ -28,12 +34,20 @@ use stacks::util::secp256k1::Secp256k1PrivateKey;
 use stacks::util::secp256k1::Secp256k1PublicKey;
 use stacks::vm::types::{AssetIdentifier, PrincipalData, QualifiedContractIdentifier};
 
+use crate::burnchains::l1_events::L1Controller;
+use crate::burnchains::mock_events::MockController;
+use crate::BurnchainController;
+
 const DEFAULT_SATS_PER_VB: u64 = 50;
 const DEFAULT_MAX_RBF_RATE: u64 = 150; // 1.5x
 const DEFAULT_RBF_FEE_RATE_INCREMENT: u64 = 5;
 const LEADER_KEY_TX_ESTIM_SIZE: u64 = 290;
 const BLOCK_COMMIT_TX_ESTIM_SIZE: u64 = 350;
 const INV_REWARD_CYCLES_TESTNET: u64 = 6;
+
+pub const BURNCHAIN_NAME_STACKS_L1: &str = "stacks_layer_1";
+pub const BURNCHAIN_NAME_MOCKSTACK: &str = "mockstack";
+pub const DEFAULT_L1_OBSERVER_PORT: u16 = 50303;
 
 #[derive(Clone, Deserialize, Default)]
 pub struct ConfigFile {
@@ -336,6 +350,10 @@ impl Config {
                         }
                         None => default_node_config.seed,
                     },
+                    mining_key: node.mining_key.map(|key_str| {
+                        Secp256k1PrivateKey::from_hex(&key_str)
+                            .expect("Bad private key configured in node mining key")
+                    }),
                     working_dir: node.working_dir.unwrap_or(default_node_config.working_dir),
                     rpc_bind: rpc_bind.clone(),
                     p2p_bind: node.p2p_bind.unwrap_or(default_node_config.p2p_bind),
@@ -367,10 +385,15 @@ impl Config {
                         .wait_time_for_microblocks
                         .unwrap_or(default_node_config.wait_time_for_microblocks),
                     prometheus_bind: node.prometheus_bind,
+                    marf_cache_strategy: node.marf_cache_strategy,
+                    marf_defer_hashing: node
+                        .marf_defer_hashing
+                        .unwrap_or(default_node_config.marf_defer_hashing),
                     pox_sync_sample_secs: node
                         .pox_sync_sample_secs
                         .unwrap_or(default_node_config.pox_sync_sample_secs),
                     use_test_genesis_chainstate: node.use_test_genesis_chainstate,
+                    ..default_node_config
                 };
                 (node_config, node.bootstrap_node, node.deny_nodes)
             }
@@ -420,6 +443,9 @@ impl Config {
                     } else {
                         CHAIN_ID_TESTNET
                     },
+                    observer_port: burnchain
+                        .observer_port
+                        .unwrap_or(default_burnchain_config.observer_port),
                     peer_version: if &burnchain_mode == "mainnet" {
                         PEER_VERSION_MAINNET
                     } else {
@@ -501,6 +527,16 @@ impl Config {
                         Some(epochs) => Some(epochs),
                         None => default_burnchain_config.epochs,
                     },
+                    contract_identifier: QualifiedContractIdentifier::parse(
+                        &burnchain
+                            .contract_identifier
+                            .expect("Hyperchain nodes must configure L1 contract identifier"),
+                    )
+                    .expect("Invalid contract identifier configured with hyperchain node"),
+                    first_burn_header_height: burnchain
+                        .first_burn_header_height
+                        .unwrap_or(default_burnchain_config.first_burn_header_height),
+                    ..BurnchainConfig::default()
                 }
             }
             None => default_burnchain_config,
@@ -516,6 +552,9 @@ impl Config {
                 subsequent_attempt_time_ms: miner
                     .subsequent_attempt_time_ms
                     .unwrap_or(miner_default_config.subsequent_attempt_time_ms),
+                microblock_attempt_time_ms: miner
+                    .microblock_attempt_time_ms
+                    .unwrap_or(miner_default_config.microblock_attempt_time_ms),
                 probability_pick_no_estimate_tx: miner
                     .probability_pick_no_estimate_tx
                     .unwrap_or(miner_default_config.probability_pick_no_estimate_tx),
@@ -523,9 +562,7 @@ impl Config {
             None => miner_default_config,
         };
 
-        let supported_modes = vec![
-            "mocknet", "helium", "neon", "argon", "krypton", "xenon", "mainnet",
-        ];
+        let supported_modes = vec!["hyperchain"];
 
         if !supported_modes.contains(&burnchain.mode.as_str()) {
             panic!(
@@ -724,9 +761,6 @@ impl Config {
                     inv_sync_interval: opts
                         .inv_sync_interval
                         .unwrap_or_else(|| HELIUM_DEFAULT_CONNECTION_OPTIONS.inv_sync_interval),
-                    full_inv_sync_interval: opts.full_inv_sync_interval.unwrap_or_else(|| {
-                        HELIUM_DEFAULT_CONNECTION_OPTIONS.full_inv_sync_interval
-                    }),
                     inv_reward_cycles: opts.inv_reward_cycles.unwrap_or_else(|| {
                         if burnchain.mode == "mainnet" {
                             HELIUM_DEFAULT_CONNECTION_OPTIONS.inv_reward_cycles
@@ -782,6 +816,17 @@ impl Config {
         let mut path = PathBuf::from(&self.node.working_dir);
         path.push(&self.burnchain.mode);
         path.push("chainstate");
+        path
+    }
+
+    /// Returns the path `{get_chainstate_path()}/estimates`, and ensures it exists.
+    pub fn get_estimates_path(&self) -> PathBuf {
+        let mut path = self.get_chainstate_path();
+        path.push("estimates");
+        fs::create_dir_all(&path).expect(&format!(
+            "Failed to create `estimates` directory at {}",
+            path.to_string_lossy()
+        ));
         path
     }
 
@@ -859,9 +904,15 @@ impl Config {
         self.events_observers.len() > 0
     }
 
-    pub fn make_block_builder_settings(&self, attempt: u64) -> BlockBuilderSettings {
+    pub fn make_block_builder_settings(
+        &self,
+        attempt: u64,
+        microblocks: bool,
+    ) -> BlockBuilderSettings {
         BlockBuilderSettings {
-            max_miner_time_ms: if attempt <= 1 {
+            max_miner_time_ms: if microblocks {
+                self.miner.microblock_attempt_time_ms
+            } else if attempt <= 1 {
                 // first attempt to mine a block -- do so right away
                 self.miner.first_attempt_time_ms
             } else {
@@ -870,7 +921,9 @@ impl Config {
             },
             mempool_settings: MemPoolWalkSettings {
                 min_tx_fee: self.miner.min_tx_fee,
-                max_walk_time_ms: if attempt <= 1 {
+                max_walk_time_ms: if microblocks {
+                    self.miner.microblock_attempt_time_ms
+                } else if attempt <= 1 {
                     // first attempt to mine a block -- do so right away
                     self.miner.first_attempt_time_ms
                 } else {
@@ -909,10 +962,11 @@ impl std::default::Default for Config {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct BurnchainConfig {
     pub chain: String,
     pub mode: String,
+    pub observer_port: u16,
     pub chain_id: u32,
     pub peer_version: u32,
     pub commit_anchor_block_within: u64,
@@ -936,16 +990,23 @@ pub struct BurnchainConfig {
     /// Custom override for the definitions of the epochs. This will only be applied for testnet and
     /// regtest nodes.
     pub epochs: Option<Vec<StacksEpoch>>,
+    /// The layer 1 contract that the hyperchain will watch for Stacks events.
+    pub contract_identifier: QualifiedContractIdentifier,
+    /// Block height for the first header.
+    pub first_burn_header_height: u64,
+    /// The anchor mode for any transactions submitted to L1
+    pub anchor_mode: TransactionAnchorMode,
 }
 
-impl BurnchainConfig {
-    fn default() -> BurnchainConfig {
+impl Default for BurnchainConfig {
+    fn default() -> Self {
         BurnchainConfig {
             chain: "bitcoin".to_string(),
             mode: "mocknet".to_string(),
             chain_id: CHAIN_ID_TESTNET,
             peer_version: PEER_VERSION_TESTNET,
             burn_fee_cap: 20000,
+            observer_port: DEFAULT_L1_OBSERVER_PORT,
             commit_anchor_block_within: 5000,
             peer_host: "0.0.0.0".to_string(),
             peer_port: 8333,
@@ -964,7 +1025,22 @@ impl BurnchainConfig {
             block_commit_tx_estimated_size: BLOCK_COMMIT_TX_ESTIM_SIZE,
             rbf_fee_increment: DEFAULT_RBF_FEE_RATE_INCREMENT,
             epochs: None,
+            contract_identifier: QualifiedContractIdentifier::transient(),
+            first_burn_header_height: 0u64,
+            anchor_mode: TransactionAnchorMode::Any,
         }
+    }
+}
+
+impl BurnchainConfig {
+    /// Does this configuration need a L1 observer to be spawned?
+    pub fn spawn_l1_observer(&self) -> bool {
+        self.chain == BURNCHAIN_NAME_STACKS_L1
+    }
+
+    /// Is the L1 chain itself mainnet or testnet?
+    pub fn is_mainnet(&self) -> bool {
+        self.chain_id == CHAIN_ID_MAINNET
     }
 
     pub fn get_rpc_url(&self) -> String {
@@ -982,23 +1058,13 @@ impl BurnchainConfig {
         let sock_addr = addrs_iter.next().unwrap();
         sock_addr
     }
-
-    pub fn get_bitcoin_network(&self) -> (String, BitcoinNetworkType) {
-        match self.mode.as_str() {
-            "mainnet" => ("mainnet".to_string(), BitcoinNetworkType::Mainnet),
-            "xenon" => ("testnet".to_string(), BitcoinNetworkType::Testnet),
-            "helium" | "neon" | "argon" | "krypton" | "mocknet" => {
-                ("regtest".to_string(), BitcoinNetworkType::Regtest)
-            }
-            _ => panic!("Invalid bitcoin mode -- expected mainnet, testnet, or regtest"),
-        }
-    }
 }
 
 #[derive(Clone, Deserialize, Default)]
 pub struct BurnchainConfigFile {
     pub chain: Option<String>,
     pub burn_fee_cap: Option<u64>,
+    pub observer_port: Option<u16>,
     pub mode: Option<String>,
     pub commit_anchor_block_within: Option<u64>,
     pub peer_host: Option<String>,
@@ -1018,11 +1084,14 @@ pub struct BurnchainConfigFile {
     pub rbf_fee_increment: Option<u64>,
     pub max_rbf: Option<u64>,
     pub epochs: Option<Vec<StacksEpoch>>,
+    pub contract_identifier: Option<String>,
+    pub first_burn_header_height: Option<u64>,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct NodeConfig {
     pub name: String,
+    /// Value to initialize the keychain, only used if `mining_key` is not set.
     pub seed: Vec<u8>,
     pub working_dir: String,
     pub rpc_bind: String,
@@ -1039,8 +1108,12 @@ pub struct NodeConfig {
     pub max_microblocks: u64,
     pub wait_time_for_microblocks: u64,
     pub prometheus_bind: Option<String>,
+    pub marf_cache_strategy: Option<String>,
+    pub marf_defer_hashing: bool,
     pub pox_sync_sample_secs: u64,
     pub use_test_genesis_chainstate: Option<bool>,
+    /// Used to specify the keychain signing key exactly
+    pub mining_key: Option<StacksPrivateKey>,
 }
 
 #[derive(Clone, Debug)]
@@ -1051,6 +1124,7 @@ pub enum CostEstimatorName {
 #[derive(Clone, Debug)]
 pub enum FeeEstimatorName {
     ScalarFeeRate,
+    FuzzedWeightedMedianFeeRate,
 }
 
 #[derive(Clone, Debug)]
@@ -1093,6 +1167,8 @@ impl FeeEstimatorName {
     fn panic_parse(s: String) -> FeeEstimatorName {
         if &s.to_lowercase() == "scalar_fee_rate" {
             FeeEstimatorName::ScalarFeeRate
+        } else if &s.to_lowercase() == "fuzzed_weighted_median_fee_rate" {
+            FeeEstimatorName::FuzzedWeightedMedianFeeRate
         } else {
             panic!(
                 "Bad fee estimator name supplied in configuration file: {}",
@@ -1118,6 +1194,12 @@ pub struct FeeEstimationConfig {
     pub fee_estimator: Option<FeeEstimatorName>,
     pub cost_metric: Option<CostMetricName>,
     pub log_error: bool,
+    /// If using FeeRateFuzzer, the amount of random noise, as a percentage of the base value (in
+    /// [0, 1]) to add for fuzz. See comments on FeeRateFuzzer.
+    pub fee_rate_fuzzer_fraction: f64,
+    /// If using WeightedMedianFeeRateEstimator, the window size to use. See comments on
+    /// WeightedMedianFeeRateEstimator.
+    pub fee_rate_window_size: u64,
 }
 
 impl Default for FeeEstimationConfig {
@@ -1127,6 +1209,8 @@ impl Default for FeeEstimationConfig {
             fee_estimator: Some(FeeEstimatorName::default()),
             cost_metric: Some(CostMetricName::default()),
             log_error: false,
+            fee_rate_fuzzer_fraction: 0.1f64,
+            fee_rate_window_size: 5u64,
         }
     }
 }
@@ -1139,6 +1223,8 @@ impl From<FeeEstimationConfigFile> for FeeEstimationConfig {
                 fee_estimator: None,
                 cost_metric: None,
                 log_error: false,
+                fee_rate_fuzzer_fraction: 0f64,
+                fee_rate_window_size: 0u64,
             };
         }
         let cost_estimator = f
@@ -1159,17 +1245,40 @@ impl From<FeeEstimationConfigFile> for FeeEstimationConfig {
             fee_estimator: Some(fee_estimator),
             cost_metric: Some(cost_metric),
             log_error,
+            fee_rate_fuzzer_fraction: f.fee_rate_fuzzer_fraction.unwrap_or(0.1f64),
+            fee_rate_window_size: f.fee_rate_window_size.unwrap_or(5u64),
         }
     }
 }
 
 impl Config {
+    /// Factory function based on `self.burnchain.chain`.
+    pub fn make_burnchain_controller(
+        &self,
+        coordinator: CoordinatorChannels,
+    ) -> Result<Box<dyn BurnchainController + Send>, super::burnchains::Error> {
+        match self.burnchain.chain.as_str() {
+            BURNCHAIN_NAME_MOCKSTACK => {
+                Ok(Box::new(MockController::new(self.clone(), coordinator)))
+            }
+            BURNCHAIN_NAME_STACKS_L1 => Ok(Box::new(L1Controller::new(self.clone(), coordinator)?)),
+            _ => {
+                warn!(
+                    "No matching controller for `chain`: {}",
+                    self.burnchain.chain.as_str()
+                );
+                Err(super::burnchains::Error::UnsupportedBurnchain(
+                    self.burnchain.chain.clone(),
+                ))
+            }
+        }
+    }
     pub fn make_cost_estimator(&self) -> Option<Box<dyn CostEstimator>> {
         let cost_estimator: Box<dyn CostEstimator> =
             match self.estimation.cost_estimator.as_ref()? {
                 CostEstimatorName::NaivePessimistic => Box::new(
                     self.estimation
-                        .make_pessimistic_cost_estimator(self.get_chainstate_path()),
+                        .make_pessimistic_cost_estimator(self.get_estimates_path()),
                 ),
             };
 
@@ -1189,10 +1298,12 @@ impl Config {
     pub fn make_fee_estimator(&self) -> Option<Box<dyn FeeEstimator>> {
         let metric = self.make_cost_metric()?;
         let fee_estimator: Box<dyn FeeEstimator> = match self.estimation.fee_estimator.as_ref()? {
-            FeeEstimatorName::ScalarFeeRate => Box::new(
-                self.estimation
-                    .make_scalar_fee_estimator(self.get_chainstate_path(), metric),
-            ),
+            FeeEstimatorName::ScalarFeeRate => self
+                .estimation
+                .make_scalar_fee_estimator(self.get_estimates_path(), metric),
+            FeeEstimatorName::FuzzedWeightedMedianFeeRate => self
+                .estimation
+                .make_fuzzed_weighted_median_fee_estimator(self.get_estimates_path(), metric),
         };
 
         Some(fee_estimator)
@@ -1202,28 +1313,56 @@ impl Config {
 impl FeeEstimationConfig {
     pub fn make_pessimistic_cost_estimator(
         &self,
-        mut chainstate_path: PathBuf,
+        mut estimates_path: PathBuf,
     ) -> PessimisticEstimator {
         if let Some(CostEstimatorName::NaivePessimistic) = self.cost_estimator.as_ref() {
-            chainstate_path.push("cost_estimator_pessimistic.sqlite");
-            PessimisticEstimator::open(&chainstate_path, self.log_error)
+            estimates_path.push("cost_estimator_pessimistic.sqlite");
+            PessimisticEstimator::open(&estimates_path, self.log_error)
                 .expect("Error opening cost estimator")
         } else {
             panic!("BUG: Expected to configure a naive pessimistic cost estimator");
         }
     }
 
-    pub fn make_scalar_fee_estimator<CM: CostMetric>(
+    pub fn make_scalar_fee_estimator<CM: 'static + CostMetric>(
         &self,
-        mut chainstate_path: PathBuf,
+        mut estimates_path: PathBuf,
         metric: CM,
-    ) -> ScalarFeeRateEstimator<CM> {
+    ) -> Box<dyn FeeEstimator> {
         if let Some(FeeEstimatorName::ScalarFeeRate) = self.fee_estimator.as_ref() {
-            chainstate_path.push("fee_estimator_scalar_rate.sqlite");
-            ScalarFeeRateEstimator::open(&chainstate_path, metric)
-                .expect("Error opening fee estimator")
+            estimates_path.push("fee_estimator_scalar_rate.sqlite");
+            Box::new(
+                ScalarFeeRateEstimator::open(&estimates_path, metric)
+                    .expect("Error opening fee estimator"),
+            )
         } else {
             panic!("BUG: Expected to configure a scalar fee estimator");
+        }
+    }
+
+    // Creates a fuzzed WeightedMedianFeeRateEstimator with window_size 5. The fuzz
+    // is uniform with bounds [+/- 0.5].
+    pub fn make_fuzzed_weighted_median_fee_estimator<CM: 'static + CostMetric>(
+        &self,
+        mut estimates_path: PathBuf,
+        metric: CM,
+    ) -> Box<dyn FeeEstimator> {
+        if let Some(FeeEstimatorName::FuzzedWeightedMedianFeeRate) = self.fee_estimator.as_ref() {
+            estimates_path.push("fee_fuzzed_weighted_median.sqlite");
+            let underlying_estimator = WeightedMedianFeeRateEstimator::open(
+                &estimates_path,
+                metric,
+                self.fee_rate_window_size
+                    .try_into()
+                    .expect("Configured fee rate window size out of bounds."),
+            )
+            .expect("Error opening fee estimator");
+            Box::new(FeeRateFuzzer::new(
+                underlying_estimator,
+                self.fee_rate_fuzzer_fraction,
+            ))
+        } else {
+            panic!("BUG: Expected to configure a weighted median fee estimator");
         }
     }
 }
@@ -1265,8 +1404,11 @@ impl NodeConfig {
             max_microblocks: u16::MAX as u64,
             wait_time_for_microblocks: 30_000,
             prometheus_bind: None,
+            marf_cache_strategy: None,
+            marf_defer_hashing: true,
             pox_sync_sample_secs: 30,
             use_test_genesis_chainstate: None,
+            mining_key: None,
         }
     }
 
@@ -1344,6 +1486,23 @@ impl NodeConfig {
             }
         }
     }
+
+    pub fn get_marf_opts(&self) -> MARFOpenOpts {
+        let hash_mode = if self.marf_defer_hashing {
+            TrieHashCalculationMode::Deferred
+        } else {
+            TrieHashCalculationMode::Immediate
+        };
+
+        MARFOpenOpts::new(
+            hash_mode,
+            &self
+                .marf_cache_strategy
+                .as_ref()
+                .unwrap_or(&"noop".to_string()),
+            false,
+        )
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1351,6 +1510,7 @@ pub struct MinerConfig {
     pub min_tx_fee: u64,
     pub first_attempt_time_ms: u64,
     pub subsequent_attempt_time_ms: u64,
+    pub microblock_attempt_time_ms: u64,
     pub probability_pick_no_estimate_tx: u8,
 }
 
@@ -1358,8 +1518,9 @@ impl MinerConfig {
     pub fn default() -> MinerConfig {
         MinerConfig {
             min_tx_fee: 1,
-            first_attempt_time_ms: 1_000,
-            subsequent_attempt_time_ms: 60_000,
+            first_attempt_time_ms: 5_000,
+            subsequent_attempt_time_ms: 30_000,
+            microblock_attempt_time_ms: 30_000,
             probability_pick_no_estimate_tx: 5,
         }
     }
@@ -1427,8 +1588,11 @@ pub struct NodeConfigFile {
     pub max_microblocks: Option<u64>,
     pub wait_time_for_microblocks: Option<u64>,
     pub prometheus_bind: Option<String>,
+    pub marf_cache_strategy: Option<String>,
+    pub marf_defer_hashing: Option<bool>,
     pub pox_sync_sample_secs: Option<u64>,
     pub use_test_genesis_chainstate: Option<bool>,
+    pub mining_key: Option<String>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -1438,6 +1602,8 @@ pub struct FeeEstimationConfigFile {
     pub cost_metric: Option<String>,
     pub disabled: Option<bool>,
     pub log_error: Option<bool>,
+    pub fee_rate_fuzzer_fraction: Option<f64>,
+    pub fee_rate_window_size: Option<u64>,
 }
 
 impl Default for FeeEstimationConfigFile {
@@ -1448,6 +1614,8 @@ impl Default for FeeEstimationConfigFile {
             cost_metric: None,
             disabled: None,
             log_error: None,
+            fee_rate_fuzzer_fraction: None,
+            fee_rate_window_size: None,
         }
     }
 }
@@ -1457,6 +1625,7 @@ pub struct MinerConfigFile {
     pub min_tx_fee: Option<u64>,
     pub first_attempt_time_ms: Option<u64>,
     pub subsequent_attempt_time_ms: Option<u64>,
+    pub microblock_attempt_time_ms: Option<u64>,
     pub probability_pick_no_estimate_tx: Option<u8>,
 }
 
