@@ -1189,10 +1189,11 @@ fn select_transactions_where(
     for block in blocks {
         let transactions = block.get("transactions").unwrap().as_array().unwrap();
         for tx in transactions.iter() {
-            info!("tx: {:?}", &tx);
             let raw_tx = tx.get("raw_tx").unwrap().as_str().unwrap();
             let tx_bytes = hex_bytes(&raw_tx[2..]).unwrap();
             let parsed = StacksTransaction::consensus_deserialize(&mut &tx_bytes[..]).unwrap();
+            info!("tx: {:?}, parsed {:?}", &tx, &parsed);
+
             let test_value = test_fn(&parsed);
             if test_value {
                 result.push(parsed);
@@ -1218,13 +1219,25 @@ fn sleep_for_reason(sleep_duration: Duration, reason: &str) {
     );
 }
 
+/// Returns the string-valued code location of the location that called the function
+/// containing `backtrace`.
+fn get_calling_line_from_trace(backtrace:&backtrace::Backtrace) -> String {
+    let backtrace_string = format!("{:?}", backtrace);
+    let parts:Vec<&str> = backtrace_string.split("\n").collect();
+    if parts.len() > 4 {
+        parts[3].to_string()
+    } else {
+        "call site not found".to_string()
+    }
+}
 /// Submit a transaction, and wait for it to show up in the mempool events of the
 /// test observer.
 pub fn submit_tx_and_wait(http_origin: &str, tx: &Vec<u8>) -> String {
     let start = Instant::now();
     let original_tx_count = test_observer::get_memtxs().len();
     let resulting_txid = submit_tx(http_origin, tx);
-    info!("submit_tx_and_wait: submitted transaction with id: {:?}", &resulting_txid);
+    let bt = get_calling_line_from_trace(&backtrace::Backtrace::new());
+    info!("submit_tx_and_wait: submitted transaction with id: {:?} {:?}", &resulting_txid, &bt);
     while test_observer::get_memtxs().len() <= original_tx_count {
         if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
             panic!("submit_tx_and_wait: Timed out waiting for transaction to hit mempool: {}", &resulting_txid);
@@ -1249,7 +1262,7 @@ fn transactions_microblocks_then_block() {
     let addr_3 = to_addr(&sk_3);
 
     let addr_3_init_balance = 100000;
-    let addr_2_init_balance = 2000;
+    let addr_2_init_balance = 200000;
 
     conf.add_initial_balance(addr_3.to_string(), addr_3_init_balance);
     conf.add_initial_balance(addr_2.to_string(), addr_2_init_balance);
