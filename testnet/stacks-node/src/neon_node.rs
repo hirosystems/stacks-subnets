@@ -462,7 +462,10 @@ fn run_microblock_tenure(
         miner_tip.clone(),
         event_dispatcher,
     ) {
-        Ok(x) => x,
+        Ok(x) => {
+            info!("mined micro-block {:?}", &x);
+            x
+        }
         Err(e) => {
             warn!("Failed to mine next microblock: {:?}", &e);
             None
@@ -693,13 +696,19 @@ fn spawn_peer(
                         // only do this on the Ok() path, even if we're mining, because an error in
                         // network dispatching is likely due to resource exhaustion
                         if mblock_deadline < get_epoch_time_ms() {
-                            info!("P2P: schedule microblock tenure");
                             results_with_data.push_back(RelayerDirective::RunMicroblockTenure(
                                 this.burnchain_tip.clone(),
                                 get_epoch_time_ms(),
                             ));
-                            mblock_deadline =
-                                get_epoch_time_ms() + (config.node.microblock_frequency as u128);
+
+                            let next_mblock_deadline = get_epoch_time_ms() + (config.node.microblock_frequency as u128);
+
+                            info!("P2P: schedule microblock tenure"; "mblock_deadline" => %mblock_deadline,
+                            "next_mblock_deadline" => %next_mblock_deadline
+                        );
+
+                            mblock_deadline =next_mblock_deadline;
+                                
                         }
                     }
                     Err(e) => {
@@ -1088,12 +1097,16 @@ fn spawn_miner_relayer(
 
                     debug!("RunMicroblockTenure");
                     if last_microblock_tenure_time > tenure_issue_ms {
+                        debug!("RunMicroblockTenure: stale request");
+
                         // stale request
                         continue;
                     }
                     debug!("RunMicroblockTenure");
 
                     if last_mined_blocks.contains_key(&burnchain_tip.burn_header_hash) {
+                        debug!("RunMicroblockTenure: this miner has already made an anchored block for this burn block");
+
                         // this miner has already made an anchored block for this burn block
                         continue;
                     }

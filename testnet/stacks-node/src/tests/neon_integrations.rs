@@ -1221,9 +1221,9 @@ fn sleep_for_reason(sleep_duration: Duration, reason: &str) {
 
 /// Returns the string-valued code location of the location that called the function
 /// containing `backtrace`.
-fn get_calling_line_from_trace(backtrace:&backtrace::Backtrace) -> String {
+fn get_calling_line_from_trace(backtrace: &backtrace::Backtrace) -> String {
     let backtrace_string = format!("{:?}", backtrace);
-    let parts:Vec<&str> = backtrace_string.split("\n").collect();
+    let parts: Vec<&str> = backtrace_string.split("\n").collect();
     if parts.len() > 4 {
         parts[3].to_string()
     } else {
@@ -1237,10 +1237,16 @@ pub fn submit_tx_and_wait(http_origin: &str, tx: &Vec<u8>) -> String {
     let original_tx_count = test_observer::get_memtxs().len();
     let resulting_txid = submit_tx(http_origin, tx);
     let bt = get_calling_line_from_trace(&backtrace::Backtrace::new());
-    info!("submit_tx_and_wait: submitted transaction with id: {:?} {:?}", &resulting_txid, &bt);
+    info!(
+        "submit_tx_and_wait: submitted transaction with id: {:?} {:?}",
+        &resulting_txid, &bt
+    );
     while test_observer::get_memtxs().len() <= original_tx_count {
         if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
-            panic!("submit_tx_and_wait: Timed out waiting for transaction to hit mempool: {}", &resulting_txid);
+            panic!(
+                "submit_tx_and_wait: Timed out waiting for transaction to hit mempool: {}",
+                &resulting_txid
+            );
         }
         thread::sleep(Duration::from_millis(100));
     }
@@ -1355,12 +1361,13 @@ fn transactions_microblocks_then_block() {
         submit_tx_and_wait(&http_origin, &contract_call_tx);
     }
 
-    next_block_and_wait(
-        &mut btc_regtest_controller,
-        None,
-        &blocks_processed,
-        &sortition_db,
-    );
+    // next_block_and_wait(
+    //     &mut btc_regtest_controller,
+    //     None,
+    //     &blocks_processed,
+    //     &sortition_db,
+    // );
+    let created_block = btc_controller.next_block(specify_parent);
 
     {
         let contract_call_tx = make_contract_call_mblock_only(
@@ -1374,6 +1381,8 @@ fn transactions_microblocks_then_block() {
         );
         submit_tx_and_wait(&http_origin, &contract_call_tx);
     }
+    sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
+
     {
         let contract_call_tx = make_contract_call_mblock_only(
             &sk_2,
@@ -1386,6 +1395,7 @@ fn transactions_microblocks_then_block() {
         );
         submit_tx_and_wait(&http_origin, &contract_call_tx);
     }
+    sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
 
     {
         let contract_call_tx = make_contract_call_mblock_only(
@@ -1440,7 +1450,10 @@ fn transactions_microblocks_then_block() {
                 _ => false,
             },
         );
-        info!("small_contract_calls.len() {:?}", small_contract_calls.len());
+        info!(
+            "small_contract_calls.len() {:?}",
+            small_contract_calls.len()
+        );
     }
     {
         let small_contract_calls =
@@ -1454,8 +1467,11 @@ fn transactions_microblocks_then_block() {
                     _ => false,
                 }
             });
-            info!("small_contract_calls.len() {:?}", small_contract_calls.len());
-        }
+        info!(
+            "small_contract_calls.len() {:?}",
+            small_contract_calls.len()
+        );
+    }
 
     channel.stop_chains_coordinator();
 }
