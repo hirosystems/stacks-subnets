@@ -708,7 +708,6 @@ fn spawn_peer(
                         );
 
                             mblock_deadline =next_mblock_deadline;
-                                
                         }
                     }
                     Err(e) => {

@@ -304,16 +304,17 @@ pub mod test_observer {
 }
 
 const PANIC_TIMEOUT_SECS: u64 = 60;
-/// Create a `btc_controller` block, specifying parent as `specify_parent`.
-/// Wait for `blocks_processed` to be incremented, AND wait for the number of snapshots
-/// in `sortition_db` to be incremented.
-/// Panic on timeout.
-pub fn next_block_and_wait(
+
+pub fn next_block_and_wait_with_callback<F>(
     btc_controller: &mut MockController,
     specify_parent: Option<u64>,
     blocks_processed: &Arc<AtomicU64>,
     sortition_db: &SortitionDB,
-) -> u64 {
+    callback: F,
+) -> u64
+where
+    F: Fn() -> (),
+{
     let initial_blocks_processed = blocks_processed.load(Ordering::SeqCst);
     let initial_all_snapshots = sortition_db
         .count_snapshots()
@@ -359,6 +360,26 @@ pub fn next_block_and_wait(
         final_all_snapshots
     );
     created_block
+}
+
+/// Create a `btc_controller` block, specifying parent as `specify_parent`.
+/// Wait for `blocks_processed` to be incremented, AND wait for the number of snapshots
+/// in `sortition_db` to be incremented.
+/// Panic on timeout.
+pub fn next_block_and_wait(
+    btc_controller: &mut MockController,
+    specify_parent: Option<u64>,
+    blocks_processed: &Arc<AtomicU64>,
+    sortition_db: &SortitionDB,
+) -> u64 {
+    let f = || ();
+    next_block_and_wait_with_callback(
+        btc_controller,
+        specify_parent,
+        blocks_processed,
+        sortition_db,
+        f,
+    )
 }
 
 pub fn wait_for_runloop(blocks_processed: &Arc<AtomicU64>) {
@@ -1361,13 +1382,13 @@ fn transactions_microblocks_then_block() {
         submit_tx_and_wait(&http_origin, &contract_call_tx);
     }
 
-    // next_block_and_wait(
-    //     &mut btc_regtest_controller,
-    //     None,
-    //     &blocks_processed,
-    //     &sortition_db,
-    // );
-    let created_block = btc_controller.next_block(specify_parent);
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
+    // let created_block = btc_controller.next_block(specify_parent);
 
     {
         let contract_call_tx = make_contract_call_mblock_only(
