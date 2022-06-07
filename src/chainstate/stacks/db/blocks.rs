@@ -1899,7 +1899,9 @@ impl StacksChainState {
         parent_anchored_block_hash: &BlockHeaderHash,
         microblock: &StacksMicroblock,
     ) -> Result<(), Error> {
-        test_debug!(
+        let bt = backtrace::Backtrace::new();
+        info!("store_staging_microblock:bt {:?}", &bt);
+        debug!(
             "Store staging microblock {}/{}-{}",
             parent_consensus_hash,
             parent_anchored_block_hash,

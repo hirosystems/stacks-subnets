@@ -322,22 +322,47 @@ impl UnconfirmedState {
         &self,
         chainstate: &StacksChainState,
     ) -> Result<Option<Vec<StacksMicroblock>>, Error> {
+        let middle = chainstate.get_block_header_hashes(&self.confirmed_chain_tip);
+        info!("load_child_microblocks middle {:?}", &middle);
+
         let (consensus_hash, anchored_block_hash) =
-            match chainstate.get_block_header_hashes(&self.confirmed_chain_tip)? {
+            match middle? {
                 Some(x) => x,
                 None => {
                     return Err(Error::NoSuchBlockError);
                 }
             };
 
+        let result =
         StacksChainState::load_descendant_staging_microblock_stream(
             &chainstate.db(),
             &StacksBlockId::new(&consensus_hash, &anchored_block_hash),
             0,
             u16::MAX,
-        )
-    }
+        );
 
+        info!("load_child_microblocks result {:?}", &result);
+
+        match result {
+            Ok(ov) => {
+
+                match &ov {
+                    Some(v) => {
+                        info!("load_child_microblocks result.size {}", v.len());
+
+                    }
+                    None => {
+                        info!("load_child_microblocks result.size {}", 0);
+
+                    }
+                }
+                Ok(ov)
+            }
+            Err(e) => {
+                Err(e)
+            }
+        }
+    }
     /// Update the view of the current confiremd chain tip's unconfirmed microblock state
     /// Returns ProcessedUnconfirmedState for the microblocks newly added to the unconfirmed state
     pub fn refresh(

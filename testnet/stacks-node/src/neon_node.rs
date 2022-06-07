@@ -524,6 +524,7 @@ fn run_microblock_tenure(
 
     // did we mine anything?
     if let Some(next_microblock) = next_microblock_opt {
+        info!("ooo next_microblock {:?}", &next_microblock);
         // apply it
         let microblock_hash = next_microblock.block_hash();
 
