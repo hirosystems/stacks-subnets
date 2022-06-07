@@ -1400,7 +1400,10 @@ fn transactions_microblocks_then_block() {
         &blocks_processed,
         &sortition_db,
         || {
+
             info!("RunMicroblockTenure: inside callback");
+            sleep_for_reason(Duration::from_millis(1000), "wait for sortition processed");
+
             {
                 let contract_call_tx = make_contract_call_mblock_only(
                     &sk_2,
@@ -1441,7 +1444,6 @@ fn transactions_microblocks_then_block() {
                 );
                 submit_tx_and_wait(&http_origin, &contract_call_tx);
             }
-            sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
         }
     );
     // let created_block = btc_controller.next_block(specify_parent);
@@ -1509,6 +1511,9 @@ fn transactions_microblocks_then_block() {
             small_contract_calls.len()
         );
     }
+
+    info!("num blocks: {}", test_observer::get_blocks().len());
+    info!("num micro blocks: {}", test_observer::get_microblocks().len());
 
     channel.stop_chains_coordinator();
 }
