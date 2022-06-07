@@ -1373,6 +1373,7 @@ fn transactions_microblocks_then_block() {
         &blocks_processed,
         &sortition_db,
     );
+
     {
         let contract_call_tx = make_contract_call(
             &sk_2,
@@ -1385,6 +1386,13 @@ fn transactions_microblocks_then_block() {
         );
         submit_tx_and_wait(&http_origin, &contract_call_tx);
     }
+
+    next_block_and_wait(
+        &mut btc_regtest_controller,
+        None,
+        &blocks_processed,
+        &sortition_db,
+    );
 
     next_block_and_wait_with_callback(
         &mut btc_regtest_controller,

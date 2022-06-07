@@ -913,6 +913,7 @@ impl MemPoolDB {
             }
         };
 
+        info!("ooo next_tx {:?}", &next_tx);
         let mut needs_nonces = vec![];
         if next_tx.metadata.last_known_origin_nonce.is_none() {
             needs_nonces.push(next_tx.metadata.origin_address);
@@ -1085,7 +1086,7 @@ impl MemPoolDB {
 
                     let todo_result = todo(clarity_tx, &consider, self.cost_estimator.as_mut());
                     info!("todo_result {:?}", &todo_result);
-                    if todo_result? {
+                    if !todo_result? {
                         debug!("Mempool iteration early exit from iterator");
                         break;
                     }
