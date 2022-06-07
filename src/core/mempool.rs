@@ -182,6 +182,7 @@ pub enum MemPoolDropReason {
     TOO_EXPENSIVE,
 }
 
+#[derive(Debug)]
 pub struct ConsiderTransaction {
     /// Transaction to consider in block assembly
     pub tx: MemPoolTxInfo,
@@ -190,6 +191,7 @@ pub struct ConsiderTransaction {
     pub update_estimate: bool,
 }
 
+#[derive(Debug)]
 enum ConsiderTransactionResult {
     NoTransactions,
     UpdateNonces(Vec<StacksAddress>),
@@ -1020,7 +1022,7 @@ impl MemPoolDB {
     where
         C: ClarityConnection,
         F: FnMut(&mut C, &ConsiderTransaction, &mut dyn CostEstimator) -> Result<bool, E>,
-        E: From<db_error> + From<ChainstateError>,
+        E: From<db_error> + From<ChainstateError>  + std::fmt::Debug,
     {
         let start_time = Instant::now();
         let mut total_considered = 0;
@@ -1042,7 +1044,9 @@ impl MemPoolDB {
                 tx_consideration_sampler.sample(&mut rng) < settings.consider_no_estimate_tx_prob
             });
 
-            match self.get_next_tx_to_consider(start_with_no_estimate)? {
+            let next_to_consider = self.get_next_tx_to_consider(start_with_no_estimate);
+            info!("ooo next_to_consider {:?}", &next_to_consider);
+            match next_to_consider? {
                 ConsiderTransactionResult::NoTransactions => {
                     debug!("No more transactions to consider in mempool");
                     break;
@@ -1079,7 +1083,9 @@ impl MemPoolDB {
                            "size" => consider.tx.metadata.len);
                     total_considered += 1;
 
-                    if !todo(clarity_tx, &consider, self.cost_estimator.as_mut())? {
+                    let todo_result = todo(clarity_tx, &consider, self.cost_estimator.as_mut());
+                    info!("todo_result {:?}", &todo_result);
+                    if todo_result? {
                         debug!("Mempool iteration early exit from iterator");
                         break;
                     }

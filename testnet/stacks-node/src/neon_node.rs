@@ -257,6 +257,7 @@ fn mine_one_microblock(
     mempool: &mut MemPoolDB,
     event_dispatcher: &EventDispatcher,
 ) -> Result<StacksMicroblock, ChainstateError> {
+    info!("outcome");
     debug!(
         "Try to mine one microblock off of {}/{} (total: {})",
         &microblock_state.parent_consensus_hash,
@@ -269,6 +270,8 @@ fn mine_one_microblock(
     );
 
     let mint_result = {
+        info!("outcome");
+
         let ic = sortdb.index_conn();
         let mut microblock_miner = match StacksMicroblockBuilder::resume_unconfirmed(
             chainstate,
@@ -276,8 +279,15 @@ fn mine_one_microblock(
             &microblock_state.cost_so_far,
             microblock_state.settings.clone(),
         ) {
-            Ok(x) => x,
+            Ok(x) => {
+                
+                info!("outcome");
+
+                x
+            },
             Err(e) => {
+                info!("outcome");
+
                 let msg = format!(
                     "Failed to create a microblock miner at chaintip {}/{}: {:?}",
                     &microblock_state.parent_consensus_hash,
@@ -288,16 +298,22 @@ fn mine_one_microblock(
                 return Err(e);
             }
         };
+        info!("outcome");
 
         let t1 = get_epoch_time_ms();
 
-        let mblock = microblock_miner.mine_next_microblock(
+        let mblock_result = microblock_miner.mine_next_microblock(
             mempool,
             &microblock_state.miner_key,
             event_dispatcher,
-        )?;
+        );
+
+        // this is `mblock_result Err(NoTransactionsToMine)`
+        info!("mblock_result {:?}", &mblock_result);
+        let mblock = mblock_result?;
         let new_cost_so_far = microblock_miner.get_cost_so_far().expect("BUG: cannot read cost so far from miner -- indicates that the underlying Clarity Tx is somehow in use still.");
         let t2 = get_epoch_time_ms();
+        info!("outcome");
 
         info!(
             "Mined microblock {} ({}) with {} transactions in {}ms",
@@ -306,9 +322,11 @@ fn mine_one_microblock(
             mblock.txs.len(),
             t2.saturating_sub(t1)
         );
+        info!("outcome");
 
         Ok((mblock, new_cost_so_far))
     };
+    info!("outcome");
 
     let (mined_microblock, new_cost) = match mint_result {
         Ok(x) => x,
@@ -317,6 +335,7 @@ fn mine_one_microblock(
             return Err(e);
         }
     };
+    info!("outcome");
 
     // preprocess the microblock locally
     chainstate.preprocess_streamed_microblock(
@@ -324,6 +343,7 @@ fn mine_one_microblock(
         &microblock_state.parent_block_hash,
         &mined_microblock,
     )?;
+    info!("outcome");
 
     // update unconfirmed state cost
     microblock_state.cost_so_far = new_cost;
@@ -340,19 +360,25 @@ fn try_mine_microblock(
     winning_tip: (ConsensusHash, BlockHeaderHash, Secp256k1PrivateKey),
     event_dispatcher: &EventDispatcher,
 ) -> Result<Option<StacksMicroblock>, NetError> {
+    info!("outcome");
     let ch = winning_tip.0;
     let bhh = winning_tip.1;
     let microblock_privkey = winning_tip.2;
 
     let mut next_microblock = None;
     if microblock_miner_state.is_none() {
+        info!("outcome");
+
         debug!(
             "Instantiate microblock mining state off of {}/{}",
             &ch, &bhh
         );
         // we won a block! proceed to build a microblock tail if we've stored it
         match StacksChainState::get_anchored_block_header_info(chainstate.db(), &ch, &bhh) {
+            
             Ok(Some(_)) => {
+                info!("outcome");
+
                 let parent_index_hash = StacksBlockHeader::make_index_block_hash(&ch, &bhh);
                 let cost_so_far = StacksChainState::get_stacks_block_anchored_cost(
                     chainstate.db(),
@@ -371,12 +397,16 @@ fn try_mine_microblock(
                 });
             }
             Ok(None) => {
+                info!("outcome");
+
                 warn!(
                     "No such anchored block: {}/{}.  Cannot mine microblocks",
                     ch, bhh
                 );
             }
             Err(e) => {
+                info!("outcome");
+
                 warn!(
                     "Failed to get anchored block cost for {}/{}: {:?}",
                     ch, bhh, &e
@@ -385,12 +415,20 @@ fn try_mine_microblock(
         }
     }
 
+    info!("outcome");
+
     if let Some(mut microblock_miner) = microblock_miner_state.take() {
+        info!("outcome");
+
         if microblock_miner.parent_consensus_hash == ch && microblock_miner.parent_block_hash == bhh
         {
+            info!("outcome");
+
             if microblock_miner.last_mined + (microblock_miner.frequency as u128)
                 < get_epoch_time_ms()
             {
+                info!("outcome");
+
                 // opportunistically try and mine, but only if there are no attachable blocks in
                 // recent history (i.e. in the last 10 minutes)
                 let num_attachable = StacksChainState::count_attachable_staging_blocks(
@@ -399,6 +437,8 @@ fn try_mine_microblock(
                     get_epoch_time_secs() - 600,
                 )?;
                 if num_attachable == 0 {
+                    info!("outcome");
+
                     match mine_one_microblock(
                         &mut microblock_miner,
                         sortdb,
@@ -418,15 +458,23 @@ fn try_mine_microblock(
                         }
                     }
                 } else {
+                    info!("outcome");
+
                     debug!("Will not mine microblocks yet -- have {} attachable blocks that arrived in the last 10 minutes", num_attachable);
                 }
             }
+            info!("outcome");
+
             microblock_miner.last_mined = get_epoch_time_ms();
             microblock_miner_state.replace(microblock_miner);
         }
+        info!("outcome");
+
         // otherwise, we're not the sortition winner, and the microblock miner state can be
         // discarded.
     }
+
+    info!("outcome");
 
     Ok(next_microblock)
 }
@@ -463,14 +511,16 @@ fn run_microblock_tenure(
         event_dispatcher,
     ) {
         Ok(x) => {
-            info!("mined micro-block {:?}", &x);
+            info!("outcome: mined micro-block {:?}", &x);
             x
         }
         Err(e) => {
-            warn!("Failed to mine next microblock: {:?}", &e);
+            warn!("outcome: Failed to mine next microblock: {:?}", &e);
             None
         }
     };
+
+    info!("outcome: done");
 
     // did we mine anything?
     if let Some(next_microblock) = next_microblock_opt {
@@ -870,6 +920,7 @@ fn spawn_miner_relayer(
 
                     let mempool_txs_added = net_receipts.mempool_txs_added.len();
                     if mempool_txs_added > 0 {
+                        info!("ooo: send about new mempool transactions, {:?}", &net_receipts.mempool_txs_added);
                         event_dispatcher.process_new_mempool_txs(net_receipts.mempool_txs_added);
                     }
 

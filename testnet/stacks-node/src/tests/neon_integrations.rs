@@ -310,7 +310,7 @@ pub fn next_block_and_wait_with_callback<F>(
     specify_parent: Option<u64>,
     blocks_processed: &Arc<AtomicU64>,
     sortition_db: &SortitionDB,
-    callback: F,
+    during_microblocks_callback: F,
 ) -> u64
 where
     F: Fn() -> (),
@@ -326,6 +326,10 @@ where
         initial_blocks_processed
     );
     let created_block = btc_controller.next_block(specify_parent);
+    info!("starting callback");
+    during_microblocks_callback();
+    info!("done callback");
+
     let start = Instant::now();
     while blocks_processed.load(Ordering::SeqCst) <= initial_blocks_processed {
         if start.elapsed() > Duration::from_secs(PANIC_TIMEOUT_SECS) {
@@ -1382,55 +1386,59 @@ fn transactions_microblocks_then_block() {
         submit_tx_and_wait(&http_origin, &contract_call_tx);
     }
 
-    next_block_and_wait(
+    next_block_and_wait_with_callback(
         &mut btc_regtest_controller,
         None,
         &blocks_processed,
         &sortition_db,
+        || {
+            info!("RunMicroblockTenure: inside callback");
+            {
+                let contract_call_tx = make_contract_call_mblock_only(
+                    &sk_2,
+                    1,
+                    1000,
+                    &to_addr(&contract_sk),
+                    "small-contract",
+                    "return-one",
+                    &[],
+                );
+                submit_tx_and_wait(&http_origin, &contract_call_tx);
+            }
+            sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
+        
+            {
+                let contract_call_tx = make_contract_call_mblock_only(
+                    &sk_2,
+                    2,
+                    1000,
+                    &to_addr(&contract_sk),
+                    "small-contract",
+                    "return-one",
+                    &[],
+                );
+                submit_tx_and_wait(&http_origin, &contract_call_tx);
+            }
+            sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
+        
+            {
+                let contract_call_tx = make_contract_call_mblock_only(
+                    &sk_2,
+                    3,
+                    1000,
+                    &to_addr(&contract_sk),
+                    "small-contract",
+                    "return-one",
+                    &[],
+                );
+                submit_tx_and_wait(&http_origin, &contract_call_tx);
+            }
+            sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
+        }
     );
     // let created_block = btc_controller.next_block(specify_parent);
 
-    {
-        let contract_call_tx = make_contract_call_mblock_only(
-            &sk_2,
-            1,
-            1000,
-            &to_addr(&contract_sk),
-            "small-contract",
-            "return-one",
-            &[],
-        );
-        submit_tx_and_wait(&http_origin, &contract_call_tx);
-    }
-    sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
 
-    {
-        let contract_call_tx = make_contract_call_mblock_only(
-            &sk_2,
-            2,
-            1000,
-            &to_addr(&contract_sk),
-            "small-contract",
-            "return-one",
-            &[],
-        );
-        submit_tx_and_wait(&http_origin, &contract_call_tx);
-    }
-    sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
-
-    {
-        let contract_call_tx = make_contract_call_mblock_only(
-            &sk_2,
-            3,
-            1000,
-            &to_addr(&contract_sk),
-            "small-contract",
-            "return-one",
-            &[],
-        );
-        submit_tx_and_wait(&http_origin, &contract_call_tx);
-    }
-    sleep_for_reason(Duration::from_millis(1000), "wait for micro-blocks");
 
     next_block_and_wait(
         &mut btc_regtest_controller,
