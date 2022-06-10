@@ -5393,7 +5393,7 @@ mod test {
             pox_constants: PoxConstants::test_default(),
             peer_version: 0x012345678,
             network_id: 0x9abcdef0,
-            chain_name: "bitcoin".to_string(),
+            chain_id: 0u32,
             network_name: "testnet".to_string(),
             working_dir: "/nope".to_string(),
             consensus_hash_lifetime: 24,
