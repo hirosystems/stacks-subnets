@@ -221,6 +221,14 @@ pub struct LeaderBlockCommitOp {
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+pub struct LeaderBlockCommitProposalOp {
+    /// Block hash of the L2 proposed block.
+    committed_block_hash: BlockHeaderHash,
+    /// The block hash of the L1 block this was built off.
+    built_at_l1_block: BurnchainHeaderHash,
+}
+
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct DepositStxOp {
     /// Transaction ID of this commit op
     pub txid: Txid,
@@ -348,6 +356,7 @@ pub struct UserBurnSupportOp {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BlockstackOperationType {
     LeaderBlockCommit(LeaderBlockCommitOp),
+    LeaderBlockCommitProposal(LeaderBlockCommitProposalOp),
     DepositStx(DepositStxOp),
     DepositFt(DepositFtOp),
     DepositNft(DepositNftOp),
@@ -358,6 +367,12 @@ pub enum BlockstackOperationType {
 impl From<LeaderBlockCommitOp> for BlockstackOperationType {
     fn from(op: LeaderBlockCommitOp) -> Self {
         BlockstackOperationType::LeaderBlockCommit(op)
+    }
+}
+
+impl From<LeaderBlockCommitProposalOp> for BlockstackOperationType {
+    fn from(op: LeaderBlockCommitProposalOp) -> Self {
+        BlockstackOperationType::LeaderBlockCommitProposal(op)
     }
 }
 
@@ -399,6 +414,7 @@ impl BlockstackOperationType {
     pub fn txid_ref(&self) -> &Txid {
         match *self {
             BlockstackOperationType::LeaderBlockCommit(ref data) => &data.txid,
+            BlockstackOperationType::LeaderBlockCommitProposal(ref data) => todo!(),
             BlockstackOperationType::DepositStx(ref data) => &data.txid,
             BlockstackOperationType::DepositFt(ref data) => &data.txid,
             BlockstackOperationType::DepositNft(ref data) => &data.txid,
@@ -418,6 +434,9 @@ impl BlockstackOperationType {
     pub fn burn_header_hash(&self) -> BurnchainHeaderHash {
         match *self {
             BlockstackOperationType::LeaderBlockCommit(ref data) => data.burn_header_hash.clone(),
+            BlockstackOperationType::LeaderBlockCommitProposal(ref data) => {
+                data.built_at_l1_block.clone()
+            }
             BlockstackOperationType::DepositStx(ref data) => data.burn_header_hash.clone(),
             BlockstackOperationType::DepositFt(ref data) => data.burn_header_hash.clone(),
             BlockstackOperationType::DepositNft(ref data) => data.burn_header_hash.clone(),
@@ -446,6 +465,9 @@ impl BlockstackOperationType {
             BlockstackOperationType::LeaderBlockCommit(ref mut data) => {
                 data.burn_header_hash = hash
             }
+            BlockstackOperationType::LeaderBlockCommitProposal(ref mut data) => {
+                todo!()
+            }
             BlockstackOperationType::DepositStx(ref mut data) => data.burn_header_hash = hash,
             BlockstackOperationType::DepositFt(ref mut data) => data.burn_header_hash = hash,
             BlockstackOperationType::DepositNft(ref mut data) => data.burn_header_hash = hash,
@@ -459,6 +481,7 @@ impl fmt::Display for BlockstackOperationType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             BlockstackOperationType::LeaderBlockCommit(ref op) => write!(f, "{:?}", op),
+            BlockstackOperationType::LeaderBlockCommitProposal(ref op) => write!(f, "{:?}", op),
             BlockstackOperationType::DepositStx(ref op) => write!(f, "{:?}", op),
             BlockstackOperationType::DepositFt(ref op) => write!(f, "{:?}", op),
             BlockstackOperationType::DepositNft(ref op) => write!(f, "{:?}", op),

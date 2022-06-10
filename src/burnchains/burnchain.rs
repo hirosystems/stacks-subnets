@@ -98,6 +98,9 @@ impl BurnchainStateTransition {
                     // the burn distribution, so just account for them for now.
                     accepted_ops.push(op.clone().into());
                 }
+                BlockstackOperationType::LeaderBlockCommitProposal(op) => {
+                    accepted_ops.push(op.clone().into());
+                }
                 BlockstackOperationType::DepositStx(op) => {
                     accepted_ops.push(op.clone().into());
                 }

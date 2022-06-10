@@ -3110,6 +3110,17 @@ impl<'a> SortitionHandleTx<'a> {
                 );
                 self.insert_block_commit(op, sort_id)
             }
+            BlockstackOperationType::LeaderBlockCommitProposal(ref op) => {
+                todo!()
+                // info!(
+                //     "ACCEPTED burnchain operation";
+                //     "op" => "leader_block_commit",
+                //     "l1_stacks_block_id" => %op.burn_header_hash,
+                //     "txid" => %op.txid,
+                //     "commited_block_hash" => %op.block_header_hash,
+                // );
+                // self.insert_block_commit(op, sort_id)
+            }
             BlockstackOperationType::DepositStx(ref op) => {
                 info!(
                     "ACCEPTED burnchain operation";
