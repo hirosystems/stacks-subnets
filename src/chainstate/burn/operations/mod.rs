@@ -451,6 +451,7 @@ impl BlockstackOperationType {
             BlockstackOperationType::LeaderBlockCommit(ref mut data) => {
                 data.set_burn_height(height)
             }
+            BlockstackOperationType::LeaderBlockCommitProposal(ref mut data) => todo!(),
             BlockstackOperationType::DepositStx(ref mut data) => data.set_burn_height(height),
             BlockstackOperationType::DepositFt(ref mut data) => data.set_burn_height(height),
             BlockstackOperationType::DepositNft(ref mut data) => data.set_burn_height(height),

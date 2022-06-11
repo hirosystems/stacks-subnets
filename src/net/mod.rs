@@ -2116,6 +2116,9 @@ pub mod test {
                     .unwrap();
                     Ok(())
                 }
+                BlockstackOperationType::LeaderBlockCommitProposal(ref op) => {
+                    todo!()
+                }
                 BlockstackOperationType::DepositStx(ref op) => {
                     serde_json::to_writer(
                         fd,
