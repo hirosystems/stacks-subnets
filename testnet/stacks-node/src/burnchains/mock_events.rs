@@ -401,6 +401,7 @@ impl BurnchainController for MockController {
         _op_signer: &mut BurnchainOpSigner,
         _attempt: u64,
     ) -> bool {
+        use stacks::chainstate::burn::operations::LeaderBlockCommitProposalOp;
         match operation {
             BlockstackOperationType::LeaderBlockCommit(LeaderBlockCommitOp {
                 block_header_hash,
@@ -412,6 +413,9 @@ impl BurnchainController for MockController {
                 }
 
                 true
+            }
+            BlockstackOperationType::LeaderBlockCommitProposal(_) => {
+                todo!()
             }
             BlockstackOperationType::DepositStx(_op) => {
                 debug!("Submitted deposit stx operation");

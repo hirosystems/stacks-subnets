@@ -373,6 +373,9 @@ impl BurnchainController for L1Controller {
             BlockstackOperationType::LeaderBlockCommit(op) => {
                 self.submit_commit_operation(op, op_signer, attempt)
             }
+            BlockstackOperationType::LeaderBlockCommitProposal(op) => {
+                todo!()
+            }
             BlockstackOperationType::DepositStx(_op) => {
                 debug!("Submitting deposit stx operation to be implemented.");
                 true
