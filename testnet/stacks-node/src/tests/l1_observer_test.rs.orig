@@ -8,19 +8,35 @@ use crate::tests::neon_integrations::{get_account, submit_tx, test_observer};
 use crate::tests::{make_contract_call, make_contract_publish, to_addr};
 use clarity::types::chainstate::StacksAddress;
 use clarity::util::get_epoch_time_secs;
+use clarity::util::hash::{MerklePathOrder, MerkleTree, Sha512Trunc256Sum};
 use clarity::vm::database::ClaritySerializable;
+use clarity::vm::events::NFTEventType::NFTWithdrawEvent;
+use clarity::vm::events::STXEventType::STXWithdrawEvent;
+use clarity::vm::events::STXWithdrawEventData;
 use clarity::vm::representations::ContractName;
-use clarity::vm::types::PrincipalData;
+use clarity::vm::types::{AssetIdentifier, PrincipalData, TypeSignature};
 use clarity::vm::Value;
 use reqwest::Response;
 use stacks::burnchains::Burnchain;
 use stacks::chainstate::burn::db::sortdb::SortitionDB;
-use stacks::chainstate::stacks::{StacksPrivateKey, StacksTransaction, TransactionPayload};
+use stacks::chainstate::stacks::events::{StacksTransactionReceipt, TransactionOrigin};
+use stacks::chainstate::stacks::{
+    CoinbasePayload, StacksPrivateKey, StacksTransaction, TransactionAuth, TransactionPayload,
+    TransactionSpendingCondition, TransactionVersion,
+};
+use stacks::clarity::types::chainstate::StacksPublicKey;
+use stacks::clarity::vm::events::NFTWithdrawEventData;
+use stacks::clarity_vm::withdrawal::{
+    convert_withdrawal_key_to_bytes, create_withdrawal_merkle_tree, generate_key_from_event,
+};
 use stacks::codec::StacksMessageCodec;
 use stacks::net::CallReadOnlyRequestBody;
 use stacks::net::RPCPeerInfoData;
 use stacks::util::hash::hex_bytes;
-use stacks::vm::types::QualifiedContractIdentifier;
+use stacks::vm::costs::ExecutionCost;
+use stacks::vm::events::FTEventType::FTWithdrawEvent;
+use stacks::vm::events::{FTWithdrawEventData, StacksTransactionEvent};
+use stacks::vm::types::{QualifiedContractIdentifier, TupleData};
 use stacks::vm::ClarityName;
 use std::convert::{TryFrom, TryInto};
 use std::env;
@@ -51,6 +67,10 @@ lazy_static! {
     .unwrap();
     pub static ref MOCKNET_PRIVATE_KEY_2: StacksPrivateKey = StacksPrivateKey::from_hex(
         "0916e2eb04b5702e0e946081829cee67d3bb76e1792af506646843db9252ff4101"
+    )
+    .unwrap();
+    pub static ref MOCKNET_PRIVATE_KEY_3: StacksPrivateKey = StacksPrivateKey::from_hex(
+        "374b6734eaff979818c5f1367331c685459b03b1a2053310906d1408dc928a0001"
     )
     .unwrap();
 }
@@ -410,7 +430,7 @@ fn l1_integration_test() {
 }
 
 #[test]
-fn l1_deposit_asset_integration_test() {
+fn l1_deposit_and_withdraw_asset_integration_test() {
     // running locally:
     // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_deposit_asset_integration_test
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
@@ -542,11 +562,16 @@ fn l1_deposit_asset_integration_test() {
     )
     .unwrap();
     let (sortition_db, burndb) = burnchain.open_db(true).unwrap();
+<<<<<<< HEAD
 
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
+=======
+    wait_for_next_stacks_block(&sortition_db);
+    wait_for_next_stacks_block(&sortition_db);
+>>>>>>> master
     let tip = burndb
         .get_canonical_chain_tip()
         .expect("couldn't get chain tip");
@@ -1265,6 +1290,23 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
         "Miner should have produced at least 2 coinbase transactions"
     );
 
+    // Publish hyperchains contract for withdrawing stx
+    let hyperchain_simple_stx = "
+    (define-public (hyperchain-withdraw-stx (amount uint) (sender principal))
+      (stx-withdraw? amount sender)
+    )
+    ";
+    let hyperchain_stx_publish = make_contract_publish(
+        &MOCKNET_PRIVATE_KEY_1,
+        l2_nonce,
+        default_fee,
+        "simple-stx",
+        hyperchain_simple_stx,
+    );
+    l2_nonce += 1;
+    let hc_stx_contract_id =
+        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-stx"));
+
     // Setup hyperchains contract
     let hc_setup_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
@@ -1306,9 +1348,13 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     );
     l1_nonce += 1;
 
-    // deposit stx into hyperchains contract on L1
+    // Deposit stx into hyperchains contract on L1
     submit_tx(&l1_rpc_origin, &l1_deposit_stx_tx);
 
+<<<<<<< HEAD
+    wait_for_next_stacks_block(&sortition_db);
+    wait_for_next_stacks_block(&sortition_db);
+=======
     // Wait to give the run loop time to mine a block
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
@@ -1431,6 +1477,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
         let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
         stx_sib_data.push(sib_tuple);
     }
+>>>>>>> master
 
     let l1_withdraw_stx_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,

@@ -13,10 +13,6 @@
 (define-constant ERR_INVALID_MERKLE_ROOT 8)
 (define-constant ERR_WITHDRAWAL_ALREADY_PROCESSED 9)
 (define-constant ERR_VALIDATION_FAILED 10)
-;;; The value supplied for `target-chain-tip` does not match the current chain tip.
-(define-constant ERR_INVALID_CHAIN_TIP 11)
-;;; The contract was called before reaching this-chain height 1.
-(define-constant ERR_CALLED_TOO_EARLY 12)
 
 ;; Map from Stacks block height to block commit
 (define-map block-commits uint (buff 32))
@@ -26,7 +22,7 @@
 (define-map processed-withdrawal-leaves-map (buff 32) bool)
 
 ;; List of miners
-(define-constant miners (list 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF 'SP3X6QWWETNBZWGBK6DRGTR1KX50S74D3433WDGJY 'ST1AW6EKPGT61SQ9FNVDS17RKNWT8ZP582VF9HSCP 'ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5 'ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP 'ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8))
+(define-constant miners (list 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF 'SP3X6QWWETNBZWGBK6DRGTR1KX50S74D3433WDGJY 'ST1AW6EKPGT61SQ9FNVDS17RKNWT8ZP582VF9HSCP 'ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5 'ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP 'ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8))
 
 ;; Map of allowed contracts for asset transfers
 (define-map allowed-contracts principal (string-ascii 45))
@@ -69,18 +65,12 @@
         (is-none fold-result)
    ))
 
-;; Helper function: determines whether the commit-block operation satisfies pre-conditions
-;; listed in `commit-block`.
-(define-private (can-commit-block? (commit-block-height uint)  (target-chain-tip (buff 32)))
+;; Helper function: determines whether the commit-block operation can be carried out
+;; Returns response<bool, int>
+(define-private (can-commit-block? (commit-block-height uint))
     (begin
         ;; check no block has been committed at this height
         (asserts! (is-none (map-get? block-commits commit-block-height)) (err ERR_BLOCK_ALREADY_COMMITTED))
-
-        ;; check that `target-chain-tip` matches the burn chain tip
-        (asserts! (is-eq 
-            target-chain-tip 
-            (unwrap! (get-block-info? id-header-hash (- block-height u1)) (err ERR_CALLED_TOO_EARLY)) )
-            (err ERR_INVALID_CHAIN_TIP)) 
 
         ;; check that the tx sender is one of the miners
         (asserts! (is-miner tx-sender) (err ERR_INVALID_MINER))
@@ -100,27 +90,15 @@
     )
 )
 
-;; Subnets miners call this to commit a block at a particular height.
-;; `block` is the hash of the block being submitted.
-;; `target-chain-tip` is the `id-header-hash` of the burn block (i.e., block on this chain) that
-;;   the miner intends to build off.
-;;
-;; Fails if:
-;;  1) we have already committed at this block height
-;;  2) `target-chain-tip` is not the burn chain tip (i.e., on this chain)
-;;  3) the sender is not a miner
-(define-public (commit-block (block (buff 32)) (target-chain-tip (buff 32)))
+;; Subnets miners call this to commit a block at a particular height
+;; Returns response<(buff 32), int>
+(define-public (commit-block (block (buff 32)) (withdrawal-root (buff 32)))
     (let ((commit-block-height block-height))
-        (unwrap! (can-commit-block? commit-block-height target-chain-tip) (err ERR_VALIDATION_FAILED))
-        (inner-commit-block block commit-block-height)
+        (try! (can-commit-block? commit-block-height))
+        (inner-commit-block block commit-block-height withdrawal-root)
     )
 )
 
-;; Returns the `id-header-hash` of the chain tip. This is used for `clarinet` tests
-;; where we do not yet have access to this value through the API.
-(define-read-only (get-id-header-hash)
-    (ok (unwrap! (get-block-info? id-header-hash (- block-height u1)) (err ERR_VALIDATION_FAILED)))
-)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FOR NFT ASSET TRANSFERS
@@ -149,7 +127,7 @@
         )
 
         ;; Try to transfer the NFT to this contract
-        (asserts! (unwrap! (inner-deposit-nft-asset id sender nft-contract) (err ERR_TRANSFER_FAILED)) (err ERR_TRANSFER_FAILED))
+        (asserts! (try! (inner-transfer-nft-asset id sender CONTRACT_ADDRESS nft-contract)) (err ERR_TRANSFER_FAILED))
 
         ;; Emit a print event - the node consumes this
         (print { event: "deposit-nft", nft-id: id, l1-contract-id: nft-contract, hc-contract-id: hc-contract-id,
@@ -161,7 +139,8 @@
 
 
 ;; Helper function for `withdraw-nft-asset`
-(define-public (inner-withdraw-nft-asset (id uint) (recipient principal) (nft-contract <nft-trait>))
+;; Returns response<bool, int>
+(define-public (inner-withdraw-nft-asset (id uint) (recipient principal) (nft-contract <nft-trait>) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
     (let (
             (hashes-are-valid (check-withdrawal-hashes withdrawal-root withdrawal-leaf-hash sibling-hashes))
          )

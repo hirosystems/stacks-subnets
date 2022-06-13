@@ -5,6 +5,17 @@
 ;; Error codes
 (define-constant ERR_BLOCK_ALREADY_COMMITTED 1)
 (define-constant ERR_INVALID_MINER 2)
+<<<<<<< HEAD
+(define-constant ERR_VALIDATION_FAILED 3)
+(define-constant ERR_CONTRACT_CALL_FAILED 4)
+(define-constant ERR_TRANSFER_FAILED 5)
+(define-constant ERR_DISALLOWED_ASSET 6)
+(define-constant ERR_ASSET_ALREADY_ALLOWED 7)
+;;; The value supplied for `target-chain-tip` does not match the current chain tip.
+(define-constant ERR_INVALID_CHAIN_TIP 8)
+;;; The contract was called before reaching this-chain height 1.
+(define-constant ERR_CALLED_TOO_EARLY 9)
+=======
 (define-constant ERR_CONTRACT_CALL_FAILED 3)
 (define-constant ERR_TRANSFER_FAILED 4)
 (define-constant ERR_DISALLOWED_ASSET 5)
@@ -13,10 +24,7 @@
 (define-constant ERR_INVALID_MERKLE_ROOT 8)
 (define-constant ERR_WITHDRAWAL_ALREADY_PROCESSED 9)
 (define-constant ERR_VALIDATION_FAILED 10)
-;;; The value supplied for `target-chain-tip` does not match the current chain tip.
-(define-constant ERR_INVALID_CHAIN_TIP 11)
-;;; The contract was called before reaching this-chain height 1.
-(define-constant ERR_CALLED_TOO_EARLY 12)
+>>>>>>> master
 
 ;; Map from Stacks block height to block commit
 (define-map block-commits uint (buff 32))
@@ -69,9 +77,15 @@
         (is-none fold-result)
    ))
 
+<<<<<<< HEAD
 ;; Helper function: determines whether the commit-block operation satisfies pre-conditions
 ;; listed in `commit-block`.
 (define-private (can-commit-block? (commit-block-height uint)  (target-chain-tip (buff 32)))
+=======
+;; Helper function: determines whether the commit-block operation can be carried out
+;; Returns response<bool, int>
+(define-private (can-commit-block? (commit-block-height uint))
+>>>>>>> master
     (begin
         ;; check no block has been committed at this height
         (asserts! (is-none (map-get? block-commits commit-block-height)) (err ERR_BLOCK_ALREADY_COMMITTED))
@@ -100,6 +114,7 @@
     )
 )
 
+<<<<<<< HEAD
 ;; Subnets miners call this to commit a block at a particular height.
 ;; `block` is the hash of the block being submitted.
 ;; `target-chain-tip` is the `id-header-hash` of the burn block (i.e., block on this chain) that
@@ -113,6 +128,14 @@
     (let ((commit-block-height block-height))
         (unwrap! (can-commit-block? commit-block-height target-chain-tip) (err ERR_VALIDATION_FAILED))
         (inner-commit-block block commit-block-height)
+=======
+;; Subnets miners call this to commit a block at a particular height
+;; Returns response<(buff 32), int>
+(define-public (commit-block (block (buff 32)) (withdrawal-root (buff 32)))
+    (let ((commit-block-height block-height))
+        (try! (can-commit-block? commit-block-height))
+        (inner-commit-block block commit-block-height withdrawal-root)
+>>>>>>> master
     )
 )
 
@@ -149,7 +172,7 @@
         )
 
         ;; Try to transfer the NFT to this contract
-        (asserts! (unwrap! (inner-deposit-nft-asset id sender nft-contract) (err ERR_TRANSFER_FAILED)) (err ERR_TRANSFER_FAILED))
+        (asserts! (try! (inner-transfer-nft-asset id sender CONTRACT_ADDRESS nft-contract)) (err ERR_TRANSFER_FAILED))
 
         ;; Emit a print event - the node consumes this
         (print { event: "deposit-nft", nft-id: id, l1-contract-id: nft-contract, hc-contract-id: hc-contract-id,
@@ -161,7 +184,8 @@
 
 
 ;; Helper function for `withdraw-nft-asset`
-(define-public (inner-withdraw-nft-asset (id uint) (recipient principal) (nft-contract <nft-trait>))
+;; Returns response<bool, int>
+(define-public (inner-withdraw-nft-asset (id uint) (recipient principal) (nft-contract <nft-trait>) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
     (let (
             (hashes-are-valid (check-withdrawal-hashes withdrawal-root withdrawal-leaf-hash sibling-hashes))
          )
