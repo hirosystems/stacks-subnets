@@ -966,7 +966,7 @@ pub struct BurnchainConfig {
     pub chain: String,
     pub mode: String,
     pub observer_port: u16,
-    pub chain_id: u32,
+    pub chain_id: StacksChainId,
     pub peer_version: u32,
     pub commit_anchor_block_within: u64,
     pub burn_fee_cap: u64,
