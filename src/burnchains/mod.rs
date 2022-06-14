@@ -90,9 +90,9 @@ pub const BLOCKSTACK_MAGIC_MAINNET: MagicBytes = MagicBytes([105, 100]); // 'id'
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BurnchainParameters {
-    /// The u32-index of this chain's *burn chain*.
+    /// The u32-index of *this* chain.
     chain_id: u32,
-    /// The u32-index of *this chain*.
+    /// The u32-index of the *burnchain*.
     network_id: u32,
     stable_confirmations: u32,
     consensus_hash_lifetime: u32,
