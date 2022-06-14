@@ -968,7 +968,6 @@ impl std::default::Default for Config {
 #[derive(Clone, Debug, Deserialize)]
 pub struct BurnchainConfig {
     /// String-valued unique identifier, e.g., "mainnet", "testnet".
-    pub chain: String,
     pub mode: String,
     pub observer_port: u16,
     pub chain_id: u32,
