@@ -9,7 +9,7 @@ use stacks::types::chainstate::{BurnchainHeaderHash, StacksBlockId};
 /// Create config settings for the tests.
 fn make_test_config() -> BurnchainConfig {
     let mut config = BurnchainConfig::default();
-    config.chain = "stacks_layer_1".to_string();
+    config.chain_id = BURNCHAIN_U32_STACKS_L1;
     config.mode = "hyperchain".to_string();
     config.first_burn_header_height = 1;
     config.first_burn_header_hash =

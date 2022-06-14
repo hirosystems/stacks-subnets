@@ -45,8 +45,21 @@ const LEADER_KEY_TX_ESTIM_SIZE: u64 = 290;
 const BLOCK_COMMIT_TX_ESTIM_SIZE: u64 = 350;
 const INV_REWARD_CYCLES_TESTNET: u64 = 6;
 
+pub const BURNCHAIN_U32_STACKS_L1: u32 = 0;
+pub const BURNCHAIN_U32_MOCKSTACK: u32 = 1;
+
 pub const BURNCHAIN_NAME_STACKS_L1: &str = "stacks_layer_1";
 pub const BURNCHAIN_NAME_MOCKSTACK: &str = "mockstack";
+fn parse_burnchain_name(name:&str) -> u32 {
+    match name {
+        BURNCHAIN_NAME_STACKS_L1 => 0u32,
+        BURNCHAIN_NAME_MOCKSTACK => 1u32,
+        _ => {
+            panic!("parse_burnchain_name: Did not recognize {}", name)
+        }
+    }
+
+}
 pub const DEFAULT_L1_OBSERVER_PORT: u16 = 50303;
 
 #[derive(Clone, Deserialize, Default)]
@@ -1009,7 +1022,7 @@ pub struct BurnchainConfig {
 impl Default for BurnchainConfig {
     fn default() -> Self {
         BurnchainConfig {
-            chain: "bitcoin".to_string(),
+            chain_id: "bitcoin".to_string(),
             mode: "mocknet".to_string(),
             chain_id: CHAIN_ID_TESTNET,
             peer_version: PEER_VERSION_TESTNET,
