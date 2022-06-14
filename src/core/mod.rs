@@ -44,6 +44,7 @@ pub const SYSTEM_FORK_SET_VERSION: [u8; 4] = [23u8, 0u8, 0u8, 0u8];
 // chain id
 pub const CHAIN_ID_MAINNET: u32 = 0x00000001;
 pub const CHAIN_ID_TESTNET: u32 = 0x80000000;
+// DO NOT SUBMIT: should these be merged with the above?
 pub const CHAIN_ID_BITCOIN: u32 = 0x80000000;
 pub const CHAIN_ID_MOCKSTACK: u32 = 0x80000000;
 
