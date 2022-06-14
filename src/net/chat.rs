@@ -2291,8 +2291,6 @@ mod test {
     use stacks_common::util::pipe::*;
     use stacks_common::util::secp256k1::*;
     use stacks_common::util::uint::*;
-    use crate::burnchains::StacksChainId;
-
 
     use crate::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, SortitionId};
 
@@ -2482,7 +2480,7 @@ mod test {
         Burnchain {
             peer_version: PEER_VERSION_TESTNET,
             network_id: 0,
-            chain_id: StacksChainId::Bitcoin,
+            chain_id: CHAIN_ID_MAINNET,
             network_name: "testnet".to_string(),
             working_dir: "/nope".to_string(),
             consensus_hash_lifetime: 24,

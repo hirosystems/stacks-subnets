@@ -131,7 +131,7 @@ impl BurnchainParameters {
 
     pub fn bitcoin_mainnet() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: StacksChainId::Bitcoin,
+            chain_id: CHAIN_ID_MAINNET,
             network_name: "mainnet".into(),
             network_id: 0,
             stable_confirmations: 7,
@@ -146,7 +146,7 @@ impl BurnchainParameters {
 
     pub fn bitcoin_testnet() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: StacksChainId::Bitcoin,
+            chain_id: CHAIN_ID_MAINNET,
             network_name: "testnet".into(),
             network_id: 1,
             stable_confirmations: 7,
@@ -161,7 +161,7 @@ impl BurnchainParameters {
 
     pub fn bitcoin_regtest() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: StacksChainId::Bitcoin,
+            chain_id: CHAIN_ID_MAINNET,
             network_name: "regtest".into(),
             network_id: 2,
             stable_confirmations: 1,
@@ -310,7 +310,7 @@ pub struct BurnchainBlockHeader {
 pub struct Burnchain {
     pub peer_version: u32,
     pub network_id: u32,
-    pub chain_id: StacksChainId,
+    pub chain_id: u32,
     pub network_name: String,
     pub working_dir: String,
     pub consensus_hash_lifetime: u32,
