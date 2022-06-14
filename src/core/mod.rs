@@ -48,7 +48,6 @@ pub const CHAIN_ID_TESTNET: u32 = 0x80000000;
 pub const CHAIN_ID_BITCOIN: u32 = 0x80000000;
 pub const CHAIN_ID_MOCKSTACK: u32 = 0x80000000;
 
-
 // peer version (big-endian)
 // first byte == major network protocol version (currently 0x18)
 // second and third bytes are unused

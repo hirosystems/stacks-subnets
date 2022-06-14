@@ -5332,6 +5332,7 @@ mod test {
     use crate::chainstate::stacks::test::*;
     use crate::chainstate::stacks::*;
     use crate::core::StacksEpochExtension;
+    use crate::core::CHAIN_ID_MAINNET;
     use crate::net::atlas::*;
     use crate::net::codec::*;
     use crate::net::db::*;
@@ -5389,7 +5390,6 @@ mod test {
         )
         .unwrap();
 
-        use crate::core::CHAIN_ID_MAINNET;
         let burnchain = Burnchain {
             pox_constants: PoxConstants::test_default(),
             peer_version: 0x012345678,
