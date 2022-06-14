@@ -116,7 +116,7 @@ impl BurnchainParameters {
 
     pub fn hyperchain_mocknet() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: StacksChainId::Mockstack,
+            chain_id: CHAIN_ID_MOCKSTACK,
             network_name: "mainnet".into(),
             network_id: 0,
             stable_confirmations: 1,
@@ -131,7 +131,7 @@ impl BurnchainParameters {
 
     pub fn bitcoin_mainnet() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: CHAIN_ID_MAINNET,
+            chain_id: CHAIN_ID_BITCOIN,
             network_name: "mainnet".into(),
             network_id: 0,
             stable_confirmations: 7,
@@ -146,7 +146,7 @@ impl BurnchainParameters {
 
     pub fn bitcoin_testnet() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: CHAIN_ID_MAINNET,
+            chain_id: CHAIN_ID_BITCOIN,
             network_name: "testnet".into(),
             network_id: 1,
             stable_confirmations: 7,
@@ -161,7 +161,7 @@ impl BurnchainParameters {
 
     pub fn bitcoin_regtest() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: CHAIN_ID_MAINNET,
+            chain_id: CHAIN_ID_BITCOIN,
             network_name: "regtest".into(),
             network_id: 2,
             stable_confirmations: 1,
