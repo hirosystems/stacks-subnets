@@ -2481,7 +2481,6 @@ mod test {
             peer_version: PEER_VERSION_TESTNET,
             network_id: 0,
             chain_id: CHAIN_ID_MAINNET,
-            network_name: "testnet".to_string(),
             working_dir: "/nope".to_string(),
             consensus_hash_lifetime: 24,
             stable_confirmations: 7,

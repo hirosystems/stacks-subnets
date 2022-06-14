@@ -5395,7 +5395,6 @@ mod test {
             peer_version: 0x012345678,
             network_id: 0x9abcdef0,
             chain_id: CHAIN_ID_MAINNET,
-            network_name: "testnet".to_string(),
             working_dir: "/nope".to_string(),
             consensus_hash_lifetime: 24,
             stable_confirmations: 7,
