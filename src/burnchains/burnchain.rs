@@ -217,7 +217,6 @@ impl Burnchain {
             peer_version,
             network_id: params.network_id,
             chain_id: params.chain_id.clone(),
-            network_name: params.network_name.clone(),
             working_dir: working_dir.into(),
             consensus_hash_lifetime: params.consensus_hash_lifetime,
             stable_confirmations: params.stable_confirmations,

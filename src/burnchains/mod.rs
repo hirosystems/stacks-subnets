@@ -91,7 +91,7 @@ pub const BLOCKSTACK_MAGIC_MAINNET: MagicBytes = MagicBytes([105, 100]); // 'id'
 #[derive(Debug, PartialEq, Clone)]
 pub struct BurnchainParameters {
     chain_id: u32,
-    network_name: String,
+    // network_name: String,
     network_id: u32,
     stable_confirmations: u32,
     consensus_hash_lifetime: u32,
@@ -117,8 +117,7 @@ impl BurnchainParameters {
     pub fn hyperchain_mocknet() -> BurnchainParameters {
         BurnchainParameters {
             chain_id: CHAIN_ID_MOCKSTACK,
-            network_name: "mainnet".into(),
-            network_id: 0,
+            network_id: NETWORK_ID_MAINNET,
             stable_confirmations: 1,
             consensus_hash_lifetime: 24,
             first_block_height: 0,
@@ -132,7 +131,6 @@ impl BurnchainParameters {
     pub fn bitcoin_mainnet() -> BurnchainParameters {
         BurnchainParameters {
             chain_id: CHAIN_ID_BITCOIN,
-            network_name: "mainnet".into(),
             network_id: 0,
             stable_confirmations: 7,
             consensus_hash_lifetime: 24,
@@ -147,7 +145,6 @@ impl BurnchainParameters {
     pub fn bitcoin_testnet() -> BurnchainParameters {
         BurnchainParameters {
             chain_id: CHAIN_ID_BITCOIN,
-            network_name: "testnet".into(),
             network_id: 1,
             stable_confirmations: 7,
             consensus_hash_lifetime: 24,
@@ -162,7 +159,6 @@ impl BurnchainParameters {
     pub fn bitcoin_regtest() -> BurnchainParameters {
         BurnchainParameters {
             chain_id: CHAIN_ID_BITCOIN,
-            network_name: "regtest".into(),
             network_id: 2,
             stable_confirmations: 1,
             consensus_hash_lifetime: 24,
@@ -311,7 +307,7 @@ pub struct Burnchain {
     pub peer_version: u32,
     pub network_id: u32,
     pub chain_id: u32,
-    pub network_name: String,
+    // pub network_name: String,
     pub working_dir: String,
     pub consensus_hash_lifetime: u32,
     pub stable_confirmations: u32,
