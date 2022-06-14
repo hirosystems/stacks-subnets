@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use rand::RngCore;
 
-use stacks::burnchains::{MagicBytes, StacksChainId, BLOCKSTACK_MAGIC_MAINNET};
+use stacks::burnchains::{MagicBytes, BLOCKSTACK_MAGIC_MAINNET};
 use stacks::chainstate::coordinator::comm::CoordinatorChannels;
 use stacks::chainstate::stacks::index::marf::MARFOpenOpts;
 use stacks::chainstate::stacks::index::storage::TrieHashCalculationMode;
@@ -336,6 +336,11 @@ lazy_static! {
     };
 }
 
+
+fn parse_chain_id(chain_name:&Option<String>) -> u32 {
+    todo!()
+}
+
 impl Config {
     pub fn from_config_file(config_file: ConfigFile) -> Config {
         let default_node_config = NodeConfig::default();
@@ -437,7 +442,7 @@ impl Config {
                 }
 
                 BurnchainConfig {
-                    chain_id: StacksChainId::parse(&burnchain.chain),
+                    chain_id: parse_chain_id(&burnchain.chain),
                     observer_port: burnchain
                         .observer_port
                         .unwrap_or(default_burnchain_config.observer_port),
@@ -966,7 +971,7 @@ pub struct BurnchainConfig {
     pub chain: String,
     pub mode: String,
     pub observer_port: u16,
-    pub chain_id: StacksChainId,
+    pub chain_id: u32,
     pub peer_version: u32,
     pub commit_anchor_block_within: u64,
     pub burn_fee_cap: u64,
