@@ -56,6 +56,10 @@ pub const PEER_VERSION_EPOCH_1_0: u8 = 0x00;
 pub const PEER_VERSION_EPOCH_2_0: u8 = 0x00;
 pub const PEER_VERSION_EPOCH_2_05: u8 = 0x05;
 
+// network identifiers
+pub const NETWORK_ID_MAINNET: u32 = 0x17000000;
+pub const NETWORK_ID_TESTNET: u32 = 0xff000000;
+
 // default port
 pub const NETWORK_P2P_PORT: u16 = 6265;
 

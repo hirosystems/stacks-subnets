@@ -50,6 +50,8 @@ use crate::chainstate::burn::{BlockSnapshot, Opcodes};
 use crate::chainstate::coordinator::comm::CoordinatorChannels;
 use crate::chainstate::stacks::StacksPublicKey;
 use crate::core::MINING_COMMITMENT_WINDOW;
+use crate::core::NETWORK_ID_MAINNET;
+use crate::core::NETWORK_ID_TESTNET;
 use crate::core::PEER_VERSION_MAINNET;
 use crate::core::PEER_VERSION_TESTNET;
 use crate::deps;
@@ -228,8 +230,7 @@ impl Burnchain {
     }
 
     pub fn is_mainnet(&self) -> bool {
-        use crate::core::CHAIN_ID_MAINNET;
-        self.chain_id == CHAIN_ID_MAINNET
+        self.network_id == NETWORK_ID_MAINNET
     }
 
     pub fn is_reward_cycle_start(&self, burn_height: u64) -> bool {

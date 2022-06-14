@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use rand::RngCore;
 
-use stacks::burnchains::{MagicBytes, BLOCKSTACK_MAGIC_MAINNET};
+use stacks::burnchains::{MagicBytes, BLOCKSTACK_MAGIC_MAINNET, StacksChainId};
 use stacks::chainstate::coordinator::comm::CoordinatorChannels;
 use stacks::chainstate::stacks::index::marf::MARFOpenOpts;
 use stacks::chainstate::stacks::index::storage::TrieHashCalculationMode;
@@ -437,7 +437,7 @@ impl Config {
                 }
 
                 BurnchainConfig {
-                    chain_id: burnchain.chain_id,
+                    chain_id: StacksChainId::parse(&burnchain.chain),
                     observer_port: burnchain
                         .observer_port
                         .unwrap_or(default_burnchain_config.observer_port),
@@ -1069,7 +1069,7 @@ impl BurnchainConfig {
 #[derive(Clone, Deserialize, Default)]
 pub struct BurnchainConfigFile {
     /// String-valued unique identifier, e.g., "mainnet", "testnet".
-    pub chain_id: u32,
+    pub chain: Option<String>,
     pub burn_fee_cap: Option<u64>,
     pub observer_port: Option<u16>,
     pub mode: Option<String>,

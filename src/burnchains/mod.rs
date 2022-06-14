@@ -86,11 +86,28 @@ pub enum BitcoinNetworkType {
     Regtest,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum StacksChainId {
+    Mockstack,
+    Bitcoin,
+}
+
+impl StacksChainId {
+    fn parse(name:&str) -> StacksChainId {
+        match name {
+            "mockstack" => StacksChainId::Mockstack,
+            "bitcoin" => StacksChainId::Bitcoin,
+            _ => {
+                panic!("Not a recognized chain name: {}", name)
+            }
+        }
+    }
+}
 pub const BLOCKSTACK_MAGIC_MAINNET: MagicBytes = MagicBytes([105, 100]); // 'id'
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BurnchainParameters {
-    chain_id: u32,
+    chain_id: StacksChainId,
     network_name: String,
     network_id: u32,
     stable_confirmations: u32,
@@ -116,7 +133,7 @@ impl BurnchainParameters {
 
     pub fn hyperchain_mocknet() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: 0u32,
+            chain_id: StacksChainId::Mockstack,
             network_name: "mainnet".into(),
             network_id: 0,
             stable_confirmations: 1,
@@ -131,7 +148,7 @@ impl BurnchainParameters {
 
     pub fn bitcoin_mainnet() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: 0u32,
+            chain_id: StacksChainId::Bitcoin,
             network_name: "mainnet".into(),
             network_id: 0,
             stable_confirmations: 7,
@@ -146,7 +163,7 @@ impl BurnchainParameters {
 
     pub fn bitcoin_testnet() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: 0u32,
+            chain_id: StacksChainId::Bitcoin,
             network_name: "testnet".into(),
             network_id: 1,
             stable_confirmations: 7,
@@ -161,7 +178,7 @@ impl BurnchainParameters {
 
     pub fn bitcoin_regtest() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: 0u32,
+            chain_id: StacksChainId::Bitcoin,
             network_name: "regtest".into(),
             network_id: 2,
             stable_confirmations: 1,
@@ -309,11 +326,8 @@ pub struct BurnchainBlockHeader {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Burnchain {
     pub peer_version: u32,
-    // Network id.. should be configured.
     pub network_id: u32,
-
-    // Chain name.. should be something else?
-    pub chain_id: u32,
+    pub chain_id: StacksChainId,
     pub network_name: String,
     pub working_dir: String,
     pub consensus_hash_lifetime: u32,
