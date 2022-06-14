@@ -86,28 +86,11 @@ pub enum BitcoinNetworkType {
     Regtest,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum StacksChainId {
-    Mockstack,
-    Bitcoin,
-}
-
-impl StacksChainId {
-    fn parse(name:&str) -> StacksChainId {
-        match name {
-            "mockstack" => StacksChainId::Mockstack,
-            "bitcoin" => StacksChainId::Bitcoin,
-            _ => {
-                panic!("Not a recognized chain name: {}", name)
-            }
-        }
-    }
-}
 pub const BLOCKSTACK_MAGIC_MAINNET: MagicBytes = MagicBytes([105, 100]); // 'id'
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BurnchainParameters {
-    chain_id: StacksChainId,
+    chain_id: u32,
     network_name: String,
     network_id: u32,
     stable_confirmations: u32,
