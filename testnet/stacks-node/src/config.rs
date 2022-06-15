@@ -45,21 +45,9 @@ const LEADER_KEY_TX_ESTIM_SIZE: u64 = 290;
 const BLOCK_COMMIT_TX_ESTIM_SIZE: u64 = 350;
 const INV_REWARD_CYCLES_TESTNET: u64 = 6;
 
-pub const BURNCHAIN_U32_STACKS_L1: u32 = 0;
-pub const BURNCHAIN_U32_MOCKSTACK: u32 = 1;
-
 pub const BURNCHAIN_NAME_STACKS_L1: &str = "stacks_layer_1";
 pub const BURNCHAIN_NAME_MOCKSTACK: &str = "mockstack";
-fn parse_burnchain_name(name:&str) -> u32 {
-    match name {
-        BURNCHAIN_NAME_STACKS_L1 => 0u32,
-        BURNCHAIN_NAME_MOCKSTACK => 1u32,
-        _ => {
-            panic!("parse_burnchain_name: Did not recognize {}", name)
-        }
-    }
 
-}
 pub const DEFAULT_L1_OBSERVER_PORT: u16 = 50303;
 
 #[derive(Clone, Deserialize, Default)]
@@ -349,11 +337,6 @@ lazy_static! {
     };
 }
 
-
-fn parse_chain_id(chain_name:&Option<String>) -> u32 {
-    todo!()
-}
-
 impl Config {
     pub fn from_config_file(config_file: ConfigFile) -> Config {
         let default_node_config = NodeConfig::default();
@@ -455,7 +438,12 @@ impl Config {
                 }
 
                 BurnchainConfig {
-                    chain_id: parse_chain_id(&burnchain.chain),
+                    chain: burnchain.chain.unwrap_or(default_burnchain_config.chain),
+                    chain_id: if &burnchain_mode == "mainnet" {
+                        CHAIN_ID_MAINNET
+                    } else {
+                        CHAIN_ID_TESTNET
+                    },
                     observer_port: burnchain
                         .observer_port
                         .unwrap_or(default_burnchain_config.observer_port),
@@ -980,10 +968,10 @@ impl std::default::Default for Config {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct BurnchainConfig {
-    /// String-valued unique identifier, e.g., "mainnet", "testnet".
+    pub chain: String,
     pub mode: String,
     pub observer_port: u16,
-    /// Indexes into the burnchain.
+    /// Indexes into the burnchain module.
     pub chain_id: u32,
     /// Indexes into the networking code.
     pub network_id: u32,
@@ -1025,7 +1013,7 @@ pub struct BurnchainConfig {
 impl Default for BurnchainConfig {
     fn default() -> Self {
         BurnchainConfig {
-            chain_id: "bitcoin".to_string(),
+            chain: "bitcoin".to_string(),
             mode: "mocknet".to_string(),
             chain_id: LAYER_1_CHAIN_ID_TESTNET,
             network_id: NETWORK_ID_TESTNET,

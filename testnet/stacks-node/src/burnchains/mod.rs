@@ -185,7 +185,7 @@ pub fn burnchain_from_config(
     burn_db_path: &str,
     config: &BurnchainConfig,
 ) -> Result<Burnchain, burnchains::Error> {
-    let mut burnchain = Burnchain::new(&burn_db_path, &config.chain, &config.mode)?;
+    let mut burnchain = Burnchain::new(&burn_db_path, &config.chain_id, &config.mode)?;
     burnchain.first_block_hash = BurnchainHeaderHash::from_hex(&config.first_burn_header_hash)
         .expect(&format!(
             "Could not parse BurnchainHeaderHash: {}",
