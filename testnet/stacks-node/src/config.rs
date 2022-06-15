@@ -14,7 +14,7 @@ use stacks::chainstate::stacks::StacksPrivateKey;
 use stacks::chainstate::stacks::TransactionAnchorMode;
 use stacks::chainstate::stacks::MAX_BLOCK_LEN;
 use stacks::core::mempool::MemPoolWalkSettings;
-use stacks::core::{NETWORK_ID_TESTNET, StacksEpoch};
+use stacks::core::{StacksEpoch, NETWORK_ID_TESTNET};
 use stacks::core::{
     CHAIN_ID_MAINNET, CHAIN_ID_TESTNET, PEER_VERSION_MAINNET, PEER_VERSION_TESTNET,
 };
@@ -1107,7 +1107,7 @@ pub struct BurnchainConfigFile {
 pub struct NodeConfig {
     pub name: String,
     /// u32-valued index of the chain. This is also the `network_id`.
-    pub chain_id:u32,
+    pub chain_id: u32,
     /// Value to initialize the keychain, only used if `mining_key` is not set.
     pub seed: Vec<u8>,
     pub working_dir: String,

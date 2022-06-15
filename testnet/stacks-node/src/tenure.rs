@@ -78,7 +78,7 @@ impl<'a> Tenure {
 
         let (mut chain_state, _) = StacksChainState::open(
             self.config.is_mainnet(),
-            self.config.burnchain.chain_id,
+            self.config.node.chain_id,
             &self.config.get_chainstate_path_str(),
             Some(self.config.node.get_marf_opts()),
         )
