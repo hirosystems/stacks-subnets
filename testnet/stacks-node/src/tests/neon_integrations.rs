@@ -507,6 +507,9 @@ fn mockstack_integration_test() {
 
     eprintln!("Chain bootstrapped...");
 
+    info!("conf.node: {:?}", &conf.node);
+    info!("conf.burnchain: {:?}", &conf.burnchain);
+
     let mut run_loop = neon::RunLoop::new(conf.clone());
     let blocks_processed = run_loop.get_blocks_processed_arc();
 
