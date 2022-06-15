@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-use rand::RngCore;
+use rand::{Rng, RngCore};
 
 use stacks::chainstate::burn::ConsensusHash;
 use stacks::chainstate::stacks::{
@@ -254,6 +254,7 @@ pub fn new_test_conf() -> Config {
     conf.node.data_url = format!("https://{}:{}", localhost, rpc_port);
     conf.node.p2p_address = format!("{}:{}", localhost, p2p_port);
 
+    conf.node.chain_id = rng.gen_range(0u32, u32::MAX);
     conf.node.wait_before_first_anchored_block = 1_000;
 
     conf

@@ -24,6 +24,7 @@ use stacks::{
 use crate::burnchains::mock_events::{reset_static_burnblock_simulator_channel, MockController};
 use crate::config::{EventKeyType, EventObserverConfig};
 use crate::neon;
+use crate::rand::Rng;
 use crate::tests::l1_observer_test::MOCKNET_PRIVATE_KEY_1;
 use crate::tests::{
     make_contract_call, make_contract_publish, make_stacks_transfer, to_addr, SK_1, SK_2, SK_3,
@@ -36,6 +37,7 @@ use super::make_contract_call_mblock_only;
 pub fn mockstack_test_conf() -> (Config, StacksAddress) {
     let mut conf = super::new_test_conf();
 
+    let mut rng = rand::thread_rng();
     let keychain = Keychain::default(conf.node.seed.clone());
 
     conf.node.miner = true;
@@ -63,6 +65,8 @@ pub fn mockstack_test_conf() -> (Config, StacksAddress) {
     conf.burnchain.first_burn_header_height = 1;
 
     conf.node.wait_before_first_anchored_block = 5_000;
+
+    conf.node.chain_id = rng.gen_range(0u32, u32::MAX);
 
     let miner_account = keychain.origin_address(conf.is_mainnet()).unwrap();
 
