@@ -440,9 +440,9 @@ impl Config {
                 BurnchainConfig {
                     chain: burnchain.chain.unwrap_or(default_burnchain_config.chain),
                     chain_id: if &burnchain_mode == "mainnet" {
-                        CHAIN_ID_MAINNET
+                        LAYER_1_CHAIN_ID_MAINNET
                     } else {
-                        CHAIN_ID_TESTNET
+                        LAYER_1_CHAIN_ID_TESTNET
                     },
                     observer_port: burnchain
                         .observer_port
