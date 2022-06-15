@@ -1246,8 +1246,8 @@ impl StacksNode {
         let mut peerdb = PeerDB::connect(
             &config.get_peer_db_file_path(),
             true,
-            config.burnchain.chain_id,
-            burnchain.network_id,
+            config.node.chain_id,
+            config.burnchain.network_id,
             Some(node_privkey),
             config.connection_options.private_key_lifetime.clone(),
             PeerAddress::from_socketaddr(&p2p_addr),

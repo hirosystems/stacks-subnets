@@ -14,7 +14,7 @@ use stacks::chainstate::stacks::StacksPrivateKey;
 use stacks::chainstate::stacks::TransactionAnchorMode;
 use stacks::chainstate::stacks::MAX_BLOCK_LEN;
 use stacks::core::mempool::MemPoolWalkSettings;
-use stacks::core::StacksEpoch;
+use stacks::core::{NETWORK_ID_TESTNET, StacksEpoch};
 use stacks::core::{
     CHAIN_ID_MAINNET, CHAIN_ID_TESTNET, PEER_VERSION_MAINNET, PEER_VERSION_TESTNET,
 };
@@ -970,7 +970,10 @@ pub struct BurnchainConfig {
     pub chain: String,
     pub mode: String,
     pub observer_port: u16,
+    /// Indexes into the burnchain.
     pub chain_id: u32,
+    /// Indexes into the networking code.
+    pub network_id: u32,
     pub peer_version: u32,
     pub commit_anchor_block_within: u64,
     pub burn_fee_cap: u64,
@@ -1012,6 +1015,7 @@ impl Default for BurnchainConfig {
             chain: "bitcoin".to_string(),
             mode: "mocknet".to_string(),
             chain_id: CHAIN_ID_TESTNET,
+            network_id: NETWORK_ID_TESTNET,
             peer_version: PEER_VERSION_TESTNET,
             burn_fee_cap: 20000,
             observer_port: DEFAULT_L1_OBSERVER_PORT,
@@ -1102,6 +1106,8 @@ pub struct BurnchainConfigFile {
 #[derive(Clone, Debug, Default)]
 pub struct NodeConfig {
     pub name: String,
+    /// u32-valued index of the chain. This is also the `network_id`.
+    pub chain_id:u32,
     /// Value to initialize the keychain, only used if `mining_key` is not set.
     pub seed: Vec<u8>,
     pub working_dir: String,
@@ -1411,6 +1417,7 @@ impl NodeConfig {
         let name = "helium-node";
         NodeConfig {
             name: name.to_string(),
+            chain_id: CHAIN_ID_TESTNET,
             seed: seed.to_vec(),
             working_dir: format!("/tmp/{}", testnet_id),
             rpc_bind: format!("0.0.0.0:{}", rpc_port),
