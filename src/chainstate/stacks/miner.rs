@@ -2472,7 +2472,7 @@ pub mod test {
                 initial_balances,
             );
             TestStacksNode {
-                chainstate,
+                chainstate: chainstate,
                 prev_keys: vec![],
                 key_ops: HashMap::new(),
                 anchored_blocks: vec![],
@@ -2486,7 +2486,7 @@ pub mod test {
         pub fn open(mainnet: bool, chain_id: u32, test_name: &str) -> TestStacksNode {
             let chainstate = open_chainstate(mainnet, chain_id, test_name);
             TestStacksNode {
-                chainstate,
+                chainstate: chainstate,
                 prev_keys: vec![],
                 key_ops: HashMap::new(),
                 anchored_blocks: vec![],

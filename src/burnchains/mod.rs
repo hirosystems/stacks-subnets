@@ -90,9 +90,9 @@ pub const BLOCKSTACK_MAGIC_MAINNET: MagicBytes = MagicBytes([105, 100]); // 'id'
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BurnchainParameters {
-    /// The u32-index of *this* chain.
+    /// The u32-index of the "chain" identifier of the burnchain.
     chain_id: u32,
-    /// The u32-index of the *burnchain*.
+    /// The u32-index of the "network" identifier of the burnchain.
     network_id: u32,
     stable_confirmations: u32,
     consensus_hash_lifetime: u32,
@@ -117,7 +117,7 @@ impl BurnchainParameters {
 
     pub fn hyperchain_mocknet() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: CHAIN_ID_MOCKSTACK,
+            chain_id: LAYER_1_CHAIN_ID_MOCKSTACK,
             network_id: NETWORK_ID_MAINNET,
             stable_confirmations: 1,
             consensus_hash_lifetime: 24,
@@ -131,7 +131,7 @@ impl BurnchainParameters {
 
     pub fn bitcoin_mainnet() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: CHAIN_ID_BITCOIN,
+            chain_id: LAYER_1_CHAIN_ID_BITCOIN,
             network_id: 0,
             stable_confirmations: 7,
             consensus_hash_lifetime: 24,
@@ -145,7 +145,7 @@ impl BurnchainParameters {
 
     pub fn bitcoin_testnet() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: CHAIN_ID_BITCOIN,
+            chain_id: LAYER_1_CHAIN_ID_BITCOIN,
             network_id: 1,
             stable_confirmations: 7,
             consensus_hash_lifetime: 24,
@@ -159,7 +159,7 @@ impl BurnchainParameters {
 
     pub fn bitcoin_regtest() -> BurnchainParameters {
         BurnchainParameters {
-            chain_id: CHAIN_ID_BITCOIN,
+            chain_id: LAYER_1_CHAIN_ID_BITCOIN,
             network_id: 2,
             stable_confirmations: 1,
             consensus_hash_lifetime: 24,

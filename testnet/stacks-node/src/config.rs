@@ -16,7 +16,7 @@ use stacks::chainstate::stacks::MAX_BLOCK_LEN;
 use stacks::core::mempool::MemPoolWalkSettings;
 use stacks::core::{StacksEpoch, NETWORK_ID_TESTNET};
 use stacks::core::{
-    CHAIN_ID_MAINNET, CHAIN_ID_TESTNET, PEER_VERSION_MAINNET, PEER_VERSION_TESTNET,
+    LAYER_1_CHAIN_ID_MAINNET, LAYER_1_CHAIN_ID_TESTNET, PEER_VERSION_MAINNET, PEER_VERSION_TESTNET,
 };
 use stacks::cost_estimates::fee_medians::WeightedMedianFeeRateEstimator;
 use stacks::cost_estimates::fee_rate_fuzzer::FeeRateFuzzer;
@@ -1027,7 +1027,7 @@ impl Default for BurnchainConfig {
         BurnchainConfig {
             chain_id: "bitcoin".to_string(),
             mode: "mocknet".to_string(),
-            chain_id: CHAIN_ID_TESTNET,
+            chain_id: LAYER_1_CHAIN_ID_TESTNET,
             network_id: NETWORK_ID_TESTNET,
             peer_version: PEER_VERSION_TESTNET,
             burn_fee_cap: 20000,
@@ -1067,7 +1067,7 @@ impl BurnchainConfig {
 
     /// Is the L1 chain itself mainnet or testnet?
     pub fn is_mainnet(&self) -> bool {
-        self.chain_id == CHAIN_ID_MAINNET
+        self.chain_id == LAYER_1_CHAIN_ID_MAINNET
     }
 
     pub fn get_rpc_url(&self) -> String {
@@ -1431,7 +1431,7 @@ impl NodeConfig {
         let name = "helium-node";
         NodeConfig {
             name: name.to_string(),
-            chain_id: CHAIN_ID_TESTNET,
+            chain_id: LAYER_1_CHAIN_ID_TESTNET,
             seed: seed.to_vec(),
             working_dir: format!("/tmp/{}", testnet_id),
             rpc_bind: format!("0.0.0.0:{}", rpc_port),

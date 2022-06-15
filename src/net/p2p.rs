@@ -5332,7 +5332,7 @@ mod test {
     use crate::chainstate::stacks::test::*;
     use crate::chainstate::stacks::*;
     use crate::core::StacksEpochExtension;
-    use crate::core::CHAIN_ID_MAINNET;
+    use crate::core::LAYER_1_CHAIN_ID_MAINNET;
     use crate::net::atlas::*;
     use crate::net::codec::*;
     use crate::net::db::*;
@@ -5394,7 +5394,7 @@ mod test {
             pox_constants: PoxConstants::test_default(),
             peer_version: 0x012345678,
             network_id: 0x9abcdef0,
-            chain_id: CHAIN_ID_MAINNET,
+            chain_id: LAYER_1_CHAIN_ID_MAINNET,
             working_dir: "/nope".to_string(),
             consensus_hash_lifetime: 24,
             stable_confirmations: 7,

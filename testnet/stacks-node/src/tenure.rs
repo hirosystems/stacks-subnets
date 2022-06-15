@@ -111,11 +111,11 @@ impl<'a> Tenure {
 
     #[cfg(test)]
     pub fn open_chainstate(&self) -> StacksChainState {
-        use stacks::core::CHAIN_ID_TESTNET;
+        use stacks::core::LAYER_1_CHAIN_ID_TESTNET;
 
         let (chain_state, _) = StacksChainState::open(
             false,
-            CHAIN_ID_TESTNET,
+            LAYER_1_CHAIN_ID_TESTNET,
             &self.config.get_chainstate_path_str(),
             Some(self.config.node.get_marf_opts()),
         )

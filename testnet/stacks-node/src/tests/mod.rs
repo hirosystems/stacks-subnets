@@ -12,7 +12,7 @@ use stacks::chainstate::stacks::{
     TransactionVersion, C32_ADDRESS_VERSION_TESTNET_SINGLESIG,
 };
 use stacks::codec::StacksMessageCodec;
-use stacks::core::CHAIN_ID_TESTNET;
+use stacks::core::LAYER_1_CHAIN_ID_TESTNET;
 use stacks::types::chainstate::StacksAddress;
 use stacks::util::get_epoch_time_secs;
 use stacks::util::hash::hex_bytes;
@@ -171,7 +171,7 @@ pub fn serialize_sign_tx_anchor_mode_version(
     let mut unsigned_tx = StacksTransaction::new(version, auth, payload);
     unsigned_tx.anchor_mode = anchor_mode;
     unsigned_tx.post_condition_mode = TransactionPostConditionMode::Allow;
-    unsigned_tx.chain_id = CHAIN_ID_TESTNET;
+    unsigned_tx.chain_id = LAYER_1_CHAIN_ID_TESTNET;
 
     let mut tx_signer = StacksTransactionSigner::new(&unsigned_tx);
     tx_signer.sign_origin(sender).unwrap();
