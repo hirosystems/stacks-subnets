@@ -779,7 +779,7 @@ fn faucet_test() {
 
     let channel = run_loop.get_coordinator_channel().unwrap();
 
-    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+    let mut btc_regtest_controller = MockController::new(conf.clone(), channel.clone());
 
     thread::spawn(move || run_loop.start(None, 0));
 
@@ -832,8 +832,14 @@ fn faucet_test() {
     ))
     .unwrap();
 
-    let xfer_to_faucet_tx =
-        make_stacks_transfer(&sk_3, 0, 1000, &contract_identifier.clone().into(), 1000);
+    let xfer_to_faucet_tx = make_stacks_transfer(
+        &sk_3,
+        conf.node.chain_id,
+        0,
+        1000,
+        &contract_identifier.clone().into(),
+        1000,
+    );
     let _xfer_to_faucet_txid = submit_tx(&http_origin, &xfer_to_faucet_tx);
 
     next_block_and_wait(
@@ -843,7 +849,14 @@ fn faucet_test() {
         &sortition_db,
     );
 
-    let publish_tx = make_contract_publish(&contract_sk, 0, 1000, "faucet", FAUCET_CONTRACT);
+    let publish_tx = make_contract_publish(
+        &contract_sk,
+        conf.node.chain_id,
+        0,
+        1000,
+        "faucet",
+        FAUCET_CONTRACT,
+    );
     let _publish_txid = submit_tx(&http_origin, &publish_tx);
 
     next_block_and_wait(
@@ -859,7 +872,14 @@ fn faucet_test() {
         &sortition_db,
     );
 
-    let publish_dup_tx = make_contract_publish(&contract_sk, 1, 1000, "faucet", FAUCET_CONTRACT);
+    let publish_dup_tx = make_contract_publish(
+        &contract_sk,
+        conf.node.chain_id,
+        1,
+        1000,
+        "faucet",
+        FAUCET_CONTRACT,
+    );
     assert!(
         submit_tx_fallible(&http_origin, &publish_dup_tx).is_none(),
         "Duplicate contract publish should not be allowed"
@@ -867,6 +887,7 @@ fn faucet_test() {
 
     let contract_call_tx = make_contract_call(
         &sk_2,
+        conf.node.chain_id,
         0,
         1000,
         &to_addr(&contract_sk),
@@ -1063,7 +1084,7 @@ fn transactions_in_block_and_microblock() {
 
     let channel = run_loop.get_coordinator_channel().unwrap();
 
-    let mut btc_regtest_controller = MockController::new(conf, channel.clone());
+    let mut btc_regtest_controller = MockController::new(conf.clone(), channel.clone());
 
     thread::spawn(move || run_loop.start(None, 0));
 
@@ -1096,8 +1117,14 @@ fn transactions_in_block_and_microblock() {
 
     {
         let small_contract = "(define-public (return-one) (ok 1))";
-        let publish_tx =
-            make_contract_publish(&contract_sk, 0, 1000, "small-contract", small_contract);
+        let publish_tx = make_contract_publish(
+            &contract_sk,
+            conf.node.chain_id,
+            0,
+            1000,
+            "small-contract",
+            small_contract,
+        );
         submit_tx_and_wait(&http_origin, &publish_tx);
     }
 
@@ -1116,6 +1143,7 @@ fn transactions_in_block_and_microblock() {
     {
         let contract_call_tx = make_contract_call(
             &sk_2,
+            conf.node.chain_id,
             0,
             1000,
             &to_addr(&contract_sk),
@@ -1136,6 +1164,7 @@ fn transactions_in_block_and_microblock() {
     {
         let contract_call_tx = make_contract_call_mblock_only(
             &sk_2,
+            conf.node.chain_id,
             1,
             1000,
             &to_addr(&contract_sk),
