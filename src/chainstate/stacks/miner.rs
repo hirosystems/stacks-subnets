@@ -721,7 +721,10 @@ impl<'a> StacksMicroblockBuilder<'a> {
                             ));
                         }
                     }
-                    _ => Ok(TransactionResult::error(&tx, e)),
+                    _ => {
+                        error!("got error {:?}", &e);
+                        Ok(TransactionResult::error(&tx, e))
+                    }
                 }
             }
         }
@@ -1329,7 +1332,10 @@ impl StacksBlockBuilder {
                             );
                         }
                     }
-                    _ => return TransactionResult::error(&tx, e),
+                    _ => {
+                        error!("got error {:?}", &e);
+                        return TransactionResult::error(&tx, e);
+                    }
                 },
             };
             info!("Include tx";
@@ -1386,7 +1392,10 @@ impl StacksBlockBuilder {
                             );
                         }
                     }
-                    _ => return TransactionResult::error(&tx, e),
+                    _ => {
+                        error!("got error {:?}", &e);
+                        return TransactionResult::error(&tx, e);
+                    }
                 },
             };
             debug!(

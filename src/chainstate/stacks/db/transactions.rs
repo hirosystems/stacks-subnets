@@ -398,6 +398,8 @@ impl StacksChainState {
         tx.verify().map_err(Error::NetError)?;
 
         // destined for us?
+        error!("config.chain_id {}", config.chain_id);
+        error!("tx.chain_id {}", tx.chain_id);
         if config.chain_id != tx.chain_id {
             let msg = format!(
                 "Invalid tx {}: invalid chain ID {} (expected {})",
@@ -947,25 +949,27 @@ impl StacksChainState {
     ) -> Result<(u64, StacksTransactionReceipt), Error> {
         debug!("Process transaction {} ({})", tx.txid(), tx.payload.name());
 
+        error!("check");
         StacksChainState::process_transaction_precheck(&clarity_block.config, tx)?;
-
+        error!("check");
         let mut transaction = clarity_block.connection().start_transaction_processing();
         let (origin_account, payer_account) =
             StacksChainState::check_transaction_nonces(&mut transaction, tx, quiet)?;
-
+        error!("check");
         let tx_receipt =
             StacksChainState::process_transaction_payload(&mut transaction, tx, &origin_account)?;
-
+        error!("check");
         let new_payer_account = StacksChainState::get_payer_account(&mut transaction, tx);
         let fee = tx.get_tx_fee();
         StacksChainState::pay_transaction_fee(&mut transaction, fee, new_payer_account)?;
-
+        error!("check");
         // update the account nonces
         StacksChainState::update_account_nonce(
             &mut transaction,
             &origin_account.principal,
             origin_account.nonce,
         );
+        error!("check");
         if origin_account != payer_account {
             StacksChainState::update_account_nonce(
                 &mut transaction,
@@ -973,7 +977,7 @@ impl StacksChainState {
                 payer_account.nonce,
             );
         }
-
+        error!("check");
         transaction.commit();
 
         Ok((fee, tx_receipt))
