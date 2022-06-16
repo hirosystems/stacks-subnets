@@ -1788,7 +1788,7 @@ impl StacksNode {
             keychain,
             coinbase_nonce,
             config.is_mainnet(),
-            config.burnchain.chain_id,
+            config.node.chain_id,
         );
 
         // find the longest microblock tail we can build off of

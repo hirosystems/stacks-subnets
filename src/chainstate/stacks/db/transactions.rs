@@ -400,6 +400,7 @@ impl StacksChainState {
         // destined for us?
         error!("config.chain_id {}", config.chain_id);
         error!("tx.chain_id {}", tx.chain_id);
+        error!("tx {:?}", &tx);
         if config.chain_id != tx.chain_id {
             let msg = format!(
                 "Invalid tx {}: invalid chain ID {} (expected {})",
