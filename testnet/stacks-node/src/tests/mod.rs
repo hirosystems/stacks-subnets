@@ -171,7 +171,7 @@ pub fn serialize_sign_tx_anchor_mode_version(
     let mut unsigned_tx = StacksTransaction::new(version, auth, payload);
     unsigned_tx.anchor_mode = anchor_mode;
     unsigned_tx.post_condition_mode = TransactionPostConditionMode::Allow;
-    unsigned_tx.chain_id = LAYER_1_CHAIN_ID_TESTNET;
+    unsigned_tx.chain_id = LAYER_1_CHAIN_ID_TESTNET;  // Change this
 
     let mut tx_signer = StacksTransactionSigner::new(&unsigned_tx);
     tx_signer.sign_origin(sender).unwrap();
@@ -255,8 +255,8 @@ pub fn new_test_conf() -> Config {
     conf.node.p2p_address = format!("{}:{}", localhost, p2p_port);
 
     conf.node.chain_id = rng.gen_range(0u32, u32::MAX);
-
     error!("using chain id: conf.node.chain_id {}", conf.node.chain_id);
+
     conf.node.wait_before_first_anchored_block = 1_000;
 
     conf
