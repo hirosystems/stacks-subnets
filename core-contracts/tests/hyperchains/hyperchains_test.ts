@@ -1224,98 +1224,98 @@ Clarinet.test({
 //     },
 // });
 
-// Clarinet.test({
-//     name: "Ensure that user can mint an NFT on the hyperchain and L1 miner can withdraw it by minting, should fail without mint",
-//     async fn(chain: Chain, accounts: Map<string, Account>, contracts: Map<string, Contract>) {
+Clarinet.test({
+    name: "Ensure that we can user a `simple-nft` contract version without minting",
+    async fn(chain: Chain, accounts: Map<string, Account>, contracts: Map<string, Contract>) {
 
-//         // miner
-//         const miner = accounts.get("wallet_1")!;
-//         // user
-//         const user = accounts.get("wallet_3")!;
+        // miner
+        const miner = accounts.get("wallet_1")!;
+        // user
+        const user = accounts.get("wallet_3")!;
 
-//         // nft contract id
-//         const nft_contract = contracts.get("ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.simple-nft-no-mint")!;
+        // nft contract id
+        const nft_contract = contracts.get("ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.simple-nft-no-mint")!;
 
-//         // Miner sets up allowed assets
-//         let block = chain.mineBlock([
-//             Tx.contractCall("hyperchains", "setup-allowed-contracts",
-//                 [],
-//                 miner.address),
-//         ]);
-//         block.receipts[0].result
-//             .expectOk()
-//             .expectBool(true);
-//         // Check that user does not own this NFT on the L1
-//         let assets = chain.getAssetsMaps().assets[".simple-nft-no-mint.nft-token"];
-//         assertEquals(assets, undefined);
+        // Miner sets up allowed assets
+        let block = chain.mineBlock([
+            Tx.contractCall("hyperchains", "setup-allowed-contracts",
+                [],
+                miner.address),
+        ]);
+        block.receipts[0].result
+            .expectOk()
+            .expectBool(true);
+        // Check that user does not own this NFT on the L1
+        let assets = chain.getAssetsMaps().assets[".simple-nft-no-mint.nft-token"];
+        assertEquals(assets, undefined);
 
-//         // Miner should commit a block with the appropriate root hash (mocking a withdrawal Merkle tree)
-//         // This tree mocks the withdrawal of an NFT with ID = 1
-//         let root_hash = new Uint8Array([203, 225, 170, 121, 99, 143, 221, 118, 153, 59, 252, 68, 117, 30, 27, 33, 49, 100, 166, 167, 250, 154, 172, 149, 149, 79, 236, 105, 254, 184, 172, 103]);
-//         block = chain.mineBlock([
-//             // Successfully commit block at height 0.
-//             Tx.contractCall("hyperchains", "commit-block",
-//                 [
-//                     types.buff(new Uint8Array([0, 1, 1, 1, 1])),
-//                     types.buff(root_hash),
-//                 ],
-//                 miner.address),
-//         ]);
-//         assertEquals(block.height, 3);
-//         block.receipts[0].result
-//             .expectOk()
-//             .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
+        // Miner should commit a block with the appropriate root hash (mocking a withdrawal Merkle tree)
+        // This tree mocks the withdrawal of an NFT with ID = 1
+        let root_hash = new Uint8Array([203, 225, 170, 121, 99, 143, 221, 118, 153, 59, 252, 68, 117, 30, 27, 33, 49, 100, 166, 167, 250, 154, 172, 149, 149, 79, 236, 105, 254, 184, 172, 103]);
+        block = chain.mineBlock([
+            // Successfully commit block at height 0.
+            Tx.contractCall("hyperchains", "commit-block",
+                [
+                    types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+                    types.buff(root_hash),
+                ],
+                miner.address),
+        ]);
+        assertEquals(block.height, 3);
+        block.receipts[0].result
+            .expectOk()
+            .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
 
-//         let nft_sib_hash = new Uint8Array([33, 202, 115, 15, 237, 187, 156, 88, 59, 212, 42, 195, 30, 149, 130, 0, 37, 203, 93, 165, 189, 33, 107, 213, 116, 211, 170, 0, 89, 231, 154, 3]);
-//         let nft_leaf_hash = new Uint8Array([38, 72, 158, 13, 57, 120, 9, 95, 13, 62, 11, 118, 71, 237, 60, 173, 121, 221, 127, 38, 163, 75, 203, 191, 227, 4, 195, 17, 239, 76, 42, 55]);
+        let nft_sib_hash = new Uint8Array([33, 202, 115, 15, 237, 187, 156, 88, 59, 212, 42, 195, 30, 149, 130, 0, 37, 203, 93, 165, 189, 33, 107, 213, 116, 211, 170, 0, 89, 231, 154, 3]);
+        let nft_leaf_hash = new Uint8Array([38, 72, 158, 13, 57, 120, 9, 95, 13, 62, 11, 118, 71, 237, 60, 173, 121, 221, 127, 38, 163, 75, 203, 191, 227, 4, 195, 17, 239, 76, 42, 55]);
 
-//         // Miner should be able to withdraw NFT asset
-//         block = chain.mineBlock([
-//             Tx.contractCall("hyperchains", "withdraw-nft-asset",
-//                 [
-//                     types.uint(1),
-//                     types.principal(user.address),
-//                     types.principal(nft_contract.contract_id),
-//                     types.principal(nft_contract.contract_id),
-//                     types.buff(root_hash),
-//                     types.buff(nft_leaf_hash),
-//                     types.list([types.tuple({
-//                         "hash": types.buff(nft_sib_hash),
-//                         "is-left-side": types.bool(true)
-//                     })])
-//                 ],
-//                 miner.address),
-//         ]);
-//         console.log(JSON.stringify(block));
+        // Miner should be able to withdraw NFT asset
+        block = chain.mineBlock([
+            Tx.contractCall("hyperchains", "withdraw-nft-asset-no-mint",
+                [
+                    types.uint(1),
+                    types.principal(user.address),
+                    types.principal(nft_contract.contract_id),
+                    types.principal(nft_contract.contract_id),
+                    types.buff(root_hash),
+                    types.buff(nft_leaf_hash),
+                    types.list([types.tuple({
+                        "hash": types.buff(nft_sib_hash),
+                        "is-left-side": types.bool(true)
+                    })])
+                ],
+                miner.address),
+        ]);
+        console.log(JSON.stringify(block));
 
-//         block.receipts[0].result
-//             .expectOk()
-//             .expectBool(true);
-//         // Check that user owns NFT on the L1
-//         assets = chain.getAssetsMaps().assets[".simple-nft-no-mint.nft-token"];
-//         let nft_amount = assets[user.address];
-//         assertEquals(nft_amount, 1);
+        block.receipts[0].result
+            .expectOk()
+            .expectBool(true);
+        // Check that user owns NFT on the L1
+        assets = chain.getAssetsMaps().assets[".simple-nft-no-mint.nft-token"];
+        let nft_amount = assets[user.address];
+        assertEquals(nft_amount, 1);
 
-//         // Miner should not be able to withdraw NFT asset a second time
-//         block = chain.mineBlock([
-//             Tx.contractCall("hyperchains", "withdraw-nft-asset",
-//                 [
-//                     types.uint(1),
-//                     types.principal(user.address),
-//                     types.principal(nft_contract.contract_id),
-//                     types.principal(nft_contract.contract_id),
-//                     types.buff(root_hash),
-//                     types.buff(nft_leaf_hash),
-//                     types.list([types.tuple({
-//                         "hash": types.buff(nft_sib_hash),
-//                         "is-left-side": types.bool(true)
-//                     })])
-//                 ],
-//                 miner.address),
-//         ]);
-//         // should return (err ERR_WITHDRAWAL_ALREADY_PROCESSED)
-//         block.receipts[0].result
-//             .expectErr()
-//             .expectInt(9);
-//     },
-// });
+        // Miner should not be able to withdraw NFT asset a second time
+        block = chain.mineBlock([
+            Tx.contractCall("hyperchains", "withdraw-nft-asset",
+                [
+                    types.uint(1),
+                    types.principal(user.address),
+                    types.principal(nft_contract.contract_id),
+                    types.principal(nft_contract.contract_id),
+                    types.buff(root_hash),
+                    types.buff(nft_leaf_hash),
+                    types.list([types.tuple({
+                        "hash": types.buff(nft_sib_hash),
+                        "is-left-side": types.bool(true)
+                    })])
+                ],
+                miner.address),
+        ]);
+        // should return (err ERR_WITHDRAWAL_ALREADY_PROCESSED)
+        block.receipts[0].result
+            .expectErr()
+            .expectInt(9);
+    },
+});
