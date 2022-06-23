@@ -39,15 +39,6 @@
   )
 )
 
-(define-public (mint-from-hyperchain (id uint) (sender principal) (recipient principal))
-    (begin
-        ;; Check that the tx-sender is the provided sender
-        (asserts! (is-eq tx-sender sender) ERR_NOT_AUTHORIZED)
-
-        (nft-mint? nft-token id recipient)
-    )
-)
-
 (define-public (gift-nft (recipient principal) (id uint))
   (begin
     (nft-mint? nft-token id recipient)

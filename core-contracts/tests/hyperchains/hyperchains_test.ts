@@ -252,16 +252,16 @@ Clarinet.test({
         const user = accounts.get("wallet_3")!;
 
         // nft contract id
-        const nft_contract = contracts.get("ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.simple-nft-no-mint")!;
+        const nft_contract = contracts.get("ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.simple-nft")!;
         const hyperchain_contract = contracts.get("ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.hyperchains")!;
 
         // User should be able to mint an NFT
         let block = chain.mineBlock([
-            Tx.contractCall("simple-nft-no-mint", "test-mint", [types.principal(user.address)], user.address),
+            Tx.contractCall("simple-nft", "test-mint", [types.principal(user.address)], user.address),
         ]);
         block.receipts[0].result.expectOk().expectBool(true);
         // Check that user owns NFT
-        let assets = chain.getAssetsMaps().assets[".simple-nft-no-mint.nft-token"];
+        let assets = chain.getAssetsMaps().assets[".simple-nft.nft-token"];
         let nft_amount = assets[user.address];
         assertEquals(nft_amount, 1);
 
@@ -317,7 +317,7 @@ Clarinet.test({
             .expectOk()
             .expectBool(true);
         // Check that contract owns NFT, and that the user does not
-        assets = chain.getAssetsMaps().assets[".simple-nft-no-mint.nft-token"];
+        assets = chain.getAssetsMaps().assets[".simple-nft.nft-token"];
         nft_amount = assets[user.address];
         assertEquals(nft_amount, 0);
         nft_amount = assets[hyperchain_contract.contract_id];
@@ -380,7 +380,7 @@ Clarinet.test({
             .expectBool(true);
 
         // Check that user owns NFT
-        assets = chain.getAssetsMaps().assets[".simple-nft-no-mint.nft-token"];
+        assets = chain.getAssetsMaps().assets[".simple-nft.nft-token"];
         nft_amount = assets[user.address];
         assertEquals(nft_amount, 1);
 
@@ -1276,7 +1276,6 @@ Clarinet.test({
                     types.uint(1),
                     types.principal(user.address),
                     types.principal(nft_contract.contract_id),
-                    types.principal(nft_contract.contract_id),
                     types.buff(root_hash),
                     types.buff(nft_leaf_hash),
                     types.list([types.tuple({
@@ -1289,33 +1288,7 @@ Clarinet.test({
         console.log(JSON.stringify(block));
 
         block.receipts[0].result
-            .expectOk()
-            .expectBool(true);
-        // Check that user owns NFT on the L1
-        assets = chain.getAssetsMaps().assets[".simple-nft-no-mint.nft-token"];
-        let nft_amount = assets[user.address];
-        assertEquals(nft_amount, 1);
-
-        // Miner should not be able to withdraw NFT asset a second time
-        block = chain.mineBlock([
-            Tx.contractCall("hyperchains", "withdraw-nft-asset",
-                [
-                    types.uint(1),
-                    types.principal(user.address),
-                    types.principal(nft_contract.contract_id),
-                    types.principal(nft_contract.contract_id),
-                    types.buff(root_hash),
-                    types.buff(nft_leaf_hash),
-                    types.list([types.tuple({
-                        "hash": types.buff(nft_sib_hash),
-                        "is-left-side": types.bool(true)
-                    })])
-                ],
-                miner.address),
-        ]);
-        // should return (err ERR_WITHDRAWAL_ALREADY_PROCESSED)
-        block.receipts[0].result
             .expectErr()
-            .expectInt(9);
+            .expectInt(15);
     },
 });
