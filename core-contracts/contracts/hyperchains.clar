@@ -257,7 +257,7 @@
     )
 )
 
-(define-private (inner-transfer-or-mint-ft-asset (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract <mint-from-hyperchain-trait>))
+(define-private (inner-transfer-or-mint-ft-asset (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract (optional <mint-from-hyperchain-trait>)))
     (let (
             (call-result (contract-call? ft-contract get-balance CONTRACT_ADDRESS))
             (contract-ft-balance (unwrap! call-result (err ERR_CONTRACT_CALL_FAILED)))
@@ -273,12 +273,12 @@
             (begin
                 (try! (inner-transfer-ft-asset amount-to-transfer CONTRACT_ADDRESS recipient memo ft-contract))
                 (if (> amount-to-mint u0)
-                    (inner-mint-ft-asset amount-to-mint CONTRACT_ADDRESS recipient ft-mint-contract)
+                    (inner-mint-ft-asset amount-to-mint CONTRACT_ADDRESS recipient (unwrap! ft-mint-contract (err 1)))
                     (ok true)
                 )
             )
             (if (> amount-to-mint u0)
-                (inner-mint-ft-asset amount-to-mint CONTRACT_ADDRESS recipient ft-mint-contract)
+                (inner-mint-ft-asset amount-to-mint CONTRACT_ADDRESS recipient (unwrap! ft-mint-contract (err 1)))
                 (err ERR_ATTEMPT_TO_TRANSFER_ZERO_AMOUNT)
             )
         )
@@ -310,7 +310,7 @@
 
 ;; This function performs validity checks related to the withdrawal and performs the withdrawal as well. 
 ;; Returns response<bool, int>
-(define-private (inner-withdraw-ft-asset (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract <mint-from-hyperchain-trait>) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
+(define-private (inner-withdraw-ft-asset (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract (optional <mint-from-hyperchain-trait>)) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
     (let (
             (hashes-are-valid (check-withdrawal-hashes withdrawal-root withdrawal-leaf-hash sibling-hashes))
          )
@@ -346,7 +346,7 @@
         ;; TODO: can remove this check once leaf validity is checked
         (asserts! (is-miner tx-sender) (err ERR_INVALID_MINER))
 
-        (asserts! (try! (inner-withdraw-ft-asset amount recipient memo ft-contract ft-mint-contract withdrawal-root withdrawal-leaf-hash sibling-hashes)) (err ERR_TRANSFER_FAILED))
+        (asserts! (try! (inner-withdraw-ft-asset amount recipient memo ft-contract (some ft-mint-contract) withdrawal-root withdrawal-leaf-hash sibling-hashes)) (err ERR_TRANSFER_FAILED))
 
         (let (
                 (ft-name (unwrap! (contract-call? ft-contract get-name) (err ERR_CONTRACT_CALL_FAILED)))
