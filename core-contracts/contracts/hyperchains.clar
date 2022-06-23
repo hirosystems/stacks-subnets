@@ -123,12 +123,16 @@
 )
 
 (define-private (inner-mint-nft-asset (id uint) (sender principal) (recipient principal) (nft-mint-contract <mint-from-hyperchain-trait>))
+    ;; note: this mint succeeds in the mint test.. 
     (let (
             (call-result (as-contract (contract-call? nft-mint-contract mint-from-hyperchain id sender recipient)))
             (mint-result (unwrap! call-result (err ERR_CONTRACT_CALL_FAILED)))
         )
+        (print { call-result: call-result, mint-result: mint-result })
         ;; Check that the transfer succeeded
         (asserts! mint-result (err ERR_MINT_FAILED))
+
+        (print { mint-result: true })
 
         (ok true)
     )
@@ -141,6 +145,8 @@
             (contract-owns-nft (is-eq nft-owner (some CONTRACT_ADDRESS)))
             (no-owner (is-eq nft-owner none))
         )
+
+        (print { contract-owns-nft: contract-owns-nft, no-owner: no-owner })
 
         (if contract-owns-nft
             (inner-transfer-nft-asset id CONTRACT_ADDRESS recipient nft-contract)
@@ -182,7 +188,11 @@
             (hashes-are-valid (check-withdrawal-hashes withdrawal-root withdrawal-leaf-hash sibling-hashes))
          )
 
+        (print { checkpoint: "inner-withdraw-nft-asset", hashes-are-valid: hashes-are-valid })
+
         (asserts! (try! hashes-are-valid) (err ERR_VALIDATION_FAILED))
+
+        (print { my-check: "hashes-are-valid" })
 
         ;; TODO: should check leaf validity
 
