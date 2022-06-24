@@ -317,6 +317,64 @@
     )
 )
 
+(define-private (inner-transfer-or-mint-ft-asset-optional (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract-option (optional <mint-from-hyperchain-trait>)))
+    (let (
+            (call-result (contract-call? ft-contract get-balance CONTRACT_ADDRESS))
+            (contract-ft-balance (unwrap! call-result (err ERR_CONTRACT_CALL_FAILED)))
+            (contract-owns-enough (>= contract-ft-balance amount))
+            (amount-to-transfer (if contract-owns-enough amount contract-ft-balance))
+            (amount-to-mint (- amount amount-to-transfer))
+        )
+
+        ;; Check that the total balance between the transfer and mint is equal to the original balance
+        (asserts! (is-eq amount (+ amount-to-transfer amount-to-mint)) (err ERR_IN_COMPUTATION))
+
+        (match
+            ft-mint-contract-option
+            ft-mint-contract
+
+            ;; (ok true)
+            ;; if there is a mint contract, then either transfer or mint
+            (if (> amount-to-transfer u0)
+                (begin
+                    (try! (inner-transfer-ft-asset amount-to-transfer CONTRACT_ADDRESS recipient memo ft-contract))
+                    (if (> amount-to-mint u0)
+                        (inner-mint-ft-asset amount-to-mint CONTRACT_ADDRESS recipient ft-mint-contract)
+                        (ok true)
+                    )
+                )
+                (if (> amount-to-mint u0)
+                    (inner-mint-ft-asset amount-to-mint CONTRACT_ADDRESS recipient ft-mint-contract)
+                    (err ERR_ATTEMPT_TO_TRANSFER_ZERO_AMOUNT)
+                )
+            )
+            ;; if there is not a mint contract, don't allow minting
+            (begin
+                (asserts! (is-eq amount-to-mint u0) (err ERR_ATTEMPT_TO_TRANSFER_ZERO_AMOUNT))
+                (if (> amount-to-transfer u0)
+                    (inner-transfer-ft-asset amount-to-transfer CONTRACT_ADDRESS recipient memo ft-contract)
+                    (ok true)
+                )
+            )
+        )            
+    )
+)
+
+(define-private (inner-withdraw-ft-asset-optional (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract-option (optional <mint-from-hyperchain-trait>)) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
+    (let (
+            (hashes-are-valid (check-withdrawal-hashes withdrawal-root withdrawal-leaf-hash sibling-hashes))
+         )
+
+        (asserts! (try! hashes-are-valid) (err ERR_VALIDATION_FAILED))
+
+        ;; TODO: should check leaf validity
+
+        (asserts! (try! (as-contract (inner-transfer-or-mint-ft-asset-optional amount recipient memo ft-contract ft-mint-contract-option))) (err ERR_TRANSFER_FAILED))
+
+        (ok (finish-withdraw withdrawal-leaf-hash))
+    )
+)
+
 ;; A user can call this function to withdraw some amount of a fungible token asset from the 
 ;; contract and send it to a recipient. 
 ;; In order for this withdrawal to go through, the given withdrawal must have been included 
@@ -355,6 +413,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FOR STX TRANSFERS
 
+
+(define-public (takes-optional-trait (b (optional <ft-trait>)))
+  (match b b1 (ok true) (err u100))
+)
+(define-public (wrapper (b <ft-trait>)) (takes-optional-trait (some b)))
 
 ;; Helper function that transfers the given amount from the specified fungible token from the given sender to the given recipient. 
 ;; Returns response<bool, int>
