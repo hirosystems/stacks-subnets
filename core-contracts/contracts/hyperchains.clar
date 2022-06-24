@@ -384,7 +384,7 @@
 ;; uses the provided hashes to ensure the requested withdrawal is valid. 
 ;; The function emits a print with details of this event.
 ;; Returns response<bool, int>
-(define-public (withdraw-ft-asset (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract <mint-from-hyperchain-trait>) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
+(define-public (withdraw-ft-asset-optional (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract (optional <mint-from-hyperchain-trait>)) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
     (begin
         ;; Check that the withdraw amount is positive
         (asserts! (> amount u0) (err ERR_ATTEMPT_TO_TRANSFER_ZERO_AMOUNT))
@@ -409,6 +409,9 @@
     )
 )
 
+(define-public (withdraw-ft-asset (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract (optional <mint-from-hyperchain-trait>)) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
+    (withdraw-ft-asset amount recipient memo ft-contract (some ft-mint-contract) withdrawal-root withdrawal-leaf-hash sibling-hashes)
+)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FOR STX TRANSFERS
