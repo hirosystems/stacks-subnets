@@ -396,7 +396,7 @@
         ;; TODO: can remove this check once leaf validity is checked
         (asserts! (is-miner tx-sender) (err ERR_INVALID_MINER))
 
-        (asserts! (try! (inner-withdraw-ft-asset amount recipient memo ft-contract ft-mint-contract withdrawal-root withdrawal-leaf-hash sibling-hashes)) (err ERR_TRANSFER_FAILED))
+        (asserts! (try! (inner-withdraw-ft-asset-optional amount recipient memo ft-contract ft-mint-contract withdrawal-root withdrawal-leaf-hash sibling-hashes)) (err ERR_TRANSFER_FAILED))
 
         (let (
                 (ft-name (unwrap! (contract-call? ft-contract get-name) (err ERR_CONTRACT_CALL_FAILED)))
@@ -409,18 +409,13 @@
     )
 )
 
-(define-public (withdraw-ft-asset (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract (optional <mint-from-hyperchain-trait>)) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
-    (withdraw-ft-asset amount recipient memo ft-contract (some ft-mint-contract) withdrawal-root withdrawal-leaf-hash sibling-hashes)
-)
+;; (define-public (withdraw-ft-asset (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract (optional <mint-from-hyperchain-trait>)) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
+;;     (withdraw-ft-asset amount recipient memo ft-contract (some ft-mint-contract) withdrawal-root withdrawal-leaf-hash sibling-hashes)
+;; )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FOR STX TRANSFERS
 
-
-(define-public (takes-optional-trait (b (optional <ft-trait>)))
-  (match b b1 (ok true) (err u100))
-)
-(define-public (wrapper (b <ft-trait>)) (takes-optional-trait (some b)))
 
 ;; Helper function that transfers the given amount from the specified fungible token from the given sender to the given recipient. 
 ;; Returns response<bool, int>
