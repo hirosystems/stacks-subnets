@@ -409,9 +409,9 @@
     )
 )
 
-;; (define-public (withdraw-ft-asset (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract (optional <mint-from-hyperchain-trait>)) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
-;;     (withdraw-ft-asset amount recipient memo ft-contract (some ft-mint-contract) withdrawal-root withdrawal-leaf-hash sibling-hashes)
-;; )
+(define-public (withdraw-ft-asset (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract <mint-from-hyperchain-trait>) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
+    (withdraw-ft-asset-optional amount recipient memo ft-contract (some ft-mint-contract) withdrawal-root withdrawal-leaf-hash sibling-hashes)
+)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FOR STX TRANSFERS
