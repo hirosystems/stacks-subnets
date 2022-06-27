@@ -1675,6 +1675,15 @@ fn nft_deposit_and_withdraw_integration_test() {
     // Give the run loop time to start.
     thread::sleep(Duration::from_millis(2_000));
 
+    // The burnchain should have registered what the listener recorded.
+    let burnchain = Burnchain::new(
+        &config.get_burn_db_path(),
+        &config.burnchain.chain,
+        &config.burnchain.mode,
+    )
+        .unwrap();
+    let (sortition_db, burndb) = burnchain.open_db(true).unwrap();
+
     let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), true);
     let _stacks_res = stacks_l1_controller
         .start_process()
@@ -1732,16 +1741,9 @@ fn nft_deposit_and_withdraw_integration_test() {
 
     // Sleep to give the run loop time to listen to blocks,
     //  and start mining L2 blocks
-    thread::sleep(Duration::from_secs(60));
+    wait_for_next_stacks_block(&sortition_db);
+    wait_for_next_stacks_block(&sortition_db);
 
-    // The burnchain should have registered what the listener recorded.
-    let burnchain = Burnchain::new(
-        &config.get_burn_db_path(),
-        &config.burnchain.chain,
-        &config.burnchain.mode,
-    )
-    .unwrap();
-    let (_, burndb) = burnchain.open_db(true).unwrap();
     let tip = burndb
         .get_canonical_chain_tip()
         .expect("couldn't get chain tip");
@@ -1835,7 +1837,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     submit_tx(&l2_rpc_origin, &hyperchain_nft_publish);
 
     // Sleep to give the run loop time to mine a block
-    thread::sleep(Duration::from_secs(30));
+    wait_for_next_stacks_block(&sortition_db);
+    wait_for_next_stacks_block(&sortition_db);
 
     // Mint a nft-token for user on L1 chain (ID = 1)
     let l1_mint_nft_tx = make_contract_call(
@@ -1878,7 +1881,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     submit_tx(l1_rpc_origin, &hc_setup_tx);
 
     // Sleep to give the run loop time to mine a block
-    thread::sleep(Duration::from_secs(30));
+    wait_for_next_stacks_block(&sortition_db);
+    wait_for_next_stacks_block(&sortition_db);
 
     // Check that the user does not own the L1 native NFT on the hyperchain now
     let res = call_read_only(
@@ -1922,7 +1926,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     submit_tx(&l1_rpc_origin, &l1_deposit_nft_tx);
 
     // Sleep to give the run loop time to mine a block
-    thread::sleep(Duration::from_secs(35));
+    wait_for_next_stacks_block(&sortition_db);
+    wait_for_next_stacks_block(&sortition_db);
 
     // Check that the user owns the L1 native NFT on the hyperchain now
     let res = call_read_only(
@@ -2036,7 +2041,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     submit_tx(&l2_rpc_origin, &l2_withdraw_native_nft_tx);
 
     // Sleep to give the run loop time to mine a block
-    thread::sleep(Duration::from_secs(25));
+    wait_for_next_stacks_block(&sortition_db);
+    wait_for_next_stacks_block(&sortition_db);
 
     // Check that user no longer owns the l1 native NFT on L2 chain
     let res = call_read_only(
@@ -2290,7 +2296,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     submit_tx(&l1_rpc_origin, &l1_withdraw_hc_native_nft_tx);
 
     // Sleep to give the run loop time to mine a block
-    thread::sleep(Duration::from_secs(25));
+    wait_for_next_stacks_block(&sortition_db);
+    wait_for_next_stacks_block(&sortition_db);
 
     // Check that the user owns the L1 native NFT on the L1 chain now
     let res = call_read_only(
