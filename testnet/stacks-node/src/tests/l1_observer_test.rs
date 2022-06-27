@@ -1560,7 +1560,7 @@ fn l2_simple_contract_calls() {
     let contract_content = include_str!("../../../../core-contracts/contracts/hyperchains.clar");
     let hc_contract_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
-        2,
+        1,
         1_000_000,
         config.burnchain.contract_identifier.name.as_str(),
         &contract_content,
