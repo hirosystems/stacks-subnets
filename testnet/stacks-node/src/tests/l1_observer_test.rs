@@ -1681,7 +1681,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &config.burnchain.chain,
         &config.burnchain.mode,
     )
-        .unwrap();
+    .unwrap();
     let (sortition_db, burndb) = burnchain.open_db(true).unwrap();
 
     let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), true);
