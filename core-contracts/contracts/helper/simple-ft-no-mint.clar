@@ -38,3 +38,10 @@
 
 (define-read-only (get-token-uri)
   (ok none))
+
+(define-public (gift-tokens (recipient principal))
+  (begin
+    (asserts! (is-eq tx-sender recipient) ERR_NOT_AUTHORIZED)
+    (ft-mint? ft-token u1 recipient)
+  )
+)

@@ -1223,7 +1223,7 @@ Clarinet.test({
 });
 
 Clarinet.test({
-    name: "Ensure that user can deposit FT & miner can withdraw it; no-mint",
+    name: "Ensure that user can deposit FT & miner can withdraw it; no mint",
     async fn(chain: Chain, accounts: Map<string, Account>, contracts: Map<string, Contract>) {
 
         // valid miner
@@ -1238,12 +1238,12 @@ Clarinet.test({
 
         // User should be able to mint a fungible token
         let block = chain.mineBlock([
-            Tx.contractCall("simple-ft", "gift-tokens", [types.principal(charlie.address)], charlie.address),
+            Tx.contractCall("simple-ft-no-mint", "gift-tokens", [types.principal(charlie.address)], charlie.address),
         ]);
         block.receipts[0].result.expectOk().expectBool(true);
         // User should be able to mint another fungible token
         block = chain.mineBlock([
-            Tx.contractCall("simple-ft", "gift-tokens", [types.principal(charlie.address)], charlie.address),
+            Tx.contractCall("simple-ft-no-mint", "gift-tokens", [types.principal(charlie.address)], charlie.address),
         ]);
         block.receipts[0].result.expectOk().expectBool(true);
 
@@ -1376,7 +1376,7 @@ Clarinet.test({
             .expectBool(true);
 
         // Check that user owns FT
-        let assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
+        let assets = chain.getAssetsMaps().assets[".simple-ft-no-mint.ft-token"];
         let ft_amount = assets[charlie.address];
         assertEquals(ft_amount, 1);
 
@@ -1402,159 +1402,6 @@ Clarinet.test({
         block.receipts[0].result
             .expectErr()
             .expectInt(9);
-
-    },
-});
-
-Clarinet.test({
-    name: "Ensure that user can withdraw FT minted on hyperchain & L1 miner can mint it; no-mint case",
-    async fn(chain: Chain, accounts: Map<string, Account>, contracts: Map<string, Contract>) {
-
-        // miner
-        const alice = accounts.get("wallet_1")!;
-        // user
-        const charlie = accounts.get("wallet_3")!;
-
-        // ft contract
-        const ft_contract = contracts.get("ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.simple-ft")!;
-
-        // User should be able to mint a fungible token
-        let block = chain.mineBlock([
-            Tx.contractCall("simple-ft", "gift-tokens", [types.principal(charlie.address)], charlie.address),
-        ]);
-        block.receipts[0].result.expectOk().expectBool(true);
-
-        // Check that user owns FT
-        let assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
-        let ft_amount = assets[charlie.address];
-        assertEquals(ft_amount, 1);
-
-        // Miner sets up allowed assets
-        block = chain.mineBlock([
-            Tx.contractCall("hyperchains", "setup-allowed-contracts",
-                [],
-                alice.address),
-        ]);
-        block.receipts[0].result
-            .expectOk()
-            .expectBool(true);
-
-        // User should be able to deposit FT asset
-        block = chain.mineBlock([
-            Tx.contractCall("hyperchains", "deposit-ft-asset",
-                [
-                    types.uint(1),
-                    types.principal(charlie.address),
-                    types.none(),
-                    types.principal(ft_contract.contract_id),
-                    types.principal(ft_contract.contract_id),
-                ],
-                charlie.address),
-        ]);
-        block.receipts[0].result
-            .expectOk()
-            .expectBool(true);
-
-        // Check that user no longer owns FT
-        assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
-        ft_amount = assets[charlie.address];
-        assertEquals(ft_amount, 0);
-
-        // Miner should commit a block with the appropriate root hash
-        // Mocks a withdrawal of ft-token for amount 3
-        let root_hash = new Uint8Array([75, 11, 162, 16, 9, 174, 3, 191, 160, 53, 213, 117, 249, 40, 80, 63, 178, 17, 45, 89, 137, 106, 15, 148, 76, 178, 234, 205, 235, 176, 72, 38]);
-        block = chain.mineBlock([
-            // Successfully commit block at height 0 with alice.
-            Tx.contractCall("hyperchains", "commit-block",
-                [
-                    types.buff(new Uint8Array([0, 1, 1, 1, 1])),
-                    types.buff(root_hash),
-                ],
-                alice.address),
-        ]);
-        block.receipts[0].result
-            .expectOk()
-            .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
-
-        let ft_leaf_hash = new Uint8Array([138, 192, 248, 99, 139, 224, 84, 8, 212, 163, 71, 126, 4, 78, 128, 221, 188, 251, 200, 121, 170, 234, 177, 85, 39, 95, 55, 167, 207, 115, 174, 75]);
-        let ft_sib_hash = new Uint8Array([35, 129, 133, 124, 197, 102, 86, 12, 21, 202, 199, 152, 210, 112, 124, 66, 208, 189, 70, 136, 75, 125, 139, 188, 112, 151, 144, 212, 201, 40, 64, 149]);
-
-        // Miner should be able to withdraw FT asset for user
-        block = chain.mineBlock([
-            Tx.contractCall("hyperchains", "withdraw-ft-asset",
-                [
-                    types.uint(3),
-                    types.principal(charlie.address),
-                    types.none(),
-                    types.principal(ft_contract.contract_id),
-                    types.principal(ft_contract.contract_id),
-                    types.buff(root_hash),
-                    types.buff(ft_leaf_hash),
-                    types.list([types.tuple({
-                        "hash": types.buff(ft_sib_hash),
-                        "is-left-side": types.bool(false)
-                    })])
-
-                ],
-                alice.address),
-        ]);
-        block.receipts[0].result
-            .expectOk()
-            .expectBool(true);
-
-        // Check that user owns FT
-        assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
-        ft_amount = assets[charlie.address];
-        assertEquals(ft_amount, 3);
-
-        // Miner should be not be able to withdraw FT asset with same hash
-        block = chain.mineBlock([
-            Tx.contractCall("hyperchains", "withdraw-ft-asset",
-                [
-                    types.uint(3),
-                    types.principal(charlie.address),
-                    types.none(),
-                    types.principal(ft_contract.contract_id),
-                    types.principal(ft_contract.contract_id),
-                    types.buff(root_hash),
-                    types.buff(ft_leaf_hash),
-                    types.list([types.tuple({
-                        "hash": types.buff(ft_sib_hash),
-                        "is-left-side": types.bool(false)
-                    })])
-
-                ],
-                alice.address),
-        ]);
-        // should return (err ERR_WITHDRAWAL_ALREADY_PROCESSED)
-        block.receipts[0].result
-            .expectErr()
-            .expectInt(9);
-
-        // User should be not be able to withdraw 0 amount of FT asset
-        // This test works since the amount is checked before the leaf hash is checked
-        block = chain.mineBlock([
-            Tx.contractCall("hyperchains", "withdraw-ft-asset",
-                [
-                    types.uint(0),
-                    types.principal(charlie.address),
-                    types.none(),
-                    types.principal(ft_contract.contract_id),
-                    types.principal(ft_contract.contract_id),
-                    types.buff(root_hash),
-                    types.buff(ft_leaf_hash),
-                    types.list([types.tuple({
-                        "hash": types.buff(ft_sib_hash),
-                        "is-left-side": types.bool(false)
-                    })])
-
-                ],
-                charlie.address),
-        ]);
-        // should return (err ERR_ATTEMPT_TO_TRANSFER_ZERO_AMOUNT)
-        block.receipts[0].result
-            .expectErr()
-            .expectInt(13);
 
     },
 });
