@@ -405,35 +405,6 @@
     )
 )
 
-
-;; (define-private (inner-transfer-or-mint-ft-asset (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>) (ft-mint-contract <mint-from-hyperchain-trait>))
-;;     (let (
-;;             (call-result (contract-call? ft-contract get-balance CONTRACT_ADDRESS))
-;;             (contract-ft-balance (unwrap! call-result (err ERR_CONTRACT_CALL_FAILED)))
-;;             (contract-owns-enough (>= contract-ft-balance amount))
-;;             (amount-to-transfer (if contract-owns-enough amount contract-ft-balance))
-;;             (amount-to-mint (- amount amount-to-transfer))
-;;         )
-
-;;         ;; Check that the total balance between the transfer and mint is equal to the original balance
-;;         (asserts! (is-eq amount (+ amount-to-transfer amount-to-mint)) (err ERR_IN_COMPUTATION))
-
-;;         (if (> amount-to-transfer u0)
-;;             (begin
-;;                 (try! (inner-transfer-ft-asset amount-to-transfer CONTRACT_ADDRESS recipient memo ft-contract))
-;;                 (if (> amount-to-mint u0)
-;;                     (inner-mint-ft-asset amount-to-mint CONTRACT_ADDRESS recipient ft-mint-contract)
-;;                     (ok true)
-;;                 )
-;;             )
-;;             (if (> amount-to-mint u0)
-;;                 (inner-mint-ft-asset amount-to-mint CONTRACT_ADDRESS recipient ft-mint-contract)
-;;                 (err ERR_ATTEMPT_TO_TRANSFER_ZERO_AMOUNT)
-;;             )
-;;         )
-;;     )
-;; )
-
 ;; Like `inner-transfer-or-mint-ft-asset` but without allowing or requiring a mint function.
 (define-private (inner-transfer-without-mint-ft-asset (amount uint) (recipient principal) (memo (optional (buff 34))) (ft-contract <ft-trait>))
     (let (

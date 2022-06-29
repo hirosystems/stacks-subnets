@@ -1055,7 +1055,7 @@ Clarinet.test({
 });
 
 Clarinet.test({
-    name: "Ensure that a user can't withdraw an NFT if nobody owns it, in the `no-mint` case.",
+    name: "Ensure that a user can't withdraw an NFT if they don't own it, in the `no-mint` case.",
     async fn(chain: Chain, accounts: Map<string, Account>, contracts: Map<string, Contract>) {
 
         // miner
