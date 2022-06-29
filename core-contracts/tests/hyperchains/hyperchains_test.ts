@@ -1354,12 +1354,11 @@ Clarinet.test({
         let ft_sib_hash = new Uint8Array([38, 72, 158, 13, 57, 120, 9, 95, 13, 62, 11, 118, 71, 237, 60, 173, 121, 221, 127, 38, 163, 75, 203, 191, 227, 4, 195, 17, 239, 76, 42, 55]);
         // Miner should be able to withdraw FT asset for user
         block = chain.mineBlock([
-            Tx.contractCall("hyperchains", "withdraw-ft-asset",
+            Tx.contractCall("hyperchains", "withdraw-ft-asset-no-mint",
                 [
                     types.uint(1),
                     types.principal(charlie.address),
                     types.none(),
-                    types.principal(ft_contract.contract_id),
                     types.principal(ft_contract.contract_id),
                     types.buff(root_hash),
                     types.buff(ft_leaf_hash),
@@ -1382,12 +1381,11 @@ Clarinet.test({
 
         // Miner should not be able to withdraw FT asset a second time
         block = chain.mineBlock([
-            Tx.contractCall("hyperchains", "withdraw-ft-asset",
+            Tx.contractCall("hyperchains", "withdraw-ft-asset-no-mint",
                 [
                     types.uint(1),
                     types.principal(charlie.address),
                     types.none(),
-                    types.principal(ft_contract.contract_id),
                     types.principal(ft_contract.contract_id),
                     types.buff(root_hash),
                     types.buff(ft_leaf_hash),
