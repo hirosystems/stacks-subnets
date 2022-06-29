@@ -1223,7 +1223,7 @@ Clarinet.test({
 });
 
 Clarinet.test({
-    name: "Ensure that user can deposit FT & miner can withdraw it; no mint",
+    name: "Ensure that user can deposit FT & miner can withdraw FT the contract owns, in the *no mint* case",
     async fn(chain: Chain, accounts: Map<string, Account>, contracts: Map<string, Contract>) {
 
         // valid miner
@@ -1405,7 +1405,7 @@ Clarinet.test({
 });
 
 Clarinet.test({
-    name: "Ensure that user can withdraw FT minted on hyperchain & L1 miner can mint it",
+    name: "Ensure that miner can *not* withdraw FT beyond what the balance supports, in the *no mint* case",
     async fn(chain: Chain, accounts: Map<string, Account>, contracts: Map<string, Contract>) {
 
         // miner
@@ -1422,7 +1422,7 @@ Clarinet.test({
         ]);
         block.receipts[0].result.expectOk().expectBool(true);
 
-        // Check that user owns FT
+        // Check that user owns 1 FT
         let assets = chain.getAssetsMaps().assets[".simple-ft-no-mint.ft-token"];
         let ft_amount = assets[charlie.address];
         assertEquals(ft_amount, 1);
@@ -1477,7 +1477,7 @@ Clarinet.test({
         let ft_leaf_hash = new Uint8Array([138, 192, 248, 99, 139, 224, 84, 8, 212, 163, 71, 126, 4, 78, 128, 221, 188, 251, 200, 121, 170, 234, 177, 85, 39, 95, 55, 167, 207, 115, 174, 75]);
         let ft_sib_hash = new Uint8Array([35, 129, 133, 124, 197, 102, 86, 12, 21, 202, 199, 152, 210, 112, 124, 66, 208, 189, 70, 136, 75, 125, 139, 188, 112, 151, 144, 212, 201, 40, 64, 149]);
 
-        // Miner should *not* be able to withdraw FT asset for user
+        // Miner should *not* be able to withdraw FT asset for user, because the contract doesn't won this much.
         block = chain.mineBlock([
             Tx.contractCall("hyperchains", "withdraw-ft-asset-no-mint",
                 [
