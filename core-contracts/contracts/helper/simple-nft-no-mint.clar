@@ -1,4 +1,4 @@
-;; This is like `simple-nft.clar`, but does not support minting.
+;; This is like `simple-nft.clar`, but does not support minting from hyperchain.
 
 (define-constant CONTRACT_OWNER tx-sender)
 (define-constant CONTRACT_ADDRESS (as-contract tx-sender))
