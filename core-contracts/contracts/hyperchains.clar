@@ -119,15 +119,18 @@
     (let (
             (owner-call-result (contract-call? nft-contract get-owner id))
             (nft-owner (unwrap! owner-call-result (err ERR_CONTRACT_CALL_FAILED)))
-            (contract-call-result (contract-call? nft-contract transfer id sender recipient))
             ;;(nft-owner (unwrap! call-result (err ERR_CONTRACT_CALL_FAILED)))
-     ;;       (contract-owns-nft (is-eq nft-owner (some CONTRACT_ADDRESS)))
-            (transfer-result (unwrap! contract-call-result (err ERR_CONTRACT_CALL_FAILED)))
-        )
-      ;;  (asserts! contract-owns-nft (err ERR_NFT_NOT_OWNED_BY_CONTRACT))
+            (contract-owns-nft (is-eq nft-owner (some CONTRACT_ADDRESS)))
 
-        ;; Check that the transfer succeeded
-       (asserts! transfer-result (err ERR_TRANSFER_FAILED))
+
+        )
+
+            ;; (asserts! contract-owns-nft (err ERR_NFT_NOT_OWNED_BY_CONTRACT))
+
+            ;; (contract-call-result (contract-call? nft-contract transfer id sender recipient))
+            ;; (transfer-result (unwrap! contract-call-result (err ERR_CONTRACT_CALL_FAILED)))
+            ;; ;; Check that the transfer succeeded
+            ;; (asserts! transfer-result (err ERR_TRANSFER_FAILED))
 
         (ok true)
     )
