@@ -113,26 +113,29 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; FOR NFT ASSET TRANSFERS
 
-;; Helper function that transfers the specified NFT from the given sender to the given recipient. 
+;; Make a transfer of an NFT `id` on `nft-contract`, from `sender` to `recipient`.
+;;
+;; First, check that `sender` is the owner of the NFT `id`, according to `nft-contract`, or else it's ERR_NFT_NOT_OWNED_BY_CONTRACT.
+;;
 ;; Returns response<bool, int>
 (define-private (inner-transfer-nft-asset (id uint) (sender principal) (recipient principal) (nft-contract <nft-trait>))
     (let (
             (owner-call-result (contract-call? nft-contract get-owner id))
             (nft-owner (unwrap! owner-call-result (err ERR_CONTRACT_CALL_FAILED)))
-            ;;(nft-owner (unwrap! call-result (err ERR_CONTRACT_CALL_FAILED)))
             (contract-owns-nft (is-eq nft-owner (some CONTRACT_ADDRESS)))
-
-
         )
 
-            ;; (asserts! contract-owns-nft (err ERR_NFT_NOT_OWNED_BY_CONTRACT))
+        (asserts! contract-owns-nft (err ERR_NFT_NOT_OWNED_BY_CONTRACT))
+        
+        (let (
+            (contract-call-result (contract-call? nft-contract transfer id sender recipient))
+            (transfer-result (unwrap! contract-call-result (err ERR_CONTRACT_CALL_FAILED)))
+            )
 
-            ;; (contract-call-result (contract-call? nft-contract transfer id sender recipient))
-            ;; (transfer-result (unwrap! contract-call-result (err ERR_CONTRACT_CALL_FAILED)))
-            ;; ;; Check that the transfer succeeded
-            ;; (asserts! transfer-result (err ERR_TRANSFER_FAILED))
-
-        (ok true)
+            ;; Check that the transfer succeeded
+            (asserts! transfer-result (err ERR_TRANSFER_FAILED))
+            (ok true)
+        )
     )
 )
 
@@ -232,21 +235,6 @@
     )
 )
 
-
-;; Like `inner-transfer-or-mint-nft-asset but without allowing or requiring a mint function. In order to withdraw, the user must
-;; have the appropriate balance.
-(define-private (inner-transfer-without-mint-nft-asset (id uint) (recipient principal) (nft-contract <nft-trait>))
-    (let (
-            (call-result (contract-call? nft-contract get-owner id))
-            (nft-owner (unwrap! call-result (err ERR_CONTRACT_CALL_FAILED)))
-            (contract-owns-nft (is-eq nft-owner (some CONTRACT_ADDRESS)))
-        )
-
-        (asserts! contract-owns-nft (err ERR_NFT_NOT_OWNED_BY_CONTRACT))
-        (inner-transfer-nft-asset id CONTRACT_ADDRESS recipient nft-contract)
-    )
-)
-
 ;; Like `inner-withdraw-nft-asset` but without allowing or requiring a mint function. In order to withdraw, the user must
 ;; have the appropriate balance.
 (define-public (inner-withdraw-nft-asset-no-mint (id uint) (recipient principal) (nft-contract <nft-trait>) (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32)) (sibling-hashes (list 50 (tuple (hash (buff 32)) (is-left-side bool) ) )))
@@ -257,7 +245,7 @@
         (asserts! (try! hashes-are-valid) (err ERR_VALIDATION_FAILED))
         ;; TODO: should check leaf validity
 
-        (asserts! (try! (as-contract (inner-transfer-without-mint-nft-asset id recipient nft-contract))) (err ERR_TRANSFER_FAILED))
+        (asserts! (try! (as-contract (inner-transfer-nft-asset id CONTRACT_ADDRESS recipient nft-contract))) (err ERR_TRANSFER_FAILED))
 
         (ok (finish-withdraw withdrawal-leaf-hash))
     )
