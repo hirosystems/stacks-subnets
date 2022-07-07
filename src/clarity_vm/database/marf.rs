@@ -295,32 +295,6 @@ impl<'a> ClarityBackingStore for ReadOnlyMarfStore<'a> {
         Some(&handle_contract_call_special_cases)
     }
 
-    fn set_block_hash(&mut self, bhh: StacksBlockId) -> InterpreterResult<StacksBlockId> {
-        self.marf
-            .check_ancestor_block_hash(&bhh)
-            .map_err(|e| match e {
-                Error::NotFoundError => {
-                    test_debug!("No such block {:?} (NotFoundError)", &bhh);
-                    RuntimeErrorType::UnknownBlockHeaderHash(BlockHeaderHash(bhh.0))
-                }
-                Error::NonMatchingForks(_bh1, _bh2) => {
-                    test_debug!(
-                        "No such block {:?} (NonMatchingForks({}, {}))",
-                        &bhh,
-                        BlockHeaderHash(_bh1),
-                        BlockHeaderHash(_bh2)
-                    );
-                    RuntimeErrorType::UnknownBlockHeaderHash(BlockHeaderHash(bhh.0))
-                }
-                _ => panic!("ERROR: Unexpected MARF failure: {}", e),
-            })?;
-
-        let result = Ok(self.chain_tip);
-        self.chain_tip = bhh;
-
-        result
-    }
-
     fn get_current_block_height(&mut self) -> u32 {
         match self
             .marf
@@ -510,32 +484,6 @@ impl<'a> WritableMarfStore<'a> {
 }
 
 impl<'a> ClarityBackingStore for WritableMarfStore<'a> {
-    fn set_block_hash(&mut self, bhh: StacksBlockId) -> InterpreterResult<StacksBlockId> {
-        self.marf
-            .check_ancestor_block_hash(&bhh)
-            .map_err(|e| match e {
-                Error::NotFoundError => {
-                    test_debug!("No such block {:?} (NotFoundError)", &bhh);
-                    RuntimeErrorType::UnknownBlockHeaderHash(BlockHeaderHash(bhh.0))
-                }
-                Error::NonMatchingForks(_bh1, _bh2) => {
-                    test_debug!(
-                        "No such block {:?} (NonMatchingForks({}, {}))",
-                        &bhh,
-                        BlockHeaderHash(_bh1),
-                        BlockHeaderHash(_bh2)
-                    );
-                    RuntimeErrorType::UnknownBlockHeaderHash(BlockHeaderHash(bhh.0))
-                }
-                _ => panic!("ERROR: Unexpected MARF failure: {}", e),
-            })?;
-
-        let result = Ok(self.chain_tip);
-        self.chain_tip = bhh;
-
-        result
-    }
-
     fn get_cc_special_cases_handler(&self) -> Option<SpecialCaseHandler> {
         Some(&handle_contract_call_special_cases)
     }

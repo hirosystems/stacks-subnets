@@ -1029,34 +1029,6 @@ impl<'a, 'b> Environment<'a, 'b> {
         }
     }
 
-    pub fn evaluate_at_block(
-        &mut self,
-        bhh: StacksBlockId,
-        closure: &SymbolicExpression,
-        local: &LocalContext,
-    ) -> Result<Value> {
-        self.global_context.begin_read_only();
-
-        let result = self
-            .global_context
-            .database
-            .set_block_hash(bhh, false)
-            .and_then(|prior_bhh| {
-                let result = eval(closure, self, local);
-                self.global_context
-                    .database
-                    .set_block_hash(prior_bhh, true)
-                    .expect(
-                    "ERROR: Failed to restore prior active block after time-shifted evaluation.",
-                );
-                result
-            });
-
-        self.global_context.roll_back();
-
-        result
-    }
-
     pub fn initialize_contract(
         &mut self,
         contract_identifier: QualifiedContractIdentifier,

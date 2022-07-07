@@ -95,6 +95,7 @@ pub enum RuntimeErrorType {
     UnknownBlockHeaderHash(BlockHeaderHash),
     BadBlockHash(Vec<u8>),
     UnwrapFailure,
+    AtBlockNotAllowedInHyperchain,
 }
 
 #[derive(Debug, PartialEq)]

@@ -71,6 +71,8 @@ pub mod events;
 pub mod index;
 pub mod miner;
 pub mod transaction;
+pub mod flat_storage;
+pub mod flat_sql;
 
 pub use stacks_common::types::chainstate::{StacksPrivateKey, StacksPublicKey};
 

@@ -418,26 +418,7 @@ pub fn special_at_block(
     env: &mut Environment,
     context: &LocalContext,
 ) -> Result<Value> {
-    check_argument_count(2, args)?;
-
-    runtime_cost(ClarityCostFunction::AtBlock, env, 0)?;
-
-    let bhh = match eval(&args[0], env, &context)? {
-        Value::Sequence(SequenceData::Buffer(BuffData { data })) => {
-            if data.len() != 32 {
-                return Err(RuntimeErrorType::BadBlockHash(data).into());
-            } else {
-                StacksBlockId::from(data.as_slice())
-            }
-        }
-        x => return Err(CheckErrors::TypeValueError(BUFF_32.clone(), x).into()),
-    };
-
-    env.add_memory(cost_constants::AT_BLOCK_MEMORY)?;
-    let result = env.evaluate_at_block(bhh, &args[1], context);
-    env.drop_memory(cost_constants::AT_BLOCK_MEMORY);
-
-    result
+    Err(RuntimeErrorType::AtBlockNotAllowedInHyperchain.into())
 }
 
 pub fn special_set_entry_v200(

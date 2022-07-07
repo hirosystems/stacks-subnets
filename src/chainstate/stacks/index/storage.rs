@@ -219,7 +219,7 @@ impl<T: MarfTrieId> BlockMap for TrieSqlHashMapCursor<'_, T> {
     }
 }
 
-enum FlushOptions<'a, T: MarfTrieId> {
+pub(crate) enum FlushOptions<'a, T: MarfTrieId> {
     CurrentHeader,
     NewHeader(&'a T),
     MinedTable(&'a T),
@@ -1171,7 +1171,7 @@ impl NodeHashReader for TrieSqlCursor<'_> {
     }
 }
 
-enum SqliteConnection<'a> {
+pub enum SqliteConnection<'a> {
     ConnRef(&'a Connection),
     Tx(Transaction<'a>),
 }

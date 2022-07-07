@@ -314,26 +314,6 @@ impl<'a> RollbackWrapper<'a> {
         )
     }
 
-    ///
-    /// `query_pending_data` indicates whether the rollback wrapper should query the rollback
-    ///    wrapper's pending data on reads. This is set to `false` during (at-block ...) closures,
-    ///    and `true` otherwise.
-    ///
-    pub fn set_block_hash(
-        &mut self,
-        bhh: StacksBlockId,
-        query_pending_data: bool,
-    ) -> Result<StacksBlockId> {
-        self.store.set_block_hash(bhh).and_then(|x| {
-            // use and_then so that query_pending_data is only set once set_block_hash succeeds
-            //  this doesn't matter in practice, because a set_block_hash failure always aborts
-            //  the transaction with a runtime error (destroying its environment), but it's much
-            //  better practice to do this, especially if the abort behavior changes in the future.
-            self.query_pending_data = query_pending_data;
-            Ok(x)
-        })
-    }
-
     /// this function will only return commitment proofs for values _already_ materialized
     ///  in the underlying store. otherwise it returns None.
     pub fn get_with_proof<T>(&mut self, key: &str) -> Option<(T, Vec<u8>)>

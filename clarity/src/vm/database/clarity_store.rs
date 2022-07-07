@@ -66,11 +66,6 @@ pub trait ClarityBackingStore {
         self.get(key).is_some()
     }
 
-    /// change the current MARF context to service reads from a different chain_tip
-    ///   used to implement time-shifted evaluation.
-    /// returns the previous block header hash on success
-    fn set_block_hash(&mut self, bhh: StacksBlockId) -> Result<StacksBlockId>;
-
     fn get_block_at_height(&mut self, height: u32) -> Option<StacksBlockId>;
 
     /// this function returns the current block height, as viewed by this marfed-kv structure,
@@ -210,10 +205,6 @@ impl NullBackingStore {
 }
 
 impl ClarityBackingStore for NullBackingStore {
-    fn set_block_hash(&mut self, _bhh: StacksBlockId) -> Result<StacksBlockId> {
-        panic!("NullBackingStore can't set block hash")
-    }
-
     fn get(&mut self, _key: &str) -> Option<String> {
         panic!("NullBackingStore can't retrieve data")
     }
@@ -272,10 +263,6 @@ impl MemoryBackingStore {
 }
 
 impl ClarityBackingStore for MemoryBackingStore {
-    fn set_block_hash(&mut self, bhh: StacksBlockId) -> InterpreterResult<StacksBlockId> {
-        Err(RuntimeErrorType::UnknownBlockHeaderHash(BlockHeaderHash(bhh.0)).into())
-    }
-
     fn get(&mut self, key: &str) -> Option<String> {
         SqliteConnection::get(self.get_side_store(), key)
     }

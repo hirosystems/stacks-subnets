@@ -243,10 +243,6 @@ impl MemoryBackingStore {
 }
 
 impl ClarityBackingStore for MemoryBackingStore {
-    fn set_block_hash(&mut self, bhh: StacksBlockId) -> InterpreterResult<StacksBlockId> {
-        Err(RuntimeErrorType::UnknownBlockHeaderHash(BlockHeaderHash(bhh.0)).into())
-    }
-
     fn get(&mut self, key: &str) -> Option<String> {
         SqliteConnection::get(self.get_side_store(), key)
     }

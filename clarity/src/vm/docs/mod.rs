@@ -883,14 +883,7 @@ const AT_BLOCK: SpecialAPI = SpecialAPI {
     input_type: "(buff 32), A",
     output_type: "A",
     signature: "(at-block id-block-hash expr)",
-    description: "The `at-block` function evaluates the expression `expr` _as if_ it were evaluated at the end of the
-block indicated by the _block-hash_ argument. The `expr` closure must be read-only.
-
-Note: The block identifying hash must be a hash returned by the `id-header-hash` block information
-property. This hash uniquely identifies Stacks blocks and is unique across Stacks forks. While the hash returned by
-`header-hash` is unique within the context of a single fork, it is not unique across Stacks forks.
-
-The function returns the result of evaluating `expr`.
+    description: "On the hyperchain, `at-block` function throws a Clarity runtime error.
 ",
     example: "
 (define-data-var data int 1)
