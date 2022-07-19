@@ -24,6 +24,9 @@
 ;; The user has insufficient balance to withdraw this.
 (define-constant ERR_INSUFFICIENT_BALANCE 16)
 (define-constant ERR_MINT_FAILED 17)
+(define-constant ERR_MINT_FAILED 13)
+(define-constant ERR_ATTEMPT_TO_TRANSFER_ZERO_AMOUNT 14)
+(define-constant ERR_IN_COMPUTATION 15)
 
 ;; Map from Stacks block height to block commit
 (define-map block-commits uint (buff 32))
@@ -60,6 +63,30 @@
         (asserts! (map-insert allowed-contracts .simple-nft "hyperchain-deposit-nft-token") (err ERR_ASSET_ALREADY_ALLOWED))
         (asserts! (map-insert allowed-contracts .simple-ft-no-mint "hyperchain-deposit-ft-token-no-mint") (err ERR_ASSET_ALREADY_ALLOWED))
         (asserts! (map-insert allowed-contracts .simple-nft-no-mint "hyperchain-deposit-nft-token-no-mint") (err ERR_ASSET_ALREADY_ALLOWED))
+
+        (ok true)
+    )
+)
+
+(define-public (register-new-ft-contract (ft-contract <ft-trait>) (deposit-fn-name (string-ascii 45)))
+    (begin
+        ;; Verify that tx-sender is an authorized miner
+        (asserts! (is-miner tx-sender) (err ERR_INVALID_MINER))
+
+        ;; Set up the assets that the contract is allowed to transfer
+        (asserts! (map-insert allowed-contracts (contract-of ft-contract) deposit-fn-name) (err ERR_ASSET_ALREADY_ALLOWED))
+
+        (ok true)
+    )
+)
+
+(define-public (register-new-nft-contract (nft-contract <nft-trait>) (deposit-fn-name (string-ascii 45)))
+    (begin
+        ;; Verify that tx-sender is an authorized miner
+        (asserts! (is-miner tx-sender) (err ERR_INVALID_MINER))
+
+        ;; Set up the assets that the contract is allowed to transfer
+        (asserts! (map-insert allowed-contracts (contract-of nft-contract) deposit-fn-name) (err ERR_ASSET_ALREADY_ALLOWED))
 
         (ok true)
     )
@@ -107,7 +134,7 @@
     (begin
         (map-set block-commits commit-block-height block)
         (map-set withdrawal-roots-map withdrawal-root true)
-        (print { event: "block-commit", block-commit: block, withdrawal-root: withdrawal-root})
+        (print { event: "block-commit", block-commit: block, withdrawal-root: withdrawal-root, block-height: commit-block-height })
         (ok block)
     )
 )
