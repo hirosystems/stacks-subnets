@@ -1785,11 +1785,6 @@ fn nft_deposit_and_withdraw_integration_test() {
     config.add_initial_balance(user_addr.to_string(), 10000000);
     config.add_initial_balance(miner_account.to_string(), 10000000);
 
-    config.burnchain.first_burn_header_hash =
-        "9946c68526249c259231f1660be4c72e915ebe1f25a8c8400095812b487eb279".to_string();
-    config.burnchain.first_burn_header_height = 1;
-    config.burnchain.chain = "stacks_layer_1".to_string();
-    config.burnchain.mode = "hyperchain".to_string();
     config.burnchain.first_burn_header_height = 1;
     config.burnchain.chain = "stacks_layer_1".to_string();
     config.burnchain.rpc_ssl = false;
@@ -1864,6 +1859,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     let contract_content = include_str!("../../../../core-contracts/contracts/hyperchains.clar");
     let hc_contract_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
+        LAYER_1_CHAIN_ID_TESTNET,
         l1_nonce,
         1_000_000,
         config.burnchain.contract_identifier.name.as_str(),
@@ -1883,16 +1879,6 @@ fn nft_deposit_and_withdraw_integration_test() {
 
     // Sleep to give the run loop time to listen to blocks,
     //  and start mining L2 blocks
-    thread::sleep(Duration::from_secs(60));
-
-    // The burnchain should have registered what the listener recorded.
-    let burnchain = Burnchain::new(
-        &config.get_burn_db_path(),
-        &config.burnchain.chain,
-        &config.burnchain.mode,
-    )
-    .unwrap();
-    let (_, burndb) = burnchain.open_db(true).unwrap();
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
@@ -2357,11 +2343,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     spending_condition.set_nonce(l2_nonce - 1);
     spending_condition.set_tx_fee(1000);
     let auth = TransactionAuth::Standard(spending_condition);
-<<<<<<< HEAD
-    let l1_native_nft_withdraw_event =
-=======
     let mut l1_native_nft_withdraw_event =
->>>>>>> master
         StacksTransactionEvent::NFTEvent(NFTWithdrawEvent(NFTWithdrawEventData {
             asset_identifier: AssetIdentifier {
                 contract_identifier: QualifiedContractIdentifier::new(
@@ -2371,16 +2353,10 @@ fn nft_deposit_and_withdraw_integration_test() {
                 asset_name: ClarityName::from("nft-token"),
             },
             sender: user_addr.into(),
-<<<<<<< HEAD
-            value: Value::UInt(1),
-        }));
-    let hc_native_nft_withdraw_event =
-=======
             id: 1,
             withdrawal_id: None,
         }));
     let mut hc_native_nft_withdraw_event =
->>>>>>> master
         StacksTransactionEvent::NFTEvent(NFTWithdrawEvent(NFTWithdrawEventData {
             asset_identifier: AssetIdentifier {
                 contract_identifier: QualifiedContractIdentifier::new(
@@ -2390,12 +2366,8 @@ fn nft_deposit_and_withdraw_integration_test() {
                 asset_name: ClarityName::from("nft-token"),
             },
             sender: user_addr.into(),
-<<<<<<< HEAD
-            value: Value::UInt(5),
-=======
             id: 5,
             withdrawal_id: None,
->>>>>>> master
         }));
     let withdrawal_receipt = StacksTransactionReceipt {
         transaction: TransactionOrigin::Stacks(StacksTransaction::new(
@@ -2415,20 +2387,12 @@ fn nft_deposit_and_withdraw_integration_test() {
         microblock_header: None,
         tx_index: 0,
     };
-<<<<<<< HEAD
-    let withdrawal_tree = create_withdrawal_merkle_tree(&vec![withdrawal_receipt]);
-    let root_hash = withdrawal_tree.root().as_bytes().to_vec();
-
-    let l1_native_nft_withdrawal_key =
-        generate_key_from_event(&l1_native_nft_withdraw_event, 0).unwrap();
-=======
     let withdrawal_tree =
         create_withdrawal_merkle_tree(&mut vec![withdrawal_receipt], withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     let l1_native_nft_withdrawal_key =
         generate_key_from_event(&mut l1_native_nft_withdraw_event, 0, withdrawal_height).unwrap();
->>>>>>> master
     let l1_native_nft_withdrawal_key_bytes =
         convert_withdrawal_key_to_bytes(&l1_native_nft_withdrawal_key);
     let l1_native_nft_withdrawal_leaf_hash = MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(
@@ -2453,10 +2417,6 @@ fn nft_deposit_and_withdraw_integration_test() {
         l1_native_nft_sib_data.push(sib_tuple);
     }
 
-<<<<<<< HEAD
-    let hc_native_nft_withdrawal_key =
-        generate_key_from_event(&hc_native_nft_withdraw_event, 1).unwrap();
-=======
     let l1_native_root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
     let l1_native_leaf_hash_val =
         Value::buff_from(l1_native_nft_withdrawal_leaf_hash.clone()).unwrap();
@@ -2477,7 +2437,6 @@ fn nft_deposit_and_withdraw_integration_test() {
 
     let hc_native_nft_withdrawal_key =
         generate_key_from_event(&mut hc_native_nft_withdraw_event, 1, withdrawal_height).unwrap();
->>>>>>> master
     let hc_native_nft_withdrawal_key_bytes =
         convert_withdrawal_key_to_bytes(&hc_native_nft_withdrawal_key);
     let hc_native_nft_withdrawal_leaf_hash = MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(
@@ -2502,8 +2461,6 @@ fn nft_deposit_and_withdraw_integration_test() {
         hc_native_nft_sib_data.push(sib_tuple);
     }
 
-<<<<<<< HEAD
-=======
     let hc_native_root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
     let hc_native_leaf_hash_val =
         Value::buff_from(hc_native_nft_withdrawal_leaf_hash.clone()).unwrap();
@@ -2522,15 +2479,11 @@ fn nft_deposit_and_withdraw_integration_test() {
         "Sibling hashes should match value returned via RPC"
     );
 
->>>>>>> master
     // TODO: call withdraw from unauthorized principal once leaf verification is added to the HC contract
 
     let l1_withdraw_l1_native_nft_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
-<<<<<<< HEAD
-=======
         LAYER_1_CHAIN_ID_TESTNET,
->>>>>>> master
         l1_nonce,
         1_000_000,
         &user_addr,
@@ -2549,10 +2502,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     l1_nonce += 1;
     let l1_withdraw_hc_native_nft_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
-<<<<<<< HEAD
-=======
         LAYER_1_CHAIN_ID_TESTNET,
->>>>>>> master
         l1_nonce,
         1_000_000,
         &user_addr,
@@ -2574,12 +2524,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     submit_tx(&l1_rpc_origin, &l1_withdraw_hc_native_nft_tx);
 
     // Sleep to give the run loop time to mine a block
-<<<<<<< HEAD
-    thread::sleep(Duration::from_secs(25));
-=======
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
->>>>>>> master
 
     // Check that the user owns the L1 native NFT on the L1 chain now
     let res = call_read_only(
