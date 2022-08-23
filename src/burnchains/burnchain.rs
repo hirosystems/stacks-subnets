@@ -247,7 +247,7 @@ impl Burnchain {
 
     pub fn block_height_to_reward_cycle(&self, block_height: u64) -> Option<u64> {
         if block_height < self.first_block_height {
-            return None;
+            return Some(0);
         }
         Some(
             (block_height - self.first_block_height)

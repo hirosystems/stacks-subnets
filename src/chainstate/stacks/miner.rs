@@ -1553,6 +1553,8 @@ impl StacksBlockBuilder {
             state_root_hash
         );
 
+        let bt = backtrace::Backtrace::new();
+        info!("finalize_block:bt {:?}", &bt);
         info!(
             "Miner: mined anchored block";
             "block_hash" => %block.block_hash(),
@@ -2253,6 +2255,9 @@ impl StacksBlockBuilder {
                 tx_events,
             );
         }
+
+        let bt = backtrace::Backtrace::new();
+        info!("finalize_block:bt {:?}", &bt);
 
         info!(
             "Miner: mined anchored block";
