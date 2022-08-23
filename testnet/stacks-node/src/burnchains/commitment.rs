@@ -228,6 +228,7 @@ impl MultiPartyCommitter {
 
         // step 2: fee estimate (todo: #140)
         let fee = 100_000;
+        // TODO: use a fee estimate
         self.make_mine_contract_call(
             op_signer.get_sk(),
             nonce,
@@ -437,6 +438,7 @@ impl DirectCommitter {
         })?;
 
         // step 2: fee estimate (todo: #140)
+        // TODO: Replace this with a call.
         let fee = 100_000;
         self.make_mine_contract_call(
             op_signer.get_sk(),
