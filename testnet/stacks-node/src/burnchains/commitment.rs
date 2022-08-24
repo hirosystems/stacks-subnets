@@ -101,6 +101,44 @@ fn l1_get_nonce(l1_rpc_interface: &str, address: &StacksAddress) -> Result<u64, 
     Ok(response_json.nonce)
 }
 
+fn compute_fee_from_response(response: &reqwest::Result<RPCFeeEstimateResponse>) -> Option<u64> {
+    match response {
+        Ok(fee_estimate_response) => {
+            let estimations = &fee_estimate_response.estimations;
+            if estimations.len() < 3 {
+                None
+            } else {
+                Some(estimations[2].fee)
+            }
+        }
+        Err(_) => None,
+    }
+}
+
+fn calculate_l1_fee_for_transaction(
+    transaction: &StacksTransaction,
+    http_origin: &str,
+) -> Option<u64> {
+    let client = reqwest::blocking::Client::new();
+
+    let path = format!("{}/v2/fees/transaction", &http_origin);
+    let payload_data = transaction.payload.serialize_to_vec();
+    let payload_hex = format!("0x{}", to_hex(&payload_data));
+
+    eprintln!("Test: POST {}", path);
+
+    let body = json!({ "transaction_payload": payload_hex.clone() });
+
+    let res = client
+        .post(&path)
+        .json(&body)
+        .send()
+        .expect("Should be able to post");
+
+    // let json_result = res.json();
+    let json_result: reqwest::Result<RPCFeeEstimateResponse> = res.json::<RPCFeeEstimateResponse>();
+    compute_fee_from_response(&json_result)
+}
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -465,54 +503,20 @@ impl DirectCommitter {
         // step 2: fee estimate (todo: #140)
         // TODO: Replace this with a call.
         let fee = 100_000;
-        let result = self.make_mine_contract_call(
-            op_signer.get_sk(),
-            nonce,
-            fee,
-            committed_block_hash,
-            target_tip,
-            withdrawal_merkle_root,
-        )
-        .map_err(|e| {
-            error!("Failed to construct contract call operation: {}", e);
-            e
-        })?;
-        // let result = self
-        //     .make_mine_contract_call(
-        //         op_signer.get_sk(),
-        //         nonce,
-        //         fee,
-        //         committed_block_hash,
-        //         target_tip,
-        //         withdrawal_merkle_root,
-        //         signatures,
-        //     )
-        //     .map_err(|e| {
-        //         error!("Failed to construct contract call operation: {}", e);
-        //         e
-        //     })?;
+        let pre_transaction = self
+            .make_mine_contract_call(
+                op_signer.get_sk(),
+                nonce,
+                fee,
+                committed_block_hash,
+                target_tip,
+                withdrawal_merkle_root,
+            )
+            .map_err(|e| {
+                error!("Failed to construct contract call operation: {}", e);
+                e
+            })?;
 
-        let http_origin = "http://localhost:20443";
-        let client = reqwest::blocking::Client::new();
-
-        let path = format!("{}/v2/fees/transaction", &http_origin);
-        let payload_data = result.payload.serialize_to_vec();
-        let payload_hex = format!("0x{}", to_hex(&payload_data));
-
-        eprintln!("Test: POST {}", path);
-
-        let body = json!({ "transaction_payload": payload_hex.clone() });
-
-        let res = client
-            .post(&path)
-            .json(&body)
-            .send()
-            .expect("Should be able to post");
-
-        // let json_result = res.json();
-        let json_result: reqwest::Result<RPCFeeEstimateResponse> = res.json::<RPCFeeEstimateResponse>();
-
-        info!("json_result {:?}", &json_result);
 
         Ok(result)
     }
