@@ -104,6 +104,7 @@ fn l1_get_nonce(l1_rpc_interface: &str, address: &StacksAddress) -> Result<u64, 
     Ok(response_json.nonce)
 }
 
+/// Extract the median of three fee estimates, if it exists, or else return None.
 fn compute_fee_from_response(response: &reqwest::Result<RPCFeeEstimateResponse>) -> Option<u64> {
     match response {
         Ok(fee_estimate_response) => {
