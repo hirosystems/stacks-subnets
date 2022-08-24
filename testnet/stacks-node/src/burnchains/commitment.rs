@@ -7,17 +7,22 @@ use stacks::chainstate::stacks::{
     TransactionVersion,
 };
 use stacks::net::http::HttpBlockProposalRejected;
+use stacks::net::RPCFeeEstimateResponse;
 use stacks::util::hash::hex_bytes;
 use stacks::vm::types::{QualifiedContractIdentifier, TupleData};
 use stacks::vm::ClarityName;
 use stacks::vm::Value as ClarityValue;
 use stacks_common::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksAddress};
-use stacks_common::util::hash::Sha512Trunc256Sum;
+use stacks_common::util::hash::{to_hex, Sha512Trunc256Sum};
 
 use crate::config::BurnchainConfig;
 use crate::operations::BurnchainOpSigner;
+use crate::stacks_common::codec::StacksMessageCodec;
 
 use super::ClaritySignature;
+
+/// Default fee to pay for a miner commitment, in case no estimate is available.
+const DEFAULT_MINER_COMMITMENT_FEE: u64 = 100_000u64;
 
 pub trait Layer1Committer {
     /// Return the number of signatures that need to be included alongside a commit transaction
@@ -96,6 +101,49 @@ fn l1_get_nonce(l1_rpc_interface: &str, address: &StacksAddress) -> Result<u64, 
         .json()
         .map_err(|e| Error::NonceGetFailure(e.to_string()))?;
     Ok(response_json.nonce)
+}
+
+/// Extract the median of three fee estimates, if it exists, or else return None.
+pub fn compute_fee_from_response(response: &reqwest::Result<RPCFeeEstimateResponse>) -> Option<u64> {
+    match response {
+        Ok(fee_estimate_response) => {
+            let estimations = &fee_estimate_response.estimations;
+            if estimations.len() < 3 {
+                None
+            } else {
+                Some(estimations[1].fee)
+            }
+        }
+        Err(_) => None,
+    }
+}
+
+/// Ask the L1 fee estimate endpoint for fee estimates. Return the median estimate of 3 estimates,
+/// if it exists, or else return None.
+fn calculate_l1_fee_for_transaction(
+    transaction: &StacksTransaction,
+    http_origin: &str,
+) -> Option<u64> {
+    let client = reqwest::blocking::Client::new();
+
+    let path = format!("{}/v2/fees/transaction", &http_origin);
+    let payload_data = transaction.payload.serialize_to_vec();
+    let payload_hex = format!("0x{}", to_hex(&payload_data));
+
+    eprintln!("Test: POST {}", path);
+
+    let body = json!({ "transaction_payload": payload_hex.clone() });
+
+    let res = client
+        .post(&path)
+        .json(&body)
+        .send()
+        .expect("Should be able to post");
+
+    let json_result: reqwest::Result<RPCFeeEstimateResponse> = res.json::<RPCFeeEstimateResponse>();
+    let fee_result = compute_fee_from_response(&json_result);
+    info!("Response from L1 suggests fee to use is: {:?}", &fee_result);
+    fee_result
 }
 
 impl std::fmt::Display for Error {
@@ -226,12 +274,30 @@ impl MultiPartyCommitter {
             e
         })?;
 
-        // step 2: fee estimate (todo: #140)
-        let fee = 100_000;
+        // step 2: fee estimate
+        let pre_transaction = self
+            .make_mine_contract_call(
+                op_signer.get_sk(),
+                nonce,
+                DEFAULT_MINER_COMMITMENT_FEE,
+                committed_block_hash,
+                target_tip,
+                withdrawal_merkle_root,
+                signatures.clone(),
+            )
+            .map_err(|e| {
+                error!("Failed to construct contract call operation: {}", e);
+                e
+            })?;
+
+        let computed_fee =
+            calculate_l1_fee_for_transaction(&pre_transaction, &self.config.get_rpc_url())
+                .unwrap_or(DEFAULT_MINER_COMMITMENT_FEE);
+
         self.make_mine_contract_call(
             op_signer.get_sk(),
             nonce,
-            fee,
+            computed_fee,
             committed_block_hash,
             target_tip,
             withdrawal_merkle_root,
@@ -436,12 +502,29 @@ impl DirectCommitter {
             e
         })?;
 
-        // step 2: fee estimate (todo: #140)
-        let fee = 100_000;
+        // step 2: fee estimate
+        let pre_transaction = self
+            .make_mine_contract_call(
+                op_signer.get_sk(),
+                nonce,
+                DEFAULT_MINER_COMMITMENT_FEE,
+                committed_block_hash,
+                target_tip,
+                withdrawal_merkle_root,
+            )
+            .map_err(|e| {
+                error!("Failed to construct contract call operation: {}", e);
+                e
+            })?;
+
+        let computed_fee =
+            calculate_l1_fee_for_transaction(&pre_transaction, &self.config.get_rpc_url())
+                .unwrap_or(DEFAULT_MINER_COMMITMENT_FEE);
+
         self.make_mine_contract_call(
             op_signer.get_sk(),
             nonce,
-            fee,
+            computed_fee,
             committed_block_hash,
             target_tip,
             withdrawal_merkle_root,
