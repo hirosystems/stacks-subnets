@@ -294,6 +294,7 @@ impl MultiPartyCommitter {
         let computed_fee =
             calculate_l1_fee_for_transaction(&pre_transaction, &self.config.get_rpc_url())
                 .unwrap_or(DEFAULT_MINER_COMMITMENT_FEE);
+
         self.make_mine_contract_call(
             op_signer.get_sk(),
             nonce,
