@@ -118,6 +118,8 @@ fn compute_fee_from_response(response: &reqwest::Result<RPCFeeEstimateResponse>)
     }
 }
 
+/// Ask the L1 fee estimate endpoint for fee estimates. Return the median estimate of 3 estimates,
+/// if it exists, or else return None.
 fn calculate_l1_fee_for_transaction(
     transaction: &StacksTransaction,
     http_origin: &str,
@@ -140,7 +142,9 @@ fn calculate_l1_fee_for_transaction(
 
     // let json_result = res.json();
     let json_result: reqwest::Result<RPCFeeEstimateResponse> = res.json::<RPCFeeEstimateResponse>();
-    compute_fee_from_response(&json_result)
+    let fee_result = compute_fee_from_response(&json_result);
+    info!("Response from L1 suggests fee to use is: {:?}", &fee_result);
+    fee_result
 }
 
 impl std::fmt::Display for Error {
