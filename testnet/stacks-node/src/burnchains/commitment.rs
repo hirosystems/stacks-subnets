@@ -141,7 +141,6 @@ fn calculate_l1_fee_for_transaction(
         .send()
         .expect("Should be able to post");
 
-    // let json_result = res.json();
     let json_result: reqwest::Result<RPCFeeEstimateResponse> = res.json::<RPCFeeEstimateResponse>();
     let fee_result = compute_fee_from_response(&json_result);
     info!("Response from L1 suggests fee to use is: {:?}", &fee_result);
