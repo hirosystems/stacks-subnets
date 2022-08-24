@@ -1,4 +1,5 @@
 use reqwest::StatusCode;
+use serde_json::json;
 use stacks::address::AddressHashMode;
 use stacks::chainstate::stacks::miner::Proposal;
 use stacks::chainstate::stacks::{
@@ -7,15 +8,17 @@ use stacks::chainstate::stacks::{
     TransactionVersion,
 };
 use stacks::net::http::HttpBlockProposalRejected;
+use stacks::net::RPCFeeEstimateResponse;
 use stacks::util::hash::hex_bytes;
 use stacks::vm::types::{QualifiedContractIdentifier, TupleData};
 use stacks::vm::ClarityName;
 use stacks::vm::Value as ClarityValue;
 use stacks_common::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksAddress};
-use stacks_common::util::hash::Sha512Trunc256Sum;
+use stacks_common::util::hash::{to_hex, Sha512Trunc256Sum};
 
 use crate::config::BurnchainConfig;
 use crate::operations::BurnchainOpSigner;
+use crate::stacks_common::codec::StacksMessageCodec;
 
 use super::ClaritySignature;
 
@@ -229,19 +232,41 @@ impl MultiPartyCommitter {
         // step 2: fee estimate (todo: #140)
         let fee = 100_000;
         // TODO: use a fee estimate
-        self.make_mine_contract_call(
-            op_signer.get_sk(),
-            nonce,
-            fee,
-            committed_block_hash,
-            target_tip,
-            withdrawal_merkle_root,
-            signatures,
-        )
-        .map_err(|e| {
-            error!("Failed to construct contract call operation: {}", e);
-            e
-        })
+
+        let result = self
+            .make_mine_contract_call(
+                op_signer.get_sk(),
+                nonce,
+                fee,
+                committed_block_hash,
+                target_tip,
+                withdrawal_merkle_root,
+                signatures,
+            )
+            .map_err(|e| {
+                error!("Failed to construct contract call operation: {}", e);
+                e
+            })?;
+
+        let http_origin = "";
+        let client = reqwest::blocking::Client::new();
+
+        let path = format!("{}/v2/fees/transaction", &http_origin);
+        let payload_data = result.payload.serialize_to_vec();
+        let payload_hex = format!("0x{}", to_hex(&payload_data));
+
+        eprintln!("Test: POST {}", path);
+
+        let body = json!({ "transaction_payload": payload_hex.clone() });
+
+        let res = client
+            .post(&path)
+            .json(&body)
+            .send()
+            .expect("Should be able to post");
+
+        info!("res {:?}", &res);
+        Ok(result)
     }
 }
 
@@ -440,7 +465,7 @@ impl DirectCommitter {
         // step 2: fee estimate (todo: #140)
         // TODO: Replace this with a call.
         let fee = 100_000;
-        self.make_mine_contract_call(
+        let result = self.make_mine_contract_call(
             op_signer.get_sk(),
             nonce,
             fee,
@@ -451,6 +476,44 @@ impl DirectCommitter {
         .map_err(|e| {
             error!("Failed to construct contract call operation: {}", e);
             e
-        })
+        })?;
+        // let result = self
+        //     .make_mine_contract_call(
+        //         op_signer.get_sk(),
+        //         nonce,
+        //         fee,
+        //         committed_block_hash,
+        //         target_tip,
+        //         withdrawal_merkle_root,
+        //         signatures,
+        //     )
+        //     .map_err(|e| {
+        //         error!("Failed to construct contract call operation: {}", e);
+        //         e
+        //     })?;
+
+        let http_origin = "http://localhost:20443";
+        let client = reqwest::blocking::Client::new();
+
+        let path = format!("{}/v2/fees/transaction", &http_origin);
+        let payload_data = result.payload.serialize_to_vec();
+        let payload_hex = format!("0x{}", to_hex(&payload_data));
+
+        eprintln!("Test: POST {}", path);
+
+        let body = json!({ "transaction_payload": payload_hex.clone() });
+
+        let res = client
+            .post(&path)
+            .json(&body)
+            .send()
+            .expect("Should be able to post");
+
+        // let json_result = res.json();
+        let json_result: reqwest::Result<RPCFeeEstimateResponse> = res.json::<RPCFeeEstimateResponse>();
+
+        info!("json_result {:?}", &json_result);
+
+        Ok(result)
     }
 }
