@@ -1,6 +1,6 @@
+use crate::burnchains::commitment::compute_fee_from_response;
 use clarity::vm::costs::ExecutionCost;
 use stacks::net::{RPCFeeEstimate, RPCFeeEstimateResponse};
-use crate::burnchains::commitment::compute_fee_from_response;
 
 #[test]
 fn test_extract_estimate_works() {
