@@ -22,6 +22,9 @@ use crate::stacks_common::codec::StacksMessageCodec;
 
 use super::ClaritySignature;
 
+/// Default fee to pay for a miner commitment, in case no estimate is available.
+const DEFAULT_MINER_COMMITMENT_FEE: u64 = 100_000u64;
+
 pub trait Layer1Committer {
     /// Return the number of signatures that need to be included alongside a commit transaction
     fn commit_required_signatures(&self) -> u8;
@@ -139,6 +142,7 @@ fn calculate_l1_fee_for_transaction(
     let json_result: reqwest::Result<RPCFeeEstimateResponse> = res.json::<RPCFeeEstimateResponse>();
     compute_fee_from_response(&json_result)
 }
+
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -267,44 +271,37 @@ impl MultiPartyCommitter {
             e
         })?;
 
-        // step 2: fee estimate (todo: #140)
-        let fee = 100_000;
-        // TODO: use a fee estimate
-
-        let result = self
+        // step 2: fee estimate
+        let pre_transaction = self
             .make_mine_contract_call(
                 op_signer.get_sk(),
                 nonce,
-                fee,
+                DEFAULT_MINER_COMMITMENT_FEE,
                 committed_block_hash,
                 target_tip,
                 withdrawal_merkle_root,
-                signatures,
+                signatures.clone(),
             )
             .map_err(|e| {
                 error!("Failed to construct contract call operation: {}", e);
                 e
             })?;
 
-        let http_origin = "";
-        let client = reqwest::blocking::Client::new();
-
-        let path = format!("{}/v2/fees/transaction", &http_origin);
-        let payload_data = result.payload.serialize_to_vec();
-        let payload_hex = format!("0x{}", to_hex(&payload_data));
-
-        eprintln!("Test: POST {}", path);
-
-        let body = json!({ "transaction_payload": payload_hex.clone() });
-
-        let res = client
-            .post(&path)
-            .json(&body)
-            .send()
-            .expect("Should be able to post");
-
-        info!("res {:?}", &res);
-        Ok(result)
+        let computed_fee = calculate_l1_fee_for_transaction(&pre_transaction, http_origin)
+            .unwrap_or(DEFAULT_MINER_COMMITMENT_FEE);
+        self.make_mine_contract_call(
+            op_signer.get_sk(),
+            nonce,
+            computed_fee,
+            committed_block_hash,
+            target_tip,
+            withdrawal_merkle_root,
+            signatures,
+        )
+        .map_err(|e| {
+            error!("Failed to construct contract call operation: {}", e);
+            e
+        })
     }
 }
 
@@ -500,14 +497,12 @@ impl DirectCommitter {
             e
         })?;
 
-        // step 2: fee estimate (todo: #140)
-        // TODO: Replace this with a call.
-        let fee = 100_000;
+        // step 2: fee estimate
         let pre_transaction = self
             .make_mine_contract_call(
                 op_signer.get_sk(),
                 nonce,
-                fee,
+                DEFAULT_MINER_COMMITMENT_FEE,
                 committed_block_hash,
                 target_tip,
                 withdrawal_merkle_root,
@@ -517,7 +512,20 @@ impl DirectCommitter {
                 e
             })?;
 
+        let computed_fee = calculate_l1_fee_for_transaction(&pre_transaction, http_origin)
+            .unwrap_or(DEFAULT_MINER_COMMITMENT_FEE);
 
-        Ok(result)
+        self.make_mine_contract_call(
+            op_signer.get_sk(),
+            nonce,
+            computed_fee,
+            committed_block_hash,
+            target_tip,
+            withdrawal_merkle_root,
+        )
+        .map_err(|e| {
+            error!("Failed to construct contract call operation: {}", e);
+            e
+        })
     }
 }
