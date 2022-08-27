@@ -1566,7 +1566,6 @@ impl StacksNode {
         last_mined_blocks: &Vec<&AssembledAnchorBlock>,
         event_dispatcher: &EventDispatcher,
     ) -> Option<(AssembledAnchorBlock, Secp256k1PrivateKey)> {
-        info!("check");
         let MiningTenureInformation {
             mut stacks_parent_header,
             parent_consensus_hash,
@@ -1609,7 +1608,6 @@ impl StacksNode {
                 coinbase_nonce: 0,
             }
         };
-        info!("check");
 
         // has the tip changed from our previously-mined block for this epoch?
         let attempt = {
@@ -1710,7 +1708,6 @@ impl StacksNode {
             }
             best_attempt + 1
         };
-        info!("check");
 
         // Generates a new secret key for signing the trail of microblocks
         // of the upcoming tenure.
@@ -1737,7 +1734,6 @@ impl StacksNode {
             config.is_mainnet(),
             config.node.chain_id,
         );
-        info!("check");
 
         // find the longest microblock tail we can build off of
         let microblock_info_opt =
@@ -1770,7 +1766,6 @@ impl StacksNode {
                     None
                 }
             };
-        info!("check");
 
         if let Some((ref microblocks, ref poison_opt)) = &microblock_info_opt {
             if let Some(ref tail) = microblocks.last() {
@@ -1818,7 +1813,6 @@ impl StacksNode {
                 }
             }
         }
-        info!("check");
 
         let built_info = match StacksBlockBuilder::build_anchored_block_full_info(
             chain_state,
@@ -1858,7 +1852,6 @@ impl StacksNode {
                     }
                     None => None,
                 };
-                info!("check");
 
                 // try again
                 match StacksBlockBuilder::build_anchored_block_full_info(
@@ -1885,7 +1878,6 @@ impl StacksNode {
                 return None;
             }
         };
-        info!("check");
 
         let AssembledBlockInfo {
             block: anchored_block,
@@ -1946,7 +1938,6 @@ impl StacksNode {
             );
             return None;
         }
-        info!("check");
 
         let cur_burn_chain_tip = SortitionDB::get_canonical_burn_chain_tip(burn_db.conn())
             .expect("FATAL: failed to query sortition DB for canonical burn chain tip");
@@ -1999,7 +1990,6 @@ impl StacksNode {
             "tip_burn_block_sortition_id" => %burn_block.sortition_id,
             "attempt" => attempt
         );
-        info!("check");
 
         let res = bitcoin_controller.submit_commit(
             committed_block_hash,
@@ -2009,7 +1999,6 @@ impl StacksNode {
             &mut op_signer,
             attempt,
         );
-        info!("check");
 
         match res {
             Ok(x) => {
@@ -2025,7 +2014,6 @@ impl StacksNode {
                 }
             }
         }
-        info!("check");
 
         Some((
             AssembledAnchorBlock {
