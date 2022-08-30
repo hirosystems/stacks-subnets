@@ -133,8 +133,6 @@ fn calculate_l1_fee_for_transaction(
     let payload_data = transaction.payload.serialize_to_vec();
     let payload_hex = format!("0x{}", to_hex(&payload_data));
 
-    eprintln!("Test: POST {}", path);
-
     let body = json!({ "transaction_payload": payload_hex.clone() });
 
     let res = client
@@ -145,7 +143,7 @@ fn calculate_l1_fee_for_transaction(
 
     let json_result: reqwest::Result<RPCFeeEstimateResponse> = res.json::<RPCFeeEstimateResponse>();
     let fee_result = compute_fee_from_response(&json_result);
-    info!("Response from L1 suggests fee to use is: {:?}", &fee_result);
+    debug!("Response from L1 suggests fee to use is: {:?}", &fee_result);
     fee_result
 }
 
