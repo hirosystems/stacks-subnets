@@ -496,14 +496,14 @@ impl DirectCommitter {
             return Err(Error::AlreadyCommitted);
         }
 
-        // step 1: figure out the miner's nonce
+        // figure out the miner's nonce
         let miner_address = l1_addr_from_signer(self.config.is_mainnet(), op_signer);
         let nonce = l1_get_nonce(&self.config.get_rpc_url(), &miner_address).map_err(|e| {
             error!("Failed to obtain miner nonce: {}", e);
             e
         })?;
 
-        // step 2: fee estimate
+        // calculate a fee estimate
         let pre_transaction = self
             .make_mine_contract_call(
                 op_signer.get_sk(),
@@ -522,6 +522,7 @@ impl DirectCommitter {
             calculate_l1_fee_for_transaction(&pre_transaction, &self.config.get_rpc_url())
                 .unwrap_or(DEFAULT_MINER_COMMITMENT_FEE);
 
+        // do the call
         self.make_mine_contract_call(
             op_signer.get_sk(),
             nonce,
