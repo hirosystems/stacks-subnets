@@ -122,8 +122,6 @@ pub fn calculate_fee_rate_adjustment(
 
     let final_size = transaction_bytes.len();
     let estimated_size = transaction.payload.serialize_to_vec().len();
-    // info!("final_size {}", &final_size);
-    // info!("estimated_size {}", &estimated_size);
     let adjustment = (fee_rate * cost_scalar_change_by_byte) * (final_size - estimated_size) as f64;
 
     Ok(base_fee + adjustment as u64)
@@ -167,8 +165,11 @@ pub fn compute_fee_from_response_and_transaction(
 
 #[derive(Debug, PartialEq)]
 pub enum FeeCalculationError {
+    /// The L1 response was an error.
     L1ResponseFailure,
+    /// The L1 response, for some unexpected reason, has no estimation objects at all.
     NoEstimatesReturned,
+    /// A fluke error occurred when serializing a transaction.
     ErrorSerializingTransaction,
 }
 
