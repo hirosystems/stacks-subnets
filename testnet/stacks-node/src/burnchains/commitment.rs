@@ -104,21 +104,73 @@ fn l1_get_nonce(l1_rpc_interface: &str, address: &StacksAddress) -> Result<u64, 
     Ok(response_json.nonce)
 }
 
-/// Extract the median of three fee estimates, if it exists, or else return None.
-pub fn compute_fee_from_response(
+/// Compute an effective fee to use, based on a transaction, and response scalars. Use the equation:
+///     `base_fee` + `fee_rate` x `cost_scalar_change_by_byte` x (`final_size` - `estimated_size`)
+pub fn calculate_fee_rate_adjustment(
+    transaction: &StacksTransaction,
+    base_fee: u64,
+    fee_rate: f64,
+    cost_scalar_change_by_byte: f64,
+) -> Result<u64, FeeCalculationError> {
+    let mut transaction_bytes = vec![];
+    transaction
+        .consensus_serialize(&mut transaction_bytes)
+        .map_err(|e| {
+            warn!("Error serializing transaction: {:?}", transaction);
+            FeeCalculationError::ErrorSerializingTransaction
+        })?;
+
+    let final_size = transaction_bytes.len();
+    let estimated_size = transaction.payload.serialize_to_vec().len();
+    // info!("final_size {}", &final_size);
+    // info!("estimated_size {}", &estimated_size);
+    let adjustment =
+        (fee_rate * cost_scalar_change_by_byte) * (final_size - estimated_size) as f64;
+
+    Ok(base_fee + adjustment as u64)
+}
+
+/// 1) Parse `response`.
+/// 2) Ensure there are fee estimates and extract the median fee rate.
+/// 3) Use the `fee rate` and the `cost scalar change by byte` to get the adjusted fee.
+pub fn compute_fee_from_response_and_transaction(
+    transaction: &StacksTransaction,
     response: &reqwest::Result<RPCFeeEstimateResponse>,
-) -> Option<u64> {
+) -> Result<u64, FeeCalculationError> {
     match response {
         Ok(fee_estimate_response) => {
             let estimations = &fee_estimate_response.estimations;
-            if estimations.len() < 3 {
-                None
-            } else {
-                Some(estimations[1].fee)
+            if estimations.len() == 0 {
+                return Err(FeeCalculationError::NoEstimatesReturned);
             }
+
+            let mid_point = estimations.len() / 2;
+            let fee_rate = estimations[mid_point].fee_rate;
+
+            let adjusted = calculate_fee_rate_adjustment(
+                transaction,
+                estimations[mid_point].fee,
+                fee_rate,
+                fee_estimate_response.cost_scalar_change_by_byte,
+            )?;
+
+            Ok(adjusted)
         }
-        Err(_) => None,
+        Err(e) => {
+            warn!(
+                "Failure getting response from L1 on recommended fee rate: {:?}",
+                &e
+            );
+            Err(FeeCalculationError::L1ResponseFailure)
+        }
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum FeeCalculationError {
+    L1ResponseFailure,
+    NoEstimatesReturned,
+    ErrorSerializingTransaction,
 }
 
 /// Ask the L1 fee estimate endpoint for fee estimates. Return the median estimate of 3 estimates,
@@ -126,7 +178,14 @@ pub fn compute_fee_from_response(
 fn calculate_l1_fee_for_transaction(
     transaction: &StacksTransaction,
     http_origin: &str,
-) -> Option<u64> {
+) -> Result<u64, FeeCalculationError> {
+    info!("Transaction to ask L1 for is: {:?}", &transaction);
+    let transaction_json = serde_json::to_string(&transaction).unwrap();
+    info!(
+        "Transaction to ask L1 for is (in JSON): {:?}",
+        &transaction_json
+    );
+
     let client = reqwest::blocking::Client::new();
 
     let path = format!("{}/v2/fees/transaction", &http_origin);
@@ -141,9 +200,11 @@ fn calculate_l1_fee_for_transaction(
         .send()
         .expect("Should be able to post");
 
-    let json_result: reqwest::Result<RPCFeeEstimateResponse> = res.json::<RPCFeeEstimateResponse>();
-    let fee_result = compute_fee_from_response(&json_result);
-    debug!("Response from L1 suggests fee to use is: {:?}", &fee_result);
+    let json_response: reqwest::Result<RPCFeeEstimateResponse> =
+        res.json::<RPCFeeEstimateResponse>();
+    let fee_result = compute_fee_from_response_and_transaction(transaction, &json_response);
+    info!("Response from L1 suggests fee to use is: {:?}", &fee_result);
+
     fee_result
 }
 
@@ -268,14 +329,14 @@ impl MultiPartyCommitter {
             return Err(Error::AlreadyCommitted);
         }
 
-        // step 1: figure out the miner's nonce
+        // figure out the miner's nonce
         let miner_address = l1_addr_from_signer(self.config.is_mainnet(), op_signer);
         let nonce = l1_get_nonce(&self.config.get_rpc_url(), &miner_address).map_err(|e| {
             error!("Failed to obtain miner nonce: {}", e);
             e
         })?;
 
-        // step 2: fee estimate
+        // fee estimate
         let pre_transaction = self
             .make_mine_contract_call(
                 op_signer.get_sk(),
@@ -290,11 +351,15 @@ impl MultiPartyCommitter {
                 error!("Failed to construct contract call operation: {}", e);
                 e
             })?;
-
         let computed_fee =
             calculate_l1_fee_for_transaction(&pre_transaction, &self.config.get_rpc_url())
+                .map_err(|e| {
+                    error!("Failed to get L1 fee estimate: {:?}", &e);
+                    e
+                })
                 .unwrap_or(DEFAULT_MINER_COMMITMENT_FEE);
 
+        // create the call
         self.make_mine_contract_call(
             op_signer.get_sk(),
             nonce,
@@ -517,12 +582,15 @@ impl DirectCommitter {
                 error!("Failed to construct contract call operation: {}", e);
                 e
             })?;
-
         let computed_fee =
             calculate_l1_fee_for_transaction(&pre_transaction, &self.config.get_rpc_url())
+                .map_err(|e| {
+                    error!("Failed to get L1 fee estimate: {:?}", &e);
+                    e
+                })
                 .unwrap_or(DEFAULT_MINER_COMMITMENT_FEE);
 
-        // do the call
+        // create the call
         self.make_mine_contract_call(
             op_signer.get_sk(),
             nonce,
