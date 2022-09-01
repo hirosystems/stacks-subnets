@@ -124,8 +124,7 @@ pub fn calculate_fee_rate_adjustment(
     let estimated_size = transaction.payload.serialize_to_vec().len();
     // info!("final_size {}", &final_size);
     // info!("estimated_size {}", &estimated_size);
-    let adjustment =
-        (fee_rate * cost_scalar_change_by_byte) * (final_size - estimated_size) as f64;
+    let adjustment = (fee_rate * cost_scalar_change_by_byte) * (final_size - estimated_size) as f64;
 
     Ok(base_fee + adjustment as u64)
 }

@@ -1,4 +1,6 @@
-use crate::burnchains::commitment::{calculate_fee_rate_adjustment, compute_fee_from_response_and_transaction, FeeCalculationError};
+use crate::burnchains::commitment::{
+    calculate_fee_rate_adjustment, compute_fee_from_response_and_transaction, FeeCalculationError,
+};
 use clarity::vm::costs::ExecutionCost;
 use clarity::vm::types::PrincipalData;
 use clarity::vm::types::PrincipalData::Standard;
@@ -79,32 +81,49 @@ fn test_extract_estimate_works() {
     let transaction: StacksTransaction = serde_json::from_str(example_transaction_json).unwrap();
     let mut transaction_bytes = vec![];
     transaction
-        .consensus_serialize(&mut transaction_bytes).expect("Could not deserialize.");
+        .consensus_serialize(&mut transaction_bytes)
+        .expect("Could not deserialize.");
 
     let final_size = transaction_bytes.len();
     assert_eq!(274, final_size);
     let estimated_size = transaction.payload.serialize_to_vec().len();
     assert_eq!(159, estimated_size);
 
-    assert_eq!(Ok(115), calculate_fee_rate_adjustment(&transaction, 0, 1.0, 1.0));
-    assert_eq!(Ok(230), calculate_fee_rate_adjustment(&transaction, 0, 2.0, 1.0));
-    assert_eq!(Ok(460), calculate_fee_rate_adjustment(&transaction, 0, 2.0, 2.0));
+    assert_eq!(
+        Ok(115),
+        calculate_fee_rate_adjustment(&transaction, 0, 1.0, 1.0)
+    );
+    assert_eq!(
+        Ok(230),
+        calculate_fee_rate_adjustment(&transaction, 0, 2.0, 1.0)
+    );
+    assert_eq!(
+        Ok(460),
+        calculate_fee_rate_adjustment(&transaction, 0, 2.0, 2.0)
+    );
 
-    assert_eq!(Ok(125), calculate_fee_rate_adjustment(&transaction, 10, 1.0, 1.0));
-    assert_eq!(Ok(240), calculate_fee_rate_adjustment(&transaction, 10, 2.0, 1.0));
-    assert_eq!(Ok(470), calculate_fee_rate_adjustment(&transaction, 10, 2.0, 2.0));
+    assert_eq!(
+        Ok(125),
+        calculate_fee_rate_adjustment(&transaction, 10, 1.0, 1.0)
+    );
+    assert_eq!(
+        Ok(240),
+        calculate_fee_rate_adjustment(&transaction, 10, 2.0, 1.0)
+    );
+    assert_eq!(
+        Ok(470),
+        calculate_fee_rate_adjustment(&transaction, 10, 2.0, 2.0)
+    );
 }
 
 /// Make a response with `num_estimations` estimations, where the i'th element has `fee_rate = fee = i`.
-fn make_dummy_response_with_num_estimations(num_estimations:u64) -> RPCFeeEstimateResponse {
+fn make_dummy_response_with_num_estimations(num_estimations: u64) -> RPCFeeEstimateResponse {
     let mut estimations = vec![];
     for i in 1..(num_estimations + 1) {
-        estimations.push(
-            RPCFeeEstimate {
-                fee_rate: i as f64,
-                fee: i,
-            }
-        );
+        estimations.push(RPCFeeEstimate {
+            fee_rate: i as f64,
+            fee: i,
+        });
     }
     RPCFeeEstimateResponse {
         estimated_cost: ExecutionCost {
@@ -125,8 +144,11 @@ fn test_extract_estimate_fails_no_estimates() {
     let transaction: StacksTransaction = serde_json::from_str(example_transaction_json).unwrap();
     assert_eq!(
         Err(FeeCalculationError::NoEstimatesReturned),
-        compute_fee_from_response_and_transaction(&transaction, &Ok(make_dummy_response_with_num_estimations(0)))
-        );
+        compute_fee_from_response_and_transaction(
+            &transaction,
+            &Ok(make_dummy_response_with_num_estimations(0))
+        )
+    );
 }
 
 #[test]
@@ -137,18 +159,30 @@ fn test_extract_estimate_fails_works_many_estimates() {
     // Answer in each case is `fee + size_delta * fee_rate`, where `fee = fee_rate = num_estimations`.
     assert_eq!(
         Ok(116),
-        compute_fee_from_response_and_transaction(&transaction, &Ok(make_dummy_response_with_num_estimations(1)))
+        compute_fee_from_response_and_transaction(
+            &transaction,
+            &Ok(make_dummy_response_with_num_estimations(1))
+        )
     );
     assert_eq!(
         Ok(232),
-        compute_fee_from_response_and_transaction(&transaction, &Ok(make_dummy_response_with_num_estimations(2)))
+        compute_fee_from_response_and_transaction(
+            &transaction,
+            &Ok(make_dummy_response_with_num_estimations(2))
+        )
     );
     assert_eq!(
         Ok(232),
-        compute_fee_from_response_and_transaction(&transaction, &Ok(make_dummy_response_with_num_estimations(3)))
+        compute_fee_from_response_and_transaction(
+            &transaction,
+            &Ok(make_dummy_response_with_num_estimations(3))
+        )
     );
     assert_eq!(
         Ok(348),
-        compute_fee_from_response_and_transaction(&transaction, &Ok(make_dummy_response_with_num_estimations(4)))
+        compute_fee_from_response_and_transaction(
+            &transaction,
+            &Ok(make_dummy_response_with_num_estimations(4))
+        )
     );
 }
