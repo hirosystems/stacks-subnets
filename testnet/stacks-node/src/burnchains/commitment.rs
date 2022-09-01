@@ -178,33 +178,21 @@ fn calculate_l1_fee_for_transaction(
     transaction: &StacksTransaction,
     http_origin: &str,
 ) -> Result<u64, FeeCalculationError> {
-    info!("Transaction to ask L1 for is: {:?}", &transaction);
-    let transaction_json = serde_json::to_string(&transaction).unwrap();
-    info!(
-        "Transaction to ask L1 for is (in JSON): {:?}",
-        &transaction_json
-    );
-
+    // query L1 for an estimate response
     let client = reqwest::blocking::Client::new();
-
     let path = format!("{}/v2/fees/transaction", &http_origin);
     let payload_data = transaction.payload.serialize_to_vec();
     let payload_hex = format!("0x{}", to_hex(&payload_data));
-
     let body = json!({ "transaction_payload": payload_hex.clone() });
-
-    let res = client
-        .post(&path)
-        .json(&body)
-        .send()
-        .expect("Should be able to post");
-
+    let res = client.post(&path).json(&body).send().map_err(|e| {
+        warn!("Error getting response from L1 about fee rate: {:?}", &e);
+        FeeCalculationError::L1ResponseFailure
+    })?;
     let json_response: reqwest::Result<RPCFeeEstimateResponse> =
         res.json::<RPCFeeEstimateResponse>();
-    let fee_result = compute_fee_from_response_and_transaction(transaction, &json_response);
-    info!("Response from L1 suggests fee to use is: {:?}", &fee_result);
 
-    fee_result
+    // parse the response and calculate a fee
+    compute_fee_from_response_and_transaction(transaction, &json_response)
 }
 
 impl std::fmt::Display for Error {
