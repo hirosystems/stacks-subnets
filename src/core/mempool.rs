@@ -66,6 +66,8 @@ use stacks_common::util::hash::to_hex;
 use stacks_common::util::hash::Sha512Trunc256Sum;
 use std::time::Instant;
 
+use std::sync::Mutex;
+
 use crate::net::MemPoolSyncData;
 
 use crate::util_lib::bloom::{BloomCounter, BloomFilter, BloomNodeHasher};
@@ -2031,7 +2033,14 @@ impl MemPoolDB {
     }
 }
 
-struct FastMempool {
+lazy_static! {
+    pub static ref SINGLE_FAST_POOL: Mutex<FastMempool> = Mutex::new(FastMempool {
+        transaction_map: HashMap::new(),
+        nonce_map: HashMap::new(),
+    });
+}
+
+pub struct FastMempool {
     // TODO: Use transaction id
     transaction_map: HashMap<Txid, StacksTransaction>,
     // TODO: Use user id
