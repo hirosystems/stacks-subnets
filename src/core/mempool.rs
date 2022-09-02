@@ -38,10 +38,7 @@ use siphasher::sip::SipHasher; // this is SipHash-2-4
 
 use crate::burnchains::Txid;
 use crate::chainstate::burn::ConsensusHash;
-use crate::chainstate::stacks::{
-    db::blocks::MemPoolRejection, db::ClarityTx, db::StacksChainState, db::TxStreamData,
-    index::Error as MarfError, Error as ChainstateError, StacksTransaction,
-};
+use crate::chainstate::stacks::{db::blocks::MemPoolRejection, db::ClarityTx, db::StacksChainState, db::TxStreamData, index::Error as MarfError, Error as ChainstateError, StacksTransaction, TransactionVersion};
 use crate::chainstate::stacks::{StacksMicroblock, TransactionPayload};
 use crate::core::ExecutionCost;
 use crate::core::StacksEpochId;
@@ -2035,13 +2032,34 @@ struct FastMempool {
     // TODO: Use transaction id
     transaction_map:HashMap<Txid, StacksTransaction>,
     // TODO: Use user id
-    nonce_map:HashMap<String, u64>,
+    nonce_map:HashMap<StacksAddress, u64>,
 }
 
 impl FastMempool {
     /// Update the nonces of all blocks.
-    fn append_block(block:StacksBlock) {
+    fn append_block(&mut self, block:StacksBlock) {
 
+        for transaction in &block.txs {
+            let version = transaction.version;
+            let chain_id = transaction.chain_id;
+            let mainnet_address = transaction.get_origin().address_mainnet();
+            let testnet_address = transaction.get_origin().address_testnet();
+
+            info!("version {:?}", &version);
+            info!("chain_id {:?}", &chain_id);
+            info!("mainnet_address {:?}", &mainnet_address);
+            info!("testnet_address {:?}", &testnet_address);
+
+            let effective_address = match version {
+                TransactionVersion::Mainnet => transaction.get_origin().address_mainnet(),
+                TransactionVersion::Testnet => transaction.get_origin().address_testnet(),
+            };
+            info!("effective_address {:?}", &effective_address);
+
+            let value = self.nonce_map.get(&effective_address).unwrap_or(&0u64);
+            let add_one = value + 1;
+            self.nonce_map.insert(effective_address, add_one);
+        }
     }
 
     /// Ingest this transaction.
