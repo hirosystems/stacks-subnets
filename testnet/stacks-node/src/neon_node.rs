@@ -705,7 +705,7 @@ fn spawn_peer(
                     // have blocks, microblocks, and/or transactions (don't care about anything else),
                     // or a directive to mine microblocks
                     if let Err(e) = relay_channel.try_send(next_result) {
-                        info!(
+                        debug!(
                             "P2P: {:?}: download backpressure detected",
                             &this.local_peer
                         );
@@ -728,7 +728,7 @@ fn spawn_peer(
                             }
                         }
                     } else {
-                        info!("P2P: Dispatched result to Relayer!");
+                        debug!("P2P: Dispatched result to Relayer!");
                     }
                 }
             }
