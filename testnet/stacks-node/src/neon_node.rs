@@ -1814,7 +1814,6 @@ impl StacksNode {
             }
         }
 
-
         // let count_info = StacksBlockBuilder::count_anchored_block_full_info(
         //     chain_state,
         //     &burn_db.index_conn(),
