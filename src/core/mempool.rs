@@ -1027,7 +1027,7 @@ impl MemPoolDB {
 
             match self.get_next_tx_to_consider(start_with_no_estimate)? {
                 ConsiderTransactionResult::NoTransactions => {
-                    info!("No more transactions to consider in mempool");
+                    info!("No more transactions to COUNT in mempool");
                     break;
                 }
                 ConsiderTransactionResult::UpdateNonces(addresses) => {
@@ -1036,7 +1036,7 @@ impl MemPoolDB {
                     remember_start_with_estimate = Some(start_with_no_estimate);
                     let mut last_addr = None;
                     for address in addresses.into_iter() {
-                        debug!("Update nonce"; "address" => %address);
+                        info!("count: Update nonce"; "address" => %address);
                         // do not recheck nonces if the sponsor == origin
                         if last_addr.as_ref() == Some(&address) {
                             continue;
@@ -1053,7 +1053,7 @@ impl MemPoolDB {
                     // if we actually consider the chosen transaction,
                     //  compute a new start_with_no_estimate on the next loop
                     remember_start_with_estimate = None;
-                    debug!("Consider mempool transaction";
+                    info!("count: Consider mempool transaction";
                            "txid" => %consider.tx.tx.txid(),
                            "origin_addr" => %consider.tx.metadata.origin_address,
                            "sponsor_addr" => %consider.tx.metadata.sponsor_address,

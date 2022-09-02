@@ -1665,7 +1665,7 @@ impl HttpRequestType {
                     } else {
                         "".to_string()
                     };
-                    info!("Handle HTTPRequest"; "verb" => %verb, "peer_addr" => %protocol.peer_addr, "path" => %decoded_path, "query" => %query);
+                    debug!("Handle HTTPRequest"; "verb" => %verb, "peer_addr" => %protocol.peer_addr, "path" => %decoded_path, "query" => %query);
                     return Ok(request);
                 }
                 None => {

@@ -1953,14 +1953,14 @@ impl ConversationHttp {
                 &stacks_epoch.epoch_id,
             ) {
                 Ok(_) => {
-                    debug!("Mempool accepted POSTed transaction {}", &txid);
+                    info!("Mempool accepted POSTed transaction {}", &txid);
                     (
                         HttpResponseType::TransactionID(response_metadata, txid),
                         true,
                     )
                 }
                 Err(e) => {
-                    debug!("Mempool rejected POSTed transaction {}: {:?}", &txid, &e);
+                    info!("Mempool rejected POSTed transaction {}: {:?}", &txid, &e);
                     (
                         HttpResponseType::BadRequestJSON(response_metadata, e.into_json(&txid)),
                         false,
