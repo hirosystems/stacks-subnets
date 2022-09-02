@@ -1003,6 +1003,75 @@ impl MemPoolDB {
         Ok(updated)
     }
 
+    pub fn enumerate_candidates<C>(
+        &mut self,
+        clarity_tx: &mut C,
+        settings: MemPoolWalkSettings,
+    ) -> Result<u64, db_error>
+    where
+        C: ClarityConnection,
+    {
+        let start_time = Instant::now();
+        let mut total_considered = 0;
+
+        info!("Mempool walk: enumerate candidates");
+
+        let tx_consideration_sampler = Uniform::new(0, 100);
+        let mut rng = rand::thread_rng();
+        let mut remember_start_with_estimate = None;
+
+        loop {
+            let start_with_no_estimate = remember_start_with_estimate.unwrap_or_else(|| {
+                tx_consideration_sampler.sample(&mut rng) < settings.consider_no_estimate_tx_prob
+            });
+
+            match self.get_next_tx_to_consider(start_with_no_estimate)? {
+                ConsiderTransactionResult::NoTransactions => {
+                    info!("No more transactions to consider in mempool");
+                    break;
+                }
+                ConsiderTransactionResult::UpdateNonces(addresses) => {
+                    // if we need to update the nonce for the considered transaction,
+                    //  use the last value of start_with_no_estimate on the next loop
+                    remember_start_with_estimate = Some(start_with_no_estimate);
+                    let mut last_addr = None;
+                    for address in addresses.into_iter() {
+                        debug!("Update nonce"; "address" => %address);
+                        // do not recheck nonces if the sponsor == origin
+                        if last_addr.as_ref() == Some(&address) {
+                            continue;
+                        }
+                        let min_nonce =
+                            StacksChainState::get_account(clarity_tx, &address.clone().into())
+                                .nonce;
+
+                        self.update_last_known_nonces(&address, min_nonce)?;
+                        last_addr = Some(address)
+                    }
+                }
+                ConsiderTransactionResult::Consider(consider) => {
+                    // if we actually consider the chosen transaction,
+                    //  compute a new start_with_no_estimate on the next loop
+                    remember_start_with_estimate = None;
+                    debug!("Consider mempool transaction";
+                           "txid" => %consider.tx.tx.txid(),
+                           "origin_addr" => %consider.tx.metadata.origin_address,
+                           "sponsor_addr" => %consider.tx.metadata.sponsor_address,
+                           "accept_time" => consider.tx.metadata.accept_time,
+                           "tx_fee" => consider.tx.metadata.tx_fee,
+                           "size" => consider.tx.metadata.len);
+                    total_considered += 1;
+                }
+            }
+        }
+
+        info!(
+            "enumerate_candidates: Mempool iteration finished";
+            "considered_txs" => total_considered,
+            "elapsed_ms" => start_time.elapsed().as_millis()
+        );
+        Ok(total_considered)
+    }
     ///
     /// Iterate over candidates in the mempool
     ///  `todo` will be called once for each transaction whose origin nonce is equal
@@ -1027,7 +1096,7 @@ impl MemPoolDB {
         let start_time = Instant::now();
         let mut total_considered = 0;
 
-        debug!("Mempool walk for {}ms", settings.max_walk_time_ms,);
+        info!("Mempool walk for {}ms", settings.max_walk_time_ms,);
 
         let tx_consideration_sampler = Uniform::new(0, 100);
         let mut rng = rand::thread_rng();
@@ -1035,7 +1104,7 @@ impl MemPoolDB {
 
         loop {
             if start_time.elapsed().as_millis() > settings.max_walk_time_ms as u128 {
-                debug!("Mempool iteration deadline exceeded";
+                info!("Mempool iteration deadline exceeded";
                        "deadline_ms" => settings.max_walk_time_ms);
                 break;
             }

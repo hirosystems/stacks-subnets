@@ -2279,6 +2279,93 @@ impl StacksBlockBuilder {
             burn_tip_height: miner_epoch_info.burn_tip_height,
         })
     }
+    pub fn count_anchored_block_full_info(
+        chainstate_handle: &StacksChainState, // not directly used; used as a handle to open other chainstates
+        burn_dbconn: &SortitionDBConn,
+        mempool: &mut MemPoolDB,
+        parent_stacks_header: &StacksHeaderInfo, // Stacks header we're building off of
+        total_burn: u64, // the burn so far on the burnchain (i.e. from the last burnchain block)
+        proof: VRFProof, // proof over the burnchain's last seed
+        pubkey_hash: Hash160,
+        coinbase_tx: &StacksTransaction,
+        settings: BlockBuilderSettings,
+        event_observer: Option<&dyn MemPoolEventDispatcher>,
+    ) -> Result<(), Error> {
+        let mempool_settings = settings.mempool_settings;
+        let max_miner_time_ms = settings.max_miner_time_ms;
+
+        if let TransactionPayload::Coinbase(..) = coinbase_tx.payload {
+        } else {
+            return Err(Error::MemPoolError(
+                "Not a coinbase transaction".to_string(),
+            ));
+        }
+
+        let (tip_consensus_hash, tip_block_hash, tip_height) = (
+            parent_stacks_header.consensus_hash.clone(),
+            parent_stacks_header.anchored_header.block_hash(),
+            parent_stacks_header.stacks_block_height,
+        );
+
+        debug!(
+            "Build anchored block off of {}/{} height {}",
+            &tip_consensus_hash, &tip_block_hash, tip_height
+        );
+
+        let (mut chainstate, _) = chainstate_handle.reopen()?;
+
+        let mut builder = StacksBlockBuilder::make_block_builder(
+            chainstate.mainnet,
+            parent_stacks_header,
+            proof,
+            total_burn,
+            pubkey_hash,
+            &MessageSignatureList::empty(),
+        )?;
+
+        let ts_start = get_epoch_time_ms();
+
+        let mut miner_epoch_info = builder.pre_epoch_begin(&mut chainstate, burn_dbconn)?;
+
+        let (mut epoch_tx, confirmed_mblock_cost) =
+            builder.epoch_begin(burn_dbconn, &mut miner_epoch_info)?;
+
+        let stacks_epoch_id = epoch_tx.get_epoch();
+        let block_limit = epoch_tx
+            .block_limit()
+            .expect("Failed to obtain block limit from miner's block connection");
+
+        let mut tx_events = Vec::new();
+        tx_events.push(
+            builder
+                .try_mine_tx(&mut epoch_tx, coinbase_tx)?
+                .convert_to_event(),
+        );
+
+        mempool.reset_last_known_nonces()?;
+
+        mempool.estimate_tx_rates(100, &block_limit, &stacks_epoch_id)?;
+
+        // let mut considered = HashSet::new(); // txids of all transactions we looked at
+        let mut mined_origin_nonces: HashMap<StacksAddress, u64> = HashMap::new(); // map addrs of mined transaction origins to the nonces we used
+        let mut mined_sponsor_nonces: HashMap<StacksAddress, u64> = HashMap::new(); // map addrs of mined transaction sponsors to the nonces we used
+
+        // let mut invalidated_txs = vec![];
+
+        let mut block_limit_hit = BlockLimitFunction::NO_LIMIT_HIT;
+        let deadline = ts_start + (max_miner_time_ms as u128);
+        let mut num_txs = 0;
+
+        debug!(
+            "Anchored block transaction selection begins (child of {})",
+            &parent_stacks_header.anchored_header.block_hash()
+        );
+
+        let count_result = mempool.enumerate_candidates(&mut epoch_tx, mempool_settings.clone());
+        info!("count_result {:?}", &count_result);
+
+        Ok(())
+    }
 }
 
 impl Proposal {
