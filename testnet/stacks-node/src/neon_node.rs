@@ -1815,20 +1815,20 @@ impl StacksNode {
         }
 
 
-        let count_info = StacksBlockBuilder::count_anchored_block_full_info(
-            chain_state,
-            &burn_db.index_conn(),
-            mem_pool,
-            &stacks_parent_header,
-            parent_block_total_burn,
-            VRFProof::empty(),
-            mblock_pubkey_hash,
-            &coinbase_tx,
-            config.make_block_builder_settings((last_mined_blocks.len() + 1) as u64, false),
-            Some(event_dispatcher),
-        );
-
-        info!("count_info {:?}", count_info);
+        // let count_info = StacksBlockBuilder::count_anchored_block_full_info(
+        //     chain_state,
+        //     &burn_db.index_conn(),
+        //     mem_pool,
+        //     &stacks_parent_header,
+        //     parent_block_total_burn,
+        //     VRFProof::empty(),
+        //     mblock_pubkey_hash,
+        //     &coinbase_tx,
+        //     config.make_block_builder_settings((last_mined_blocks.len() + 1) as u64, false),
+        //     Some(event_dispatcher),
+        // );
+        //
+        // info!("count_info {:?}", count_info);
 
         let built_info = match StacksBlockBuilder::build_anchored_block_full_info(
             chain_state,
