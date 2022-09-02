@@ -2049,7 +2049,7 @@ pub struct FastMempool {
 
 impl FastMempool {
     /// Update the nonces of all blocks.
-    fn append_block(&mut self, block: StacksBlock) {
+    pub fn append_block(&mut self, block: &StacksBlock) {
         info!("called:append_block {:?}", &block);
         for transaction in &block.txs {
             let version = transaction.version;
@@ -2075,21 +2075,21 @@ impl FastMempool {
     }
 
     /// Ingest this transaction.
-    fn ingest_transaction(&mut self, transaction: StacksTransaction) {
-        info!("ingest transcation: {:?}", &transaction);
+    pub fn ingest_transaction(&mut self, transaction: StacksTransaction) {
+        // info!("ingest transcation: {:?}", &transaction);
         let txid = transaction.txid();
         self.transaction_map.insert(txid, transaction);
     }
 
     /// Return those transactions where the active nonce matches the one internally.
-    fn get_active_transactions(&self) -> Vec<StacksTransaction> {
+    pub fn get_active_transactions(&self) -> Vec<StacksTransaction> {
         info!(
-            "get_active_transactions self.transaction_map {:?}",
-            &self.transaction_map
+            "get_active_transactions self.transaction_map {}",
+            self.transaction_map.len(),
         );
         info!(
-            "get_active_transactions self.nonce_map {:?}",
-            &self.nonce_map
+            "get_active_transactions self.nonce_map {}",
+            self.nonce_map.len(),
         );
 
         vec![]

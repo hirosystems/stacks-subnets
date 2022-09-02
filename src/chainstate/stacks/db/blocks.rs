@@ -46,7 +46,7 @@ use crate::chainstate::stacks::{
 use crate::clarity_vm::clarity::{ClarityBlockConnection, ClarityConnection, ClarityInstance};
 use crate::codec::MAX_MESSAGE_LEN;
 use crate::codec::{read_next, write_next};
-use crate::core::mempool::MemPoolDB;
+use crate::core::mempool::{MemPoolDB, SINGLE_FAST_POOL};
 use crate::core::mempool::MAXIMUM_MEMPOOL_TX_CHAINING;
 use crate::core::*;
 use crate::cost_estimates::EstimatorError;
@@ -4810,11 +4810,15 @@ impl StacksChainState {
 
     /// Process a single anchored block.
     /// Return the fees and burns.
+    ///
+    /// Definitely for append_block.
     fn process_block_transactions(
         clarity_tx: &mut ClarityTx,
         block: &StacksBlock,
         mut tx_index: u32,
     ) -> Result<(u128, u128, Vec<StacksTransactionReceipt>), Error> {
+        SINGLE_FAST_POOL.lock().unwrap().append_block(block);
+
         let mut fees = 0u128;
         let mut burns = 0u128;
         let mut receipts = vec![];

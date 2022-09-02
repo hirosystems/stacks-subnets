@@ -30,7 +30,7 @@ use stacks::chainstate::stacks::{
     TransactionAnchorMode, TransactionPayload, TransactionVersion,
 };
 use stacks::codec::StacksMessageCodec;
-use stacks::core::mempool::MemPoolDB;
+use stacks::core::mempool::{MemPoolDB, SINGLE_FAST_POOL};
 use stacks::core::FIRST_BURNCHAIN_CONSENSUS_HASH;
 use stacks::cost_estimates::metrics::UnitMetric;
 use stacks::cost_estimates::UnitEstimator;
@@ -1829,8 +1829,10 @@ impl StacksNode {
         //
         // info!("count_info {:?}", count_info);
 
-        let mempool_count = monitoring::current_mempool_size();
-        info!("mempool_count {:?}", &mempool_count);
+        let active = SINGLE_FAST_POOL.lock().unwrap().get_active_transactions();
+        info!("active {:?}", &active);
+        // let mempool_count = monitoring::current_mempool_size();
+        // info!("mempool_count {:?}", &mempool_count);
         let built_info = match StacksBlockBuilder::build_anchored_block_full_info(
             chain_state,
             &burn_db.index_conn(),
