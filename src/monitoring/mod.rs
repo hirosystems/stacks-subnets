@@ -207,10 +207,9 @@ pub fn mempool_accepted(txid: &Txid, chainstate_root_path: &str) -> Result<(), D
     Ok(())
 }
 
-pub fn current_mempool_size() -> Option<u64>{
-    Some(1)
-    // #[cfg(feature = "monitoring_prom")] {Some(prometheus::MEMPOOL_OUTSTANDING_TXS)}
-    // #[cfg(not(feature = "monitoring_prom"))] {1}
+pub fn current_mempool_size() -> Option<i64>{
+    #[cfg(feature = "monitoring_prom")] {Some(prometheus::MEMPOOL_OUTSTANDING_TXS.get())}
+    #[cfg(not(feature = "monitoring_prom"))] {None}
 }
 #[allow(unused_variables)]
 pub fn log_transaction_processed(
