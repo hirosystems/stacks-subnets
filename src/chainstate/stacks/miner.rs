@@ -2356,13 +2356,17 @@ impl StacksBlockBuilder {
         let deadline = ts_start + (max_miner_time_ms as u128);
         let mut num_txs = 0;
 
-        debug!(
-            "Anchored block transaction selection begins (child of {})",
+        info!(
+            "count: Anchored block transaction selection begins (child of {})",
             &parent_stacks_header.anchored_header.block_hash()
         );
 
         let count_result = mempool.enumerate_candidates(&mut epoch_tx, mempool_settings.clone());
         info!("count_result {:?}", &count_result);
+
+        info!("start rollback");
+        epoch_tx.rollback_block();
+        info!("end rollback");
 
         Ok(())
     }

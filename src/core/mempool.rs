@@ -1036,7 +1036,7 @@ impl MemPoolDB {
                     remember_start_with_estimate = Some(start_with_no_estimate);
                     let mut last_addr = None;
                     for address in addresses.into_iter() {
-                        info!("count: Update nonce"; "address" => %address);
+                        debug!("count: Update nonce"; "address" => %address);
                         // do not recheck nonces if the sponsor == origin
                         if last_addr.as_ref() == Some(&address) {
                             continue;
@@ -1053,7 +1053,7 @@ impl MemPoolDB {
                     // if we actually consider the chosen transaction,
                     //  compute a new start_with_no_estimate on the next loop
                     remember_start_with_estimate = None;
-                    info!("count: Consider mempool transaction";
+                    debug!("count: Consider mempool transaction";
                            "txid" => %consider.tx.tx.txid(),
                            "origin_addr" => %consider.tx.metadata.origin_address,
                            "sponsor_addr" => %consider.tx.metadata.sponsor_address,
@@ -1061,6 +1061,10 @@ impl MemPoolDB {
                            "tx_fee" => consider.tx.metadata.tx_fee,
                            "size" => consider.tx.metadata.len);
                     total_considered += 1;
+                    self.bump_last_known_nonces(&consider.tx.metadata.origin_address)?;
+                    if consider.tx.tx.auth.is_sponsored() {
+                        self.bump_last_known_nonces(&consider.tx.metadata.sponsor_address)?;
+                    }
                 }
             }
         }
