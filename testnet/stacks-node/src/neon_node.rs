@@ -1830,6 +1830,8 @@ impl StacksNode {
         //
         // info!("count_info {:?}", count_info);
 
+        let mempool_count = monitoring::current_mempool_size();
+        info!("mempool_count {:?}", &mempool_count);
         let built_info = match StacksBlockBuilder::build_anchored_block_full_info(
             chain_state,
             &burn_db.index_conn(),
