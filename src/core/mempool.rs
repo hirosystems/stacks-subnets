@@ -15,7 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::cmp;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::hash::Hasher;
 use std::io::{Read, Write};
@@ -2028,5 +2028,32 @@ impl MemPoolDB {
             }
         }
         Ok(num_written)
+    }
+}
+
+struct FastMempool {
+    // TODO: Use transaction id
+    transaction_map:HashMap<Txid, StacksTransaction>,
+    // TODO: Use user id
+    nonce_map:HashMap<String, u64>,
+}
+
+impl FastMempool {
+    /// Update the nonces of all blocks.
+    fn append_block(block:StacksBlock) {
+
+    }
+
+    /// Ingest this transaction.
+    fn ingest_transaction(&mut self, transaction:StacksTransaction) {
+
+        let txid = transaction.txid();
+        self.transaction_map.insert(txid, transaction);
+    }
+
+    /// Return those transactions where the active nonce matches the one internally.
+    fn get_active_transactions() -> Vec<StacksTransaction> {
+
+        todo!()
     }
 }
