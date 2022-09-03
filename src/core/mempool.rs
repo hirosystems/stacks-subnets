@@ -2092,6 +2092,8 @@ impl FastMempool {
             self.nonce_map.len(),
         );
 
+        let start_time = Instant::now();
+
         let mut result = vec![];
         let mut num_matching = 0;
         let mut num_different = 0;
@@ -2105,14 +2107,15 @@ impl FastMempool {
             );
             if expected_nonce == supplied_nonce {
                 num_matching += 1;
+                result.push(v.clone());
             } else {
                 num_different += 1;
             }
         }
 
         info!(
-            "num_matching {} num_different {}",
-            &num_matching, &num_different
+            "get_active_transactions: num_matching {} num_different {} result.len() {} time_taken {:?}",
+            &num_matching, &num_different, result.len(), start_time.elapsed(),
         );
 
         result
