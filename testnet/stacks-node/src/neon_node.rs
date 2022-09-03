@@ -1829,8 +1829,8 @@ impl StacksNode {
         //
         // info!("count_info {:?}", count_info);
 
-        let active = SINGLE_FAST_POOL.lock().unwrap().get_active_transactions();
-        info!("active {:?}", &active);
+        // let active = SINGLE_FAST_POOL.lock().unwrap().get_active_transactions();
+        // info!("active {:?}", &active);
         // let mempool_count = monitoring::current_mempool_size();
         // info!("mempool_count {:?}", &mempool_count);
         let built_info = match StacksBlockBuilder::build_anchored_block_full_info(
