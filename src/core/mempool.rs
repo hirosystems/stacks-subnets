@@ -2088,6 +2088,7 @@ impl FastMempool {
     pub fn append_block(&mut self, block: &StacksBlock) {
         info!("called:append_block {:?}", &block);
         for transaction in &block.txs {
+            // step 1: add to the nonce map
             let version = transaction.version;
             let chain_id = transaction.chain_id;
             let mainnet_address = transaction.get_origin().address_mainnet();
@@ -2107,6 +2108,13 @@ impl FastMempool {
             let value = self.nonce_map.get(&effective_address).unwrap_or(&0u64);
             let add_one = value + 1;
             self.nonce_map.insert(effective_address, add_one);
+
+            // step 2: drop seen transactions
+            let existing = self.transaction_map.get(&transaction.txid());
+            info!("append_block: existing: {:?}", &existing);
+            if (existing.is_some()) {
+                self.transaction_map.remove(&transaction.txid());
+            }
         }
     }
 
