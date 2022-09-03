@@ -1109,7 +1109,7 @@ impl MemPoolDB {
 
         let tx_consideration_sampler = Uniform::new(0, 100);
         let mut rng = rand::thread_rng();
-        let mut remember_start_with_estimate = None;
+        // let mut remember_start_with_estimate = None;
 
         let mut last_time = Instant::now();
 
@@ -1126,10 +1126,10 @@ impl MemPoolDB {
         let mut total_bump_nonce_time = Duration::ZERO;
 
         let consider_transactions = SINGLE_FAST_POOL.lock().unwrap().get_active_transactions();
-        for transaction in consider_transactions {
+        for tx_info in consider_transactions {
             let consider = ConsiderTransaction {
-                tx: todo!(),
-                update_estimate: todo!(),
+                tx: tx_info,
+                update_estimate: false,
             };
             if start_time.elapsed().as_millis() > settings.max_walk_time_ms as u128 {
                 info!("Mempool iteration deadline exceeded";
@@ -1139,7 +1139,7 @@ impl MemPoolDB {
 
             // if we actually consider the chosen transaction,
             //  compute a new start_with_no_estimate on the next loop
-            remember_start_with_estimate = None;
+            // remember_start_with_estimate = None;
             debug!("Consider mempool transaction";
                    "txid" => %consider.tx.tx.txid(),
                    "origin_addr" => %consider.tx.metadata.origin_address,
@@ -1456,6 +1456,30 @@ impl MemPoolDB {
             &u64_to_sql(get_epoch_time_secs())?,
             &tx_bytes,
         ];
+
+        let tx_metadata = MemPoolTxMetadata {
+            txid: txid.clone(),
+            len,
+            tx_fee,
+            consensus_hash: consensus_hash.clone(),
+            block_header_hash: block_header_hash.clone(),
+            block_height: height,
+            origin_address: origin_address.clone(),
+            origin_nonce,
+            sponsor_address: sponsor_address.clone(),
+            sponsor_nonce,
+            last_known_origin_nonce: None,
+            last_known_sponsor_nonce: None,
+            accept_time: 0u64, // TODO: Figure out what to add here.
+        };
+
+        let tx_bytes2 = tx_bytes.clone();
+        let transaction = StacksTransaction::consensus_deserialize(&mut &tx_bytes2[..])
+            .expect("Failed to deserialize.");
+        SINGLE_FAST_POOL
+            .lock()
+            .unwrap()
+            .ingest_transaction(transaction, tx_metadata);
 
         tx.execute(sql, args)
             .map_err(|e| MemPoolRejection::DBError(db_error::SqliteError(e)))?;
@@ -2054,7 +2078,7 @@ lazy_static! {
 
 pub struct FastMempool {
     // TODO: Use transaction id
-    transaction_map: HashMap<Txid, StacksTransaction>,
+    transaction_map: HashMap<Txid, MemPoolTxInfo>,
     // TODO: Use user id
     nonce_map: HashMap<StacksAddress, u64>,
 }
@@ -2087,10 +2111,18 @@ impl FastMempool {
     }
 
     /// Ingest this transaction.
-    pub fn ingest_transaction(&mut self, transaction: StacksTransaction) {
-        // info!("ingest transcation: {:?}", &transaction);
+    pub fn ingest_transaction(
+        &mut self,
+        transaction: StacksTransaction,
+        tx_metadata: MemPoolTxMetadata,
+    ) {
         let txid = transaction.txid();
-        self.transaction_map.insert(txid, transaction);
+        let tx_info = MemPoolTxInfo {
+            tx: transaction,
+            metadata: tx_metadata,
+        };
+        // info!("ingest transcation: {:?}", &transaction);
+        self.transaction_map.insert(txid, tx_info);
     }
 
     /// Return those transactions where the active nonce matches the one internally.
@@ -2110,8 +2142,8 @@ impl FastMempool {
         let mut num_matching = 0;
         let mut num_different = 0;
         for (k, v) in &self.transaction_map {
-            let supplied_nonce = v.get_origin_nonce();
-            let origin_address = v.origin_address();
+            let supplied_nonce = v.tx.get_origin_nonce();
+            let origin_address = v.tx.origin_address();
             let expected_nonce = *self.nonce_map.get(&origin_address).unwrap_or(&0);
             info!(
                 "&sponsor_address {:?}, supplied_nonce {:?}, expected_nonce{:?}",
@@ -2130,8 +2162,6 @@ impl FastMempool {
             &num_matching, &num_different, result.len(), start_time.elapsed(),
         );
 
-        result;
-
-        todo!()
+        result
     }
 }
