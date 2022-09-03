@@ -2092,6 +2092,29 @@ impl FastMempool {
             self.nonce_map.len(),
         );
 
-        vec![]
+        let mut result = vec![];
+        let mut num_matching = 0;
+        let mut num_different = 0;
+        for (k, v) in &self.transaction_map {
+            let supplied_nonce = v.get_origin_nonce();
+            let origin_address = v.origin_address();
+            let expected_nonce = *self.nonce_map.get(&origin_address).unwrap_or(&0);
+            info!(
+                "&sponsor_address {:?}, supplied_nonce {:?}, expected_nonce{:?}",
+                &origin_address, supplied_nonce, expected_nonce
+            );
+            if expected_nonce == supplied_nonce {
+                num_matching += 1;
+            } else {
+                num_different += 1;
+            }
+        }
+
+        info!(
+            "num_matching {} num_different {}",
+            &num_matching, &num_different
+        );
+
+        result
     }
 }

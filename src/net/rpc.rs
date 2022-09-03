@@ -1955,7 +1955,10 @@ impl ConversationHttp {
                 Ok(_) => {
                     debug!("Mempool accepted POSTed transaction {}", &txid);
 
-                    SINGLE_FAST_POOL.lock().unwrap().ingest_transaction(tx.clone());
+                    SINGLE_FAST_POOL
+                        .lock()
+                        .unwrap()
+                        .ingest_transaction(tx.clone());
 
                     (
                         HttpResponseType::TransactionID(response_metadata, txid),

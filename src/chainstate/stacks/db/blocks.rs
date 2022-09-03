@@ -46,8 +46,8 @@ use crate::chainstate::stacks::{
 use crate::clarity_vm::clarity::{ClarityBlockConnection, ClarityConnection, ClarityInstance};
 use crate::codec::MAX_MESSAGE_LEN;
 use crate::codec::{read_next, write_next};
-use crate::core::mempool::{MemPoolDB, SINGLE_FAST_POOL};
 use crate::core::mempool::MAXIMUM_MEMPOOL_TX_CHAINING;
+use crate::core::mempool::{MemPoolDB, SINGLE_FAST_POOL};
 use crate::core::*;
 use crate::cost_estimates::EstimatorError;
 use crate::net::BlocksInvData;
