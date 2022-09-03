@@ -1459,7 +1459,7 @@ impl MemPoolDB {
 
         let tx_metadata = MemPoolTxMetadata {
             txid: txid.clone(),
-            len,
+            len: length,
             tx_fee,
             consensus_hash: consensus_hash.clone(),
             block_header_hash: block_header_hash.clone(),
