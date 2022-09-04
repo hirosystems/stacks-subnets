@@ -277,7 +277,7 @@ pub enum TransactionEvent {
 impl TransactionResult {
     /// Logs a queryable message for the case where `txid` has succeeded.
     pub fn log_transaction_success(tx: &StacksTransaction) {
-        info!("Tx successfully processed.";
+        debug!("Tx successfully processed.";
             "event_name" => %"transaction_result",
             "tx_id" => %tx.txid(),
             "event_type" => %"success",
@@ -1382,7 +1382,7 @@ impl StacksBlockBuilder {
                     _ => return TransactionResult::error(&tx, e),
                 },
             };
-            info!("Include tx";
+            debug!("Include tx";
                   "tx" => %tx.txid(),
                   "payload" => tx.payload.name(),
                   "origin" => %tx.origin_address());

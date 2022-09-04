@@ -1140,7 +1140,7 @@ impl MemPoolDB {
             // if we actually consider the chosen transaction,
             //  compute a new start_with_no_estimate on the next loop
             // remember_start_with_estimate = None;
-            info!("Consider mempool transaction";
+            debug!("Consider mempool transaction";
                    "txid" => %consider.tx.tx.txid(),
                    "origin_addr" => %consider.tx.metadata.origin_address,
                    "sponsor_addr" => %consider.tx.metadata.sponsor_address,
@@ -2086,7 +2086,7 @@ pub struct FastMempool {
 impl FastMempool {
     /// Update the nonces of all blocks.
     pub fn append_block(&mut self, block: &StacksBlock) {
-        info!("called:append_block {:?}", &block);
+        // info!("called:append_block {:?}", &block);
         for transaction in &block.txs {
             // step 1: add to the nonce map
             let version = transaction.version;
@@ -2094,16 +2094,16 @@ impl FastMempool {
             let mainnet_address = transaction.get_origin().address_mainnet();
             let testnet_address = transaction.get_origin().address_testnet();
 
-            info!("version {:?}", &version);
-            info!("chain_id {:?}", &chain_id);
-            info!("mainnet_address {:?}", &mainnet_address);
-            info!("testnet_address {:?}", &testnet_address);
+            // info!("version {:?}", &version);
+            // info!("chain_id {:?}", &chain_id);
+            // info!("mainnet_address {:?}", &mainnet_address);
+            // info!("testnet_address {:?}", &testnet_address);
 
             let effective_address = match version {
                 TransactionVersion::Mainnet => transaction.get_origin().address_mainnet(),
                 TransactionVersion::Testnet => transaction.get_origin().address_testnet(),
             };
-            info!("effective_address {:?}", &effective_address);
+            // info!("effective_address {:?}", &effective_address);
 
             let value = self.nonce_map.get(&effective_address).unwrap_or(&0u64);
             let add_one = value + 1;
@@ -2111,7 +2111,7 @@ impl FastMempool {
 
             // step 2: drop seen transactions
             let existing = self.transaction_map.get(&transaction.txid());
-            info!("append_block: existing: {:?}", &existing);
+            // debug!("append_block: existing: {:?}", &existing);
             if (existing.is_some()) {
                 self.transaction_map.remove(&transaction.txid());
             }
@@ -2153,7 +2153,7 @@ impl FastMempool {
             let supplied_nonce = v.tx.get_origin_nonce();
             let origin_address = v.tx.origin_address();
             let expected_nonce = *self.nonce_map.get(&origin_address).unwrap_or(&0);
-            info!(
+            debug!(
                 "&sponsor_address {:?}, supplied_nonce {:?}, expected_nonce{:?}",
                 &origin_address, supplied_nonce, expected_nonce
             );
