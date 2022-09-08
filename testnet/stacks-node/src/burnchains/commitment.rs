@@ -112,13 +112,7 @@ pub fn calculate_fee_rate_adjustment(
     fee_rate: f64,
     cost_scalar_change_by_byte: f64,
 ) -> Result<u64, FeeCalculationError> {
-    let mut transaction_bytes = vec![];
-    transaction
-        .consensus_serialize(&mut transaction_bytes)
-        .map_err(|e| {
-            warn!("Error serializing transaction: {:?}", transaction);
-            FeeCalculationError::ErrorSerializingTransaction
-        })?;
+    let transaction_bytes = transaction.serialize_to_vec();
 
     let final_size = transaction_bytes.len();
     let estimated_size = transaction.payload.serialize_to_vec().len();
