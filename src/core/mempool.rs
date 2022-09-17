@@ -1135,14 +1135,14 @@ impl MemPoolDB {
                 StacksChainState::get_nonce(clarity_tx, &tx_info.tx.origin_address().into());
 
             if expected_origin_nonce != tx_info.tx.get_origin_nonce() {
-                info!("origin nonce difference {:?} vs {}", &tx_info.tx, expected_origin_nonce);
+                // info!("origin nonce difference {:?} vs {}", &tx_info.tx, expected_origin_nonce);
                 continue;
             }
             if tx_info.tx.get_sponsor_nonce().is_some() {
                 let expected_sponsor_nonce =
                     StacksChainState::get_nonce(clarity_tx, &tx_info.tx.sponsor_address().unwrap().into());
                 if expected_sponsor_nonce != tx_info.tx.get_sponsor_nonce().unwrap() {
-                    info!("sponsor nonce difference {:?} vs {}", &tx_info.tx, expected_sponsor_nonce);
+                    // info!("sponsor nonce difference {:?} vs {}", &tx_info.tx, expected_sponsor_nonce);
                     continue;
                 }
             }
@@ -2108,36 +2108,7 @@ pub struct FastMempool {
 impl FastMempool {
     /// Update the nonces of all blocks.
     pub fn append_block(&mut self, block: &StacksBlock) {
-        // info!("called:append_block {:?}", &block);
-        for transaction in &block.txs {
-            // step 1: add to the nonce map
-            let version = transaction.version;
-            let chain_id = transaction.chain_id;
-            let mainnet_address = transaction.get_origin().address_mainnet();
-            let testnet_address = transaction.get_origin().address_testnet();
-
-            // info!("version {:?}", &version);
-            // info!("chain_id {:?}", &chain_id);
-            // info!("mainnet_address {:?}", &mainnet_address);
-            // info!("testnet_address {:?}", &testnet_address);
-
-            let effective_address = match version {
-                TransactionVersion::Mainnet => transaction.get_origin().address_mainnet(),
-                TransactionVersion::Testnet => transaction.get_origin().address_testnet(),
-            };
-            // info!("effective_address {:?}", &effective_address);
-
-            let value = self.nonce_map.get(&effective_address).unwrap_or(&0u64);
-            let add_one = value + 1;
-            self.nonce_map.insert(effective_address, add_one);
-
-            // step 2: drop seen transactions
-            let existing = self.transaction_map.get(&transaction.txid());
-            // debug!("append_block: existing: {:?}", &existing);
-            if (existing.is_some()) {
-                self.transaction_map.remove(&transaction.txid());
-            }
-        }
+        // do nothing here now
     }
 
     /// Ingest this transaction.
