@@ -1125,8 +1125,30 @@ impl MemPoolDB {
         // time spent bumping nonce
         let mut total_bump_nonce_time = Duration::ZERO;
 
-        let consider_transactions = SINGLE_FAST_POOL.lock().unwrap().get_active_transactions();
+        let mut total_lookup_nonce_time = Duration::ZERO;
+
+        let consider_transactions = SINGLE_FAST_POOL.lock().unwrap().get_all_transactions();
         for tx_info in consider_transactions {
+
+            let lookup_nonce_start = Instant::now();
+            let expected_origin_nonce =
+                StacksChainState::get_nonce(clarity_tx, &tx_info.tx.origin_address().into());
+
+            if expected_origin_nonce != tx_info.tx.get_origin_nonce() {
+                info!("origin nonce difference {:?} vs {}", &tx_info.tx, expected_origin_nonce);
+                continue;
+            }
+            if tx_info.tx.get_sponsor_nonce().is_some() {
+                let expected_sponsor_nonce =
+                    StacksChainState::get_nonce(clarity_tx, &tx_info.tx.sponsor_address().unwrap().into());
+                if expected_sponsor_nonce != tx_info.tx.get_sponsor_nonce().unwrap() {
+                    info!("sponsor nonce difference {:?} vs {}", &tx_info.tx, expected_sponsor_nonce);
+                    continue;
+                }
+            }
+
+            total_lookup_nonce_time += lookup_nonce_start.elapsed();
+
             let consider = ConsiderTransaction {
                 tx: tx_info,
                 update_estimate: false,
@@ -1178,8 +1200,8 @@ impl MemPoolDB {
 
         total_outside_time += last_time - Instant::now();
         info!(
-            "total_inside_time: {:?} total_outside_time: {:?} total_consider_next_time: {:?} total_update_nonce_time: {:?} total_bump_nonce_time: {:?}",
-            &total_inside_time, &total_outside_time, &total_consider_next_time, &total_update_nonce_time, &total_bump_nonce_time
+            "total_inside_time: {:?} total_outside_time: {:?} total_consider_next_time: {:?} total_update_nonce_time: {:?} total_bump_nonce_time: {:?} total_lookup_nonce_time {:?}",
+            &total_inside_time, &total_outside_time, &total_consider_next_time, &total_update_nonce_time, &total_bump_nonce_time, &total_lookup_nonce_time,
         );
         info!(
             "Mempool iteration finished";
@@ -2133,8 +2155,8 @@ impl FastMempool {
         self.transaction_map.insert(txid, tx_info);
     }
 
-    /// Return those transactions where the active nonce matches the one internally.
-    pub fn get_active_transactions(&self) -> Vec<MemPoolTxInfo> {
+    /// Return *all* transactions.
+    pub fn get_all_transactions(&self) -> Vec<MemPoolTxInfo> {
         info!(
             "get_active_transactions self.transaction_map {}",
             self.transaction_map.len(),
@@ -2150,19 +2172,21 @@ impl FastMempool {
         let mut num_matching = 0;
         let mut num_different = 0;
         for (k, v) in &self.transaction_map {
-            let supplied_nonce = v.tx.get_origin_nonce();
-            let origin_address = v.tx.origin_address();
-            let expected_nonce = *self.nonce_map.get(&origin_address).unwrap_or(&0);
-            debug!(
-                "&sponsor_address {:?}, supplied_nonce {:?}, expected_nonce{:?}",
-                &origin_address, supplied_nonce, expected_nonce
-            );
-            if expected_nonce == supplied_nonce {
-                num_matching += 1;
-                result.push(v.clone());
-            } else {
-                num_different += 1;
-            }
+            result.push(v.clone());
+
+            // let supplied_nonce = v.tx.get_origin_nonce();
+            // let origin_address = v.tx.origin_address();
+            // let expected_nonce = *self.nonce_map.get(&origin_address).unwrap_or(&0);
+            // debug!(
+            //     "&sponsor_address {:?}, supplied_nonce {:?}, expected_nonce{:?}",
+            //     &origin_address, supplied_nonce, expected_nonce
+            // );
+            // if expected_nonce == supplied_nonce {
+            //     num_matching += 1;
+            //     result.push(v.clone());
+            // } else {
+            //     num_different += 1;
+            // }
         }
 
         info!(
