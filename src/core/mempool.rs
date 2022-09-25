@@ -235,6 +235,9 @@ pub trait MemPoolEventDispatcher {
 pub struct MemPoolTxInfo {
     pub tx: StacksTransaction,
     pub metadata: MemPoolTxMetadata,
+
+    // Using Option. When is this null?
+    pub fee_rate:Option<f64>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -336,8 +339,9 @@ impl FromRow<MemPoolTxInfo> for MemPoolTxInfo {
         }
 
         Ok(MemPoolTxInfo {
-            tx: tx,
+            tx,
             metadata: md,
+            fee_rate: None,
         })
     }
 }
@@ -641,7 +645,7 @@ impl MemPoolTxInfo {
             last_known_origin_nonce: None,
             last_known_sponsor_nonce: None,
         };
-        MemPoolTxInfo { tx, metadata }
+        MemPoolTxInfo { tx, metadata, fee_rate: None }
     }
 }
 
@@ -2123,6 +2127,7 @@ impl FastMempool {
         let tx_info = MemPoolTxInfo {
             tx: transaction,
             metadata: tx_metadata,
+            fee_rate: None,
         };
         // info!("ingest transcation: {:?}", &transaction);
         self.transaction_map.insert(txid, tx_info);
