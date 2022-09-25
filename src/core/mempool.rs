@@ -992,6 +992,7 @@ impl MemPoolDB {
                 }
             };
 
+            // Add a hook here.
             sql_tx.execute(
                 "INSERT OR REPLACE INTO fee_estimates(txid, fee_rate) VALUES (?, ?)",
                 rusqlite::params![&txid, fee_rate_f64],
@@ -1651,6 +1652,7 @@ impl MemPoolDB {
             event_observer,
         )?;
 
+        // Add a hook here.
         mempool_tx
             .execute(
                 "INSERT OR REPLACE INTO fee_estimates(txid, fee_rate) VALUES (?, ?)",
