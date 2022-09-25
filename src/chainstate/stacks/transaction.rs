@@ -559,6 +559,10 @@ impl StacksTransaction {
         // self.auth.get_tx_fee()
     }
 
+    pub fn get_real_tx_fee(&self) -> u64 {
+        // 0u64
+        self.auth.get_tx_fee()
+    }
     /// Set fee rate
     pub fn set_tx_fee(&mut self, tx_fee: u64) -> () {
         self.auth.set_tx_fee(tx_fee);

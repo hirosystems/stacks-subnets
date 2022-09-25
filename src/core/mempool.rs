@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::cmp;
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::hash::Hasher;
@@ -1155,9 +1156,10 @@ impl MemPoolDB {
 
         let mut total_lookup_nonce_time = Duration::ZERO;
 
-        let consider_transactions = SINGLE_FAST_POOL.lock().unwrap().get_all_transactions();
-        for tx_info in consider_transactions {
+        let all_consider_transactions = SINGLE_FAST_POOL.lock().unwrap().get_all_transactions();
 
+        let mut filtered_transactions = vec![];
+        for tx_info in all_consider_transactions {
             let lookup_nonce_start = Instant::now();
             let expected_origin_nonce =
                 StacksChainState::get_nonce(clarity_tx, &tx_info.tx.origin_address().into());
@@ -1177,10 +1179,29 @@ impl MemPoolDB {
 
             total_lookup_nonce_time += lookup_nonce_start.elapsed();
 
+
+            filtered_transactions.push(tx_info.clone());
+        }
+
+        filtered_transactions.sort_by(|a, b| {
+            let a_rate = a.fee_rate.unwrap_or(0f64);
+            let b_rate = b.fee_rate.unwrap_or(0f64);
+            if a_rate < b_rate {
+                Ordering::Greater
+            } else if a_rate > b_rate {
+                Ordering::Less
+            } else {
+                Ordering::Equal
+            }
+        });
+        for (tx_idx, tx_info) in filtered_transactions.iter().enumerate() {
+
+            info!("tx_idx {} tx_info {:?}", &tx_idx, &tx_info.fee_rate);
             let consider = ConsiderTransaction {
-                tx: tx_info,
+                tx: tx_info.clone(),
                 update_estimate: false,
             };
+
             if start_time.elapsed().as_millis() > settings.max_walk_time_ms as u128 {
                 info!("Mempool iteration deadline exceeded";
                        "deadline_ms" => settings.max_walk_time_ms);
@@ -2149,7 +2170,7 @@ impl FastMempool {
         tx_metadata: MemPoolTxMetadata,
         fee_rate_estimate:Option<f64>,
     ) {
-        info!("fee_rate_estimate {:?}", &fee_rate_estimate);
+        // info!("fee_rate_estimate {:?}", &fee_rate_estimate);
         let txid = transaction.txid();
         let tx_info = MemPoolTxInfo {
             tx: transaction,
