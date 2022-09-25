@@ -976,6 +976,10 @@ impl MemPoolDB {
             &[max_updates],
         )?;
         let mut updated = 0;
+
+        let mut pool_guard = SINGLE_FAST_POOL.lock().unwrap();
+        let mut num_found_fee_rates = 0;
+        let mut num_none_fee_rates = 0;
         for tx_to_estimate in txs {
             let txid = tx_to_estimate.tx.txid();
             let estimator_result = cost_estimates::estimate_fee_rate(
@@ -1001,8 +1005,27 @@ impl MemPoolDB {
                 "INSERT OR REPLACE INTO fee_estimates(txid, fee_rate) VALUES (?, ?)",
                 rusqlite::params![&txid, fee_rate_f64],
             )?;
+
+            let tx_result = (*pool_guard).transaction_map.get(&txid);
+
+            match tx_result {
+                Some(result) => {
+                    num_found_fee_rates += 1;
+                    let mut r = result.clone();
+                    r.fee_rate = fee_rate_f64;
+                    (*pool_guard).transaction_map.insert(txid.clone(), r);
+                }
+                None => {
+                    num_none_fee_rates += 1;
+                    // pass
+                }
+            };
+
+
             updated += 1;
         }
+
+        info!("updated fee rates: num_found_fee_rates {}, num_none_fee_rates {}", num_found_fee_rates, num_none_fee_rates);
 
         sql_tx.commit()?;
 
@@ -1388,6 +1411,7 @@ impl MemPoolDB {
         sponsor_address: &StacksAddress,
         sponsor_nonce: u64,
         event_observer: Option<&dyn MemPoolEventDispatcher>,
+        fee_rate_estimate:Option<f64>,
     ) -> Result<(), MemPoolRejection> {
         let length = tx_bytes.len() as u64;
 
@@ -1506,7 +1530,7 @@ impl MemPoolDB {
         SINGLE_FAST_POOL
             .lock()
             .unwrap()
-            .ingest_transaction(transaction, tx_metadata);
+            .ingest_transaction(transaction, tx_metadata, fee_rate_estimate);
 
         tx.execute(sql, args)
             .map_err(|e| MemPoolRejection::DBError(db_error::SqliteError(e)))?;
@@ -1654,6 +1678,7 @@ impl MemPoolDB {
             &sponsor_address,
             sponsor_nonce,
             event_observer,
+            fee_rate_estimate,
         )?;
 
         // Add a hook here.
@@ -2122,12 +2147,14 @@ impl FastMempool {
         &mut self,
         transaction: StacksTransaction,
         tx_metadata: MemPoolTxMetadata,
+        fee_rate_estimate:Option<f64>,
     ) {
+        info!("fee_rate_estimate {:?}", &fee_rate_estimate);
         let txid = transaction.txid();
         let tx_info = MemPoolTxInfo {
             tx: transaction,
             metadata: tx_metadata,
-            fee_rate: None,
+            fee_rate: fee_rate_estimate,
         };
         // info!("ingest transcation: {:?}", &transaction);
         self.transaction_map.insert(txid, tx_info);
