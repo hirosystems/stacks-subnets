@@ -1,14 +1,13 @@
-FROM blockstack/stacks-blockchain:2.05.0.2.0-stretch as stacks-node
+FROM stacks-blockchain:2.1-stretch as stacks-node
 
 FROM rust:stretch AS test
 
 WORKDIR /build
 
-RUN rustup override set nightly-2022-01-14 && \
-    rustup component add llvm-tools-preview && \
+RUN rustup component add llvm-tools-preview && \
     cargo install grcov
 
-ENV RUSTFLAGS="-Zinstrument-coverage" \
+ENV RUSTFLAGS="-Cinstrument-coverage" \
     LLVM_PROFILE_FILE="stacks-blockchain-%p-%m.profraw" \
     STACKS_NODE_TEST="1"
 
