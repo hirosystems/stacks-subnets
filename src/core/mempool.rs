@@ -1192,7 +1192,7 @@ impl MemPoolDB {
     // Return the results in a very "minimal", or "lazy", representation.
     // Note: Delay deserialization until we know we want to process this.
     pub fn get_all_txs_minimal(conn: &DBConn) -> Result<Vec<MemPoolTxMinimalInfo>, db_error> {
-        let sql = "SELECT txid, origin_nonce, origin_address, sponsor_nonce, sponsor_address, tx_fee FROM mempool";
+        let sql = "SELECT txid, origin_nonce, origin_address, sponsor_nonce, sponsor_address, fee_rate FROM mempool";
         let rows = query_rows::<MemPoolTxMinimalInfo, _>(conn, &sql, NO_PARAMS)?;
         Ok(rows)
     }
