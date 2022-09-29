@@ -242,7 +242,7 @@ pub struct MemPoolTxInfo {
 #[derive(Debug, PartialEq, Clone)]
 pub struct MemPoolTxMinimalInfo {
     pub txid: Txid,
-    pub fee_rate: f64,
+    pub fee_rate: Option<f64>,
     pub origin_address: StacksAddress,
     pub origin_nonce: u64,
     // TODO: Add sponsor nonces. Blocker was I wasn't initially sure how to handle the Option.
@@ -356,7 +356,10 @@ impl FromRow<MemPoolTxInfo> for MemPoolTxInfo {
 impl FromRow<MemPoolTxMinimalInfo> for MemPoolTxMinimalInfo {
     fn from_row<'a>(row: &'a Row) -> Result<MemPoolTxMinimalInfo, db_error> {
         let txid = Txid::from_column(row, "txid")?;
-        let fee_rate: f64 = row.get("fee_rate")?;
+        let fee_rate: Option<f64> = match row.get("fee_rate") {
+            Ok(rate) => Some(rate),
+            Err(_) => None,
+        };
         let origin_address = StacksAddress::from_column(row, "origin_address")?;
         let origin_nonce = u64::from_column(row, "origin_nonce")?;
 
