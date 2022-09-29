@@ -387,6 +387,7 @@ const MEMPOOL_INITIAL_SCHEMA: &'static [&'static str] = &[r#"
         sponsor_address TEXT NOT NULL,
         sponsor_nonce INTEGER NOT NULL,
         tx_fee INTEGER NOT NULL,
+        fee_rate NUMBER,
         length INTEGER NOT NULL,
         consensus_hash TEXT NOT NULL,
         block_header_hash TEXT NOT NULL,
@@ -1325,6 +1326,7 @@ impl MemPoolDB {
         txid: Txid,
         tx_bytes: Vec<u8>,
         tx_fee: u64,
+        fee_rate_estimate: Option<f64>,
         height: u64,
         origin_address: &StacksAddress,
         origin_nonce: u64,
@@ -1404,13 +1406,14 @@ impl MemPoolDB {
             sponsor_address,
             sponsor_nonce,
             tx_fee,
+            fee_rate,
             length,
             consensus_hash,
             block_header_hash,
             height,
             accept_time,
             tx)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)";
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)";
 
         let args: &[&dyn ToSql] = &[
             &txid,
@@ -1419,6 +1422,7 @@ impl MemPoolDB {
             &sponsor_address.to_string(),
             &u64_to_sql(sponsor_nonce)?,
             &u64_to_sql(tx_fee)?,
+            &fee_rate_estimate,
             &u64_to_sql(length)?,
             consensus_hash,
             block_header_hash,
@@ -1567,6 +1571,7 @@ impl MemPoolDB {
             txid.clone(),
             tx_data,
             tx_fee,
+            fee_rate_estimate,
             height,
             &origin_address,
             origin_nonce,
