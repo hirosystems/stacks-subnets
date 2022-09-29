@@ -242,7 +242,7 @@ pub struct MemPoolTxInfo {
 #[derive(Debug, PartialEq, Clone)]
 pub struct MemPoolTxMinimalInfo {
     pub txid: Txid,
-    pub tx_fee: u64,
+    pub fee_rate: f64,
     pub origin_address: StacksAddress,
     pub origin_nonce: u64,
     // TODO: Add sponsor nonces. Blocker was I wasn't initially sure how to handle the Option.
@@ -356,13 +356,13 @@ impl FromRow<MemPoolTxInfo> for MemPoolTxInfo {
 impl FromRow<MemPoolTxMinimalInfo> for MemPoolTxMinimalInfo {
     fn from_row<'a>(row: &'a Row) -> Result<MemPoolTxMinimalInfo, db_error> {
         let txid = Txid::from_column(row, "txid")?;
-        let tx_fee = u64::from_column(row, "tx_fee")?;
+        let fee_rate: f64 = row.get("fee_rate")?;
         let origin_address = StacksAddress::from_column(row, "origin_address")?;
         let origin_nonce = u64::from_column(row, "origin_nonce")?;
 
         Ok(MemPoolTxMinimalInfo {
             txid,
-            tx_fee,
+            fee_rate,
             origin_address,
             origin_nonce,
         })
@@ -1064,8 +1064,8 @@ impl MemPoolDB {
         let read_minimal_from_db_elapsed = read_minimal_from_db_start.elapsed();
         let sort_db_results_start = Instant::now();
         db_txs.sort_by(|a, b| {
-            let a_rate = a.tx_fee;
-            let b_rate = b.tx_fee;
+            let a_rate = a.fee_rate;
+            let b_rate = b.fee_rate;
             if a_rate < b_rate {
                 Ordering::Greater
             } else if a_rate > b_rate {
