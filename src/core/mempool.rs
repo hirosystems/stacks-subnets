@@ -1058,8 +1058,7 @@ impl MemPoolDB {
 
         info!("Mempool walk for {}ms", settings.max_walk_time_ms,);
 
-
-	// Read in all "minimal" mempool entries, and sort by fee rate.
+        // Read in all "minimal" mempool entries, and sort by fee rate.
         let read_minimal_from_db_start = Instant::now();
         let mut db_txs = MemPoolDB::get_all_txs_minimal(&self.conn())?;
         let read_minimal_from_db_elapsed = read_minimal_from_db_start.elapsed();
@@ -1098,7 +1097,7 @@ impl MemPoolDB {
             // TODO: Add sponsor nonce check here, when it is added to the struct.
             total_lookup_nonce_time += lookup_nonce_start.elapsed();
 
-	    // Read in and deserialize the transaction.
+            // Read in and deserialize the transaction.
             let tx_read_start = Instant::now();
             let tx_info_option = MemPoolDB::get_tx(&self.conn(), &tx_reduced_info.txid)?;
             let tx_read_elapsed = tx_read_start.elapsed();
