@@ -1,4 +1,4 @@
-;; Contains functions used in testing the hyperchains contract.
+;; Contains functions used in testing the subnet contract.
 
 ;; Returns the `id-header-hash` of the chain tip. This is used for `clarinet` tests
 ;; where we do not yet have access to this value through the API.

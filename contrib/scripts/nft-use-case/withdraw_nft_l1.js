@@ -14,15 +14,15 @@ import { StacksTestnet, HIRO_MOCKNET_DEFAULT } from '@stacks/network';
 // NOTE: The arguments to the `withdraw-nft-asset` function change with Stacks 2.1
 async function main() {
     const network = new StacksTestnet({url: HIRO_MOCKNET_DEFAULT});
-    const hyperchainUrl = process.env.HYPERCHAIN_URL;
-    const senderKey = process.env.AUTH_HC_MINER_KEY;
+    const subnetUrl = process.env.SUBNET_URL;
+    const senderKey = process.env.AUTH_SUBNET_MINER_KEY;
     const addr = process.env.ALT_USER_ADDR;
     const contractAddr = process.env.USER_ADDR;
     const withdrawalBlockHeight = process.argv[2];
     const nonce = parseInt(process.argv[3]);
     const withdrawalId = 0;
 
-    let json_merkle_entry = await fetch(`${hyperchainUrl}/v2/withdrawal/nft/${withdrawalBlockHeight}/${addr}/${withdrawalId}/${contractAddr}/simple-nft-l2/nft-token/5`).then(x => x.json())
+    let json_merkle_entry = await fetch(`${subnetUrl}/v2/withdrawal/nft/${withdrawalBlockHeight}/${addr}/${withdrawalId}/${contractAddr}/simple-nft-l2/nft-token/5`).then(x => x.json())
     let cv_merkle_entry = {
         withdrawal_leaf_hash: deserializeCV(json_merkle_entry.withdrawal_leaf_hash),
         withdrawal_root: deserializeCV(json_merkle_entry.withdrawal_root),
@@ -35,7 +35,7 @@ async function main() {
         network,
         anchorMode: AnchorMode.Any,
         contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-        contractName: "hc-alpha",
+        contractName: "subnet-alpha",
         functionName: "withdraw-nft-asset",
         functionArgs: [
             uintCV(5), // ID

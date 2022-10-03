@@ -391,7 +391,7 @@ paths:
       summary: Get merkle tree data associated with a processed NFT withdrawal.
       responses:
         200:
-          description: The merkle leaf hash, root hash, and merkle proof path for the requested withdrawal entry. These are used as parameters to the `nft-withdraw` method of a layer-1 hyperchains contract, and returned as hex-encoded Clarity serialized values.
+          description: The merkle leaf hash, root hash, and merkle proof path for the requested withdrawal entry. These are used as parameters to the `nft-withdraw` method of a layer-1 subnet contract, and returned as hex-encoded Clarity serialized values.
           content:
             application/json:
               schema:
@@ -404,7 +404,7 @@ paths:
       summary: Get merkle tree data associated with a processed STX withdrawal.
       responses:
         200:
-          description: The merkle leaf hash, root hash, and merkle proof path for the requested withdrawal entry. These are used as parameters to the `stx-withdraw` method of a layer-1 hyperchains contract, and returned as hex-encoded Clarity serialized values.
+          description: The merkle leaf hash, root hash, and merkle proof path for the requested withdrawal entry. These are used as parameters to the `stx-withdraw` method of a layer-1 subnet contract, and returned as hex-encoded Clarity serialized values.
           content:
             application/json:
               schema:

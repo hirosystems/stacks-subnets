@@ -428,13 +428,13 @@ impl TestBurnchainBlock {
             &self.parent_snapshot.index_root,
             self.fork_id,
         );
-        let mock_bitcoin_block = StacksHyperBlock {
+        let mock_bitcoin_block = StacksSubnetBlock {
             current_block: StacksBlockId(block_hash.0.clone()),
             parent_block: StacksBlockId(self.parent_snapshot.burn_header_hash.0.clone()),
             ops: vec![],
             block_height: self.block_height,
         };
-        let block = BurnchainBlock::StacksHyperBlock(mock_bitcoin_block);
+        let block = BurnchainBlock::StacksSubnetBlock(mock_bitcoin_block);
 
         // this is basically lifted verbatum from Burnchain::process_block_ops()
 
@@ -482,13 +482,13 @@ impl TestBurnchainBlock {
             &self.parent_snapshot.index_root,
             self.fork_id,
         );
-        let mock_bitcoin_block = StacksHyperBlock {
+        let mock_bitcoin_block = StacksSubnetBlock {
             current_block: StacksBlockId(block_hash.0.clone()),
             parent_block: StacksBlockId(self.parent_snapshot.burn_header_hash.0.clone()),
             ops: vec![],
             block_height: self.block_height,
         };
-        let block = BurnchainBlock::StacksHyperBlock(mock_bitcoin_block);
+        let block = BurnchainBlock::StacksSubnetBlock(mock_bitcoin_block);
 
         test_debug!(
             "Process PoX block {} {}",
@@ -947,7 +947,7 @@ fn create_stacks_events_failures_general() {
     for (test_input, expected_err) in inputs.iter() {
         let value = execute(test_input).unwrap().unwrap();
         let err_str =
-            StacksHyperOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
+            StacksSubnetOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
                 .unwrap_err();
         assert!(
             err_str.starts_with(expected_err),
@@ -975,7 +975,7 @@ fn create_stacks_events_failures_block_commit() {
     for (test_input, expected_err) in inputs.iter() {
         let value = execute(test_input).unwrap().unwrap();
         let err_str =
-            StacksHyperOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
+            StacksSubnetOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
                 .unwrap_err();
         assert!(
             err_str.starts_with(expected_err),
@@ -1002,7 +1002,7 @@ fn create_stacks_events_failures_deposit_stx() {
     for (test_input, expected_err) in inputs.iter() {
         let value = execute(test_input).unwrap().unwrap();
         let err_str =
-            StacksHyperOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
+            StacksSubnetOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
                 .unwrap_err();
         assert!(
             err_str.starts_with(expected_err),
@@ -1018,51 +1018,51 @@ fn create_stacks_events_failures_deposit_ft() {
     let inputs = [
         (
             r#"{ event: "deposit-ft", l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft",
-            hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft"   }"#,
+            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft"   }"#,
             "No 'ft-amount' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft"  }"#,
+            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft"  }"#,
             "No 'ft-name' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            ft-name: "simple-ft", hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, hc-function-name: "hyperchain-deposit-simple-ft" }"#,
+            ft-name: "simple-ft", subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, subnet-function-name: "subnet-deposit-simple-ft" }"#,
             "No 'sender' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, ft-name: "simple-ft",
-            hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H,
-            hc-function-name: "hyperchain-deposit-simple-ft"  }"#,
+            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H,
+            subnet-function-name: "subnet-deposit-simple-ft"  }"#,
             "No 'l1-contract-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H, ft-name: "simple-ft",
-            hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft"  }"#,
+            subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft"  }"#,
             "Expected 'l1-contract-id' to be a contract principal",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            ft-name: "simple-ft", sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft"  }"#,
-            "No 'hc-contract-id' field in Clarity tuple",
+            ft-name: "simple-ft", sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft"  }"#,
+            "No 'subnet-contract-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            ft-name: "simple-ft", hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH, sender: 'ST000000000000000000002AMW42H,
-            hc-function-name: "hyperchain-deposit-simple-ft"  }"#,
-            "Expected 'hc-contract-id' to be a contract principal",
+            ft-name: "simple-ft", subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH, sender: 'ST000000000000000000002AMW42H,
+            subnet-function-name: "subnet-deposit-simple-ft"  }"#,
+            "Expected 'subnet-contract-id' to be a contract principal",
         ),
         (
-            r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,
-            "No 'hc-function-name' field in Clarity tuple",
+            r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,
+            "No 'subnet-function-name' field in Clarity tuple",
         ),
     ];
 
     for (test_input, expected_err) in inputs.iter() {
         let value = execute(test_input).unwrap().unwrap();
         let err_str =
-            StacksHyperOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
+            StacksSubnetOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
                 .unwrap_err();
         assert!(
             err_str.starts_with(expected_err),
@@ -1078,47 +1078,47 @@ fn create_stacks_events_failures_deposit_nft() {
     let inputs = [
         (
             r#"{ event: "deposit-nft", l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H,
-            hc-function-name: "hyperchain-deposit-simple-nft"  }"#,
+            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H,
+            subnet-function-name: "subnet-deposit-simple-nft"  }"#,
             "No 'nft-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, hc-function-name: "hyperchain-deposit-simple-nft" }"#,
+            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, subnet-function-name: "subnet-deposit-simple-nft" }"#,
             "No 'sender' field in Clarity tuple",
         ),
         (
-            r#"{ event: "deposit-nft", nft-id: u100, hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft,
-            sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-nft"  }"#,
+            r#"{ event: "deposit-nft", nft-id: u100, subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft,
+            sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-nft"  }"#,
             "No 'l1-contract-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H,
-            hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H,
-            hc-function-name: "hyperchain-deposit-simple-nft"  }"#,
+            subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H,
+            subnet-function-name: "subnet-deposit-simple-nft"  }"#,
             "Expected 'l1-contract-id' to be a contract principal",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-nft"  }"#,
-            "No 'hc-contract-id' field in Clarity tuple",
+            sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-nft"  }"#,
+            "No 'subnet-contract-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH, sender: 'ST000000000000000000002AMW42H,
-            hc-function-name: "hyperchain-deposit-simple-nft"  }"#,
-            "Expected 'hc-contract-id' to be a contract principal",
+            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH, sender: 'ST000000000000000000002AMW42H,
+            subnet-function-name: "subnet-deposit-simple-nft"  }"#,
+            "Expected 'subnet-contract-id' to be a contract principal",
         ),
         (
-            r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,
-            "No 'hc-function-name' field in Clarity tuple",
+            r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,
+            "No 'subnet-function-name' field in Clarity tuple",
         ),
     ];
 
     for (test_input, expected_err) in inputs.iter() {
         let value = execute(test_input).unwrap().unwrap();
         let err_str =
-            StacksHyperOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
+            StacksSubnetOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
                 .unwrap_err();
         assert!(
             err_str.starts_with(expected_err),
@@ -1145,7 +1145,7 @@ fn create_stacks_events_failures_withdraw_stx() {
     for (test_input, expected_err) in inputs.iter() {
         let value = execute(test_input).unwrap().unwrap();
         let err_str =
-            StacksHyperOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
+            StacksSubnetOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
                 .unwrap_err();
         assert!(
             err_str.starts_with(expected_err),
@@ -1189,7 +1189,7 @@ fn create_stacks_events_failures_withdraw_ft() {
     for (test_input, expected_err) in inputs.iter() {
         let value = execute(test_input).unwrap().unwrap();
         let err_str =
-            StacksHyperOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
+            StacksSubnetOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
                 .unwrap_err();
         assert!(
             err_str.starts_with(expected_err),
@@ -1226,7 +1226,7 @@ fn create_stacks_events_failures_withdraw_nft() {
     for (test_input, expected_err) in inputs.iter() {
         let value = execute(test_input).unwrap().unwrap();
         let err_str =
-            StacksHyperOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
+            StacksSubnetOp::try_from_clar_value(value, Txid([0; 32]), 0, &StacksBlockId([0; 32]))
                 .unwrap_err();
         assert!(
             err_str.starts_with(expected_err),
@@ -1240,10 +1240,10 @@ fn create_stacks_events_failures_withdraw_nft() {
 #[test]
 fn create_stacks_event_block_for_block_commit() {
     let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "hc-contract-1".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
 
     let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "hc-contract-2".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
 
     // include one "good" event in the block, and two skipped events
     let input = NewBlock {
@@ -1300,7 +1300,7 @@ fn create_stacks_event_block_for_block_commit() {
         ],
     };
 
-    let stacks_event_block = StacksHyperBlock::from_new_block_event(&watched_contract, input);
+    let stacks_event_block = StacksSubnetBlock::from_new_block_event(&watched_contract, input);
 
     assert_eq!(stacks_event_block.block_height, 1);
     assert_eq!(stacks_event_block.current_block, StacksBlockId([1; 32]));
@@ -1316,10 +1316,10 @@ fn create_stacks_event_block_for_block_commit() {
 #[test]
 fn create_stacks_event_block_for_deposit_stx() {
     let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "hc-contract-1".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
 
     let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "hc-contract-2".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
 
     // include one "good" event in the block, and three skipped events
     let input = NewBlock {
@@ -1391,7 +1391,7 @@ fn create_stacks_event_block_for_deposit_stx() {
         ],
     };
 
-    let stacks_event_block = StacksHyperBlock::from_new_block_event(&watched_contract, input);
+    let stacks_event_block = StacksSubnetBlock::from_new_block_event(&watched_contract, input);
 
     assert_eq!(stacks_event_block.block_height, 1);
     assert_eq!(stacks_event_block.current_block, StacksBlockId([1; 32]));
@@ -1407,10 +1407,10 @@ fn create_stacks_event_block_for_deposit_stx() {
 #[test]
 fn create_stacks_event_block_for_deposit_ft() {
     let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "hc-contract-1".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
 
     let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "hc-contract-2".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
 
     // include one "good" event in the block, and three skipped events
     let input = NewBlock {
@@ -1429,7 +1429,7 @@ fn create_stacks_event_block_for_deposit_ft() {
                     ContractEvent {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
-                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,)
+                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1444,7 +1444,7 @@ fn create_stacks_event_block_for_deposit_ft() {
                     ContractEvent {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
-                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft" }"#,)
+                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft" }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1459,7 +1459,7 @@ fn create_stacks_event_block_for_deposit_ft() {
                     ContractEvent {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
-                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft"  }"#,)
+                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft"  }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1474,7 +1474,7 @@ fn create_stacks_event_block_for_deposit_ft() {
                     ContractEvent {
                         contract_identifier: ignored_contract.clone(),
                         topic: "print".into(),
-                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft" }"#)
+                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft" }"#)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1482,7 +1482,7 @@ fn create_stacks_event_block_for_deposit_ft() {
         ],
     };
 
-    let stacks_event_block = StacksHyperBlock::from_new_block_event(&watched_contract, input);
+    let stacks_event_block = StacksSubnetBlock::from_new_block_event(&watched_contract, input);
 
     assert_eq!(stacks_event_block.block_height, 1);
     assert_eq!(stacks_event_block.current_block, StacksBlockId([1; 32]));
@@ -1498,10 +1498,10 @@ fn create_stacks_event_block_for_deposit_ft() {
 #[test]
 fn create_stacks_event_block_for_deposit_nft() {
     let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "hc-contract-1".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
 
     let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "hc-contract-2".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
 
     // include one "good" event in the block, and three skipped events
     let input = NewBlock {
@@ -1520,7 +1520,7 @@ fn create_stacks_event_block_for_deposit_nft() {
                     ContractEvent {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
-                        value: execute(r#"{ event: "deposit-nft", nft-id: u100, hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,)
+                        value: execute(r#"{ event: "deposit-nft", nft-id: u100, subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1536,7 +1536,7 @@ fn create_stacks_event_block_for_deposit_nft() {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
                         value: execute(r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-                                hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-nft"  }"#,)
+                                subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-nft"  }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1552,7 +1552,7 @@ fn create_stacks_event_block_for_deposit_nft() {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
                         value: execute(r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-                                hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-nft"  }"#,)
+                                subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-nft"  }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1568,7 +1568,7 @@ fn create_stacks_event_block_for_deposit_nft() {
                         contract_identifier: ignored_contract.clone(),
                         topic: "print".into(),
                         value: execute(r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-                                hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-nft"  }"#)
+                                subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-nft"  }"#)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1576,7 +1576,7 @@ fn create_stacks_event_block_for_deposit_nft() {
         ],
     };
 
-    let stacks_event_block = StacksHyperBlock::from_new_block_event(&watched_contract, input);
+    let stacks_event_block = StacksSubnetBlock::from_new_block_event(&watched_contract, input);
 
     assert_eq!(stacks_event_block.block_height, 1);
     assert_eq!(stacks_event_block.current_block, StacksBlockId([1; 32]));
@@ -1592,10 +1592,10 @@ fn create_stacks_event_block_for_deposit_nft() {
 #[test]
 fn create_stacks_event_block_for_withdraw_stx() {
     let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "hc-contract-1".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
 
     let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "hc-contract-2".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
 
     // include one "good" event in the block, and three skipped events
     let input = NewBlock {
@@ -1667,7 +1667,7 @@ fn create_stacks_event_block_for_withdraw_stx() {
         ],
     };
 
-    let stacks_event_block = StacksHyperBlock::from_new_block_event(&watched_contract, input);
+    let stacks_event_block = StacksSubnetBlock::from_new_block_event(&watched_contract, input);
 
     assert_eq!(stacks_event_block.block_height, 1);
     assert_eq!(stacks_event_block.current_block, StacksBlockId([1; 32]));
@@ -1683,10 +1683,10 @@ fn create_stacks_event_block_for_withdraw_stx() {
 #[test]
 fn create_stacks_event_block_for_withdraw_ft() {
     let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "hc-contract-1".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
 
     let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "hc-contract-2".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
 
     // include one "good" event in the block, and three skipped events
     let input = NewBlock {
@@ -1722,7 +1722,7 @@ fn create_stacks_event_block_for_withdraw_ft() {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
                         value: execute(r#"{ event: "withdraw-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-                                ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, recipient: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-withdraw-simple-ft"  }"#,)
+                                ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, recipient: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-withdraw-simple-ft"  }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1762,7 +1762,7 @@ fn create_stacks_event_block_for_withdraw_ft() {
         ],
     };
 
-    let stacks_event_block = StacksHyperBlock::from_new_block_event(&watched_contract, input);
+    let stacks_event_block = StacksSubnetBlock::from_new_block_event(&watched_contract, input);
 
     assert_eq!(stacks_event_block.block_height, 1);
     assert_eq!(stacks_event_block.current_block, StacksBlockId([1; 32]));
@@ -1778,10 +1778,10 @@ fn create_stacks_event_block_for_withdraw_ft() {
 #[test]
 fn create_stacks_event_block_for_withdraw_nft() {
     let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "hc-contract-1".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
 
     let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "hc-contract-2".into());
+        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
 
     // include one "good" event in the block, and three skipped events
     let input = NewBlock {
@@ -1856,7 +1856,7 @@ fn create_stacks_event_block_for_withdraw_nft() {
         ],
     };
 
-    let stacks_event_block = StacksHyperBlock::from_new_block_event(&watched_contract, input);
+    let stacks_event_block = StacksSubnetBlock::from_new_block_event(&watched_contract, input);
 
     assert_eq!(stacks_event_block.block_height, 1);
     assert_eq!(stacks_event_block.current_block, StacksBlockId([1; 32]));

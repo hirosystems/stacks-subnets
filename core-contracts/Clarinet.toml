@@ -25,15 +25,15 @@ depends_on = ["trait-standards"]
 path = "contracts/helper/simple-ft.clar"
 depends_on = ["trait-standards"]
 
-[contracts.hyperchains]
-path = "contracts/hyperchains.clar"
+[contracts.subnet]
+path = "contracts/subnet.clar"
 depends_on = ["trait-standards"]
 clarity_version = 2 
 epoch = 2.1
 
 [contracts.multi-miner]
 path = "contracts/multi-miner.clar"
-depends_on = ["hyperchains"]
+depends_on = ["subnet"]
 clarity_version = 2 
 epoch = 2.1
 
