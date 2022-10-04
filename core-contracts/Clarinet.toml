@@ -5,25 +5,31 @@ name = "core-contracts"
 [contracts.trait-standards]
 path = "contracts/helper/trait-standards.clar"
 depends_on = []
+clarity_version = 2
 
 [contracts.simple-nft]
 path = "contracts/helper/simple-nft.clar"
 depends_on = ["trait-standards"]
+clarity_version = 2
 
 [contracts.simple-nft-no-mint]
 path = "contracts/helper/simple-nft-no-mint.clar"
+clarity_version = 2
 
 [contracts.second-simple-nft]
 path = "contracts/helper/simple-nft.clar"
 depends_on = ["trait-standards"]
+clarity_version = 2
 
 [contracts.simple-ft]
 path = "contracts/helper/simple-ft.clar"
 depends_on = ["trait-standards"]
+clarity_version = 2
 
 [contracts.second-simple-ft]
 path = "contracts/helper/simple-ft.clar"
 depends_on = ["trait-standards"]
+clarity_version = 2
 
 [contracts.subnet]
 path = "contracts/subnet.clar"
@@ -40,3 +46,4 @@ epoch = 2.1
 [contracts.test-helpers]
 path = "contracts/helper/test-helpers.clar"
 depends_on = []
+clarity_version = 2
