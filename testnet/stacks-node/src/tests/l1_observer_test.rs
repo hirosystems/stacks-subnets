@@ -261,7 +261,11 @@ fn select_transactions_where(
 
 /// Uses MOCKNET_PRIVATE_KEY_1 to publish the subnet contract and supporting
 ///  trait contracts
-pub fn publish_subnet_contracts_to_l1(mut l1_nonce: u64, config: &Config, miner: PrincipalData) -> u64 {
+pub fn publish_subnet_contracts_to_l1(
+    mut l1_nonce: u64, 
+    config: &Config, 
+    miner: PrincipalData
+) -> u64 {
     let trait_standard_contract_name = "trait-standards";
     let l1_rpc_origin = config.burnchain.get_rpc_url();
     // Publish the trait contract
@@ -2409,7 +2413,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     );
 
     let subnet_native_nft_withdrawal_key =
-        generate_key_from_event(&mut subnet_native_nft_withdraw_event, 1, withdrawal_height).unwrap();
+        generate_key_from_event(&mut subnet_native_nft_withdraw_event, 1, withdrawal_height)
+            .unwrap();
     let subnet_native_nft_withdrawal_key_bytes =
         convert_withdrawal_key_to_bytes(&subnet_native_nft_withdrawal_key);
     let subnet_native_nft_withdrawal_leaf_hash = MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(
