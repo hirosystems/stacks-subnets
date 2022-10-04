@@ -1239,11 +1239,15 @@ fn create_stacks_events_failures_withdraw_nft() {
 
 #[test]
 fn create_stacks_event_block_for_block_commit() {
-    let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
+    let watched_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [3; 20]),
+        "subnet-contract-1".into(),
+    );
 
-    let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
+    let ignored_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [2; 20]),
+        "subnet-contract-2".into(),
+    );
 
     // include one "good" event in the block, and two skipped events
     let input = NewBlock {
@@ -1315,11 +1319,15 @@ fn create_stacks_event_block_for_block_commit() {
 
 #[test]
 fn create_stacks_event_block_for_deposit_stx() {
-    let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
+    let watched_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [3; 20]),
+        "subnet-contract-1".into(),
+    );
 
-    let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
+    let ignored_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [2; 20]),
+        "subnet-contract-2".into(),
+    );
 
     // include one "good" event in the block, and three skipped events
     let input = NewBlock {
@@ -1406,11 +1414,15 @@ fn create_stacks_event_block_for_deposit_stx() {
 
 #[test]
 fn create_stacks_event_block_for_deposit_ft() {
-    let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
+    let watched_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [3; 20]),
+        "subnet-contract-1".into(),
+    );
 
-    let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
+    let ignored_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [2; 20]),
+        "subnet-contract-2".into(),
+    );
 
     // include one "good" event in the block, and three skipped events
     let input = NewBlock {
@@ -1497,11 +1509,15 @@ fn create_stacks_event_block_for_deposit_ft() {
 
 #[test]
 fn create_stacks_event_block_for_deposit_nft() {
-    let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
+    let watched_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [3; 20]),
+        "subnet-contract-1".into(),
+    );
 
-    let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
+    let ignored_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [2; 20]),
+        "subnet-contract-2".into(),
+    );
 
     // include one "good" event in the block, and three skipped events
     let input = NewBlock {
@@ -1591,11 +1607,15 @@ fn create_stacks_event_block_for_deposit_nft() {
 
 #[test]
 fn create_stacks_event_block_for_withdraw_stx() {
-    let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
+    let watched_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [3; 20]),
+        "subnet-contract-1".into(),
+    );
 
-    let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
+    let ignored_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [2; 20]),
+        "subnet-contract-2".into(),
+    );
 
     // include one "good" event in the block, and three skipped events
     let input = NewBlock {
@@ -1682,11 +1702,15 @@ fn create_stacks_event_block_for_withdraw_stx() {
 
 #[test]
 fn create_stacks_event_block_for_withdraw_ft() {
-    let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
+    let watched_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [3; 20]),
+        "subnet-contract-1".into(),
+    );
 
-    let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
+    let ignored_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [2; 20]),
+        "subnet-contract-2".into(),
+    );
 
     // include one "good" event in the block, and three skipped events
     let input = NewBlock {
@@ -1777,11 +1801,15 @@ fn create_stacks_event_block_for_withdraw_ft() {
 
 #[test]
 fn create_stacks_event_block_for_withdraw_nft() {
-    let watched_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [3; 20]), "subnet-contract-1".into());
+    let watched_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [3; 20]),
+        "subnet-contract-1".into(),
+    );
 
-    let ignored_contract =
-        QualifiedContractIdentifier::new(StandardPrincipalData(1, [2; 20]), "subnet-contract-2".into());
+    let ignored_contract = QualifiedContractIdentifier::new(
+        StandardPrincipalData(1, [2; 20]),
+        "subnet-contract-2".into(),
+    );
 
     // include one "good" event in the block, and three skipped events
     let input = NewBlock {

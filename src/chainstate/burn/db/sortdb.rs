@@ -283,7 +283,8 @@ impl FromRow<DepositFtOp> for DepositFtOp {
         let burn_header_hash = BurnchainHeaderHash::from_column(row, "l1_block_id")?;
 
         let l1_contract_id = QualifiedContractIdentifier::from_column(row, "l1_contract_id")?;
-        let subnet_contract_id = QualifiedContractIdentifier::from_column(row, "subnet_contract_id")?;
+        let subnet_contract_id =
+            QualifiedContractIdentifier::from_column(row, "subnet_contract_id")?;
         let subnet_function_name = ClarityName::from_column(row, "subnet_function_name")?;
         let name: String = row.get_unwrap("name");
         let amount_str: String = row.get_unwrap("amount");
@@ -310,7 +311,8 @@ impl FromRow<DepositNftOp> for DepositNftOp {
         let burn_header_hash = BurnchainHeaderHash::from_column(row, "l1_block_id")?;
 
         let l1_contract_id = QualifiedContractIdentifier::from_column(row, "l1_contract_id")?;
-        let subnet_contract_id = QualifiedContractIdentifier::from_column(row, "subnet_contract_id")?;
+        let subnet_contract_id =
+            QualifiedContractIdentifier::from_column(row, "subnet_contract_id")?;
         let subnet_function_name = ClarityName::from_column(row, "subnet_function_name")?;
         let id_str: String = row.get_unwrap("id");
         let id = u128::from_str_radix(&id_str, 10).expect("CORRUPTION: bad u128 written to sortdb");

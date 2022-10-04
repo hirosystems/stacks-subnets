@@ -197,8 +197,7 @@ fn l1_multiparty_2_of_2_integration_test() {
     follower_config.node.chain_id = leader_config.node.chain_id;
 
     let follower_account = to_addr(&MOCKNET_PRIVATE_KEY_3);
-    follower_config.connection_options.subnet_validator =
-        follower_config.node.mining_key.clone();
+    follower_config.connection_options.subnet_validator = follower_config.node.mining_key.clone();
     follower_config.node.rpc_bind = "127.0.0.1:30643".into();
     follower_config.node.data_url = "http://127.0.0.1:30643".into();
     follower_config.node.p2p_bind = "127.0.0.1:30644".into();
@@ -217,9 +216,7 @@ fn l1_multiparty_2_of_2_integration_test() {
         leader: false,
     };
 
-    follower_config
-        .connection_options
-        .subnet_signing_contract = Some(multi_party_contract.clone());
+    follower_config.connection_options.subnet_signing_contract = Some(multi_party_contract.clone());
 
     follower_config.add_bootstrap_node(
         "024d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766@127.0.0.1:30444",

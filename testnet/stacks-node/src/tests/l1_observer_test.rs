@@ -262,9 +262,9 @@ fn select_transactions_where(
 /// Uses MOCKNET_PRIVATE_KEY_1 to publish the subnet contract and supporting
 ///  trait contracts
 pub fn publish_subnet_contracts_to_l1(
-    mut l1_nonce: u64, 
-    config: &Config, 
-    miner: PrincipalData
+    mut l1_nonce: u64,
+    config: &Config,
+    miner: PrincipalData,
 ) -> u64 {
     let trait_standard_contract_name = "trait-standards";
     let l1_rpc_origin = config.burnchain.get_rpc_url();
