@@ -62,6 +62,7 @@
           (structured-hash (sha256 (concat sip18-data-prefix data-hash))))
           structured-hash))
 
+;; TODO: The hash needs to ingest the actual code from the trait not just the name
 (define-read-only (make-registration-hash (ft-data { contract: principal, deposit-fn-name: (string-ascii 45)}))
     (let ((data-buff (unwrap-panic (to-consensus-buff (merge ft-data { multi-contract: CONTRACT_ADDRESS }))))
           (data-hash (sha256 data-buff))
@@ -95,11 +96,12 @@
 
 (define-public (register-new-nft-contract (nft-contract <nft-trait>) (deposit-fn-name (string-ascii 45) )
                               (signatures (list 9 (buff 65))))
-    (let (registration-hash (make-registration-hash {contract: contract-of nft-contract, deposit-fn-name: deposit-fn-name }))
-          (signer-principals (try! (fold verify-sign-helper signatures (ok { registration-hash: registration-hash, signers: (list) }))))
-         ;; check that the caller is a direct caller!
-         (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
-         ;; check that we have enough signatures
-         (try! (check-miners (append (get signers signer-principals) tx-sender)))
-         ;; execute the registration
-         (as-contract (contract-call? .hyperchains register-new-nft-contract nft-contract deposit-fn-name))))
+                              (as-contract (contract-call? .hyperchains register-new-nft-contract nft-contract deposit-fn-name)))
+;;    (let (registration-hash (make-registration-hash {contract: contract-of nft-contract, deposit-fn-name: deposit-fn-name }))
+;;          (signer-principals (try! (fold verify-sign-helper signatures (ok { registration-hash: registration-hash, signers: (list) }))))
+;;         ;; check that the caller is a direct caller!
+;;         (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
+;;         ;; check that we have enough signatures
+;;         (try! (check-miners (append (get signers signer-principals) tx-sender)))
+;;         ;; execute the registration
+;;         (as-contract (contract-call? .hyperchains register-new-nft-contract nft-contract deposit-fn-name))) ;;)
