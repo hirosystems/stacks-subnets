@@ -62,6 +62,13 @@
           (structured-hash (sha256 (concat sip18-data-prefix data-hash))))
           structured-hash))
 
+(define-read-only (make-registration-hash (ft-data { contract: principal, deposit-fn-name: (string-ascii 45)}))
+    (let ((data-buff (unwrap-panic (to-consensus-buff (merge ft-data { multi-contract: CONTRACT_ADDRESS }))))
+          (data-hash (sha256 data-buff))
+          ;; in 2.0, this is a constant: 0xe2f4d0b1eca5f1b4eb853cd7f1c843540cfb21de8bfdaa59c504a6775cd2cfe9
+          (structured-hash (sha256 (concat sip18-data-prefix data-hash))))
+          structured-hash))
+
 (define-private (verify-sign-helper (curr-signature (buff 65))
                                     (accum (response { block-hash: (buff 32), signers: (list 9 principal) } int)))
     (match accum
@@ -71,6 +78,7 @@
                         (ok { block-hash: (get block-hash prior-okay),
                               signers: (unwrap-panic (as-max-len? (append (get signers prior-okay) curr-signer) u9)) }))
         prior-err (err prior-err)))
+
 
 (define-public (commit-block  (block-data { block: (buff 32), withdrawal-root: (buff 32), target-tip: (buff 32) })
                               (signatures (list 9 (buff 65))))
@@ -83,3 +91,15 @@
          ;; execute the block commit
          (as-contract (contract-call? .hyperchains commit-block (get block block-data) (get target-tip block-data) (get withdrawal-root block-data)))))
 
+;; copy nft function for ft
+
+(define-public (register-new-nft-contract (nft-contract <nft-trait>) (deposit-fn-name (string-ascii 45) )
+                              (signatures (list 9 (buff 65))))
+    (let (registration-hash (make-registration-hash {contract: contract-of nft-contract, deposit-fn-name: deposit-fn-name }))
+          (signer-principals (try! (fold verify-sign-helper signatures (ok { registration-hash: registration-hash, signers: (list) }))))
+         ;; check that the caller is a direct caller!
+         (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
+         ;; check that we have enough signatures
+         (try! (check-miners (append (get signers signer-principals) tx-sender)))
+         ;; execute the registration
+         (as-contract (contract-call? .hyperchains register-new-nft-contract nft-contract deposit-fn-name))))
