@@ -6772,3 +6772,67 @@ pub mod test {
     // TODO: confirm that we can process B and C separately, even though they're the same block
     // TODO: verify that the Clarity MARF stores _only_ Clarity data
 }
+
+/// Represents a proposed block from the 2-phase commit
+/// coordinator.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RegistrationProposal {
+    // block where the contract lives
+    pub contract_block_hash: BlockHeaderHash,
+    // name of the contract
+    pub contract: Principal,
+    // name of the deposit function
+    pub deposit_fn_name: String, // maybe this needs a max length?
+}
+
+impl Proposal {
+    /// Sign this proposal with `signing_key`, returning a serialized recoverable
+    /// signature that can be validated by the multiminer contract.
+    pub fn sign(
+        &self,
+        signing_key: &Secp256k1PrivateKey,
+        signing_contract: QualifiedContractIdentifier,
+    ) -> [u8; 65] {
+        // when using a 2.0 layer-1, must use a constant
+        // let structured_hash =
+        //     hex_bytes("e2f4d0b1eca5f1b4eb853cd7f1c843540cfb21de8bfdaa59c504a6775cd2cfe9")
+        //         .expect("Failed to parse hex constant");
+        // when using a 2.1 layer-1, this will need to use the structured data hash
+        let block_hash_buff = Value::buff_from(self.contract_block_hash.to_vec())
+            .expect("Failed to form Clarity buffer from block hash");
+        let contract_buff = Value::Principal(PrincipalData::Contract(contract))
+                .expect("Failed to form Clarity buffer from withdrawal root");
+        let target_tip = Value::buff_from(self.burn_tip.0.to_vec())
+            .expect("Failed to form Clarity buffer from target burnchain tip");
+        let signing_contract = Value::Principal(PrincipalData::Contract(signing_contract));
+
+        let data_tuple = Value::Tuple(
+            TupleData::from_data(vec![
+                ("block".into(), block_hash_buff),
+                ("withdrawal-root".into(), withdrawal_root_buff),
+                ("target-tip".into(), target_tip),
+                ("multi-contract".into(), signing_contract),
+            ])
+            .expect("Failed to construct data tuple for block proposal"),
+        );
+
+        let data_hash = Sha256Sum::from_data(&data_tuple.serialize_to_vec());
+        let mut hash_input = hex_bytes(SIP18_DATA_PREFIX_HEX).expect("Bad SIP18 data prefix");
+        hash_input.extend_from_slice(&data_hash.0);
+        let structured_hash = Sha256Sum::from_data(&hash_input);
+
+        let msg_signature = signing_key
+            .sign(structured_hash.as_bytes())
+            .expect("Bad message hash");
+        // format the signature vector as Clarity expects
+        let recov_signature = msg_signature
+            .to_secp256k1_recoverable()
+            .expect("Failed to create recoverable signature");
+        let (rec_id, rec_signature_comp) = recov_signature.serialize_compact();
+        let mut signature = [0; 65];
+        signature[..64].copy_from_slice(&rec_signature_comp);
+        signature[64] = u8::try_from(rec_id.to_i32()).unwrap();
+
+        signature
+    }
+}

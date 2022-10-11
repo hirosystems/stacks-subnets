@@ -13,6 +13,11 @@
 (define-constant sip18-domain-hash 0x81c24181e24119f609a28023c4943d3a41592656eb90560c15ee02b8e1ce19b8)
 (define-constant sip18-data-prefix (concat sip18-prefix sip18-domain-hash))
 
+;; Use trait declarations
+(use-trait nft-trait .trait-standards.nft-trait)
+(use-trait ft-trait .trait-standards.ft-trait)
+(use-trait mint-from-hyperchain-trait .trait-standards.mint-from-hyperchain-trait)
+
 ;; Required number of signers
 (define-constant signers-required u2)
 
@@ -58,25 +63,31 @@
 (define-read-only (make-block-commit-hash (block-data { block: (buff 32), withdrawal-root: (buff 32), target-tip: (buff 32) }))
     (let ((data-buff (unwrap-panic (to-consensus-buff (merge block-data { multi-contract: CONTRACT_ADDRESS }))))
           (data-hash (sha256 data-buff))
-          ;; in 2.0, this is a constant: 0xe2f4d0b1eca5f1b4eb853cd7f1c843540cfb21de8bfdaa59c504a6775cd2cfe9
           (structured-hash (sha256 (concat sip18-data-prefix data-hash))))
           structured-hash))
 
-;; TODO: The hash needs to ingest the actual code from the trait not just the name
-(define-read-only (make-registration-hash (ft-data { contract: principal, deposit-fn-name: (string-ascii 45)}))
-    (let ((data-buff (unwrap-panic (to-consensus-buff (merge ft-data { multi-contract: CONTRACT_ADDRESS }))))
+(define-read-only (make-ft-registration-hash (ft-contract <ft-trait>) (deposit-fn-name (string-ascii 45)))
+    (let ((contract_principal (contract-of ft-contract))
+          (data-buff (unwrap-panic (to-consensus-buff {principal: contract_principal, deposit-fn-name: deposit-fn-name, multi-contract: CONTRACT_ADDRESS })))
           (data-hash (sha256 data-buff))
-          ;; in 2.0, this is a constant: 0xe2f4d0b1eca5f1b4eb853cd7f1c843540cfb21de8bfdaa59c504a6775cd2cfe9
+          (structured-hash (sha256 (concat sip18-data-prefix data-hash))))
+          structured-hash))
+
+;; TODO: Signature collection functions should check that the contract already exists and sign off on the name
+(define-read-only (make-nft-registration-hash (nft-contract <nft-trait>) (deposit-fn-name (string-ascii 45)))
+    (let ((contract_principal (contract-of nft-contract))
+          (data-buff (unwrap-panic (to-consensus-buff {principal: contract_principal, deposit-fn-name: deposit-fn-name, multi-contract: CONTRACT_ADDRESS })))
+          (data-hash (sha256 data-buff))
           (structured-hash (sha256 (concat sip18-data-prefix data-hash))))
           structured-hash))
 
 (define-private (verify-sign-helper (curr-signature (buff 65))
-                                    (accum (response { block-hash: (buff 32), signers: (list 9 principal) } int)))
+                                    (accum (response { hash: (buff 32), signers: (list 9 principal) } int)))
     (match accum
-        prior-okay (let ((curr-signer-pk (unwrap! (secp256k1-recover? (get block-hash prior-okay) curr-signature)
+        prior-okay (let ((curr-signer-pk (unwrap! (secp256k1-recover? (get hash prior-okay) curr-signature)
                                                 (err ERR_INVALID_SIGNATURE)))
                          (curr-signer (unwrap! (principal-of? curr-signer-pk) (err ERR_INVALID_SIGNATURE))))
-                        (ok { block-hash: (get block-hash prior-okay),
+                        (ok { hash: (get hash prior-okay),
                               signers: (unwrap-panic (as-max-len? (append (get signers prior-okay) curr-signer) u9)) }))
         prior-err (err prior-err)))
 
@@ -84,7 +95,7 @@
 (define-public (commit-block  (block-data { block: (buff 32), withdrawal-root: (buff 32), target-tip: (buff 32) })
                               (signatures (list 9 (buff 65))))
     (let ((block-data-hash (make-block-commit-hash block-data))
-          (signer-principals (try! (fold verify-sign-helper signatures (ok { block-hash: block-data-hash, signers: (list) })))))
+          (signer-principals (try! (fold verify-sign-helper signatures (ok { hash: block-data-hash, signers: (list) })))))
          ;; check that the caller is a direct caller!
          (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
          ;; check that we have enough signatures
@@ -94,14 +105,24 @@
 
 ;; copy nft function for ft
 
+(define-public (register-new-ft-contract (ft-contract <ft-trait>) (deposit-fn-name (string-ascii 45) )
+                              (signatures (list 9 (buff 65))) )
+    (let ((registration-hash (make-ft-registration-hash ft-contract deposit-fn-name ))
+          (signer-principals (try! (fold verify-sign-helper signatures (ok { hash: registration-hash, signers: (list) })))))
+         ;; check that the caller is a direct caller!
+         (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
+         ;; check that we have enough signatures
+         (try! (check-miners (append (get signers signer-principals) tx-sender)))
+         ;; execute the registration
+         (as-contract (contract-call? .hyperchains register-new-ft-contract ft-contract deposit-fn-name)) ))
+
 (define-public (register-new-nft-contract (nft-contract <nft-trait>) (deposit-fn-name (string-ascii 45) )
-                              (signatures (list 9 (buff 65))))
-                              (as-contract (contract-call? .hyperchains register-new-nft-contract nft-contract deposit-fn-name)))
-;;    (let (registration-hash (make-registration-hash {contract: contract-of nft-contract, deposit-fn-name: deposit-fn-name }))
-;;          (signer-principals (try! (fold verify-sign-helper signatures (ok { registration-hash: registration-hash, signers: (list) }))))
-;;         ;; check that the caller is a direct caller!
-;;         (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
-;;         ;; check that we have enough signatures
-;;         (try! (check-miners (append (get signers signer-principals) tx-sender)))
-;;         ;; execute the registration
-;;         (as-contract (contract-call? .hyperchains register-new-nft-contract nft-contract deposit-fn-name))) ;;)
+                              (signatures (list 9 (buff 65))) )
+    (let ((registration-hash (make-nft-registration-hash nft-contract deposit-fn-name ))
+          (signer-principals (try! (fold verify-sign-helper signatures (ok { hash: registration-hash, signers: (list) })))))
+         ;; check that the caller is a direct caller!
+         (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
+         ;; check that we have enough signatures
+         (try! (check-miners (append (get signers signer-principals) tx-sender)))
+         ;; execute the registration
+         (as-contract (contract-call? .hyperchains register-new-nft-contract nft-contract deposit-fn-name)) ))
