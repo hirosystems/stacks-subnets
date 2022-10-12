@@ -353,7 +353,7 @@ pub struct UserBurnSupportOp {
     pub burn_header_hash: BurnchainHeaderHash, // hash of burnchain block with this tx
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum BlockstackOperationType {
     LeaderBlockCommit(LeaderBlockCommitOp),
     DepositStx(DepositStxOp),

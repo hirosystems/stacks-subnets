@@ -4513,6 +4513,11 @@ impl StacksChainState {
         Ok((applied, receipts))
     }
 
+
+    /// NOTE: stacking ops are currently not processed by subnets nodes; thus, no 
+    /// StackStx op receipts are added to the return. If anyone wants to again 
+    /// process stacking ops, the receipt generation logic must be uncommented. 
+    ///
     /// Process any Stacking-related bitcoin operations
     ///  that haven't been processed in this Stacks fork yet.
     pub fn process_stacking_ops(
@@ -4548,7 +4553,7 @@ impl StacksChainState {
                 )
             });
             match result {
-                Ok((value, _, events)) => {
+                Ok((value, _, _events)) => {
                     if let Value::Response(ref resp) = value {
                         if !resp.committed {
                             debug!("StackStx burn op rejected by PoX contract.";
@@ -4562,19 +4567,19 @@ impl StacksChainState {
                             .expect("BUG: cost declined between executions");
                         cost_so_far = clarity_tx.cost_so_far();
 
-                        let receipt = StacksTransactionReceipt {
-                            transaction: TransactionOrigin::Burn(txid),
-                            events,
-                            result: value,
-                            post_condition_aborted: false,
-                            stx_burned: 0,
-                            contract_analysis: None,
-                            execution_cost,
-                            microblock_header: None,
-                            tx_index: 0,
-                        };
+                        // let receipt = StacksTransactionReceipt {
+                        //     transaction: TransactionOrigin::Burn(BlockstackOperationType::StackStx(stack_stx_op)),
+                        //     events,
+                        //     result: value,
+                        //     post_condition_aborted: false,
+                        //     stx_burned: 0,
+                        //     contract_analysis: None,
+                        //     execution_cost,
+                        //     microblock_header: None,
+                        //     tx_index: 0,
+                        // };
 
-                        all_receipts.push(receipt);
+                        // all_receipts.push(receipt);
                     } else {
                         unreachable!(
                             "BUG: Non-response value returned by Stacking STX burnchain op"
@@ -4593,6 +4598,10 @@ impl StacksChainState {
         all_receipts
     }
 
+    /// NOTE: transfer stx ops are currently not processed by subnets nodes; thus, no 
+    /// TransferStx op receipts are added to the return. If anyone wants to again 
+    /// process transfer stx ops, the receipt generation logic must be uncommented. 
+    ///
     /// Process any STX transfer bitcoin operations
     ///  that haven't been processed in this Stacks fork yet.
     pub fn process_transfer_ops(
@@ -4617,17 +4626,18 @@ impl StacksChainState {
                             tx.run_stx_transfer(&sender.into(), &recipient.into(), transfered_ustx)
                         });
                         match result {
-                            Ok((value, _, events)) => Some(StacksTransactionReceipt {
-                                transaction: TransactionOrigin::Burn(txid),
-                                events,
-                                result: value,
-                                post_condition_aborted: false,
-                                stx_burned: 0,
-                                contract_analysis: None,
-                                execution_cost: ExecutionCost::zero(),
-                                microblock_header: None,
-                                tx_index: 0,
-                            }),
+                            Ok((_value, _, _events)) => None,
+                            // Some(StacksTransactionReceipt {
+                            //     transaction: TransactionOrigin::Burn(BlockstackOperationType::TransferStx(transfer_stx_op)),
+                            //     events,
+                            //     result: value,
+                            //     post_condition_aborted: false,
+                            //     stx_burned: 0,
+                            //     contract_analysis: None,
+                            //     execution_cost: ExecutionCost::zero(),
+                            //     microblock_header: None,
+                            //     tx_index: 0,
+                            // }),
                             Err(e) => {
                                 info!("TransferStx burn op processing error.";
                               "error" => ?e,
@@ -4659,22 +4669,22 @@ impl StacksChainState {
                             amount,
                             sender,
                             ..
-                        } = deposit_stx_op;
+                        } = &deposit_stx_op;
                         // call the corresponding deposit function in the hyperchains contract
                         let result = clarity_tx.connection().as_transaction(|tx| {
-                            StacksChainState::account_credit(tx, &sender, amount as u64);
+                            StacksChainState::account_credit(tx, &sender, *amount as u64);
                             StacksTransactionEvent::STXEvent(STXEventType::STXMintEvent(
                                 STXMintEventData {
-                                    recipient: sender,
-                                    amount,
+                                    recipient: sender.clone(),
+                                    amount: *amount,
                                 },
                             ))
                         });
                         // deposits increment the STX liquidity in the layer 2
-                        clarity_tx.increment_ustx_liquid_supply(amount);
+                        clarity_tx.increment_ustx_liquid_supply(*amount);
 
                         Some(StacksTransactionReceipt {
-                            transaction: TransactionOrigin::Burn(txid),
+                            transaction: TransactionOrigin::Burn(BlockstackOperationType::DepositStx(deposit_stx_op)),
                             events: vec![result],
                             result: Value::okay_true(),
                             post_condition_aborted: false,
@@ -4710,14 +4720,14 @@ impl StacksChainState {
                     amount,
                     sender,
                     ..
-                } = deposit_ft_op;
+                } = &deposit_ft_op;
                 // call the corresponding deposit function in the hyperchains contract
                 let result = clarity_tx.connection().as_transaction(|tx| {
                     tx.run_contract_call(
                         &sender.clone(),
                         &hc_contract_id,
                         &*hc_function_name,
-                        &[Value::UInt(amount), Value::Principal(sender)],
+                        &[Value::UInt(*amount), Value::Principal(sender.clone())],
                         |_, _| false,
                     )
                 });
@@ -4728,7 +4738,7 @@ impl StacksChainState {
 
                 match result {
                     Ok((value, _, events)) => Some(StacksTransactionReceipt {
-                        transaction: TransactionOrigin::Burn(txid),
+                        transaction: TransactionOrigin::Burn(BlockstackOperationType::DepositFt(deposit_ft_op)),
                         events,
                         result: value,
                         post_condition_aborted: false,
@@ -4769,13 +4779,13 @@ impl StacksChainState {
                     id,
                     sender,
                     ..
-                } = deposit_nft_op;
+                } = &deposit_nft_op;
                 let result = clarity_tx.connection().as_transaction(|tx| {
                     tx.run_contract_call(
                         &sender.clone(),
                         &hc_contract_id,
                         &*hc_function_name,
-                        &[Value::UInt(id), Value::Principal(sender)],
+                        &[Value::UInt(*id), Value::Principal(sender.clone())],
                         |_, _| false,
                     )
                 });
@@ -4786,7 +4796,7 @@ impl StacksChainState {
 
                 match result {
                     Ok((value, _, events)) => Some(StacksTransactionReceipt {
-                        transaction: TransactionOrigin::Burn(txid),
+                        transaction: TransactionOrigin::Burn(BlockstackOperationType::DepositNft(deposit_nft_op)),
                         events,
                         result: value,
                         post_condition_aborted: false,

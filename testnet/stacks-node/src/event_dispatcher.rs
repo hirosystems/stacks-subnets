@@ -12,6 +12,7 @@ use http_types::{Method, Request, Url};
 use serde_json::json;
 
 use stacks::burnchains::Txid;
+use stacks::chainstate::burn::operations::BlockstackOperationType;
 use stacks::chainstate::coordinator::BlockEventDispatcher;
 use stacks::chainstate::stacks::db::StacksHeaderInfo;
 use stacks::chainstate::stacks::events::{
@@ -49,6 +50,7 @@ struct ReceiptPayloadInfo<'a> {
     raw_result: String,
     raw_tx: String,
     contract_interface_json: serde_json::Value,
+    burnchain_op: serde_json::Value,
 }
 
 const STATUS_RESP_TRUE: &str = "success";
@@ -195,12 +197,12 @@ impl EventObserver {
             _ => unreachable!(), // Transaction results should always be a Value::Response type
         };
 
-        let (txid, raw_tx) = match tx {
-            TransactionOrigin::Burn(txid) => (txid.to_string(), "00".to_string()),
+        let (txid, raw_tx, burnchain_op) = match tx {
+            TransactionOrigin::Burn(op) => (op.txid().to_string(), "00".to_string(), json!(op.clone())),
             TransactionOrigin::Stacks(ref tx) => {
                 let txid = tx.txid().to_string();
                 let bytes = tx.serialize_to_vec();
-                (txid, bytes_to_hex(&bytes))
+                (txid, bytes_to_hex(&bytes), json!(null))
             }
         };
 
@@ -220,6 +222,7 @@ impl EventObserver {
             raw_result,
             raw_tx,
             contract_interface_json,
+            burnchain_op,
         }
     }
 
@@ -237,6 +240,7 @@ impl EventObserver {
             "raw_result": format!("0x{}", &receipt_payload_info.raw_result),
             "raw_tx": format!("0x{}", &receipt_payload_info.raw_tx),
             "contract_abi": receipt_payload_info.contract_interface_json,
+            "burnchain_op": receipt_payload_info.burnchain_op,
             "execution_cost": receipt.execution_cost,
             "microblock_sequence": receipt.microblock_header.as_ref().map(|x| x.sequence),
             "microblock_hash": receipt.microblock_header.as_ref().map(|x| format!("0x{}", x.block_hash())),
