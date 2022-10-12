@@ -198,7 +198,9 @@ impl EventObserver {
         };
 
         let (txid, raw_tx, burnchain_op) = match tx {
-            TransactionOrigin::Burn(op) => (op.txid().to_string(), "00".to_string(), json!(op.clone())),
+            TransactionOrigin::Burn(op) => {
+                (op.txid().to_string(), "00".to_string(), json!(op.clone()))
+            }
             TransactionOrigin::Stacks(ref tx) => {
                 let txid = tx.txid().to_string();
                 let bytes = tx.serialize_to_vec();

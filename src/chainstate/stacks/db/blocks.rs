@@ -4513,10 +4513,9 @@ impl StacksChainState {
         Ok((applied, receipts))
     }
 
-
-    /// NOTE: stacking ops are currently not processed by subnets nodes; thus, no 
-    /// StackStx op receipts are added to the return. If anyone wants to again 
-    /// process stacking ops, the receipt generation logic must be uncommented. 
+    /// NOTE: stacking ops are currently not processed by subnets nodes; thus, no
+    /// StackStx op receipts are added to the return. If anyone wants to again
+    /// process stacking ops, the receipt generation logic must be uncommented.
     ///
     /// Process any Stacking-related bitcoin operations
     ///  that haven't been processed in this Stacks fork yet.
@@ -4598,9 +4597,9 @@ impl StacksChainState {
         all_receipts
     }
 
-    /// NOTE: transfer stx ops are currently not processed by subnets nodes; thus, no 
-    /// TransferStx op receipts are added to the return. If anyone wants to again 
-    /// process transfer stx ops, the receipt generation logic must be uncommented. 
+    /// NOTE: transfer stx ops are currently not processed by subnets nodes; thus, no
+    /// TransferStx op receipts are added to the return. If anyone wants to again
+    /// process transfer stx ops, the receipt generation logic must be uncommented.
     ///
     /// Process any STX transfer bitcoin operations
     ///  that haven't been processed in this Stacks fork yet.
@@ -4684,7 +4683,9 @@ impl StacksChainState {
                         clarity_tx.increment_ustx_liquid_supply(*amount);
 
                         Some(StacksTransactionReceipt {
-                            transaction: TransactionOrigin::Burn(BlockstackOperationType::DepositStx(deposit_stx_op)),
+                            transaction: TransactionOrigin::Burn(
+                                BlockstackOperationType::DepositStx(deposit_stx_op),
+                            ),
                             events: vec![result],
                             result: Value::okay_true(),
                             post_condition_aborted: false,
@@ -4738,7 +4739,9 @@ impl StacksChainState {
 
                 match result {
                     Ok((value, _, events)) => Some(StacksTransactionReceipt {
-                        transaction: TransactionOrigin::Burn(BlockstackOperationType::DepositFt(deposit_ft_op)),
+                        transaction: TransactionOrigin::Burn(BlockstackOperationType::DepositFt(
+                            deposit_ft_op,
+                        )),
                         events,
                         result: value,
                         post_condition_aborted: false,
@@ -4796,7 +4799,9 @@ impl StacksChainState {
 
                 match result {
                     Ok((value, _, events)) => Some(StacksTransactionReceipt {
-                        transaction: TransactionOrigin::Burn(BlockstackOperationType::DepositNft(deposit_nft_op)),
+                        transaction: TransactionOrigin::Burn(BlockstackOperationType::DepositNft(
+                            deposit_nft_op,
+                        )),
                         events,
                         result: value,
                         post_condition_aborted: false,

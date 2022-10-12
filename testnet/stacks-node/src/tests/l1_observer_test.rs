@@ -271,7 +271,8 @@ fn select_burn_transactions_where(
         let transactions = block.get("transactions").unwrap().as_array().unwrap();
         for (tx_idx, tx) in transactions.iter().enumerate() {
             let burnchain_op = tx.get("burnchain_op").unwrap();
-            let new_op: Option<BlockstackOperationType> = serde_json::from_value(burnchain_op.clone()).unwrap();            
+            let new_op: Option<BlockstackOperationType> =
+                serde_json::from_value(burnchain_op.clone()).unwrap();
             if let Some(op) = new_op {
                 println!(
                     "select_transactions_where considers: block_idx: {}, tx_idx: {}, tx: {:?}, parsed: {:?}",
@@ -283,7 +284,6 @@ fn select_burn_transactions_where(
                     result.push(op);
                 }
             }
-            
         }
     }
 
@@ -794,17 +794,16 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     let amount = Value::deserialize(&result, &TypeSignature::UIntType);
     assert_eq!(amount, Value::UInt(1));
 
-     // Check the burnchain ops 
-     let block_data = test_observer::get_blocks(); 
-     let burn_deposit_ft_tx = select_burn_transactions_where(&block_data, |op| {
-         if let BlockstackOperationType::DepositFt(_) = op {
-             true
-         } else {
-             false
-         }
-     }); 
-     assert_eq!(burn_deposit_ft_tx.len(), 1);
- 
+    // Check the burnchain ops
+    let block_data = test_observer::get_blocks();
+    let burn_deposit_ft_tx = select_burn_transactions_where(&block_data, |op| {
+        if let BlockstackOperationType::DepositFt(_) = op {
+            true
+        } else {
+            false
+        }
+    });
+    assert_eq!(burn_deposit_ft_tx.len(), 1);
 
     // Check that the user owns the NFT on the hyperchain now
     let res = call_read_only(
@@ -831,15 +830,15 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         Value::some(Value::Principal(user_addr.into())).unwrap()
     );
 
-    // Check the burnchain ops 
-    let block_data = test_observer::get_blocks(); 
+    // Check the burnchain ops
+    let block_data = test_observer::get_blocks();
     let burn_deposit_nft_tx = select_burn_transactions_where(&block_data, |op| {
         if let BlockstackOperationType::DepositNft(_) = op {
             true
         } else {
             false
         }
-    }); 
+    });
     assert_eq!(burn_deposit_nft_tx.len(), 1);
 
     // Check that the user does not own the FT on the L1
@@ -1460,15 +1459,15 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
         (l1_starting_account_balance - default_fee * l1_nonce - 1) as u128
     );
 
-    // Check the burnchain ops 
-    let block_data = test_observer::get_blocks(); 
+    // Check the burnchain ops
+    let block_data = test_observer::get_blocks();
     let burn_deposit_stx_tx = select_burn_transactions_where(&block_data, |op| {
         if let BlockstackOperationType::DepositStx(_) = op {
             true
         } else {
             false
         }
-    }); 
+    });
     assert_eq!(burn_deposit_stx_tx.len(), 1);
 
     // Call the withdraw stx function on the L2 from unauthorized user
@@ -2197,17 +2196,16 @@ fn nft_deposit_and_withdraw_integration_test() {
     );
     assert_eq!(owner, Value::okay(Value::none()).unwrap());
 
-    // Check the burnchain ops 
-    let block_data = test_observer::get_blocks(); 
+    // Check the burnchain ops
+    let block_data = test_observer::get_blocks();
     let burn_deposit_tx = select_burn_transactions_where(&block_data, |op| {
         if let BlockstackOperationType::DepositNft(_) = op {
             true
         } else {
             false
         }
-    }); 
+    });
     assert_eq!(burn_deposit_tx.len(), 1);
-
 
     // Withdraw the L1 native NFT from the L2 (with `nft-withdraw?`)
     let l2_withdraw_nft_tx = make_contract_call(
