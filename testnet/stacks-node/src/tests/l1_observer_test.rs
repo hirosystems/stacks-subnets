@@ -275,7 +275,7 @@ fn select_burn_transactions_where(
                 serde_json::from_value(burnchain_op.clone()).unwrap();
             if let Some(op) = new_op {
                 println!(
-                    "select_transactions_where considers: block_idx: {}, tx_idx: {}, tx: {:?}, parsed: {:?}",
+                    "select_burn_transactions_where considers: block_idx: {}, tx_idx: {}, tx: {:?}, parsed: {:?}",
                     block_idx, tx_idx, &tx, &op
                 );
 
