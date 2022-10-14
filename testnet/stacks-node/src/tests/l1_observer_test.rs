@@ -260,7 +260,7 @@ fn select_transactions_where(
     return result;
 }
 
-/// Deserializes the `BlockstackOperationType` objects (non-null objects are produced by burn 
+/// Deserializes the `BlockstackOperationType` objects (non-null objects are produced by burn
 /// transactions) from `blocks` and returns all those that match `test_fn`.
 fn select_burn_transactions_where(
     blocks: &Vec<serde_json::Value>,
