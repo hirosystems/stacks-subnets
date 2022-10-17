@@ -6800,7 +6800,7 @@ impl Proposal {
         // when using a 2.1 layer-1, this will need to use the structured data hash
         let block_hash_buff = Value::buff_from(self.contract_block_hash.to_vec())
             .expect("Failed to form Clarity buffer from block hash");
-        let contract_buff = Value::Principal(PrincipalData::Contract(contract))
+        let contract_buff = Value::Principal(PrincipalData::Contract(contract
                 .expect("Failed to form Clarity buffer from withdrawal root");
         let target_tip = Value::buff_from(self.burn_tip.0.to_vec())
             .expect("Failed to form Clarity buffer from target burnchain tip");
