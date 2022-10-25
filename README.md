@@ -51,7 +51,7 @@ Subnets can be built using any of the following methods:
 
 > **_NOTE:_**
 >
-> Subnets was earlier referred as Hyperchains. While we are in the process of updating the content, you might still see subnets being referred as Hyperchains.
+> Subnets were referred to as Hyperchains. While we are in the process of updating the content, you might still see subnets being referred to as Hyperchains.
 
 ## Build with Clarinet
 
