@@ -34,7 +34,7 @@ The transaction sender must be part of the miners list defined in the subnet con
 Make sure you have `clarinet` installed locally, and that it is at version 0.33.0 or above.
 If you do not have clarinet, you can find installation instructions [here](https://github.com/hirosystems/clarinet).
 
-Let's create a new clarinet project. This will create a new directory with a Clarinet project initialized.
+Let's create a new Clarinet project. This will create a new directory with the Clarinet project initialized.
 ```
 clarinet new nft-use-case 
 ```
