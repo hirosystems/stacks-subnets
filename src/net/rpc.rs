@@ -982,61 +982,6 @@ impl ConversationHttp {
         response.send(http, fd)
     }
 
-    fn handle_validate_registration_proposal<W: Write>(
-        http: &mut StacksHttp,
-        fd: &mut W,
-        req: &HttpRequestType,
-        chainstate: &mut StacksChainState,
-        sortdb: &SortitionDB,
-        proposal: &miner::RegistrationProposal,
-        validator_key: Option<&Secp256k1PrivateKey>,
-        signing_contract: Option<&QualifiedContractIdentifier>,
-        canonical_stacks_tip_height: u64,
-    ) -> Result<(), net_error> {
-        // TODO: Why is this here? Do we need it?
-        let response_metadata =
-            HttpResponseMetadata::from_http_request_type(req, Some(canonical_stacks_tip_height));
-        let validator_key = match validator_key {
-            Some(key) => key,
-            None => {
-                let response = HttpResponseType::RegistrationProposalInvalid {
-                    metadata: response_metadata,
-                    error_message:
-                        "Cannot validate registration proposal: not configured with validation key".into(),
-                };
-                return response.send(http, fd);
-            }
-        };
-
-        let signing_contract = match signing_contract {
-            Some(key) => key,
-            None => {
-                let response = HttpResponseType::RegistrationProposalInvalid {
-                    metadata: response_metadata,
-                    error_message:
-                        "Cannot validate registration proposal: not configured with a multiparty contract"
-                            .into(),
-                };
-                return response.send(http, fd);
-            }
-        };
-
-        let response = match proposal.validate(chainstate, &sortdb.index_conn()) {
-            Ok(_) => {
-                let signature = proposal.sign(validator_key, signing_contract.clone());
-                HttpResponseType::RegistrationProposalValid {
-                    metadata: response_metadata,
-                    signature,
-                }
-            }
-            Err(e) => HttpResponseType::RegistrationProposalInvalid {
-                metadata: response_metadata,
-                error_message: e.to_string(),
-            },
-        };
-        response.send(http, fd)
-    }
-
     fn handle_get_withdrawal_stx_entry<W: Write>(
         http: &mut StacksHttp,
         fd: &mut W,
@@ -2842,27 +2787,6 @@ impl ConversationHttp {
                 )?;
                 None
             }
-            HttpRequestType::RegistrationProposal(_, ref proposal) => {
-                let validator_key = self.connection.options.hyperchain_validator.as_ref();
-                let signing_contract = self.connection.options.hyperchain_signing_contract.as_ref();
-
-                // TODO(#135): add sender validation. This method should only
-                //  be sent by the leader: we should not accept proposals
-                //  not signed by the leader
-                ConversationHttp::handle_validate_registration_proposal(
-                    &mut self.connection.protocol,
-                    &mut reply,
-                    &req,
-                    chainstate,
-                    sortdb,
-                    &proposal,
-                    validator_key,
-                    signing_contract,
-                    network.burnchain_tip.canonical_stacks_tip_height,
-                )?;
-                None
-            }
-
             HttpRequestType::GetWithdrawalNft {
                 withdraw_block_height,
                 ref sender,
