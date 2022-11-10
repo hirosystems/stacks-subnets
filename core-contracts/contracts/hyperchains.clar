@@ -1,4 +1,4 @@
-;; The .hyperchains contract ...
+;; The .hyperchains contract
 
 (define-constant CONTRACT_ADDRESS (as-contract tx-sender))
 
