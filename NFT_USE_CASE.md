@@ -9,6 +9,8 @@ In this demo, you will learn how to:
 5. Transfer the NFT in the subnet.
 6. Withdraw the NFT back to the L1 chain, which has two steps.
 
+▶️ [Watch distributed systems engineer Pavi demonstrate interacting with a Subnet here.](https://www.youtube.com/watch?v=GbGNlOsPDXM)
+
 This guide will follow the list above, step by step.
 It is also possible to mint assets directly on the subnet, and withdraw them onto the L1. This bonus step is mentioned
 at the end of step 5. 
