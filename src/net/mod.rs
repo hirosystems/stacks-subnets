@@ -48,7 +48,7 @@ use crate::chainstate::burn::ConsensusHash;
 use crate::chainstate::coordinator::Error as coordinator_error;
 use crate::chainstate::stacks::db::blocks::MemPoolRejection;
 use crate::chainstate::stacks::index::Error as marf_error;
-use crate::chainstate::stacks::miner::Proposal;
+use crate::chainstate::stacks::miner::{Proposal, RegistrationProposal};
 use crate::chainstate::stacks::Error as chainstate_error;
 use crate::chainstate::stacks::{
     Error as chain_error, StacksBlock, StacksMicroblock, StacksPublicKey, StacksTransaction,

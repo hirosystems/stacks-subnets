@@ -6773,19 +6773,22 @@ pub mod test {
     // TODO: verify that the Clarity MARF stores _only_ Clarity data
 }
 
-/// Represents a proposed block from the 2-phase commit
-/// coordinator.
+// Represents a proposed asset registration
+// whatever the hash is;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RegistrationProposal {
-    // block where the contract lives
-    pub contract_block_hash: BlockHeaderHash,
-    // name of the contract
-    pub contract: Principal,
+    // contract that contains the asset
+    pub asset_contract: Principal,
     // name of the deposit function
     pub deposit_fn_name: String, // maybe this needs a max length?
+    // block where the asset was published
+    pub block_height: u32,
+    // TODO: Verify that this is the correct type returned by get-block-info? id-header-hash
+    pub block_id: StacksBlockId,
+    pub multi_contract: Principal,
 }
 
-impl Proposal {
+impl RegistrationProposal {
     /// Sign this proposal with `signing_key`, returning a serialized recoverable
     /// signature that can be validated by the multiminer contract.
     pub fn sign(
@@ -6798,20 +6801,24 @@ impl Proposal {
         //     hex_bytes("e2f4d0b1eca5f1b4eb853cd7f1c843540cfb21de8bfdaa59c504a6775cd2cfe9")
         //         .expect("Failed to parse hex constant");
         // when using a 2.1 layer-1, this will need to use the structured data hash
-        let block_hash_buff = Value::buff_from(self.contract_block_hash.to_vec())
+
+        let asset_contract = Value::Principal(PrincipalData::Contract(asset_contract);
+        let deposit_fn_buff = Value::buff_from(self.deposit_fn_name.to_vec())
+            .expect("Failed to form Clarity buffer from deposit_fn_name");
+        let block_height_buff = Value::buff_from(self.block_height.to_vec())
+                .expect("Failed to form Clarity buffer from block hash");
+        let block_id_buff = Value::buff_from(self.block_id.to_vec())
             .expect("Failed to form Clarity buffer from block hash");
-        let contract_buff = Value::Principal(PrincipalData::Contract(contract
-                .expect("Failed to form Clarity buffer from withdrawal root");
-        let target_tip = Value::buff_from(self.burn_tip.0.to_vec())
-            .expect("Failed to form Clarity buffer from target burnchain tip");
+        let multi_contract = Value::Principal(PrincipalData::Contract(multi_contract));
         let signing_contract = Value::Principal(PrincipalData::Contract(signing_contract));
 
         let data_tuple = Value::Tuple(
             TupleData::from_data(vec![
-                ("block".into(), block_hash_buff),
-                ("withdrawal-root".into(), withdrawal_root_buff),
-                ("target-tip".into(), target_tip),
-                ("multi-contract".into(), signing_contract),
+                ("principal".into(), asset_contract),
+                ("deposit_fn_name".into(), deposit_fn_buff),
+                ("block_height".into(), block_height_buff),
+                ("block_id".into(), block_id_buff),
+                ("multi-contract".into(), multi_contract),
             ])
             .expect("Failed to construct data tuple for block proposal"),
         );
@@ -6834,5 +6841,53 @@ impl Proposal {
         signature[64] = u8::try_from(rec_id.to_i32()).unwrap();
 
         signature
+    }
+
+    // if possible this should check if 1) the asset contract has been published
+    // if the deposit_fn_name exists on the L2
+    // if that contract adheres to the trait definition
+    //     if it can, then that would require that the trait also be a part of the proposal
+    // if the block_id matches the id for the block at height block_height within this fork
+
+    pub fn validate(
+        &self,
+        chainstate_handle: &StacksChainState, // not directly used; used as a handle to open other chainstates
+        burn_dbconn: &SortitionDBConn,
+    ) -> Result<(StacksBlock, ExecutionCost, u64), Error> {
+
+        /* // This section comes from blocks.rs and shows how to check if a contract exists
+        let contract_identifier =
+            QualifiedContractIdentifier::new(tx.origin_address().into(), name.clone());
+
+        let exists = clarity_connection
+            .with_analysis_db_readonly(|db| db.has_contract(&contract_identifier));
+
+        if exists {
+            return Err(MemPoolRejection::ContractAlreadyExists(contract_identifier));
+        }
+        */
+
+
+        let can_attach = StacksChainState::can_attach(
+            chainstate_handle.db(),
+            &self.parent_block_hash,
+            &self.parent_consensus_hash,
+        )?;
+        if !can_attach {
+            warn!("Rejected proposal";
+                  "reason" => "Block is not attachable",
+                  "parent_block_hash" => %self.parent_block_hash,
+                  "parent_consensus_hash" => %self.parent_consensus_hash);
+            return Err(Error::NoSuchBlockError);
+        }
+
+        let (mut chainstate, _) = chainstate_handle.reopen()?;
+
+        // Setup the MinerEpochInfo that would normally be done by pre_epoch_begin
+        // but we must do so manually because we use the provided parameters in the proposal
+        let (chainstate_tx, clarity_instance) = chainstate.chainstate_tx_begin()?;
+
+
+        Ok((block, consumed, size))
     }
 }
