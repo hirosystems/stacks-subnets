@@ -26,6 +26,7 @@ path = "contracts/helper/simple-ft.clar"
 depends_on = ["trait-standards"]
 
 [contracts.hyperchains]
+clarity_version = 2
 path = "contracts/hyperchains.clar"
 depends_on = ["trait-standards"]
 
