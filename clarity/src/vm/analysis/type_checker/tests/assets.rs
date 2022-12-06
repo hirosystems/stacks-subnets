@@ -14,13 +14,29 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use super::contracts::type_check;
+#[cfg(test)]
+use rstest::rstest;
+#[cfg(test)]
+use rstest_reuse::{self, *};
+
+#[template]
+#[rstest]
+#[case(ClarityVersion::Clarity1, StacksEpochId::Epoch2_05)]
+#[case(ClarityVersion::Clarity1, StacksEpochId::Epoch21)]
+#[case(ClarityVersion::Clarity2, StacksEpochId::Epoch21)]
+fn test_clarity_versions_assets(#[case] version: ClarityVersion, #[case] epoch: StacksEpochId) {}
+
 use crate::vm::analysis::errors::CheckErrors;
-use crate::vm::analysis::{mem_type_check, AnalysisDatabase};
+use crate::vm::analysis::type_checker::tests::mem_type_check;
+use crate::vm::analysis::AnalysisDatabase;
 use crate::vm::ast::parse;
 use crate::vm::database::MemoryBackingStore;
 use crate::vm::types::{
     QualifiedContractIdentifier, SequenceSubtype, StringSubtype, TypeSignature,
 };
+use crate::vm::ClarityVersion;
+use stacks_common::types::StacksEpochId;
 use std::convert::TryInto;
 
 fn string_ascii_type(size: u32) -> TypeSignature {
@@ -100,19 +116,16 @@ const ASSET_NAMES: &str = "(define-constant burn-address 'SP00000000000000000000
                   (err u4))))
           (define-public (revoke (name uint))
             (nft-burn? names name tx-sender))
-          (define-public (withdraw (name uint))
-            (nft-withdraw? names name tx-sender))
          ";
 
-#[test]
-fn test_names_tokens_contracts() {
-    use crate::vm::analysis::type_check;
-
+#[apply(test_clarity_versions_assets)]
+fn test_names_tokens_contracts(#[case] version: ClarityVersion, #[case] epoch: StacksEpochId) {
     let tokens_contract_id = QualifiedContractIdentifier::local("tokens").unwrap();
     let names_contract_id = QualifiedContractIdentifier::local("names").unwrap();
 
-    let mut tokens_contract = parse(&tokens_contract_id, FIRST_CLASS_TOKENS).unwrap();
-    let mut names_contract = parse(&names_contract_id, ASSET_NAMES).unwrap();
+    let mut tokens_contract =
+        parse(&tokens_contract_id, FIRST_CLASS_TOKENS, version, epoch).unwrap();
+    let mut names_contract = parse(&names_contract_id, ASSET_NAMES, version, epoch).unwrap();
     let mut marf = MemoryBackingStore::new();
     let mut db = marf.as_analysis_db();
 
@@ -167,12 +180,6 @@ fn test_bad_asset_usage() {
         "(ft-burn? stackoos u1 tx-sender)",
         "(ft-burn? stackaroos 1 tx-sender)",
         "(ft-burn? stackaroos u1 123432343)",
-        "(ft-withdraw? stackoos u1 tx-sender)",
-        "(ft-withdraw? stackaroos 1 tx-sender)",
-        "(ft-withdraw? stackaroos u1 123432343)",
-        "(nft-withdraw? u1234 \"a\" tx-sender)",
-        "(nft-withdraw? stacka-nfts u2 tx-sender)",
-        "(nft-withdraw? stacka-nfts \"a\" u2)",
     ];
 
     let expected = [
@@ -215,12 +222,6 @@ fn test_bad_asset_usage() {
         CheckErrors::NoSuchFT("stackoos".to_string()),
         CheckErrors::TypeError(TypeSignature::UIntType, TypeSignature::IntType),
         CheckErrors::TypeError(TypeSignature::PrincipalType, TypeSignature::IntType),
-        CheckErrors::NoSuchFT("stackoos".to_string()),
-        CheckErrors::TypeError(TypeSignature::UIntType, TypeSignature::IntType),
-        CheckErrors::TypeError(TypeSignature::PrincipalType, TypeSignature::IntType),
-        CheckErrors::BadTokenName,
-        CheckErrors::TypeError(string_ascii_type(10), TypeSignature::UIntType),
-        CheckErrors::TypeError(TypeSignature::PrincipalType, TypeSignature::UIntType),
     ];
 
     for (script, expected_err) in bad_scripts.iter().zip(expected.iter()) {

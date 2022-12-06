@@ -15,11 +15,16 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{no_type, FunctionType, TypeChecker, TypeResult, TypingContext};
+
 use crate::vm::analysis::errors::{check_argument_count, CheckError, CheckErrors, CheckResult};
 use crate::vm::costs::cost_functions::ClarityCostFunction;
 use crate::vm::costs::{cost_functions, runtime_cost};
 use crate::vm::representations::SymbolicExpression;
-use crate::vm::types::{BlockInfoProperty, TupleTypeSignature, TypeSignature, MAX_VALUE_SIZE};
+use crate::vm::types::{
+    BlockInfoProperty, BufferLength, SequenceSubtype, TupleTypeSignature, TypeSignature,
+    MAX_VALUE_SIZE,
+};
+use stacks_common::consts::TOKEN_TRANSFER_MEMO_LENGTH;
 
 pub fn check_special_get_owner(
     checker: &mut TypeChecker,
@@ -186,6 +191,56 @@ pub fn check_special_transfer_token(
     )
 }
 
+pub fn check_special_stx_transfer(
+    checker: &mut TypeChecker,
+    args: &[SymbolicExpression],
+    context: &TypingContext,
+) -> TypeResult {
+    check_argument_count(3, args)?;
+
+    let amount_type: TypeSignature = TypeSignature::UIntType;
+    let from_type: TypeSignature = TypeSignature::PrincipalType;
+    let to_type: TypeSignature = TypeSignature::PrincipalType;
+
+    runtime_cost(ClarityCostFunction::AnalysisTypeLookup, checker, 0)?;
+
+    checker.type_check_expects(&args[0], context, &amount_type)?;
+    checker.type_check_expects(&args[1], context, &from_type)?;
+    checker.type_check_expects(&args[2], context, &to_type)?;
+
+    Ok(
+        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::UIntType)))
+            .into(),
+    )
+}
+
+pub fn check_special_stx_transfer_memo(
+    checker: &mut TypeChecker,
+    args: &[SymbolicExpression],
+    context: &TypingContext,
+) -> TypeResult {
+    check_argument_count(4, args)?;
+
+    let amount_type: TypeSignature = TypeSignature::UIntType;
+    let from_type: TypeSignature = TypeSignature::PrincipalType;
+    let to_type: TypeSignature = TypeSignature::PrincipalType;
+    let memo_type: TypeSignature = TypeSignature::SequenceType(SequenceSubtype::BufferType(
+        BufferLength::try_from(TOKEN_TRANSFER_MEMO_LENGTH as u32).unwrap(),
+    ));
+
+    runtime_cost(ClarityCostFunction::AnalysisTypeLookup, checker, 0)?;
+
+    checker.type_check_expects(&args[0], context, &amount_type)?;
+    checker.type_check_expects(&args[1], context, &from_type)?;
+    checker.type_check_expects(&args[2], context, &to_type)?;
+    checker.type_check_expects(&args[3], context, &memo_type)?;
+
+    Ok(
+        TypeSignature::ResponseType(Box::new((TypeSignature::BoolType, TypeSignature::UIntType)))
+            .into(),
+    )
+}
+
 pub fn check_special_get_token_supply(
     checker: &mut TypeChecker,
     args: &[SymbolicExpression],
@@ -204,7 +259,7 @@ pub fn check_special_get_token_supply(
     Ok(TypeSignature::UIntType)
 }
 
-pub fn check_special_burn_or_withdraw_asset(
+pub fn check_special_burn_asset(
     checker: &mut TypeChecker,
     args: &[SymbolicExpression],
     context: &TypingContext,
@@ -235,7 +290,7 @@ pub fn check_special_burn_or_withdraw_asset(
     )
 }
 
-pub fn check_special_burn_withdraw_token(
+pub fn check_special_burn_token(
     checker: &mut TypeChecker,
     args: &[SymbolicExpression],
     context: &TypingContext,

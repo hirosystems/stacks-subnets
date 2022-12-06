@@ -15,21 +15,24 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // TypeSignatures
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
 use std::{cmp, fmt};
 
 use crate::vm::costs::{cost_functions, runtime_cost, CostOverflowingMath};
 use crate::vm::errors::{CheckErrors, Error as VMError, IncomparableError, RuntimeErrorType};
+use crate::vm::representations::CONTRACT_MAX_NAME_LENGTH;
 use crate::vm::representations::{
     ClarityName, ContractName, SymbolicExpression, SymbolicExpressionType, TraitDefinition,
 };
 use crate::vm::types::{
-    CharType, QualifiedContractIdentifier, SequenceData, SequencedValue, StandardPrincipalData,
-    TraitIdentifier, Value, MAX_TYPE_DEPTH, MAX_VALUE_SIZE, WRAPPER_VALUE_SIZE,
+    CharType, PrincipalData, QualifiedContractIdentifier, SequenceData, SequencedValue,
+    StandardPrincipalData, TraitIdentifier, Value, MAX_TYPE_DEPTH, MAX_VALUE_SIZE,
+    WRAPPER_VALUE_SIZE,
 };
 use stacks_common::address::c32;
+use stacks_common::types::StacksEpochId;
 use stacks_common::util::hash;
 
 type Result<R> = std::result::Result<R, CheckErrors>;
@@ -60,6 +63,10 @@ impl AssetIdentifier {
             asset_name: ClarityName::try_from("BURNED".to_string()).unwrap(),
         }
     }
+
+    pub fn sugared(&self) -> String {
+        format!(".{}.{}", self.contract_identifier.name, self.asset_name)
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -67,7 +74,7 @@ pub struct TupleTypeSignature {
     type_map: BTreeMap<ClarityName, TypeSignature>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct BufferLength(u32);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -91,7 +98,19 @@ pub enum TypeSignature {
     TupleType(TupleTypeSignature),
     OptionalType(Box<TypeSignature>),
     ResponseType(Box<(TypeSignature, TypeSignature)>),
-    TraitReferenceType(TraitIdentifier),
+    CallableType(CallableSubtype),
+    // Suppose we have a list of contract principal literals, e.g.
+    // `(list .foo .bar)`. This list could be used as a list of `principal`
+    // types, or it could be passed into a function where it is used a list of
+    // some trait type, which every contract in the list implements, e.g.
+    // `(list 4 <my-trait>)`. There could also be a trait value, `t`, in that
+    // list. In that case, the list could no longer be coerced to a list of
+    // principals, but it could be coerced to a list of traits, either the type
+    // of `t`, or a compatible sub-trait of that type. `ListUnionType` is a
+    // data structure to maintain the set of types in the list, so that when
+    // we reach the place where the coercion needs to happen, we can perform
+    // the check -- see `concretize` method.
+    ListUnionType(HashSet<CallableSubtype>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -112,6 +131,13 @@ impl SequenceSubtype {
             SequenceSubtype::StringType(StringSubtype::UTF8(_)) => TypeSignature::min_string_utf8(),
         }
     }
+
+    pub fn is_list_type(&self) -> bool {
+        match &self {
+            SequenceSubtype::ListType(_) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,9 +146,15 @@ pub enum StringSubtype {
     UTF8(StringUTF8Length),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum CallableSubtype {
+    Principal(QualifiedContractIdentifier),
+    Trait(TraitIdentifier),
+}
+
 use self::TypeSignature::{
-    BoolType, IntType, NoType, OptionalType, PrincipalType, ResponseType, SequenceType,
-    TraitReferenceType, TupleType, UIntType,
+    BoolType, CallableType, IntType, ListUnionType, NoType, OptionalType, PrincipalType,
+    ResponseType, SequenceType, TupleType, UIntType,
 };
 
 lazy_static! {
@@ -141,6 +173,9 @@ lazy_static! {
     pub static ref BUFF_20: TypeSignature = SequenceType(SequenceSubtype::BufferType(
         BufferLength::try_from(20u32).expect("BUG: Legal Clarity buffer length marked invalid")
     ));
+    pub static ref BUFF_21: TypeSignature = SequenceType(SequenceSubtype::BufferType(
+        BufferLength::try_from(21u32).expect("BUG: Legal Clarity buffer length marked invalid")
+    ));
     pub static ref BUFF_1: TypeSignature = SequenceType(SequenceSubtype::BufferType(
         BufferLength::try_from(1u32).expect("BUG: Legal Clarity buffer length marked invalid")
     ));
@@ -148,6 +183,13 @@ lazy_static! {
         BufferLength::try_from(16u32).expect("BUG: Legal Clarity buffer length marked invalid")
     ));
 }
+
+pub const ASCII_40: TypeSignature = SequenceType(SequenceSubtype::StringType(
+    StringSubtype::ASCII(BufferLength(40)),
+));
+pub const UTF8_40: TypeSignature = SequenceType(SequenceSubtype::StringType(StringSubtype::UTF8(
+    StringUTF8Length(40),
+)));
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ListTypeData {
@@ -168,6 +210,18 @@ pub struct FixedFunction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FunctionArgSignature {
+    Union(Vec<TypeSignature>),
+    Single(TypeSignature),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FunctionReturnsSignature {
+    TypeOfArgAtPosition(usize),
+    Fixed(TypeSignature),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FunctionType {
     Variadic(TypeSignature, TypeSignature),
     Fixed(FixedFunction),
@@ -177,21 +231,17 @@ pub enum FunctionType {
     ArithmeticUnary,
     ArithmeticBinary,
     ArithmeticComparison,
+    Binary(
+        FunctionArgSignature,
+        FunctionArgSignature,
+        FunctionReturnsSignature,
+    ),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FunctionArg {
     pub signature: TypeSignature,
     pub name: ClarityName,
-}
-
-#[cfg(test)]
-impl From<&str> for TypeSignature {
-    fn from(val: &str) -> Self {
-        use crate::vm::ast::parse;
-        let expr = &parse(&QualifiedContractIdentifier::transient(), val).unwrap()[0];
-        TypeSignature::parse_type_repr(expr, &mut ()).unwrap()
-    }
 }
 
 impl From<FixedFunction> for FunctionSignature {
@@ -484,8 +534,60 @@ impl TypeSignature {
                     false
                 }
             }
+            PrincipalType => {
+                if other == &PrincipalType {
+                    true
+                } else if let CallableType(CallableSubtype::Principal(_)) = other {
+                    true
+                } else {
+                    false
+                }
+            }
             NoType => panic!("NoType should never be asked to admit."),
             _ => other == self,
+        }
+    }
+
+    /// Concretize the type. The input to this method may include
+    /// `ListUnioonType` and the `CallableType` variant for a `principal.
+    /// This method turns these "temporary" types into actual types.
+    pub fn concretize(&self) -> Result<TypeSignature> {
+        match self {
+            ListUnionType(types) => {
+                let mut is_trait = None;
+                let mut is_principal = true;
+                for partial in types {
+                    match partial {
+                        CallableSubtype::Principal(_) => {
+                            if is_trait.is_some() {
+                                return Err(CheckErrors::TypeError(
+                                    TypeSignature::CallableType(partial.clone()),
+                                    TypeSignature::PrincipalType,
+                                ));
+                            } else {
+                                is_principal = true;
+                            }
+                        }
+                        CallableSubtype::Trait(t) => {
+                            if is_principal {
+                                return Err(CheckErrors::TypeError(
+                                    TypeSignature::PrincipalType,
+                                    TypeSignature::CallableType(partial.clone()),
+                                ));
+                            } else {
+                                is_trait = Some(t.clone());
+                            }
+                        }
+                    }
+                }
+                if let Some(t) = is_trait {
+                    Ok(TypeSignature::CallableType(CallableSubtype::Trait(t)))
+                } else {
+                    Ok(TypeSignature::PrincipalType)
+                }
+            }
+            CallableType(CallableSubtype::Principal(_)) => Ok(TypeSignature::PrincipalType),
+            _ => Ok(self.clone()),
         }
     }
 }
@@ -607,20 +709,8 @@ impl FunctionSignature {
         }
         let args_iter = self.args.iter().zip(args.iter());
         for (expected_arg, arg) in args_iter {
-            match (expected_arg, arg) {
-                (
-                    TypeSignature::TraitReferenceType(expected),
-                    TypeSignature::TraitReferenceType(candidate),
-                ) => {
-                    if candidate != expected {
-                        return false;
-                    }
-                }
-                _ => {
-                    if !arg.admits_type(&expected_arg) {
-                        return false;
-                    }
-                }
+            if !arg.admits_type(&expected_arg) {
+                return false;
             }
         }
         true
@@ -654,11 +744,40 @@ impl TypeSignature {
         )))
     }
 
+    pub fn max_string_ascii() -> TypeSignature {
+        SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
+            BufferLength::try_from(MAX_VALUE_SIZE)
+                .expect("FAIL: Max Clarity Value Size is no longer realizable in ASCII Type"),
+        )))
+    }
+
+    pub fn max_string_utf8() -> TypeSignature {
+        SequenceType(SequenceSubtype::StringType(StringSubtype::UTF8(
+            StringUTF8Length::try_from(MAX_VALUE_SIZE / 4)
+                .expect("FAIL: Max Clarity Value Size is no longer realizable in UTF8 Type"),
+        )))
+    }
+
     pub fn max_buffer() -> TypeSignature {
         SequenceType(SequenceSubtype::BufferType(
             BufferLength::try_from(MAX_VALUE_SIZE)
                 .expect("FAIL: Max Clarity Value Size is no longer realizable in Buffer Type"),
         ))
+    }
+
+    pub fn contract_name_string_ascii_type() -> TypeSignature {
+        TypeSignature::bound_string_ascii_type(
+            CONTRACT_MAX_NAME_LENGTH
+                .try_into()
+                .expect("FAIL: contract name max length exceeds u32 space"),
+        )
+    }
+
+    pub fn bound_string_ascii_type(max_len: u32) -> TypeSignature {
+        SequenceType(SequenceSubtype::StringType(StringSubtype::ASCII(
+            BufferLength::try_from(max_len)
+                .expect("FAIL: Max Clarity Value Size is no longer realizable in ASCII Type"),
+        )))
     }
 
     /// If one of the types is a NoType, return Ok(the other type), otherwise return least_supertype(a, b)
@@ -781,6 +900,23 @@ impl TypeSignature {
                 )))
             }
             (NoType, x) | (x, NoType) => Ok(x.clone()),
+            (CallableType(x), CallableType(y)) => {
+                if x == y {
+                    Ok(a.clone())
+                } else {
+                    Ok(ListUnionType(HashSet::from([x.clone(), y.clone()])))
+                }
+            }
+            (ListUnionType(l), CallableType(y)) => {
+                let mut l1 = l.clone();
+                l1.insert(y.clone());
+                Ok(ListUnionType(l1))
+            }
+            (CallableType(x), ListUnionType(l)) => {
+                let mut l1 = l.clone();
+                l1.insert(x.clone());
+                Ok(ListUnionType(l1))
+            }
             (x, y) => {
                 if x == y {
                     Ok(x.clone())
@@ -819,6 +955,22 @@ impl TypeSignature {
             }
             Value::Optional(v) => v.type_signature(),
             Value::Response(v) => v.type_signature(),
+            Value::CallableContract(v) => {
+                if let Some(trait_identifier) = &v.trait_identifier {
+                    CallableType(CallableSubtype::Trait(trait_identifier.clone()))
+                } else {
+                    CallableType(CallableSubtype::Principal(v.contract_identifier.clone()))
+                }
+            }
+        }
+    }
+
+    pub fn literal_type_of(x: &Value) -> TypeSignature {
+        match x {
+            Value::Principal(PrincipalData::Contract(contract_id)) => {
+                CallableType(CallableSubtype::Principal(contract_id.clone()))
+            }
+            _ => Self::type_of(x),
         }
     }
 
@@ -987,12 +1139,12 @@ impl TypeSignature {
             }
             SymbolicExpressionType::TraitReference(_, ref trait_definition) => {
                 match trait_definition {
-                    TraitDefinition::Defined(trait_id) => {
-                        Ok(TypeSignature::TraitReferenceType(trait_id.clone()))
-                    }
-                    TraitDefinition::Imported(trait_id) => {
-                        Ok(TypeSignature::TraitReferenceType(trait_id.clone()))
-                    }
+                    TraitDefinition::Defined(trait_id) => Ok(TypeSignature::CallableType(
+                        CallableSubtype::Trait(trait_id.clone()),
+                    )),
+                    TraitDefinition::Imported(trait_id) => Ok(TypeSignature::CallableType(
+                        CallableSubtype::Trait(trait_id.clone()),
+                    )),
                 }
             }
             _ => Err(CheckErrors::InvalidTypeDescription),
@@ -1002,6 +1154,7 @@ impl TypeSignature {
     pub fn parse_trait_type_repr<A: CostTracker>(
         type_args: &[SymbolicExpression],
         accounting: &mut A,
+        clarity_version: ClarityVersion,
     ) -> Result<BTreeMap<ClarityName, FunctionSignature>> {
         let mut trait_signature: BTreeMap<ClarityName, FunctionSignature> = BTreeMap::new();
         let functions_types = type_args[0]
@@ -1040,15 +1193,34 @@ impl TypeSignature {
                 _ => Err(CheckErrors::DefineTraitBadSignature),
             }?;
 
-            trait_signature.insert(
-                fn_name.clone(),
-                FunctionSignature {
-                    args: fn_args,
-                    returns: fn_return,
-                },
-            );
+            if trait_signature
+                .insert(
+                    fn_name.clone(),
+                    FunctionSignature {
+                        args: fn_args,
+                        returns: fn_return,
+                    },
+                )
+                .is_some()
+                && clarity_version >= ClarityVersion::Clarity2
+            {
+                return Err(CheckErrors::DefineTraitDuplicateMethod(fn_name.to_string()));
+            }
         }
         Ok(trait_signature)
+    }
+
+    #[cfg(test)]
+    pub fn from_string(val: &str, version: ClarityVersion, epoch: StacksEpochId) -> Self {
+        use crate::vm::ast::parse;
+        let expr = &parse(
+            &QualifiedContractIdentifier::transient(),
+            val,
+            version,
+            epoch,
+        )
+        .unwrap()[0];
+        TypeSignature::parse_type_repr(expr, &mut ()).unwrap()
     }
 }
 
@@ -1065,7 +1237,8 @@ impl TypeSignature {
         match self {
             // NoType's may be asked for their size at runtime --
             //  legal constructions like `(ok 1)` have NoType parts (if they have unknown error variant types).
-            TraitReferenceType(_)
+            CallableType(_)
+            | ListUnionType(_)
             | NoType
             | IntType
             | UIntType
@@ -1115,7 +1288,8 @@ impl TypeSignature {
                 let s_size = s.size();
                 cmp::max(t_size, s_size).checked_add(WRAPPER_VALUE_SIZE)
             }
-            TraitReferenceType(_) => Some(276), // 20+128+128
+            CallableType(CallableSubtype::Principal(_)) | ListUnionType(_) => Some(148), // 20+128
+            CallableType(CallableSubtype::Trait(_)) => Some(276), // 20+128+128
         }
     }
 
@@ -1144,7 +1318,7 @@ impl TypeSignature {
                     .checked_add(s.inner_type_size()?)?
                     .checked_add(1)
             }
-            TraitReferenceType(_) => Some(1),
+            CallableType(_) | ListUnionType(_) => Some(1),
         }
     }
 }
@@ -1235,6 +1409,7 @@ impl TupleTypeSignature {
 
 use crate::vm::costs::cost_functions::ClarityCostFunction;
 use crate::vm::costs::CostTracker;
+use crate::vm::ClarityVersion;
 
 pub fn parse_name_type_pairs<A: CostTracker>(
     name_type_pairs: &[SymbolicExpression],
@@ -1332,7 +1507,11 @@ impl fmt::Display for TypeSignature {
             SequenceType(SequenceSubtype::StringType(StringSubtype::UTF8(len))) => {
                 write!(f, "(string-utf8 {})", len)
             }
-            TraitReferenceType(trait_alias) => write!(f, "<{}>", trait_alias.to_string()),
+            CallableType(CallableSubtype::Trait(trait_id)) => write!(f, "<{}>", trait_id),
+            CallableType(CallableSubtype::Principal(contract_id)) => {
+                write!(f, "(principal {})", contract_id)
+            }
+            ListUnionType(_) => write!(f, "principal"),
         }
     }
 }
@@ -1359,28 +1538,49 @@ impl fmt::Display for FunctionArg {
 mod test {
     use super::CheckErrors::*;
     use super::*;
-    use crate::vm::execute;
+    use crate::vm::{execute, ClarityVersion};
+    #[cfg(test)]
+    use rstest::rstest;
+    #[cfg(test)]
+    use rstest_reuse::{self, *};
 
-    fn fail_parse(val: &str) -> CheckErrors {
+    #[template]
+    #[rstest]
+    #[case(ClarityVersion::Clarity1, StacksEpochId::Epoch2_05)]
+    #[case(ClarityVersion::Clarity1, StacksEpochId::Epoch21)]
+    #[case(ClarityVersion::Clarity2, StacksEpochId::Epoch21)]
+    fn test_clarity_versions_signatures(
+        #[case] version: ClarityVersion,
+        #[case] epoch: StacksEpochId,
+    ) {
+    }
+
+    fn fail_parse(val: &str, version: ClarityVersion, epoch: StacksEpochId) -> CheckErrors {
         use crate::vm::ast::parse;
-        let expr = &parse(&QualifiedContractIdentifier::transient(), val).unwrap()[0];
+        let expr = &parse(
+            &QualifiedContractIdentifier::transient(),
+            val,
+            version,
+            epoch,
+        )
+        .unwrap()[0];
         TypeSignature::parse_type_repr(expr, &mut ()).unwrap_err()
     }
 
-    #[test]
-    fn type_of_list_of_buffs() {
+    #[apply(test_clarity_versions_signatures)]
+    fn type_of_list_of_buffs(#[case] version: ClarityVersion, #[case] epoch: StacksEpochId) {
         let value = execute("(list \"abc\" \"abcde\")").unwrap().unwrap();
-        let type_descr = "(list 2 (string-ascii 5))".into();
+        let type_descr = TypeSignature::from_string("(list 2 (string-ascii 5))", version, epoch);
         assert_eq!(TypeSignature::type_of(&value), type_descr);
     }
 
-    #[test]
-    fn type_signature_way_too_big() {
+    #[apply(test_clarity_versions_signatures)]
+    fn type_signature_way_too_big(#[case] version: ClarityVersion, #[case] epoch: StacksEpochId) {
         // first_tuple.type_size ~= 131
         // second_tuple.type_size = k * (130+130)
         // to get a type-size greater than max_value all by itself,
         //   set k = 4033
-        let first_tuple = TypeSignature::from("(tuple (a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 bool))");
+        let first_tuple = TypeSignature::from_string("(tuple (a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 bool))", version, epoch);
 
         let mut keys = vec![];
         for i in 0..4033 {
@@ -1395,8 +1595,8 @@ mod test {
         );
     }
 
-    #[test]
-    fn test_construction() {
+    #[apply(test_clarity_versions_signatures)]
+    fn test_construction(#[case] version: ClarityVersion, #[case] epoch: StacksEpochId) {
         let bad_type_descriptions = [
             ("(tuple)", EmptyTuplesNotAllowed),
             ("(list int int)", InvalidTypeDescription),
@@ -1421,7 +1621,7 @@ mod test {
         ];
 
         for (desc, expected) in bad_type_descriptions.iter() {
-            assert_eq!(&fail_parse(desc), expected);
+            assert_eq!(&fail_parse(desc, version, epoch), expected);
         }
 
         let okay_types = [
@@ -1434,7 +1634,7 @@ mod test {
         ];
 
         for desc in okay_types.iter() {
-            let _ = TypeSignature::from(*desc); // panics on failed types.
+            let _ = TypeSignature::from_string(*desc, version, epoch); // panics on failed types.
         }
     }
 }
