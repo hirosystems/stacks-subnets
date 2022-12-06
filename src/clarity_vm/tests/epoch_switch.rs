@@ -25,6 +25,7 @@ use crate::util_lib::db::{DBConn, FromRow};
 use clarity::vm::analysis::AnalysisDatabase;
 use clarity::vm::database::{
     BurnStateDB, ClarityBackingStore, ClarityDatabase, HeadersDB, SqliteConnection,
+    NULL_BURN_STATE_DB, NULL_HEADER_DB,
 };
 use clarity::vm::errors::{InterpreterResult, RuntimeErrorType};
 use clarity::vm::test_util::{TEST_BURN_STATE_DB, TEST_HEADER_DB};
@@ -41,7 +42,6 @@ use crate::core::{PEER_VERSION_EPOCH_1_0, PEER_VERSION_EPOCH_2_0, PEER_VERSION_E
 use rand::thread_rng;
 use rand::RngCore;
 
-use crate::chainstate::burn::db::tests::test_append_snapshot;
 use clarity::vm::costs::ExecutionCost;
 use stacks_common::util::hash::to_hex;
 
@@ -51,6 +51,7 @@ fn test_burnstatedb_epoch(
     height_end: u32,
     epoch_20_height: u32,
     epoch_2_05_height: u32,
+    epoch_21_height: u32,
 ) {
     for height in height_start..height_end {
         debug!("Get epoch for block height {}", height);
@@ -60,14 +61,19 @@ fn test_burnstatedb_epoch(
             assert_eq!(cur_epoch.epoch_id, StacksEpochId::Epoch10);
         } else if height < epoch_2_05_height {
             assert_eq!(cur_epoch.epoch_id, StacksEpochId::Epoch20);
-        } else {
+        } else if height < epoch_21_height {
             assert_eq!(cur_epoch.epoch_id, StacksEpochId::Epoch2_05);
+        } else {
+            assert_eq!(cur_epoch.epoch_id, StacksEpochId::Epoch21);
         }
     }
 }
 
 #[test]
 fn test_vm_epoch_switch() {
+    use crate::burnchains::PoxConstants;
+    use crate::chainstate::burn::db::sortdb::tests::test_append_snapshot;
+
     let mut rng = rand::thread_rng();
     let mut buf = [0u8; 32];
     rng.fill_bytes(&mut buf);
@@ -79,6 +85,8 @@ fn test_vm_epoch_switch() {
     let mut db = SortitionDB::connect(
         &db_path_dir,
         3,
+        &BurnchainHeaderHash([0u8; 32]),
+        0,
         &vec![
             StacksEpoch {
                 epoch_id: StacksEpochId::Epoch10,
@@ -97,11 +105,19 @@ fn test_vm_epoch_switch() {
             StacksEpoch {
                 epoch_id: StacksEpochId::Epoch2_05,
                 start_height: 12,
+                end_height: 16,
+                block_limit: ExecutionCost::max_value(),
+                network_epoch: PEER_VERSION_EPOCH_2_05,
+            },
+            StacksEpoch {
+                epoch_id: StacksEpochId::Epoch21,
+                start_height: 16,
                 end_height: STACKS_EPOCH_MAX,
                 block_limit: ExecutionCost::max_value(),
                 network_epoch: PEER_VERSION_EPOCH_2_05,
             },
         ],
+        PoxConstants::test_default(),
         true,
     )
     .unwrap();
@@ -118,13 +134,13 @@ fn test_vm_epoch_switch() {
     // impl BurnStateDB for SortitionHandleConn
     {
         let burndb = db.index_conn();
-        test_burnstatedb_epoch(&burndb, start_height, end_height, 8, 12);
+        test_burnstatedb_epoch(&burndb, start_height, end_height, 8, 12, 16);
     }
 
     // impl BurnStateDB for SortitionHandleTx
     {
         let tip = SortitionDB::get_canonical_burn_chain_tip(db.conn()).unwrap();
         let burntx = db.tx_handle_begin(&tip.sortition_id).unwrap();
-        test_burnstatedb_epoch(&burntx, start_height, end_height, 8, 12);
+        test_burnstatedb_epoch(&burntx, start_height, end_height, 8, 12, 16);
     }
 }

@@ -1,6 +1,5 @@
 /// High level interfaces for interacting with the Clarity vm
 pub mod clarity;
-pub mod withdrawal;
 
 pub mod special;
 
