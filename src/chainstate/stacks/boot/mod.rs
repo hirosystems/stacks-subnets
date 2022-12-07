@@ -63,6 +63,7 @@ pub const BOOT_CODE_BNS: &'static str = std::include_str!("bns.clar");
 pub const BOOT_CODE_GENESIS: &'static str = std::include_str!("genesis.clar");
 pub const COSTS_1_NAME: &'static str = "costs";
 pub const COSTS_2_NAME: &'static str = "costs-2";
+const POX_2_BODY: &'static str = std::include_str!("pox-2.clar");
 
 pub mod docs;
 
