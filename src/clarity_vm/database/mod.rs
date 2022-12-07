@@ -241,6 +241,15 @@ impl BurnStateDB for SortitionHandleTx<'_> {
     fn get_pox_reward_cycle_length(&self) -> u32 { todo!() }
     fn get_pox_rejection_fraction(&self) -> u64 { todo!() }
 
+    fn get_sortition_id_from_consensus_hash(
+        &self,
+        consensus_hash: &ConsensusHash,
+    ) -> Option<SortitionId> {
+        match SortitionDB::get_block_snapshot_consensus(self.tx(), consensus_hash) {
+            Ok(Some(x)) => Some(x.sortition_id),
+            _ => return None,
+        }
+    }
 }
 
 impl BurnStateDB for SortitionDBConn<'_> {
@@ -278,6 +287,16 @@ impl BurnStateDB for SortitionDBConn<'_> {
     fn get_pox_prepare_length(&self) -> u32 { todo!() }
     fn get_pox_reward_cycle_length(&self) -> u32 { todo!() }
     fn get_pox_rejection_fraction(&self) -> u64 { todo!() }
+
+    fn get_sortition_id_from_consensus_hash(
+        &self,
+        consensus_hash: &ConsensusHash,
+    ) -> Option<SortitionId> {
+        match SortitionDB::get_block_snapshot_consensus(self.conn(), consensus_hash) {
+            Ok(Some(x)) => Some(x.sortition_id),
+            _ => return None,
+        }
+    }
 }
 
 pub struct MemoryBackingStore {
