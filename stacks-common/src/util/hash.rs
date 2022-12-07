@@ -169,7 +169,7 @@ pub const DOUBLE_SHA256_ENCODED_SIZE: u32 = 32;
 
 #[derive(Debug, PartialEq, Clone)]
 #[repr(C)]
-enum MerklePathOrder {
+pub enum MerklePathOrder {
     Left = 0x02,
     Right = 0x03,
 }
