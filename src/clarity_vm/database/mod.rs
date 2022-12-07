@@ -62,6 +62,18 @@ impl<'a> HeadersDB for HeadersDBConn<'a> {
     fn get_miner_address(&self, id_bhh: &StacksBlockId) -> Option<StacksAddress> {
         get_miner_info(self.0, id_bhh).map(|x| x.address)
     }
+
+    fn get_burnchain_tokens_spent_for_block(&self, id_bhh: &StacksBlockId) -> Option<u128> {
+        None
+    }
+
+    fn get_burnchain_tokens_spent_for_winning_block(&self, id_bhh: &StacksBlockId) -> Option<u128> {
+        None
+    }
+
+    fn get_tokens_earned_for_block(&self, id_bhh: &StacksBlockId) -> Option<u128> {
+        None
+    }
 }
 
 impl<'a> HeadersDB for ChainstateTx<'a> {
@@ -95,6 +107,18 @@ impl<'a> HeadersDB for ChainstateTx<'a> {
     fn get_miner_address(&self, id_bhh: &StacksBlockId) -> Option<StacksAddress> {
         get_miner_info(self.deref().deref(), id_bhh).map(|x| x.address)
     }
+
+    fn get_burnchain_tokens_spent_for_block(&self, id_bhh: &StacksBlockId) -> Option<u128> {
+        None
+    }
+
+    fn get_burnchain_tokens_spent_for_winning_block(&self, id_bhh: &StacksBlockId) -> Option<u128> {
+        None
+    }
+
+    fn get_tokens_earned_for_block(&self, id_bhh: &StacksBlockId) -> Option<u128> {
+        None
+    }
 }
 
 impl HeadersDB for crate::chainstate::stacks::index::marf::MARF<StacksBlockId> {
@@ -127,6 +151,18 @@ impl HeadersDB for crate::chainstate::stacks::index::marf::MARF<StacksBlockId> {
 
     fn get_miner_address(&self, id_bhh: &StacksBlockId) -> Option<StacksAddress> {
         get_miner_info(self.sqlite_conn(), id_bhh).map(|x| x.address)
+    }
+
+    fn get_burnchain_tokens_spent_for_block(&self, id_bhh: &StacksBlockId) -> Option<u128> {
+        None
+    }
+
+    fn get_burnchain_tokens_spent_for_winning_block(&self, id_bhh: &StacksBlockId) -> Option<u128> {
+        None
+    }
+
+    fn get_tokens_earned_for_block(&self, id_bhh: &StacksBlockId) -> Option<u128> {
+        None
     }
 }
 
