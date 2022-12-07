@@ -234,6 +234,13 @@ impl BurnStateDB for SortitionHandleTx<'_> {
         SortitionDB::get_stacks_epoch_by_epoch_id(self.tx(), epoch_id)
             .expect("BUG: failed to get epoch for epoch id")
     }
+
+    fn get_v1_unlock_height(&self) -> u32 { todo!() }
+    fn get_burn_start_height(&self) -> u32 { todo!() }
+    fn get_pox_prepare_length(&self) -> u32 { todo!() }
+    fn get_pox_reward_cycle_length(&self) -> u32 { todo!() }
+    fn get_pox_rejection_fraction(&self) -> u64 { todo!() }
+
 }
 
 impl BurnStateDB for SortitionDBConn<'_> {
@@ -265,6 +272,12 @@ impl BurnStateDB for SortitionDBConn<'_> {
         SortitionDB::get_stacks_epoch_by_epoch_id(self.conn(), epoch_id)
             .expect("BUG: failed to get epoch for epoch id")
     }
+
+    fn get_v1_unlock_height(&self) -> u32 { todo!() }
+    fn get_burn_start_height(&self) -> u32 { todo!() }
+    fn get_pox_prepare_length(&self) -> u32 { todo!() }
+    fn get_pox_reward_cycle_length(&self) -> u32 { todo!() }
+    fn get_pox_rejection_fraction(&self) -> u64 { todo!() }
 }
 
 pub struct MemoryBackingStore {
