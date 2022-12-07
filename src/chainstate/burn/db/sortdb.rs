@@ -23,6 +23,7 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 use std::{cmp, fmt, fs, str::FromStr};
 
+use clarity::vm::ast::ASTRules;
 use clarity::vm::costs::ExecutionCost;
 use rand;
 use rand::RngCore;
@@ -32,7 +33,6 @@ use rusqlite::Transaction;
 use rusqlite::TransactionBehavior;
 use rusqlite::{Connection, OpenFlags, OptionalExtension, NO_PARAMS};
 use sha2::{Digest, Sha512_256};
-use clarity::vm::ast::ASTRules;
 
 use crate::address::AddressHashMode;
 use crate::burnchains::{Address, PublicKey, Txid};

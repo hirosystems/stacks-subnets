@@ -26,6 +26,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::clarity_vm::special::handle_contract_call_special_cases;
 use clarity::vm::database::SpecialCaseHandler;
+use clarity::vm::types::TupleData;
 use stacks_common::types::chainstate::ConsensusHash;
 
 pub mod marf;
@@ -235,11 +236,21 @@ impl BurnStateDB for SortitionHandleTx<'_> {
             .expect("BUG: failed to get epoch for epoch id")
     }
 
-    fn get_v1_unlock_height(&self) -> u32 { todo!() }
-    fn get_burn_start_height(&self) -> u32 { todo!() }
-    fn get_pox_prepare_length(&self) -> u32 { todo!() }
-    fn get_pox_reward_cycle_length(&self) -> u32 { todo!() }
-    fn get_pox_rejection_fraction(&self) -> u64 { todo!() }
+    fn get_v1_unlock_height(&self) -> u32 {
+        todo!()
+    }
+    fn get_burn_start_height(&self) -> u32 {
+        todo!()
+    }
+    fn get_pox_prepare_length(&self) -> u32 {
+        todo!()
+    }
+    fn get_pox_reward_cycle_length(&self) -> u32 {
+        todo!()
+    }
+    fn get_pox_rejection_fraction(&self) -> u64 {
+        todo!()
+    }
 
     fn get_sortition_id_from_consensus_hash(
         &self,
@@ -252,6 +263,14 @@ impl BurnStateDB for SortitionHandleTx<'_> {
     }
     fn get_ast_rules(&self, height: u32) -> clarity::vm::ast::ASTRules {
         SortitionDB::get_ast_rules(self.tx(), height.into()).expect("BUG: failed to get AST rules")
+    }
+
+    fn get_pox_payout_addrs(
+        &self,
+        _: u32,
+        _: &SortitionId,
+    ) -> std::option::Option<(Vec<TupleData>, u128)> {
+        todo!()
     }
 }
 
@@ -285,11 +304,21 @@ impl BurnStateDB for SortitionDBConn<'_> {
             .expect("BUG: failed to get epoch for epoch id")
     }
 
-    fn get_v1_unlock_height(&self) -> u32 { todo!() }
-    fn get_burn_start_height(&self) -> u32 { todo!() }
-    fn get_pox_prepare_length(&self) -> u32 { todo!() }
-    fn get_pox_reward_cycle_length(&self) -> u32 { todo!() }
-    fn get_pox_rejection_fraction(&self) -> u64 { todo!() }
+    fn get_v1_unlock_height(&self) -> u32 {
+        todo!()
+    }
+    fn get_burn_start_height(&self) -> u32 {
+        todo!()
+    }
+    fn get_pox_prepare_length(&self) -> u32 {
+        todo!()
+    }
+    fn get_pox_reward_cycle_length(&self) -> u32 {
+        todo!()
+    }
+    fn get_pox_rejection_fraction(&self) -> u64 {
+        todo!()
+    }
 
     fn get_sortition_id_from_consensus_hash(
         &self,
@@ -303,6 +332,14 @@ impl BurnStateDB for SortitionDBConn<'_> {
     fn get_ast_rules(&self, height: u32) -> clarity::vm::ast::ASTRules {
         SortitionDB::get_ast_rules(self.conn(), height.into())
             .expect("BUG: failed to get AST rules")
+    }
+
+    fn get_pox_payout_addrs(
+        &self,
+        _: u32,
+        _: &SortitionId,
+    ) -> std::option::Option<(Vec<TupleData>, u128)> {
+        todo!()
     }
 }
 
