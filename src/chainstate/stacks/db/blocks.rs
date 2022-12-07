@@ -6432,7 +6432,7 @@ impl StacksChainState {
                 _ => {
                     return Err(MemPoolRejection::NotEnoughFunds(
                         fee as u128,
-                        payer.stx_balance.amount_unlocked,
+                        payer.stx_balance.amount_unlocked(),
                     ));
                 }
             }
@@ -6471,7 +6471,7 @@ impl StacksChainState {
                     {
                         return Err(MemPoolRejection::NotEnoughFunds(
                             fee as u128,
-                            payer.stx_balance.amount_unlocked,
+                            payer.stx_balance.amount_unlocked(),
                         ));
                     }
                 }
