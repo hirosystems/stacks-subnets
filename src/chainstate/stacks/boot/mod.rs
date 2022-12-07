@@ -53,20 +53,20 @@ use crate::vm::{costs::LimitedCostTracker, SymbolicExpression};
 const BOOT_CODE_POX_BODY: &'static str = std::include_str!("pox.clar");
 const BOOT_CODE_POX_TESTNET_CONSTS: &'static str = std::include_str!("pox-testnet.clar");
 const BOOT_CODE_POX_MAINNET_CONSTS: &'static str = std::include_str!("pox-mainnet.clar");
-const BOOT_CODE_LOCKUP: &'static str = std::include_str!("lockup.clar");
+pub const BOOT_CODE_LOCKUP: &'static str = std::include_str!("lockup.clar");
 pub const BOOT_CODE_COSTS: &'static str = std::include_str!("costs.clar");
 pub const BOOT_CODE_COSTS_2: &'static str = std::include_str!("costs-2.clar");
 pub const BOOT_CODE_COSTS_2_TESTNET: &'static str = std::include_str!("costs-2-testnet.clar");
-const BOOT_CODE_COST_VOTING_MAINNET: &'static str = std::include_str!("cost-voting.clar");
-const BOOT_CODE_BNS: &'static str = std::include_str!("bns.clar");
-const BOOT_CODE_GENESIS: &'static str = std::include_str!("genesis.clar");
+pub const BOOT_CODE_COST_VOTING_MAINNET: &'static str = std::include_str!("cost-voting.clar");
+pub const BOOT_CODE_BNS: &'static str = std::include_str!("bns.clar");
+pub const BOOT_CODE_GENESIS: &'static str = std::include_str!("genesis.clar");
 pub const COSTS_1_NAME: &'static str = "costs";
 pub const COSTS_2_NAME: &'static str = "costs-2";
 
 pub mod docs;
 
 lazy_static! {
-    static ref BOOT_CODE_POX_MAINNET: String =
+    pub static ref BOOT_CODE_POX_MAINNET: String =
         format!("{}\n{}", BOOT_CODE_POX_MAINNET_CONSTS, BOOT_CODE_POX_BODY);
     pub static ref BOOT_CODE_POX_TESTNET: String =
         format!("{}\n{}", BOOT_CODE_POX_TESTNET_CONSTS, BOOT_CODE_POX_BODY);
