@@ -62,7 +62,7 @@ use crate::util_lib::db::{
 use crate::util_lib::strings::StacksString;
 pub use clarity::vm::analysis::errors::{CheckError, CheckErrors};
 use clarity::vm::analysis::run_analysis;
-use clarity::vm::ast::build_ast;
+use clarity::vm::ast::build_ast_with_rules;
 use clarity::vm::clarity::TransactionConnection;
 use clarity::vm::contexts::AssetMap;
 use clarity::vm::contracts::Contract;

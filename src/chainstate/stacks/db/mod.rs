@@ -68,7 +68,7 @@ use crate::util_lib::db::{
 };
 use clarity::vm::analysis::analysis_db::AnalysisDatabase;
 use clarity::vm::analysis::run_analysis;
-use clarity::vm::ast::build_ast;
+use clarity::vm::ast::build_ast_with_rules;
 use clarity::vm::clarity::TransactionConnection;
 use clarity::vm::contexts::OwnedEnvironment;
 use clarity::vm::costs::{ExecutionCost, LimitedCostTracker};

@@ -1,5 +1,5 @@
 use crate::clarity_vm::{clarity::ClarityInstance, database::marf::MarfedKV};
-use clarity::vm::ast::build_ast;
+use clarity::vm::ast::build_ast_with_rules;
 use clarity::vm::test_util::{TEST_BURN_STATE_DB, TEST_HEADER_DB};
 use clarity::vm::types::QualifiedContractIdentifier;
 use stacks_common::types::chainstate::StacksBlockId;

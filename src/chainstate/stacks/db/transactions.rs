@@ -39,7 +39,7 @@ use crate::util_lib::strings::{StacksString, VecDisplay};
 pub use clarity::vm::analysis::errors::CheckErrors;
 use clarity::vm::analysis::run_analysis;
 use clarity::vm::analysis::types::ContractAnalysis;
-use clarity::vm::ast::build_ast;
+use clarity::vm::ast::build_ast_with_rules;
 use clarity::vm::clarity::TransactionConnection;
 use clarity::vm::contexts::{AssetMap, AssetMapEntry, Environment};
 use clarity::vm::contracts::Contract;
