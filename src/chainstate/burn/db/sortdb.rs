@@ -32,6 +32,7 @@ use rusqlite::Transaction;
 use rusqlite::TransactionBehavior;
 use rusqlite::{Connection, OpenFlags, OptionalExtension, NO_PARAMS};
 use sha2::{Digest, Sha512_256};
+use clarity::vm::ast::ASTRules;
 
 use crate::address::AddressHashMode;
 use crate::burnchains::{Address, PublicKey, Txid};
@@ -1445,6 +1446,28 @@ impl<'a> SortitionHandleConn<'a> {
 
 // Connection methods
 impl SortitionDB {
+    /// What's the default AST rules at the given block height?
+    pub fn get_ast_rules(conn: &DBConn, height: u64) -> Result<ASTRules, db_error> {
+        let ast_rule_sets: Vec<(ASTRules, u64)> = query_rows(
+            conn,
+            "SELECT * FROM ast_rule_heights ORDER BY block_height ASC",
+            NO_PARAMS,
+        )?;
+
+        assert!(ast_rule_sets.len() > 0);
+        let mut last_height = ast_rule_sets[0].1;
+        let mut last_rules = ast_rule_sets[0].0;
+        for (ast_rules, ast_rule_height) in ast_rule_sets.into_iter() {
+            if last_height <= height && height < ast_rule_height {
+                return Ok(last_rules);
+            }
+            last_height = ast_rule_height;
+            last_rules = ast_rules;
+        }
+
+        return Ok(last_rules);
+    }
+
     /// Begin a transaction.
     pub fn tx_begin<'a>(&'a mut self) -> Result<SortitionDBTx<'a>, db_error> {
         if !self.readwrite {
