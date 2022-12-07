@@ -26,6 +26,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::clarity_vm::special::handle_contract_call_special_cases;
 use clarity::vm::database::SpecialCaseHandler;
+use stacks_common::types::chainstate::ConsensusHash;
 
 pub mod marf;
 
@@ -44,6 +45,10 @@ impl<'a> HeadersDB for HeadersDBConn<'a> {
         id_bhh: &StacksBlockId,
     ) -> Option<BurnchainHeaderHash> {
         get_stacks_header_info(self.0, id_bhh).map(|x| x.burn_header_hash)
+    }
+
+    fn get_consensus_hash_for_block(&self, id_bhh: &StacksBlockId) -> Option<ConsensusHash> {
+        get_stacks_header_info(self.0, id_bhh).map(|x| x.consensus_hash)
     }
 
     fn get_burn_block_time_for_block(&self, id_bhh: &StacksBlockId) -> Option<u64> {
@@ -91,6 +96,10 @@ impl<'a> HeadersDB for ChainstateTx<'a> {
         get_stacks_header_info(self.deref().deref(), id_bhh).map(|x| x.burn_header_hash)
     }
 
+    fn get_consensus_hash_for_block(&self, id_bhh: &StacksBlockId) -> Option<ConsensusHash> {
+        get_stacks_header_info(self.0, id_bhh).map(|x| x.consensus_hash)
+    }
+
     fn get_burn_block_time_for_block(&self, id_bhh: &StacksBlockId) -> Option<u64> {
         get_stacks_header_info(self.deref().deref(), id_bhh).map(|x| x.burn_header_timestamp)
     }
@@ -134,6 +143,10 @@ impl HeadersDB for crate::chainstate::stacks::index::marf::MARF<StacksBlockId> {
         id_bhh: &StacksBlockId,
     ) -> Option<BurnchainHeaderHash> {
         get_stacks_header_info(self.sqlite_conn(), id_bhh).map(|x| x.burn_header_hash)
+    }
+
+    fn get_consensus_hash_for_block(&self, id_bhh: &StacksBlockId) -> Option<ConsensusHash> {
+        get_stacks_header_info(self.0, id_bhh).map(|x| x.consensus_hash)
     }
 
     fn get_burn_block_time_for_block(&self, id_bhh: &StacksBlockId) -> Option<u64> {
