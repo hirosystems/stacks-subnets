@@ -399,6 +399,10 @@ impl<H> MerkleTree<H>
 where
     H: MerkleHashFunc + Clone + PartialEq + fmt::Debug,
 {
+    pub fn empty() -> MerkleTree<H> {
+        MerkleTree { nodes: vec![] }
+    }
+
     pub fn new(data: &Vec<Vec<u8>>) -> MerkleTree<H> {
         if data.len() == 0 {
             return MerkleTree { nodes: vec![] };
