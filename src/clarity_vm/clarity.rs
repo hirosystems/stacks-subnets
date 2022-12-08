@@ -274,6 +274,7 @@ impl ClarityInstance {
             Some(
                 LimitedCostTracker::new(
                     self.mainnet,
+                    self.chain_id,
                     epoch.block_limit.clone(),
                     &mut clarity_db,
                     epoch.epoch_id,
