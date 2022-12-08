@@ -285,7 +285,7 @@ impl StacksChainState {
         if !snapshot.can_transfer(lock_amount) {
             return Err(Error::PoxInsufficientBalance);
         }
-        snapshot.lock_tokens(lock_amount, unlock_burn_height);
+        snapshot.lock_tokens_v1(lock_amount, unlock_burn_height);
 
         debug!(
             "PoX lock {} uSTX (new balance {}) until burnchain block height {} for {:?}",
