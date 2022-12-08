@@ -2457,7 +2457,7 @@ impl SortitionDB {
         //  reverse block order (but the correct direction within the blocks).
         let mut ops = vec![];
         let mut curr_block_id = start_block.clone();
-        let mut curr_sortition_id = SortitionId::new(&start_block);
+        let mut curr_sortition_id = SortitionId::stubbed(&start_block);
 
         loop {
             if curr_block_id == BurnchainHeaderHash::zero() {
