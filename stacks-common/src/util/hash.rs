@@ -382,8 +382,8 @@ pub struct MerkleTree<H: MerkleHashFunc> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MerklePathPoint<H: MerkleHashFunc> {
-    order: MerklePathOrder,
-    hash: H,
+    pub order: MerklePathOrder,
+    pub hash: H,
 }
 
 pub type MerklePath<H> = Vec<MerklePathPoint<H>>;
