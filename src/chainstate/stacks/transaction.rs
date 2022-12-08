@@ -158,7 +158,7 @@ impl StacksMessageCodec for TransactionPayload {
             }
             x if x == TransactionPayloadID::SmartContract as u8 => {
                 let payload: TransactionSmartContract = read_next(fd)?;
-                TransactionPayload::SmartContract(payload)
+                TransactionPayload::SmartContract(payload, None)
             }
             x if x == TransactionPayloadID::PoisonMicroblock as u8 => {
                 let h1: StacksMicroblockHeader = read_next(fd)?;
@@ -228,7 +228,11 @@ impl TransactionPayload {
         }))
     }
 
-    pub fn new_smart_contract(name: &str, contract: &str) -> Option<TransactionPayload> {
+    pub fn new_smart_contract(
+        name: &str,
+        contract: &str,
+        version_opt: Option<ClarityVersion>,
+    ) -> Option<TransactionPayload> {
         match (
             ContractName::try_from(name.to_string()),
             StacksString::from_str(contract),
@@ -238,6 +242,7 @@ impl TransactionPayload {
                     name: s_name,
                     code_body: s_body,
                 },
+                version_opt,
             )),
             (_, _) => None,
         }

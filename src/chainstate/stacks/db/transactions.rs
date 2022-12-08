@@ -40,6 +40,7 @@ pub use clarity::vm::analysis::errors::CheckErrors;
 use clarity::vm::analysis::run_analysis;
 use clarity::vm::analysis::types::ContractAnalysis;
 use clarity::vm::ast::build_ast_with_rules;
+use clarity::vm::ast::errors::ParseErrors;
 use clarity::vm::clarity::TransactionConnection;
 use clarity::vm::contexts::{AssetMap, AssetMapEntry, Environment};
 use clarity::vm::contracts::Contract;
@@ -847,16 +848,32 @@ impl StacksChainState {
                                     budget.clone(),
                                 ));
                             }
-                            _ => {
+                            other_error => {
+                                if ast_rules == ASTRules::PrecheckSize {
+                                    // a [Vary]ExpressionDepthTooDeep error in this situation
+                                    // invalidates the block, since this should have prevented the
+                                    // block from getting relayed in the first place
+                                    if let clarity_error::Parse(ref parse_error) = &other_error {
+                                        match parse_error.err {
+                                            ParseErrors::ExpressionStackDepthTooDeep
+                                            | ParseErrors::VaryExpressionStackDepthTooDeep => {
+                                                info!("Transaction {} is problematic and should have prevented this block from being relayed", tx.txid());
+                                                return Err(Error::ClarityError(other_error));
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                }
                                 // this analysis isn't free -- convert to runtime error
                                 let mut analysis_cost = clarity_tx.cost_so_far();
                                 analysis_cost
                                     .sub(&cost_before)
                                     .expect("BUG: total block cost decreased");
 
-                                error!(
+                                warn!(
                                     "Runtime error in contract analysis for {}: {:?}",
-                                    &contract_id, &e
+                                    &contract_id, &other_error;
+                                    "AST rules" => %format!("{:?}", &ast_rules)
                                 );
                                 let receipt = StacksTransactionReceipt::from_analysis_failure(
                                     tx.clone(),
@@ -880,6 +897,7 @@ impl StacksChainState {
                 // accepted, but the contract does not materialize (but the sender is out their fee).
                 let initialize_resp = clarity_tx.initialize_smart_contract(
                     &contract_id,
+                    clarity_version,
                     &contract_ast,
                     &contract_code_str,
                     sponsor,
