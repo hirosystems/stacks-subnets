@@ -112,6 +112,10 @@ fn handle_pox_api_contract_call(
                                     locked_amount,
                                     unlock_height,
                                     locked_address: stacker,
+                                    contract_identifier: boot_code_id(
+                                        "pox",
+                                        global_context.mainnet,
+                                    ),
                                 }),
                             ));
                         }
