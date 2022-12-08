@@ -58,7 +58,7 @@ use clarity::vm::analysis;
 use clarity::vm::analysis::AnalysisDatabase;
 use clarity::vm::analysis::{errors::CheckError, errors::CheckErrors, ContractAnalysis};
 use clarity::vm::ast;
-use clarity::vm::ast::{errors::ParseError, errors::ParseErrors, ContractAST};
+use clarity::vm::ast::{errors::ParseError, errors::ParseErrors, ASTRules, ContractAST};
 use clarity::vm::contexts::{AssetMap, Environment, OwnedEnvironment};
 use clarity::vm::costs::{CostTracker, ExecutionCost, LimitedCostTracker};
 use clarity::vm::database::{
@@ -70,6 +70,7 @@ use clarity::vm::representations::SymbolicExpression;
 use clarity::vm::types::{
     AssetIdentifier, PrincipalData, QualifiedContractIdentifier, TypeSignature, Value,
 };
+use clarity::vm::ClarityVersion;
 use clarity::vm::ContractName;
 use stacks_common::types::chainstate::BurnchainHeaderHash;
 
@@ -342,14 +343,21 @@ impl ClarityInstance {
 
         let use_mainnet = self.mainnet;
         conn.as_transaction(|clarity_db| {
-            let (ast, _) = clarity_db
-                .analyze_smart_contract(&boot_code_id("costs", use_mainnet), BOOT_CODE_COSTS)
+            let (ast, _analysis) = clarity_db
+                .analyze_smart_contract(
+                    &boot_code_id("costs", use_mainnet),
+                    ClarityVersion::Clarity1,
+                    BOOT_CODE_COSTS,
+                    ASTRules::PrecheckSize,
+                )
                 .unwrap();
             clarity_db
                 .initialize_smart_contract(
                     &boot_code_id("costs", use_mainnet),
+                    ClarityVersion::Clarity1,
                     &ast,
                     BOOT_CODE_COSTS,
+                    None,
                     |_, _| false,
                 )
                 .unwrap();
@@ -359,14 +367,18 @@ impl ClarityInstance {
             let (ast, analysis) = clarity_db
                 .analyze_smart_contract(
                     &boot_code_id("cost-voting", use_mainnet),
+                    ClarityVersion::Clarity1,
                     &*BOOT_CODE_COST_VOTING,
+                    ASTRules::PrecheckSize,
                 )
                 .unwrap();
             clarity_db
                 .initialize_smart_contract(
                     &boot_code_id("cost-voting", use_mainnet),
+                    ClarityVersion::Clarity1,
                     &ast,
                     &*BOOT_CODE_COST_VOTING,
+                    None,
                     |_, _| false,
                 )
                 .unwrap();
@@ -377,14 +389,21 @@ impl ClarityInstance {
         });
 
         conn.as_transaction(|clarity_db| {
-            let (ast, _) = clarity_db
-                .analyze_smart_contract(&boot_code_id("pox", use_mainnet), &*BOOT_CODE_POX_TESTNET)
+            let (ast, _analysis) = clarity_db
+                .analyze_smart_contract(
+                    &boot_code_id("pox", use_mainnet),
+                    ClarityVersion::Clarity1,
+                    &*BOOT_CODE_POX_TESTNET,
+                    ASTRules::PrecheckSize,
+                )
                 .unwrap();
             clarity_db
                 .initialize_smart_contract(
                     &boot_code_id("pox", use_mainnet),
+                    ClarityVersion::Clarity1,
                     &ast,
                     &*BOOT_CODE_POX_TESTNET,
+None,
                     |_, _| false,
                 )
                 .unwrap();
