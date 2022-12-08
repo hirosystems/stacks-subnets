@@ -511,8 +511,8 @@ None,
             result
         };
 
-        let mut env = OwnedEnvironment::new_free(self.mainnet, clarity_db, epoch_id);
-        env.eval_read_only(contract, program)
+        let mut env = OwnedEnvironment::new_free(self.mainnet, self.chain_id, clarity_db, epoch_id);
+        env.eval_read_only_with_rules(contract, program, ASTRules::PrecheckSize)
             .map(|(x, _, _)| x)
             .map_err(Error::from)
     }
@@ -703,12 +703,15 @@ impl<'a, 'b> ClarityBlockConnection<'a, 'b> {
                 &*BOOT_CODE_COSTS_2_TESTNET
             };
 
-            let payload = TransactionPayload::SmartContract(TransactionSmartContract {
-                name: ContractName::try_from(COSTS_2_NAME)
-                    .expect("FATAL: invalid boot-code contract name"),
-                code_body: StacksString::from_str(cost_2_code)
-                    .expect("FATAL: invalid boot code body"),
-            });
+            let payload = TransactionPayload::SmartContract(
+                TransactionSmartContract {
+                    name: ContractName::try_from(COSTS_2_NAME)
+                        .expect("FATAL: invalid boot-code contract name"),
+                    code_body: StacksString::from_str(cost_2_code)
+                        .expect("FATAL: invalid boot code body"),
+                },
+                None,
+            );
 
             let costs_2_contract_tx =
                 StacksTransaction::new(tx_version.clone(), boot_code_auth.clone(), payload);
@@ -863,8 +866,13 @@ impl<'a, 'b> TransactionConnection for ClarityTransactionConnection<'a, 'b> {
                 // wrap the whole contract-call in a claritydb transaction,
                 //   so we can abort on call_back's boolean retun
                 db.begin();
-                let mut vm_env =
-                    OwnedEnvironment::new_cost_limited(self.mainnet, db, cost_track, self.epoch);
+                let mut vm_env = OwnedEnvironment::new_cost_limited(
+                    self.mainnet,
+                    self.chain_id,
+                    db,
+                    cost_track,
+                    self.epoch,
+                );
                 let result = to_do(&mut vm_env);
                 let (mut db, cost_track) = vm_env
                     .destruct()
