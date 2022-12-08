@@ -210,6 +210,22 @@ impl FromRow<LeaderBlockCommitOp> for LeaderBlockCommitOp {
     }
 }
 
+impl FromColumn<ASTRules> for ASTRules {
+    fn from_column<'a>(row: &'a Row, column_name: &str) -> Result<ASTRules, db_error> {
+        let x: u8 = row.get_unwrap(column_name);
+        let ast_rules = ASTRules::from_u8(x).ok_or(db_error::ParseError)?;
+        Ok(ast_rules)
+    }
+}
+
+impl FromRow<(ASTRules, u64)> for (ASTRules, u64) {
+    fn from_row<'a>(row: &'a Row) -> Result<(ASTRules, u64), db_error> {
+        let ast_rules = ASTRules::from_column(row, "ast_rule_id")?;
+        let height = u64::from_column(row, "block_height")?;
+        Ok((ast_rules, height))
+    }
+}
+
 struct AcceptedStacksBlockHeader {
     pub tip_consensus_hash: ConsensusHash, // PoX tip
     pub consensus_hash: ConsensusHash,     // stacks block consensus hash
