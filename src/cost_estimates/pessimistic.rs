@@ -235,7 +235,7 @@ impl PessimisticEstimator {
                     epoch_marker, cc.address, cc.contract_name, cc.function_name
                 )
             }
-            TransactionPayload::SmartContract(_sc) => "contract-publish".to_string(),
+            TransactionPayload::SmartContract(_sc, _) => "contract-publish".to_string(),
             TransactionPayload::PoisonMicroblock(_, _) => "poison-ublock".to_string(),
             TransactionPayload::Coinbase(_) => "coinbase".to_string(),
         };
