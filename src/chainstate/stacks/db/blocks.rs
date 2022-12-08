@@ -6524,7 +6524,10 @@ impl StacksChainState {
                         .map_err(|e| MemPoolRejection::BadFunctionArgument(e))
                 })?;
             }
-            TransactionPayload::SmartContract(TransactionSmartContract { name, code_body: _ }) => {
+            TransactionPayload::SmartContract(
+                TransactionSmartContract { name, code_body: _ },
+                version_opt,
+            ) => {
                 let contract_identifier =
                     QualifiedContractIdentifier::new(tx.origin_address().into(), name.clone());
 

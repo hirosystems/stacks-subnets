@@ -126,7 +126,7 @@ impl StacksMessageCodec for TransactionPayload {
                 write_next(fd, &(TransactionPayloadID::ContractCall as u8))?;
                 cc.consensus_serialize(fd)?;
             }
-            TransactionPayload::SmartContract(ref sc) => {
+            TransactionPayload::SmartContract(ref sc, _) => {
                 write_next(fd, &(TransactionPayloadID::SmartContract as u8))?;
                 sc.consensus_serialize(fd)?;
             }

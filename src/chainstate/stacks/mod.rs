@@ -570,6 +570,7 @@ impl_byte_array_newtype!(TokenTransferMemo, u8, 34);
 impl_byte_array_serde!(TokenTransferMemo);
 pub const TOKEN_TRANSFER_MEMO_LENGTH: usize = 34; // same as it is in Stacks v1
 
+use clarity::vm::ClarityVersion;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TransactionPayload {
     TokenTransfer(PrincipalData, u64, TokenTransferMemo),
