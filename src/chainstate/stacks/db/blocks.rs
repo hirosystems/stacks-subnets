@@ -4508,6 +4508,9 @@ impl StacksChainState {
                     StacksEpochId::Epoch2_05 => {
                         panic!("No defined transition from Epoch2_05 forward")
                     }
+                    StacksEpochId::Epoch21 => {
+                        panic!("No defined transition from Epoch21 forward")
+                    }
                 }
             }
         }
