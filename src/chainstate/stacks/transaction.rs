@@ -524,7 +524,7 @@ impl StacksMessageCodec for StacksTransaction {
 
 impl From<TransactionSmartContract> for TransactionPayload {
     fn from(value: TransactionSmartContract) -> Self {
-        TransactionPayload::SmartContract(value)
+        TransactionPayload::SmartContract(value, None)
     }
 }
 
