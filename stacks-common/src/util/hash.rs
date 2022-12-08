@@ -373,7 +373,7 @@ impl DoubleSha256 {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MerkleTree<H: MerkleHashFunc> {
     // nodes[0] is the list of leaves
     // nodes[-1][0] is the root
