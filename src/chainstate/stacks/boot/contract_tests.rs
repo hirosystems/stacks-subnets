@@ -273,6 +273,31 @@ impl HeadersDB for TestSimHeadersDB {
     fn get_miner_address(&self, _id_bhh: &StacksBlockId) -> Option<StacksAddress> {
         Some(MINER_ADDR.clone())
     }
+
+    fn get_consensus_hash_for_block(
+        &self,
+        _: &stacks_common::types::chainstate::StacksBlockId,
+    ) -> std::option::Option<stacks_common::types::chainstate::ConsensusHash> {
+        todo!()
+    }
+    fn get_burnchain_tokens_spent_for_block(
+        &self,
+        _: &stacks_common::types::chainstate::StacksBlockId,
+    ) -> std::option::Option<u128> {
+        todo!()
+    }
+    fn get_burnchain_tokens_spent_for_winning_block(
+        &self,
+        _: &stacks_common::types::chainstate::StacksBlockId,
+    ) -> std::option::Option<u128> {
+        todo!()
+    }
+    fn get_tokens_earned_for_block(
+        &self,
+        _: &stacks_common::types::chainstate::StacksBlockId,
+    ) -> std::option::Option<u128> {
+        todo!()
+    }
 }
 
 #[test]
