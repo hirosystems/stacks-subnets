@@ -1,0 +1,1 @@
+* investigate adding back in ClarityRuntimeTxError::AnalysisError case

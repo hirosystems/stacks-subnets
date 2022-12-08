@@ -56,6 +56,8 @@ use clarity::vm::types::{
     AssetIdentifier, BuffData, PrincipalData, QualifiedContractIdentifier, SequenceData,
     StandardPrincipalData, TupleData, TypeSignature, Value,
 };
+use clarity::vm::ClarityVersion;
+use crate::vm::ast::ASTRules;
 
 use crate::chainstate::stacks::StacksMicroblockHeader;
 use clarity::vm::types::StacksAddressExtensions as ClarityStacksAddressExt;
@@ -374,12 +376,17 @@ impl StacksChainState {
         fee: u64,
         payer_account: StacksAccount,
     ) -> Result<u64, Error> {
-        let cur_burn_block_height = clarity_tx
-            .with_clarity_db_readonly(|ref mut db| db.get_current_burnchain_block_height());
+        let (cur_burn_block_height, v1_unlock_ht) =
+            clarity_tx.with_clarity_db_readonly(|ref mut db| {
+                (
+                    db.get_current_burnchain_block_height(),
+                    db.get_v1_unlock_height(),
+                )
+            });
 
         let consolidated_balance = payer_account
             .stx_balance
-            .get_available_balance_at_burn_block(cur_burn_block_height as u64);
+            .get_available_balance_at_burn_block(cur_burn_block_height as u64, v1_unlock_ht);
 
         if consolidated_balance < fee as u128 {
             return Err(Error::InvalidFee);
@@ -681,7 +688,12 @@ impl StacksChainState {
 
                 let cost_before = clarity_tx.cost_so_far();
                 let (value, _asset_map, events) = clarity_tx
-                    .run_stx_transfer(&origin_account.principal, addr, *amount as u128)
+                    .run_stx_transfer(
+                        &origin_account.principal,
+                        addr,
+                        *amount as u128,
+                        &BuffData { data: vec![] },
+                    )
                     .map_err(Error::ClarityError)?;
 
                 let mut total_cost = clarity_tx.cost_so_far();
@@ -705,9 +717,12 @@ impl StacksChainState {
                 // tx fee.
                 let contract_id = contract_call.to_clarity_contract_id();
                 let cost_before = clarity_tx.cost_so_far();
+                let sponsor = tx.sponsor_address().map(|a| a.to_account_principal());
+                let epoch_id = clarity_tx.get_epoch();
 
                 let contract_call_resp = clarity_tx.run_contract_call(
                     &origin_account.principal,
+                    sponsor.as_ref(),
                     &contract_id,
                     &contract_call.function_name,
                     &contract_call.function_args,
@@ -763,7 +778,7 @@ impl StacksChainState {
                             return Err(Error::CostOverflowError(cost_before, cost_after, budget));
                         }
                         ClarityRuntimeTxError::Rejectable(e) => {
-                            error!("Unexpected error invalidating transaction: if included, this will invalidate a block";
+                            error!("Unexpected error in validating transaction: if included, this will invalidate a block";
                                        "contract_name" => %contract_id,
                                        "function_name" => %contract_call.function_name,
                                        "function_args" => %VecDisplay(&contract_call.function_args),
@@ -782,7 +797,10 @@ impl StacksChainState {
                 );
                 Ok(receipt)
             }
-            TransactionPayload::SmartContract(ref smart_contract) => {
+            TransactionPayload::SmartContract(ref smart_contract, ref version_opt) => {
+                let epoch_id = clarity_tx.get_epoch();
+                let clarity_version = version_opt
+                    .unwrap_or(ClarityVersion::default_for_epoch(clarity_tx.get_epoch()));
                 let issuer_principal = match origin_account.principal {
                     PrincipalData::Standard(ref p) => p.clone(),
                     _ => {
@@ -810,8 +828,13 @@ impl StacksChainState {
                 // analysis pass -- if this fails, then the transaction is still accepted, but nothing is stored or processed.
                 // The reason for this is that analyzing the transaction is itself an expensive
                 // operation, and the paying account will need to be debited the fee regardless.
-                let analysis_resp =
-                    clarity_tx.analyze_smart_contract(&contract_id, &contract_code_str);
+                let ast_rules = ASTRules::PrecheckSize;
+                let analysis_resp = clarity_tx.analyze_smart_contract(
+                    &contract_id,
+                    clarity_version,
+                    &contract_code_str,
+                    ast_rules,
+                );
                 let (contract_ast, contract_analysis) = match analysis_resp {
                     Ok(x) => x,
                     Err(e) => {
@@ -851,6 +874,7 @@ impl StacksChainState {
                 analysis_cost
                     .sub(&cost_before)
                     .expect("BUG: total block cost decreased");
+                let sponsor = tx.sponsor_address().map(|a| a.to_account_principal());
 
                 // execution -- if this fails due to a runtime error, then the transaction is still
                 // accepted, but the contract does not materialize (but the sender is out their fee).
@@ -858,6 +882,7 @@ impl StacksChainState {
                     &contract_id,
                     &contract_ast,
                     &contract_code_str,
+                    sponsor,
                     |asset_map, _| {
                         !StacksChainState::check_transaction_postconditions(
                             &tx.post_conditions,
