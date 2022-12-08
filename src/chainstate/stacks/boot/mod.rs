@@ -49,6 +49,7 @@ use crate::types::chainstate::StacksAddress;
 use crate::types::chainstate::StacksBlockId;
 use crate::util_lib::boot;
 use crate::vm::{costs::LimitedCostTracker, SymbolicExpression};
+use clarity::vm::ClarityVersion;
 
 const BOOT_CODE_POX_BODY: &'static str = std::include_str!("pox.clar");
 const BOOT_CODE_POX_TESTNET_CONSTS: &'static str = std::include_str!("pox-testnet.clar");
@@ -198,19 +199,28 @@ impl StacksChainState {
     ) -> Result<u128, Error> {
         let function = "get-total-ustx-stacked";
         let mainnet = self.mainnet;
+        let chain_id = self.chain_id;
         let contract_identifier = boot::boot_code_id("pox", mainnet);
         let cost_track = LimitedCostTracker::new_free();
         let sender = PrincipalData::Standard(StandardPrincipalData::transient());
         let result = self
             .maybe_read_only_clarity_tx(&sortdb.index_conn(), tip, |clarity_tx| {
-                clarity_tx.with_readonly_clarity_env(mainnet, sender, cost_track, |env| {
-                    env.execute_contract(
-                        &contract_identifier,
-                        function,
-                        &vec![SymbolicExpression::atom_value(Value::UInt(reward_cycle))],
-                        true,
-                    )
-                })
+                clarity_tx.with_readonly_clarity_env(
+                    mainnet,
+                    chain_id,
+                    ClarityVersion::Clarity1,
+                    sender,
+                    None,
+                    cost_track,
+                    |env| {
+                        env.execute_contract(
+                            &contract_identifier,
+                            function,
+                            &vec![SymbolicExpression::atom_value(Value::UInt(reward_cycle))],
+                            true,
+                        )
+                    },
+                )
             })?
             .ok_or_else(|| Error::NoSuchBlockError)??
             .expect_u128();
