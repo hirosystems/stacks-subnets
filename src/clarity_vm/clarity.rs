@@ -104,6 +104,7 @@ use clarity::vm::clarity::TransactionConnection;
 pub struct ClarityInstance {
     datastore: MarfedKV,
     mainnet: bool,
+    chain_id: u32,
 }
 
 ///
@@ -146,6 +147,7 @@ pub struct ClarityTransactionConnection<'a, 'b> {
     burn_state_db: &'a dyn BurnStateDB,
     cost_track: &'a mut Option<LimitedCostTracker>,
     mainnet: bool,
+    chain_id: u32,
     epoch: StacksEpochId,
 }
 
@@ -220,7 +222,7 @@ impl<'a, 'b> ClarityBlockConnection<'a, 'b> {
 
 impl ClarityInstance {
     pub fn new(mainnet: bool, datastore: MarfedKV) -> ClarityInstance {
-        ClarityInstance { datastore, mainnet }
+        ClarityInstance { datastore, mainnet, chain_id: 0 }
     }
 
     pub fn with_marf<F, R>(&mut self, f: F) -> R
@@ -432,6 +434,7 @@ None,
             Some(
                 LimitedCostTracker::new(
                     self.mainnet,
+                    self.chain_id,
                     epoch.block_limit.clone(),
                     &mut clarity_db,
                     epoch.epoch_id,
@@ -764,6 +767,7 @@ impl<'a, 'b> ClarityBlockConnection<'a, 'b> {
             burn_state_db,
             log: Some(log),
             mainnet,
+            chain_id: 0,
             epoch: self.epoch,
         }
     }
