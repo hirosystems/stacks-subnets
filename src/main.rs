@@ -89,8 +89,8 @@ use blockstack_lib::{
     util::{hash::Hash160, vrf::VRFProof},
     util_lib::db::sqlite_open,
 };
-use std::collections::HashSet;
 use clarity::vm::ClarityVersion;
+use std::collections::HashSet;
 
 fn main() {
     let argv: Vec<String> = env::args().collect();

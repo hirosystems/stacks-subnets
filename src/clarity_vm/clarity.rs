@@ -222,7 +222,11 @@ impl<'a, 'b> ClarityBlockConnection<'a, 'b> {
 
 impl ClarityInstance {
     pub fn new(mainnet: bool, datastore: MarfedKV) -> ClarityInstance {
-        ClarityInstance { datastore, mainnet, chain_id: 0 }
+        ClarityInstance {
+            datastore,
+            mainnet,
+            chain_id: 0,
+        }
     }
 
     pub fn with_marf<F, R>(&mut self, f: F) -> R
@@ -405,7 +409,7 @@ impl ClarityInstance {
                     ClarityVersion::Clarity1,
                     &ast,
                     &*BOOT_CODE_POX_TESTNET,
-None,
+                    None,
                     |_, _| false,
                 )
                 .unwrap();

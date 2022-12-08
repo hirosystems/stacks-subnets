@@ -36,6 +36,7 @@ use crate::util_lib::db::{query_count, query_rows, DBConn};
 use stacks_common::util::hash::to_hex;
 
 use crate::util_lib::strings::{StacksString, VecDisplay};
+use crate::vm::ast::ASTRules;
 pub use clarity::vm::analysis::errors::CheckErrors;
 use clarity::vm::analysis::run_analysis;
 use clarity::vm::analysis::types::ContractAnalysis;
@@ -58,7 +59,6 @@ use clarity::vm::types::{
     StandardPrincipalData, TupleData, TypeSignature, Value,
 };
 use clarity::vm::ClarityVersion;
-use crate::vm::ast::ASTRules;
 
 use crate::chainstate::stacks::StacksMicroblockHeader;
 use clarity::vm::types::StacksAddressExtensions as ClarityStacksAddressExt;
