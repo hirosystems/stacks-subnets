@@ -1732,6 +1732,38 @@ mod tests {
             ) -> Option<StacksEpoch> {
                 self.get_stacks_epoch(0)
             }
+
+            fn get_v1_unlock_height(&self) -> u32 {
+                todo!()
+            }
+            fn get_burn_start_height(&self) -> u32 {
+                todo!()
+            }
+            fn get_pox_prepare_length(&self) -> u32 {
+                todo!()
+            }
+            fn get_pox_reward_cycle_length(&self) -> u32 {
+                todo!()
+            }
+            fn get_pox_rejection_fraction(&self) -> u64 {
+                todo!()
+            }
+            fn get_sortition_id_from_consensus_hash(
+                &self,
+                _: &stacks_common::types::chainstate::ConsensusHash,
+            ) -> std::option::Option<stacks_common::types::chainstate::SortitionId> {
+                todo!()
+            }
+            fn get_ast_rules(&self, _: u32) -> ASTRules {
+                todo!()
+            }
+            fn get_pox_payout_addrs(
+                &self,
+                _: u32,
+                _: &stacks_common::types::chainstate::SortitionId,
+            ) -> std::option::Option<(Vec<clarity::vm::types::TupleData>, u128)> {
+                todo!()
+            }
         }
 
         let burn_state_db = BlockLimitBurnStateDB {};
