@@ -90,6 +90,7 @@ use blockstack_lib::{
     util_lib::db::sqlite_open,
 };
 use std::collections::HashSet;
+use clarity::vm::ClarityVersion;
 
 fn main() {
     let argv: Vec<String> = env::args().collect();
@@ -838,7 +839,7 @@ simulating a miner.
         }
         let program: String =
             fs::read_to_string(&argv[2]).expect(&format!("Error reading file: {}", argv[2]));
-        match clarity_cli::vm_execute(&program) {
+        match clarity_cli::vm_execute(&program, ClarityVersion::Clarity2) {
             Ok(Some(result)) => println!("{}", result),
             Ok(None) => println!(""),
             Err(error) => {
