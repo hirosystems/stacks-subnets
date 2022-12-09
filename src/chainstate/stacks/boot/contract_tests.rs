@@ -20,6 +20,7 @@ use crate::core::{
 use crate::util_lib::db::{DBConn, FromRow};
 use clarity::vm::analysis::arithmetic_checker::ArithmeticOnlyChecker;
 use clarity::vm::analysis::mem_type_check;
+use clarity::vm::ast::ASTRules;
 use clarity::vm::contexts::OwnedEnvironment;
 use clarity::vm::contracts::Contract;
 use clarity::vm::costs::CostOverflowingMath;
@@ -306,14 +307,21 @@ fn recency_tests() {
     let delegator = StacksPrivateKey::new();
 
     sim.execute_next_block(|env| {
-        env.initialize_contract(POX_CONTRACT_TESTNET.clone(), &BOOT_CODE_POX_TESTNET)
-            .unwrap()
+        env.initialize_versioned_contract(
+            POX_CONTRACT_TESTNET.clone(),
+            ClarityVersion::Clarity2,
+            &BOOT_CODE_POX_TESTNET,
+            None,
+            ASTRules::PrecheckSize,
+        )
+        .unwrap()
     });
     sim.execute_next_block(|env| {
         // try to issue a far future stacking tx
         assert_eq!(
             env.execute_transaction(
                 (&USER_KEYS[0]).into(),
+                None,
                 POX_CONTRACT_TESTNET.clone(),
                 "stack-stx",
                 &symbols_from_values(vec![
@@ -333,6 +341,7 @@ fn recency_tests() {
         assert_eq!(
             env.execute_transaction(
                 (&USER_KEYS[0]).into(),
+                None,
                 POX_CONTRACT_TESTNET.clone(),
                 "delegate-stx",
                 &symbols_from_values(vec![
@@ -350,6 +359,7 @@ fn recency_tests() {
         assert_eq!(
             env.execute_transaction(
                 (&delegator).into(),
+                None,
                 POX_CONTRACT_TESTNET.clone(),
                 "delegate-stack-stx",
                 &symbols_from_values(vec![
