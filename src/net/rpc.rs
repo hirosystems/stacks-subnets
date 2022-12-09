@@ -3686,8 +3686,12 @@ mod test {
         let mut tx_contract = StacksTransaction::new(
             TransactionVersion::Testnet,
             TransactionAuth::from_p2pkh(&privk1).unwrap(),
-            TransactionPayload::new_smart_contract(&format!("hello-world"), &contract.to_string())
-                .unwrap(),
+            TransactionPayload::new_smart_contract(
+                &format!("hello-world"),
+                &contract.to_string(),
+                None,
+            )
+            .unwrap(),
         );
 
         tx_contract.chain_id = 0x80000000;
@@ -3727,6 +3731,7 @@ mod test {
             TransactionPayload::new_smart_contract(
                 &format!("hello-world-unconfirmed"),
                 &unconfirmed_contract.to_string(),
+                None,
             )
             .unwrap(),
         );
