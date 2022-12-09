@@ -765,7 +765,7 @@ pub mod test {
         name: &str,
         code: &str,
     ) -> StacksTransaction {
-        let payload = TransactionPayload::new_smart_contract(name, code).unwrap();
+        let payload = TransactionPayload::new_smart_contract(name, code, None).unwrap();
         make_tx(key, nonce, tx_fee, payload)
     }
 

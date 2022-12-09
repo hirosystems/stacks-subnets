@@ -6763,6 +6763,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &format!("hello-world-{}", &thread_rng().gen::<u32>()),
                 &contract_16k.to_string(),
+                None,
             )
             .unwrap(),
         );
@@ -6852,6 +6853,7 @@ pub mod test {
                 TransactionPayload::new_smart_contract(
                     &format!("hello-world-{}", &thread_rng().gen::<u32>()),
                     &contract_16k.to_string(),
+                    None,
                 )
                 .unwrap(),
             );
@@ -8501,6 +8503,7 @@ pub mod test {
                             TransactionPayload::new_smart_contract(
                                 &"name-contract".to_string(),
                                 &format!("conflicting smart contract {}", i),
+                                None,
                             )
                             .unwrap(),
                         );
@@ -11369,7 +11372,7 @@ pub mod test {
         let mut hc_deposit_contract_tx = StacksTransaction::new(
             TransactionVersion::Testnet,
             auth_user.clone(),
-            TransactionPayload::new_smart_contract("hc-deposit-contract", hyperchain_simple_ft)
+            TransactionPayload::new_smart_contract("hc-deposit-contract", hyperchain_simple_ft, None)
                 .unwrap(),
         );
 
@@ -11472,7 +11475,7 @@ pub mod test {
         let mut hc_deposit_contract_tx = StacksTransaction::new(
             TransactionVersion::Testnet,
             auth_user.clone(),
-            TransactionPayload::new_smart_contract("hc-deposit-contract", hyperchain_simple_nft)
+            TransactionPayload::new_smart_contract("hc-deposit-contract", hyperchain_simple_nft, None)
                 .unwrap(),
         );
 
