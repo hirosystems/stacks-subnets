@@ -1236,6 +1236,7 @@ mod tests {
                         ClarityVersion::Clarity1,
                         &ct_ast,
                         &contract,
+                        None,
                         |_, _| false
                     )
                     .unwrap_err()
@@ -1298,6 +1299,7 @@ mod tests {
             assert_eq!(
                 conn.as_transaction(|tx| tx.run_contract_call(
                     &StandardPrincipalData::transient().into(),
+                    None,
                     &contract_identifier,
                     "foo",
                     &[Value::Int(1)],
@@ -1556,11 +1558,21 @@ mod tests {
 
             conn.as_transaction(|conn| {
                 let (ct_ast, ct_analysis) = conn
-                    .analyze_smart_contract(&contract_identifier, &contract)
+                    .analyze_smart_contract(
+                        &contract_identifier,
+                        ClarityVersion::Clarity1,
+                        &contract,
+                        ASTRules::PrecheckSize,
+                    )
                     .unwrap();
-                conn.initialize_smart_contract(&contract_identifier, &ct_ast, &contract, |_, _| {
-                    false
-                })
+                conn.initialize_smart_contract(
+                    &contract_identifier,
+                    ClarityVersion::Clarity1,
+                    &ct_ast,
+                    &contract,
+                    None,
+                    |_, _| false,
+                )
                 .unwrap();
                 conn.save_analysis(&contract_identifier, &ct_analysis)
                     .unwrap();
@@ -1569,6 +1581,7 @@ mod tests {
             assert_eq!(
                 conn.as_transaction(|tx| tx.run_contract_call(
                     &sender,
+                    None,
                     &contract_identifier,
                     "get-bar",
                     &[],
@@ -1582,6 +1595,7 @@ mod tests {
             assert_eq!(
                 conn.as_transaction(|tx| tx.run_contract_call(
                     &sender,
+                    None,
                     &contract_identifier,
                     "set-bar",
                     &[Value::Int(1), Value::Int(1)],
@@ -1596,6 +1610,7 @@ mod tests {
                 .as_transaction(|tx| {
                     tx.run_contract_call(
                         &sender,
+                        None,
                         &contract_identifier,
                         "set-bar",
                         &[Value::Int(10), Value::Int(1)],
@@ -1615,6 +1630,7 @@ mod tests {
             assert_eq!(
                 conn.as_transaction(|tx| tx.run_contract_call(
                     &sender,
+                    None,
                     &contract_identifier,
                     "get-bar",
                     &[],
@@ -1629,6 +1645,7 @@ mod tests {
                 "{:?}",
                 conn.as_transaction(|tx| tx.run_contract_call(
                     &sender,
+                    None,
                     &contract_identifier,
                     "set-bar",
                     &[Value::Int(10), Value::Int(0)],
@@ -1642,6 +1659,7 @@ mod tests {
             assert_eq!(
                 conn.as_transaction(|tx| tx.run_contract_call(
                     &StandardPrincipalData::transient().into(),
+                    None,
                     &contract_identifier,
                     "get-bar",
                     &[],
@@ -1682,20 +1700,26 @@ mod tests {
         let mut tx1 = StacksTransaction::new(
             TransactionVersion::Mainnet,
             TransactionAuth::Standard(spending_cond.clone()),
-            TransactionPayload::SmartContract(TransactionSmartContract {
-                name: "hello-world".into(),
-                code_body: StacksString::from_str(contract).unwrap(),
-            })
+            TransactionPayload::SmartContract(
+                TransactionSmartContract {
+                    name: "hello-world".into(),
+                    code_body: StacksString::from_str(contract).unwrap(),
+                },
+                None,
+            )
             .into(),
         );
 
         let tx2 = StacksTransaction::new(
             TransactionVersion::Mainnet,
             TransactionAuth::Standard(spending_cond.clone()),
-            TransactionPayload::SmartContract(TransactionSmartContract {
-                name: "hello-world".into(),
-                code_body: StacksString::from_str(contract).unwrap(),
-            })
+            TransactionPayload::SmartContract(
+                TransactionSmartContract {
+                    name: "hello-world".into(),
+                    code_body: StacksString::from_str(contract).unwrap(),
+                },
+                None,
+            )
             .into(),
         );
 
@@ -1875,11 +1899,21 @@ mod tests {
 
             conn.as_transaction(|conn| {
                 let (ct_ast, ct_analysis) = conn
-                    .analyze_smart_contract(&contract_identifier, &contract)
+                    .analyze_smart_contract(
+                        &contract_identifier,
+                        ClarityVersion::Clarity1,
+                        &contract,
+                        ASTRules::PrecheckSize,
+                    )
                     .unwrap();
-                conn.initialize_smart_contract(&contract_identifier, &ct_ast, &contract, |_, _| {
-                    false
-                })
+                conn.initialize_smart_contract(
+                    &contract_identifier,
+                    ClarityVersion::Clarity1,
+                    &ct_ast,
+                    &contract,
+                    None,
+                    |_, _| false,
+                )
                 .unwrap();
                 conn.save_analysis(&contract_identifier, &ct_analysis)
                     .unwrap();
@@ -1898,6 +1932,7 @@ mod tests {
             assert!(match conn
                 .as_transaction(|tx| tx.run_contract_call(
                     &sender,
+                    None,
                     &contract_identifier,
                     "do-expand",
                     &[],
