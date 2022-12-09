@@ -53,16 +53,16 @@ use stacks_common::util::vrf::*;
 use crate::chainstate::stacks::boot::COSTS_2_NAME;
 use crate::util_lib::boot::boot_code_id;
 use crate::{types, util};
+use clarity::consts::CHAIN_ID_TESTNET;
 use clarity::vm::clarity::TransactionConnection;
 use clarity::vm::database::BurnStateDB;
+use clarity::vm::ClarityVersion;
 use rand::RngCore;
 use stacks_common::types::chainstate::StacksBlockId;
 use stacks_common::types::chainstate::TrieHash;
 use stacks_common::types::chainstate::{
     BlockHeaderHash, BurnchainHeaderHash, SortitionId, StacksAddress, VRFSeed,
 };
-use clarity::consts::CHAIN_ID_TESTNET;
-use clarity::vm::ClarityVersion;
 
 lazy_static! {
     static ref BURN_BLOCK_HEADERS: Arc<AtomicU64> = Arc::new(AtomicU64::new(1));

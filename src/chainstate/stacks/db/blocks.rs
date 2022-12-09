@@ -11372,8 +11372,12 @@ pub mod test {
         let mut hc_deposit_contract_tx = StacksTransaction::new(
             TransactionVersion::Testnet,
             auth_user.clone(),
-            TransactionPayload::new_smart_contract("hc-deposit-contract", hyperchain_simple_ft, None)
-                .unwrap(),
+            TransactionPayload::new_smart_contract(
+                "hc-deposit-contract",
+                hyperchain_simple_ft,
+                None,
+            )
+            .unwrap(),
         );
 
         hc_deposit_contract_tx.chain_id = 0x80000000;
@@ -11475,8 +11479,12 @@ pub mod test {
         let mut hc_deposit_contract_tx = StacksTransaction::new(
             TransactionVersion::Testnet,
             auth_user.clone(),
-            TransactionPayload::new_smart_contract("hc-deposit-contract", hyperchain_simple_nft, None)
-                .unwrap(),
+            TransactionPayload::new_smart_contract(
+                "hc-deposit-contract",
+                hyperchain_simple_nft,
+                None,
+            )
+            .unwrap(),
         );
 
         hc_deposit_contract_tx.chain_id = 0x80000000;
@@ -11561,7 +11569,7 @@ pub mod test {
         );
 
         let account = StacksChainState::get_account(&mut conn, &addr_publisher.into());
-        let orig_balance = account.stx_balance.amount_unlocked;
+        let orig_balance = account.stx_balance.amount_unlocked();
 
         // create deposit stx ops
         let ops = vec![
@@ -11580,7 +11588,7 @@ pub mod test {
 
         // check that the account now has 2 more micro STX
         let account = StacksChainState::get_account(&mut conn, &addr_publisher.into());
-        assert_eq!(orig_balance + 2, account.stx_balance.amount_unlocked);
+        assert_eq!(orig_balance + 2, account.stx_balance.amount_unlocked());
     }
 
     #[cfg(test)]

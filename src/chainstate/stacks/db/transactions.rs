@@ -1091,7 +1091,7 @@ pub mod test {
         let recv_account =
             StacksChainState::get_account(&mut conn, &recv_addr.to_account_principal());
 
-        assert_eq!(recv_account.stx_balance.amount_unlocked, 0);
+        assert_eq!(recv_account.stx_balance.amount_unlocked(), 0);
         assert_eq!(recv_account.nonce, 0);
 
         conn.connection().as_transaction(|tx| {
@@ -1102,12 +1102,12 @@ pub mod test {
 
         let account_after = StacksChainState::get_account(&mut conn, &addr.to_account_principal());
         assert_eq!(account_after.nonce, 1);
-        assert_eq!(account_after.stx_balance.amount_unlocked, 100);
+        assert_eq!(account_after.stx_balance.amount_unlocked(), 100);
 
         let recv_account_after =
             StacksChainState::get_account(&mut conn, &recv_addr.to_account_principal());
         assert_eq!(recv_account_after.nonce, 0);
-        assert_eq!(recv_account_after.stx_balance.amount_unlocked, 123);
+        assert_eq!(recv_account_after.stx_balance.amount_unlocked(), 123);
 
         assert_eq!(fee, 0);
 
@@ -1139,18 +1139,18 @@ pub mod test {
 
         let recv_account = StacksChainState::get_account(&mut conn, &recv_addr);
 
-        assert_eq!(recv_account.stx_balance.amount_unlocked, 0);
+        assert_eq!(recv_account.stx_balance.amount_unlocked(), 0);
         assert_eq!(recv_account.nonce, 0);
 
         let (fee, _) = StacksChainState::process_transaction(&mut conn, &signed_tx, false).unwrap();
 
         let account_after = StacksChainState::get_account(&mut conn, &addr.to_account_principal());
         assert_eq!(account_after.nonce, 2);
-        assert_eq!(account_after.stx_balance.amount_unlocked, 0);
+        assert_eq!(account_after.stx_balance.amount_unlocked(), 0);
 
         let recv_account_after = StacksChainState::get_account(&mut conn, &recv_addr);
         assert_eq!(recv_account_after.nonce, 0);
-        assert_eq!(recv_account_after.stx_balance.amount_unlocked, 100);
+        assert_eq!(recv_account_after.stx_balance.amount_unlocked(), 100);
 
         assert_eq!(fee, 0);
 
@@ -1326,7 +1326,7 @@ pub mod test {
             // give the spending account some stx
             let account = StacksChainState::get_account(&mut conn, &addr.to_account_principal());
 
-            assert_eq!(account.stx_balance.amount_unlocked, 123);
+            assert_eq!(account.stx_balance.amount_unlocked(), 123);
             assert_eq!(account.nonce, 0);
 
             let res = StacksChainState::process_transaction(&mut conn, &signed_tx, false);
@@ -1345,7 +1345,7 @@ pub mod test {
 
             let account_after =
                 StacksChainState::get_account(&mut conn, &addr.to_account_principal());
-            assert_eq!(account_after.stx_balance.amount_unlocked, 123);
+            assert_eq!(account_after.stx_balance.amount_unlocked(), 123);
             assert_eq!(account_after.nonce, 0);
         }
 
@@ -1417,9 +1417,9 @@ pub mod test {
 
         assert_eq!(account.nonce, 0);
         assert_eq!(account_sponsor.nonce, 0);
-        assert_eq!(account_sponsor.stx_balance.amount_unlocked, 0);
+        assert_eq!(account_sponsor.stx_balance.amount_unlocked(), 0);
         assert_eq!(recv_account.nonce, 0);
-        assert_eq!(recv_account.stx_balance.amount_unlocked, 0);
+        assert_eq!(recv_account.stx_balance.amount_unlocked(), 0);
 
         // give the spending account some stx
         conn.connection().as_transaction(|tx| {
@@ -1430,17 +1430,17 @@ pub mod test {
 
         let account_after = StacksChainState::get_account(&mut conn, &addr.to_account_principal());
         assert_eq!(account_after.nonce, 1);
-        assert_eq!(account_after.stx_balance.amount_unlocked, 0);
+        assert_eq!(account_after.stx_balance.amount_unlocked(), 0);
 
         let account_sponsor_after =
             StacksChainState::get_account(&mut conn, &addr_sponsor.to_account_principal());
         assert_eq!(account_sponsor_after.nonce, 1);
-        assert_eq!(account_sponsor_after.stx_balance.amount_unlocked, 0);
+        assert_eq!(account_sponsor_after.stx_balance.amount_unlocked(), 0);
 
         let recv_account_after =
             StacksChainState::get_account(&mut conn, &recv_addr.to_account_principal());
         assert_eq!(recv_account_after.nonce, 0);
-        assert_eq!(recv_account_after.stx_balance.amount_unlocked, 123);
+        assert_eq!(recv_account_after.stx_balance.amount_unlocked(), 123);
 
         conn.commit_block();
 
@@ -1471,6 +1471,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &"hello-world".to_string(),
                 &contract.to_string(),
+                None,
             )
             .unwrap(),
         );
@@ -1569,7 +1570,7 @@ pub mod test {
             let mut tx_contract = StacksTransaction::new(
                 TransactionVersion::Testnet,
                 auth.clone(),
-                TransactionPayload::new_smart_contract(&contract_name, &contract).unwrap(),
+                TransactionPayload::new_smart_contract(&contract_name, &contract, None).unwrap(),
             );
 
             tx_contract.chain_id = 0x80000000;
@@ -1668,7 +1669,7 @@ pub mod test {
             let mut tx_contract = StacksTransaction::new(
                 TransactionVersion::Testnet,
                 auth.clone(),
-                TransactionPayload::new_smart_contract(&contract_name, &contract).unwrap(),
+                TransactionPayload::new_smart_contract(&contract_name, &contract, None).unwrap(),
             );
 
             tx_contract.chain_id = 0x80000000;
@@ -1741,6 +1742,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &"hello-world".to_string(),
                 &contract.to_string(),
+                None,
             )
             .unwrap(),
         );
@@ -1817,6 +1819,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &"hello-world".to_string(),
                 &contract.to_string(),
+                None,
             )
             .unwrap(),
         );
@@ -1939,6 +1942,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &"hello-world".to_string(),
                 &contract.to_string(),
+                None,
             )
             .unwrap(),
         );
@@ -2051,6 +2055,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &"hello-world".to_string(),
                 &contract.to_string(),
+                None,
             )
             .unwrap(),
         );
@@ -2113,6 +2118,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &"hello-world".to_string(),
                 &contract.to_string(),
+                None,
             )
             .unwrap(),
         );
@@ -2246,6 +2252,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &"hello-world".to_string(),
                 &contract.to_string(),
+                None,
             )
             .unwrap(),
         );
@@ -2464,6 +2471,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &"hello-world".to_string(),
                 &contract.to_string(),
+                None,
             )
             .unwrap(),
         );
@@ -3157,6 +3165,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &"hello-world".to_string(),
                 &contract.to_string(),
+                None,
             )
             .unwrap(),
         );
@@ -3795,7 +3804,8 @@ pub mod test {
         let mut tx_contract = StacksTransaction::new(
             TransactionVersion::Testnet,
             auth_origin.clone(),
-            TransactionPayload::new_smart_contract(&"hello-world".to_string(), &contract).unwrap(),
+            TransactionPayload::new_smart_contract(&"hello-world".to_string(), &contract, None)
+                .unwrap(),
         );
 
         tx_contract.chain_id = 0x80000000;
@@ -6917,6 +6927,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &"hello-world".to_string(),
                 &contract.to_string(),
+                None,
             )
             .unwrap(),
         );
@@ -7002,6 +7013,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &format!("hello-world-{}", &rng.gen::<u32>()),
                 &contract.to_string(),
+                None,
             )
             .unwrap(),
         );
