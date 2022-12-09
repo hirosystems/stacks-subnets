@@ -1049,13 +1049,27 @@ mod tests {
             let contract = "(define-public (foo (x int) (y uint)) (ok (+ x y)))";
 
             let _e = conn
-                .as_transaction(|tx| tx.analyze_smart_contract(&contract_identifier, &contract))
+                .as_transaction(|tx| {
+                    tx.analyze_smart_contract(
+                        &contract_identifier,
+                        ClarityVersion::Clarity1,
+                        &contract,
+                        ASTRules::PrecheckSize,
+                    )
+                })
                 .unwrap_err();
 
             // okay, let's try it again:
 
             let _e = conn
-                .as_transaction(|tx| tx.analyze_smart_contract(&contract_identifier, &contract))
+                .as_transaction(|tx| {
+                    tx.analyze_smart_contract(
+                        &contract_identifier,
+                        ClarityVersion::Clarity1,
+                        &contract,
+                        ASTRules::PrecheckSize,
+                    )
+                })
                 .unwrap_err();
 
             conn.commit_block();
@@ -1097,11 +1111,21 @@ mod tests {
 
             conn.as_transaction(|conn| {
                 let (ct_ast, ct_analysis) = conn
-                    .analyze_smart_contract(&contract_identifier, &contract)
+                    .analyze_smart_contract(
+                        &contract_identifier,
+                        ClarityVersion::Clarity1,
+                        &contract,
+                        ASTRules::PrecheckSize,
+                    )
                     .unwrap();
-                conn.initialize_smart_contract(&contract_identifier, &ct_ast, &contract, |_, _| {
-                    false
-                })
+                conn.initialize_smart_contract(
+                    &contract_identifier,
+                    ClarityVersion::Clarity1,
+                    &ct_ast,
+                    &contract,
+                    None,
+                    |_, _| false,
+                )
                 .unwrap();
                 conn.save_analysis(&contract_identifier, &ct_analysis)
                     .unwrap();
@@ -1140,11 +1164,21 @@ mod tests {
                 let mut tx = conn.start_transaction_processing();
 
                 let (ct_ast, ct_analysis) = tx
-                    .analyze_smart_contract(&contract_identifier, &contract)
+                    .analyze_smart_contract(
+                        &contract_identifier,
+                        ClarityVersion::Clarity1,
+                        &contract,
+                        ASTRules::PrecheckSize,
+                    )
                     .unwrap();
-                tx.initialize_smart_contract(&contract_identifier, &ct_ast, &contract, |_, _| {
-                    false
-                })
+                tx.initialize_smart_contract(
+                    &contract_identifier,
+                    ClarityVersion::Clarity1,
+                    &ct_ast,
+                    &contract,
+                    None,
+                    |_, _| false,
+                )
                 .unwrap();
                 tx.save_analysis(&contract_identifier, &ct_analysis)
                     .unwrap();
@@ -1158,11 +1192,21 @@ mod tests {
                 let contract = "(define-public (foo (x int) (y int)) (ok (+ x y)))";
 
                 let (ct_ast, ct_analysis) = tx
-                    .analyze_smart_contract(&contract_identifier, &contract)
+                    .analyze_smart_contract(
+                        &contract_identifier,
+                        ClarityVersion::Clarity1,
+                        &contract,
+                        ASTRules::PrecheckSize,
+                    )
                     .unwrap();
-                tx.initialize_smart_contract(&contract_identifier, &ct_ast, &contract, |_, _| {
-                    false
-                })
+                tx.initialize_smart_contract(
+                    &contract_identifier,
+                    ClarityVersion::Clarity1,
+                    &ct_ast,
+                    &contract,
+                    None,
+                    |_, _| false,
+                )
                 .unwrap();
                 tx.save_analysis(&contract_identifier, &ct_analysis)
                     .unwrap();
@@ -1178,12 +1222,18 @@ mod tests {
                 let contract = "(define-public (foo (x int) (y int)) (ok (+ x y)))";
 
                 let (ct_ast, _ct_analysis) = tx
-                    .analyze_smart_contract(&contract_identifier, &contract)
+                    .analyze_smart_contract(
+                        &contract_identifier,
+                        ClarityVersion::Clarity1,
+                        &contract,
+                        ASTRules::PrecheckSize,
+                    )
                     .unwrap();
                 assert!(format!(
                     "{}",
                     tx.initialize_smart_contract(
                         &contract_identifier,
+                        ClarityVersion::Clarity1,
                         &ct_ast,
                         &contract,
                         |_, _| false
@@ -1225,11 +1275,21 @@ mod tests {
 
             conn.as_transaction(|conn| {
                 let (ct_ast, ct_analysis) = conn
-                    .analyze_smart_contract(&contract_identifier, &contract)
+                    .analyze_smart_contract(
+                        &contract_identifier,
+                        ClarityVersion::Clarity1,
+                        &contract,
+                        ASTRules::PrecheckSize,
+                    )
                     .unwrap();
-                conn.initialize_smart_contract(&contract_identifier, &ct_ast, &contract, |_, _| {
-                    false
-                })
+                conn.initialize_smart_contract(
+                    &contract_identifier,
+                    ClarityVersion::Clarity1,
+                    &ct_ast,
+                    &contract,
+                    None,
+                    |_, _| false,
+                )
                 .unwrap();
                 conn.save_analysis(&contract_identifier, &ct_analysis)
                     .unwrap();
@@ -1274,11 +1334,21 @@ mod tests {
 
             conn.as_transaction(|conn| {
                 let (ct_ast, ct_analysis) = conn
-                    .analyze_smart_contract(&contract_identifier, &contract)
+                    .analyze_smart_contract(
+                        &contract_identifier,
+                        ClarityVersion::Clarity1,
+                        &contract,
+                        ASTRules::PrecheckSize,
+                    )
                     .unwrap();
-                conn.initialize_smart_contract(&contract_identifier, &ct_ast, &contract, |_, _| {
-                    false
-                })
+                conn.initialize_smart_contract(
+                    &contract_identifier,
+                    ClarityVersion::Clarity1,
+                    &ct_ast,
+                    &contract,
+                    None,
+                    |_, _| false,
+                )
                 .unwrap();
                 conn.save_analysis(&contract_identifier, &ct_analysis)
                     .unwrap();
@@ -1355,11 +1425,21 @@ mod tests {
 
             conn.as_transaction(|conn| {
                 let (ct_ast, ct_analysis) = conn
-                    .analyze_smart_contract(&contract_identifier, &contract)
+                    .analyze_smart_contract(
+                        &contract_identifier,
+                        ClarityVersion::Clarity1,
+                        &contract,
+                        ASTRules::PrecheckSize,
+                    )
                     .unwrap();
-                conn.initialize_smart_contract(&contract_identifier, &ct_ast, &contract, |_, _| {
-                    false
-                })
+                conn.initialize_smart_contract(
+                    &contract_identifier,
+                    ClarityVersion::Clarity1,
+                    &ct_ast,
+                    &contract,
+                    None,
+                    |_, _| false,
+                )
                 .unwrap();
                 conn.save_analysis(&contract_identifier, &ct_analysis)
                     .unwrap();
