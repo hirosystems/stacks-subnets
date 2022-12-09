@@ -1155,7 +1155,7 @@ pub mod test {
             TransactionPayload::SmartContract(TransactionSmartContract {
                 name: ContractName::try_from(hello_contract_name).unwrap(),
                 code_body: StacksString::from_str(hello_contract_body).unwrap(),
-            }),
+            }, None),
             TransactionPayload::Coinbase(CoinbasePayload([0x12; 32])),
             TransactionPayload::PoisonMicroblock(mblock_header_1, mblock_header_2),
         ];

@@ -1446,13 +1446,14 @@ mod test {
             TransactionPayload::TokenTransfer(ref addr, ref amount, ref memo) => {
                 TransactionPayload::TokenTransfer(addr.clone(), amount + 1, memo.clone())
             }
-            TransactionPayload::ContractCall(_) => {
-                TransactionPayload::SmartContract(TransactionSmartContract {
+            TransactionPayload::ContractCall(_) => TransactionPayload::SmartContract(
+                TransactionSmartContract {
                     name: ContractName::try_from("corrupt-name").unwrap(),
                     code_body: StacksString::from_str("corrupt body").unwrap(),
-                })
-            }
-            TransactionPayload::SmartContract(_) => {
+                },
+                None,
+            ),
+            TransactionPayload::SmartContract(..) => {
                 TransactionPayload::ContractCall(TransactionContractCall {
                     address: StacksAddress {
                         version: 1,
@@ -1656,7 +1657,7 @@ mod test {
             &transaction_contract_call,
         );
         check_codec_and_corruption::<TransactionPayload>(
-            &TransactionPayload::SmartContract(smart_contract.clone()),
+            &TransactionPayload::SmartContract(smart_contract.clone(), None),
             &transaction_smart_contract,
         );
     }
@@ -3180,6 +3181,7 @@ mod test {
             TransactionPayload::new_smart_contract(
                 &"name-contract".to_string(),
                 &"hello smart contract".to_string(),
+                None,
             )
             .unwrap(),
         );
