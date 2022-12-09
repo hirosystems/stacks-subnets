@@ -3580,7 +3580,9 @@ pub mod test {
                                             "(begin (print \"hello world\"))",
                                         )
                                         .expect("FATAL: valid code"),
-                                    });
+                                    },
+                                    None,
+                                );
                                 let mut mblock = microblocks.last().unwrap().clone();
                                 let last_nonce = mblock
                                     .txs
