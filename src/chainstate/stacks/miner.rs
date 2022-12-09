@@ -4069,6 +4069,7 @@ pub mod test {
             TransactionPayload::new_smart_contract(
                 &format!("hello-world-{}-{}", burnchain_height, stacks_block_height),
                 &contract.to_string(),
+                None,
             )
             .unwrap(),
         );
