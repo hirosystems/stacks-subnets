@@ -197,7 +197,7 @@ fn test_sim_hash_to_height(in_bytes: &[u8; 32]) -> Option<u64> {
 }
 
 fn check_arithmetic_only(contract: &str) {
-    let analysis = mem_type_check(contract).unwrap().1;
+    let analysis = mem_type_check(contract, ClarityVersion::Clarity2, StacksEpochId::latest()).unwrap().1;
     ArithmeticOnlyChecker::run(&analysis).expect("Should pass arithmetic checks");
 }
 
