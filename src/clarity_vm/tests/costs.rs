@@ -795,7 +795,7 @@ fn epoch205_nfts_testnet() {
 }
 
 fn test_tracked_costs(prog: &str, use_mainnet: bool, epoch: StacksEpochId) -> ExecutionCost {
-let version = ClarityVersion::Clarity2;
+    let version = ClarityVersion::Clarity2;
     let contract_trait = "(define-trait trait-1 (
                             (foo-exec (int) (response int int))
                           ))";
@@ -883,21 +883,13 @@ let version = ClarityVersion::Clarity2;
 // test each individual cost function can be correctly invoked as
 //  Clarity code executes in Epoch 2.00
 fn epoch_20_test_all(use_mainnet: bool) {
-    let baseline = test_tracked_costs(
-        "1",
-        use_mainnet,
-        StacksEpochId::Epoch20,
-    );
+    let baseline = test_tracked_costs("1", use_mainnet, StacksEpochId::Epoch20);
 
     for f in NativeFunctions::ALL.iter() {
         // Note: The 2.05 test assumes Clarity1.
         if f.get_version() == ClarityVersion::Clarity1 {
             let test = get_simple_test(f);
-            let cost = test_tracked_costs(
-                test,
-                use_mainnet,
-                StacksEpochId::Epoch20,
-            );
+            let cost = test_tracked_costs(test, use_mainnet, StacksEpochId::Epoch20);
             assert!(cost.exceeds(&baseline));
         }
     }
@@ -936,7 +928,7 @@ fn epoch_205_test_all_testnet() {
 }
 
 fn test_cost_contract_short_circuits(use_mainnet: bool) {
-	let clarity_version = ClarityVersion::Clarity2;
+    let clarity_version = ClarityVersion::Clarity2;
     let marf_kv = MarfedKV::temporary();
     let mut clarity_instance = ClarityInstance::new(use_mainnet, marf_kv);
     clarity_instance
@@ -1174,6 +1166,7 @@ fn test_cost_contract_short_circuits_testnet() {
 }
 
 fn test_cost_voting_integration(use_mainnet: bool) {
+    let clarity_version = ClarityVersion::Clarity2;
     let marf_kv = MarfedKV::temporary();
     let mut clarity_instance = ClarityInstance::new(use_mainnet, marf_kv);
     clarity_instance
@@ -1279,10 +1272,22 @@ fn test_cost_voting_integration(use_mainnet: bool) {
         {
             block_conn.as_transaction(|tx| {
                 let (ast, analysis) = tx
-                    .analyze_smart_contract(contract_name, contract_src)
+                    .analyze_smart_contract(
+                        contract_name,
+                        clarity_version,
+                        contract_src,
+                        ASTRules::PrecheckSize,
+                    )
                     .unwrap();
-                tx.initialize_smart_contract(contract_name, &ast, contract_src, |_, _| false)
-                    .unwrap();
+                tx.initialize_smart_contract(
+                    contract_name,
+                    clarity_version,
+                    &ast,
+                    contract_src,
+                    None,
+                    |_, _| false,
+                )
+                .unwrap();
                 tx.save_analysis(contract_name, &analysis).unwrap();
             });
         }

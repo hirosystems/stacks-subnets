@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use clarity::vm::ast::ASTRules;
 use crate::chainstate::stacks::index::storage::TrieFileStorage;
 use crate::clarity_vm::clarity::ClarityInstance;
+use clarity::vm::ast::ASTRules;
 use clarity::vm::clarity::TransactionConnection;
 use clarity::vm::contexts::Environment;
 use clarity::vm::contexts::{AssetMap, AssetMapEntry, GlobalContext, OwnedEnvironment};
@@ -42,7 +42,7 @@ use crate::types::StacksEpochId;
 use clarity::vm::ClarityVersion;
 
 pub fn test_tracked_costs(prog: &str, use_mainnet: bool, epoch: StacksEpochId) -> ExecutionCost {
-let version = ClarityVersion::Clarity2;
+    let version = ClarityVersion::Clarity2;
     let marf = MarfedKV::temporary();
     let mut clarity_instance = ClarityInstance::new(use_mainnet, marf);
 
