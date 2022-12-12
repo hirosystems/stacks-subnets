@@ -237,7 +237,7 @@ impl BurnStateDB for SortitionHandleTx<'_> {
     }
 
     fn get_v1_unlock_height(&self) -> u32 {
-        todo!()
+        0
     }
     fn get_burn_start_height(&self) -> u32 {
         todo!()
@@ -305,7 +305,7 @@ impl BurnStateDB for SortitionDBConn<'_> {
     }
 
     fn get_v1_unlock_height(&self) -> u32 {
-        todo!()
+        0
     }
     fn get_burn_start_height(&self) -> u32 {
         todo!()
