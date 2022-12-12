@@ -48,7 +48,7 @@ fn dependency_edge_counting_runtime(iters: usize) -> u64 {
         &mut cost_track,
         version,
         epoch,
-ASTRules::PrecheckSize,
+        ASTRules::PrecheckSize,
     )
     .unwrap();
 
