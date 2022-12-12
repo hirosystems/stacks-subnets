@@ -574,11 +574,13 @@ pub struct SortitionDB {
     pub readwrite: bool,
     pub marf: MARF<SortitionId>,
     pub first_block_height: u64,
+    pub pox_constants: PoxConstants,
 }
 
 #[derive(Clone)]
 pub struct SortitionDBTxContext {
     pub first_block_height: u64,
+    pub pox_constants: PoxConstants,
 }
 
 #[derive(Clone)]
@@ -1494,6 +1496,7 @@ impl SortitionDB {
             &mut self.marf,
             SortitionDBTxContext {
                 first_block_height: self.first_block_height,
+                pox_constants: PoxConstants::default(),
             },
         );
         Ok(index_tx)
@@ -1505,6 +1508,7 @@ impl SortitionDB {
             &self.marf,
             SortitionDBTxContext {
                 first_block_height: self.first_block_height,
+                pox_constants: PoxConstants::default(),
             },
         )
     }
@@ -1566,6 +1570,7 @@ impl SortitionDB {
             marf,
             readwrite,
             first_block_height: first_snapshot.block_height,
+            pox_constants: PoxConstants::default(),
         };
 
         db.check_schema_version_or_error()?;
@@ -1610,6 +1615,7 @@ impl SortitionDB {
             marf,
             readwrite,
             first_block_height,
+            pox_constants: PoxConstants::default(),
         };
 
         if create_flag {
@@ -1936,6 +1942,7 @@ impl SortitionDB {
                 readwrite: true,
                 // not used by migration logic
                 first_block_height: 0,
+                pox_constants: PoxConstants::default(),
             };
             db.check_schema_version_and_update(epochs)
         } else {

@@ -305,19 +305,19 @@ impl BurnStateDB for SortitionDBConn<'_> {
     }
 
     fn get_v1_unlock_height(&self) -> u32 {
-        0
+        self.context.pox_constants.v1_unlock_height
     }
     fn get_burn_start_height(&self) -> u32 {
-        todo!()
+        self.context.first_block_height as u32
     }
     fn get_pox_prepare_length(&self) -> u32 {
-        todo!()
+        self.context.pox_constants.prepare_length
     }
     fn get_pox_reward_cycle_length(&self) -> u32 {
-        todo!()
+        self.context.pox_constants.reward_cycle_length
     }
     fn get_pox_rejection_fraction(&self) -> u64 {
-        todo!()
+        self.context.pox_constants.pox_rejection_fraction
     }
 
     fn get_sortition_id_from_consensus_hash(
