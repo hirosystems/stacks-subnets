@@ -7,6 +7,7 @@ use stacks_common::types::chainstate::StacksBlockId;
 use stacks_common::types::StacksEpochId;
 
 use crate::chainstate::stacks::index::ClarityMarfTrieId;
+use crate::vm::ast::ASTRules;
 
 fn dependency_edge_counting_runtime(iters: usize) -> u64 {
     let mut progn = "(define-private (a0) 1)".to_string();
@@ -47,6 +48,7 @@ fn dependency_edge_counting_runtime(iters: usize) -> u64 {
         &mut cost_track,
         version,
         epoch,
+ASTRules::PrecheckSize,
     )
     .unwrap();
 
