@@ -36,6 +36,7 @@ use crate::clarity_vm::database::marf::MarfedKV;
 use clarity::vm::clarity::TransactionConnection;
 
 use clarity::vm::version::ClarityVersion;
+use stacks_common::types::StacksEpochId;
 fn test_block_headers(n: u8) -> StacksBlockId {
     StacksBlockId([n as u8; 32])
 }
@@ -95,7 +96,15 @@ fn test_simple_token_system() {
 
         let tokens_contract = SIMPLE_TOKENS;
 
-        let contract_ast = ast::build_ast(&contract_identifier, tokens_contract, &mut ()).unwrap();
+        let contract_ast = ast::build_ast_with_rules(
+            &contract_identifier,
+            tokens_contract,
+            &mut (),
+            ClarityVersion::Clarity2,
+            StacksEpochId::Epoch21,
+            ASTRules::PrecheckSize,
+        )
+        .unwrap();
 
         block.as_transaction(|tx| {
             tx.initialize_smart_contract(
