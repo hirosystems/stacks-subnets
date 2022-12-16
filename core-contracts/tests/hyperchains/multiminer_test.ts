@@ -2,7 +2,7 @@ import { Clarinet, Tx, Chain, Account, Contract, types } from 'https://deno.land
 import { assertEquals } from "https://deno.land/std@0.90.0/testing/asserts.ts";
 import { createHash } from "https://deno.land/std@0.107.0/hash/mod.ts";
 import { decode as decHex, encode as encHex } from "https://deno.land/std@0.149.0/encoding/hex.ts";
-// import * as secp from "https://deno.land/x/secp256k1@1.6.3/mod.ts";
+import * as secp from "https://deno.land/x/secp256k1@1.6.3/mod.ts";
 
 const ERR_SIGNER_APPEARS_TWICE = 101;
 const ERR_NOT_ENOUGH_SIGNERS = 102;
