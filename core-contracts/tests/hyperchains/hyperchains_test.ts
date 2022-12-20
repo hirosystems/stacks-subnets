@@ -629,7 +629,7 @@ Clarinet.test({
 });
 
 Clarinet.test({
-    name: "Ensure that user can withdraw FT minted on hyperchain & L1 miner can mint it",
+    name: "Ensure that user can withdraw FT minted on subnet & L1 miner can mint it",
     async fn(chain: Chain, accounts: Map<string, Account>, contracts: Map<string, Contract>) {
 
         // miner
@@ -1135,14 +1135,14 @@ Clarinet.test({
 });
 
 Clarinet.test({
-    name: "Ensure that L1 contract can't mint an NFT first created on the hyperchain if it already exists on the L1",
+    name: "Ensure that L1 contract can't mint an NFT first created on the subnet if it already exists on the L1",
     async fn(chain: Chain, accounts: Map<string, Account>, contracts: Map<string, Contract>) {
 
         // miner
         const alice = accounts.get("wallet_1")!;
         // user than owns NFT on L1
         const bob = accounts.get("wallet_2")!;
-        // user that attempts to withdraw NFT minted on the hyperchain to L1
+        // user that attempts to withdraw NFT minted on the subnet to L1
         const charlie = accounts.get("wallet_3")!;
 
         // nft contract id
@@ -1228,7 +1228,7 @@ Clarinet.test({
 });
 
 Clarinet.test({
-    name: "Ensure that user can mint an NFT on the hyperchain and L1 miner can withdraw it by minting",
+    name: "Ensure that user can mint an NFT on the subnet and L1 miner can withdraw it by minting",
     async fn(chain: Chain, accounts: Map<string, Account>, contracts: Map<string, Contract>) {
 
         // miner

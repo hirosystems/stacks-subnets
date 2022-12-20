@@ -1,6 +1,6 @@
-(define-trait mint-from-hyperchain-trait
+(define-trait mint-from-subnet-trait
   (
     ;; Transfer from the sender to a new principal
-    (mint-from-hyperchain (uint principal principal) (response bool uint))
+    (mint-from-subnet (uint principal principal) (response bool uint))
   )
 )

@@ -47,7 +47,7 @@ pub const BURNCHAIN_NAME_STACKS_MAINNET_L1: &str = "stacks_layer_1::mainnet";
 pub const BURNCHAIN_NAME_MOCKSTACK: &str = "mockstack";
 pub const DEFAULT_L1_OBSERVER_PORT: u16 = 50303;
 
-pub const HYPERCHAIN_SUBDIR_NAME: &str = "hyperchain";
+pub const HYPERCHAIN_SUBDIR_NAME: &str = "subnet";
 
 #[derive(Clone, Deserialize, Default)]
 pub struct ConfigFile {
@@ -391,9 +391,9 @@ impl Config {
                     contract_identifier: QualifiedContractIdentifier::parse(
                         &burnchain
                             .contract_identifier
-                            .expect("Hyperchain nodes must configure L1 contract identifier"),
+                            .expect("subnet nodes must configure L1 contract identifier"),
                     )
-                    .expect("Invalid contract identifier configured with hyperchain node"),
+                    .expect("Invalid contract identifier configured with subnet node"),
                     first_burn_header_height: burnchain
                         .first_burn_header_height
                         .unwrap_or(default_burnchain_config.first_burn_header_height),
@@ -827,26 +827,26 @@ pub enum CommitStrategy {
 
 #[derive(Clone, Debug)]
 pub struct BurnchainConfig {
-    /// The name of the L1 chain that this hyperchain runs on: this is either "stacks_layer_1" or
+    /// The name of the L1 chain that this subnet runs on: this is either "stacks_layer_1" or
     /// "mockstack".
     pub chain: String,
     /// This controls the listening port that this node's L1 event observer will run on. This is how
-    /// the hyperchain node receives events from L1.
+    /// the subnet node receives events from L1.
     pub observer_port: u16,
     /// The `chain_id` is used to differentiate transactions between
     /// different Stacks blockchains (e.g., Stacks testnet vs. Stacks mainnet).
     /// This configuration variable specifies the `chain_id` used in the L1
-    /// blockchain that this hyperchain is running on top of.
+    /// blockchain that this subnet is running on top of.
     pub chain_id: u32,
     pub network_id: u32,
     /// The peer version is used to determine network compatibility
-    /// for the net/p2p layer in the hyperchain network stack.
+    /// for the net/p2p layer in the subnet network stack.
     pub peer_version: u32,
-    /// This is the host IP address for the L1 node this hyperchain node communicates with
+    /// This is the host IP address for the L1 node this subnet node communicates with
     pub peer_host: String,
-    /// This is the p2p port for the L1 node this hyperchain node communicates with
+    /// This is the p2p port for the L1 node this subnet node communicates with
     pub peer_port: u16,
-    /// This is the rpc port for the L1 node this hyperchain node communicates with
+    /// This is the rpc port for the L1 node this subnet node communicates with
     pub rpc_port: u16,
     /// Whether or not to use SSL for L1 rpc communications
     pub rpc_ssl: bool,
@@ -857,14 +857,14 @@ pub struct BurnchainConfig {
     /// How frequently to poll the L1 chain for more information (not used for the event observer interface)
     pub poll_time_secs: u64,
     /// The maximum number of replace-by-fee iterations this
-    /// hyperchain node will send for each miner commit.
+    /// subnet node will send for each miner commit.
     pub max_rbf: u64,
     /// How much to increment the fee for each iteration of replace-by-fee for miner commitments
     pub rbf_fee_increment: u64,
     /// Custom override for the definitions of the epochs. This will only be applied for testnet and
     /// regtest nodes.
     pub epochs: Option<Vec<StacksEpoch>>,
-    /// The layer 1 contract that the hyperchain will watch for Stacks events.
+    /// The layer 1 contract that the subnet will watch for Stacks events.
     pub contract_identifier: QualifiedContractIdentifier,
     /// Block height for the first header.
     pub first_burn_header_height: u64,
@@ -989,7 +989,7 @@ pub struct NodeConfig {
     pub pox_sync_sample_secs: u64,
     pub use_test_genesis_chainstate: Option<bool>,
     /// Used to specify the keychain signing key exactly. This is also used
-    ///  as the validation key when running as a hyperchain 'validator' (i.e.,
+    ///  as the validation key when running as a subnet 'validator' (i.e.,
     ///  the follower in the two-phase commit protocol)
     pub mining_key: Option<StacksPrivateKey>,
 }

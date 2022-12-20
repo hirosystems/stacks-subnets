@@ -1,7 +1,7 @@
-## 1. Start the hyperchain miner
+## 1. Start the subnet miner
 
 ```bash
-hyperchain-node start --config=$STACKS_HYPERCHAINS_PATH/contrib/conf/hyperchain-l2.toml 2>&1 | tee -i /tmp/stacks-hc.log
+subnet-node start --config=$STACKS_HYPERCHAINS_PATH/contrib/conf/subnet-l2.toml 2>&1 | tee -i /tmp/stacks-hc.log
 ```
 
 ## 2. Start a local Stacks network
@@ -15,17 +15,17 @@ stacks-node start --config=$STACKS_HYPERCHAINS_PATH/contrib/conf/stacks-l1-mockn
 Collect the contracts:
 
 ```bash
-mkdir my-hyperchain/
-mkdir my-hyperchain/contracts
-cp stacks-subnets/core-contracts/contracts/subnets.clar my-hyperchain/contracts/
-cp stacks-subnets/core-contracts/contracts/helper/ft-trait-standard.clar my-hyperchain/contracts/
-cp stacks-subnets/core-contracts/contracts/helper/nft-trait-standard.clar my-hyperchain/contracts/
+mkdir my-subnet/
+mkdir my-subnet/contracts
+cp stacks-subnets/core-contracts/contracts/subnets.clar my-subnet/contracts/
+cp stacks-subnets/core-contracts/contracts/helper/ft-trait-standard.clar my-subnet/contracts/
+cp stacks-subnets/core-contracts/contracts/helper/nft-trait-standard.clar my-subnet/contracts/
 ```
 
 Set the miners list to contain the address generated in Step 1:
 
 ```bash
-sed -ie "s#^(define-data-var miner (optional principal) none)#(define-data-var miner (optional principal) (some \'ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP))#" my-hyperchain/contracts/subnets.clar
+sed -ie "s#^(define-data-var miner (optional principal) none)#(define-data-var miner (optional principal) (some \'ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP))#" my-subnet/contracts/subnets.clar
 ```
 
 Make the transactions -- you will need to set the private key of the contract publisher as an env var:
@@ -37,15 +37,15 @@ export CONTRACT_PUBLISH_KEY=0916e2eb04b5702e0e946081829cee67d3bb76e1792af5066468
 This is the private key from the first step.
 
 ```bash
-mkdir my-hyperchain/scripts
-cp stacks-subnets/contrib/scripts/* my-hyperchain/scripts/
-cd my-hyperchain/scripts/
+mkdir my-subnet/scripts
+cp stacks-subnets/contrib/scripts/* my-subnet/scripts/
+cd my-subnet/scripts/
 npm i @stacks/network
 npm i @stacks/transactions
 mkdir ../transactions/
 node ./publish_tx.js ft-trait-standard ../contracts/ft-trait-standard.clar 0 > ../transactions/ft-publish.hex
 node ./publish_tx.js nft-trait-standard ../contracts/nft-trait-standard.clar 1 > ../transactions/nft-publish.hex
-node ./publish_tx.js hyperchain ../contracts/subnets.clar 2 > ../transactions/hc-publish.hex
+node ./publish_tx.js subnet ../contracts/subnets.clar 2 > ../transactions/hc-publish.hex
 ```
 
 Submit the transactions:
@@ -67,7 +67,7 @@ const depositTransaction = await transactions.makeContractCall({
    senderKey, network: layer1, anchorMode: transactions.AnchorMode.Any,
    nonce: 0,
    contractAddress: "ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP",
-   contractName: "hyperchain",
+   contractName: "subnet",
    functionName: "deposit-stx",
    functionArgs: [ transactions.uintCV(100000000000),
                    transactions.standardPrincipalCV("ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8")],
@@ -142,7 +142,7 @@ const layer1WithdrawTransaction = await transactions.makeContractCall({
    senderKey, network: layer1, anchorMode: transactions.AnchorMode.Any,
    nonce: 1,
    contractAddress: "ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP",
-   contractName: "hyperchain",
+   contractName: "subnet",
    functionName: "withdraw-stx",
    functionArgs: [ transactions.uintCV(50000),
                    transactions.standardPrincipalCV("ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8"),

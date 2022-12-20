@@ -69,16 +69,16 @@ but on the next start, the node booted fine.
 Collect the contracts:
 
 ```bash
-mkdir my-hyperchain/
-mkdir my-hyperchain/contracts
-cp stacks-subnets/core-contracts/contracts/subnets.clar my-hyperchain/contracts/
-cp stacks-subnets/core-contracts/contracts/helper/trait-standards.clar my-hyperchain/contracts/
+mkdir my-subnet/
+mkdir my-subnet/contracts
+cp stacks-subnets/core-contracts/contracts/subnets.clar my-subnet/contracts/
+cp stacks-subnets/core-contracts/contracts/helper/trait-standards.clar my-subnet/contracts/
 ```
 
 Set the miners list to contain the address generated in Step 1:
 
 ```bash
-sed -ie "s#^(define-constant miners.*#(define-constant miners (list \'STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P))#" my-hyperchain/contracts/subnets.clar
+sed -ie "s#^(define-constant miners.*#(define-constant miners (list \'STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P))#" my-subnet/contracts/subnets.clar
 ```
 
 Make the transactions -- you will need to set the private key of the contract publisher as an env var:
@@ -90,9 +90,9 @@ export CONTRACT_PUBLISH_KEY=<PRIVATEKEY>
 This is the private key from the first step.
 
 ```bash
-mkdir my-hyperchain/scripts
-cp stacks-subnets/contrib/scripts/* my-hyperchain/scripts/
-cd my-hyperchain/scripts/
+mkdir my-subnet/scripts
+cp stacks-subnets/contrib/scripts/* my-subnet/scripts/
+cd my-subnet/scripts/
 npm i @stacks/network
 npm i @stacks/transactions
 mkdir ../transactions/
@@ -122,7 +122,7 @@ Steps 3 (e.g., `STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P.hc-alpha`).
 
 ```toml
 [node]
-working_dir = "/var/my-hyperchain/hc-alpha"
+working_dir = "/var/my-subnet/hc-alpha"
 rpc_bind = "127.0.0.1:80443"
 p2p_bind = "127.0.0.1:80444"
 mining_key = "<FILL HERE>"
@@ -160,15 +160,15 @@ events_keys = ["*"]
 
 ## 5. Start the nodes
 
-The `hyperchain-node` must be started before the `stacks-node`:
+The `subnet-node` must be started before the `stacks-node`:
 
 ```bash
-./target/release/hyperchain-node start --config=/var/my-hyperchain/configs/hc-miner.toml 2>&1 | tee /var/my-hyperchain/hc-miner.log
+./target/release/subnet-node start --config=/var/my-subnet/configs/hc-miner.toml 2>&1 | tee /var/my-subnet/hc-miner.log
 ```
 
 The `stacks-node` must be started from a state _before_ the
 `first_burn_header_height` and `first_burn_header_hash` configured
-in the hyperchain node's TOML.
+in the subnet node's TOML.
 
 ```bash
 ./target/release/stacks-node start --config=/var/stacks-subnets/contrib/conf/stacks-l1-testnet.toml 2>&1 | tee -i /tmp/stacks-testnet.log

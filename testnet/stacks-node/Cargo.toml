@@ -1,5 +1,5 @@
 [package]
-name = "hyperchain-node"
+name = "subnet-node"
 version = "0.1.0"
 authors = ["Ludo Galabru <ludovic@blockstack.com>"]
 edition = "2021"
@@ -40,7 +40,7 @@ version = "=0.24.2"
 features = ["blob", "serde_json", "i128_blob", "bundled", "trace"]
 
 [[bin]]
-name = "hyperchain-node"
+name = "subnet-node"
 path = "src/main.rs"
 
 [features]

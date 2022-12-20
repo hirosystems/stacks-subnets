@@ -1,4 +1,4 @@
-TN:Ensure that L1 contract can't mint an NFT first created on the hyperchain if it already exists on the L1
+TN:Ensure that L1 contract can't mint an NFT first created on the subnet if it already exists on the L1
 SF:./core-contracts/contracts/multi-miner.clar
 FN:22,get-miners
 FN:31,set-miners
@@ -12,54 +12,54 @@ FN:75,commit-block
 FNF:9
 FNH:0
 end_of_record
-TN:Ensure that L1 contract can't mint an NFT first created on the hyperchain if it already exists on the L1
+TN:Ensure that L1 contract can't mint an NFT first created on the subnet if it already exists on the L1
 SF:./core-contracts/contracts/helper/simple-ft.clar
 FN:9,get-balance
 FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
 FNF:9
 FNH:0
 end_of_record
-TN:Ensure that L1 contract can't mint an NFT first created on the hyperchain if it already exists on the L1
+TN:Ensure that L1 contract can't mint an NFT first created on the subnet if it already exists on the L1
 SF:./core-contracts/contracts/helper/simple-nft.clar
 FN:13,get-last-token-id
 FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
 end_of_record
-TN:Ensure that L1 contract can't mint an NFT first created on the hyperchain if it already exists on the L1
+TN:Ensure that L1 contract can't mint an NFT first created on the subnet if it already exists on the L1
 SF:./core-contracts/contracts/helper/simple-ft.clar
 FN:9,get-balance
 FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
 FNF:9
 FNH:0
 end_of_record
-TN:Ensure that L1 contract can't mint an NFT first created on the hyperchain if it already exists on the L1
+TN:Ensure that L1 contract can't mint an NFT first created on the subnet if it already exists on the L1
 SF:./core-contracts/contracts/helper/simple-nft.clar
 FN:13,get-last-token-id
 FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNDA:1,get-owner
 FNDA:1,test-mint
@@ -81,7 +81,7 @@ DA:47,0
 DA:52,0
 DA:53,0
 end_of_record
-TN:Ensure that L1 contract can't mint an NFT first created on the hyperchain if it already exists on the L1
+TN:Ensure that L1 contract can't mint an NFT first created on the subnet if it already exists on the L1
 SF:./core-contracts/contracts/helper/simple-nft-no-mint.clar
 FN:14,get-last-token-id
 FN:18,get-owner
@@ -92,7 +92,7 @@ FN:42,gift-nft
 FNF:6
 FNH:0
 end_of_record
-TN:Ensure that L1 contract can't mint an NFT first created on the hyperchain if it already exists on the L1
+TN:Ensure that L1 contract can't mint an NFT first created on the subnet if it already exists on the L1
 SF:./core-contracts/contracts/subnets.clar
 FN:56,set-hc-miner
 FN:115,is-miner
@@ -351,13 +351,13 @@ DA:584,2
 DA:585,0
 DA:595,0
 end_of_record
-TN:Ensure that L1 contract can't mint an NFT first created on the hyperchain if it already exists on the L1
+TN:Ensure that L1 contract can't mint an NFT first created on the subnet if it already exists on the L1
 SF:./core-contracts/contracts/helper/test-helpers.clar
 FN:5,get-id-header-hash
 FNF:1
 FNH:0
 end_of_record
-TN:Ensure that L1 contract can't mint an NFT first created on the hyperchain if it already exists on the L1
+TN:Ensure that L1 contract can't mint an NFT first created on the subnet if it already exists on the L1
 SF:./core-contracts/contracts/helper/trait-standards.clar
 FNF:0
 FNH:0
@@ -383,7 +383,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -397,7 +397,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -409,7 +409,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -423,7 +423,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -748,7 +748,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -762,7 +762,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -774,7 +774,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -788,7 +788,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -1113,7 +1113,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -1127,7 +1127,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -1139,7 +1139,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -1153,7 +1153,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -1473,7 +1473,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -1487,7 +1487,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -1499,7 +1499,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -1513,7 +1513,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -1812,7 +1812,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -1826,7 +1826,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -1838,7 +1838,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -1873,7 +1873,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -2183,7 +2183,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -2197,7 +2197,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -2209,7 +2209,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -2223,7 +2223,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNDA:1,get-owner
 FNDA:1,test-mint
@@ -2530,7 +2530,7 @@ SF:./core-contracts/contracts/helper/trait-standards.clar
 FNF:0
 FNH:0
 end_of_record
-TN:Ensure that user can mint an NFT on the hyperchain and L1 miner can withdraw it by minting
+TN:Ensure that user can mint an NFT on the subnet and L1 miner can withdraw it by minting
 SF:./core-contracts/contracts/multi-miner.clar
 FN:22,get-miners
 FN:31,set-miners
@@ -2544,57 +2544,57 @@ FN:75,commit-block
 FNF:9
 FNH:0
 end_of_record
-TN:Ensure that user can mint an NFT on the hyperchain and L1 miner can withdraw it by minting
+TN:Ensure that user can mint an NFT on the subnet and L1 miner can withdraw it by minting
 SF:./core-contracts/contracts/helper/simple-ft.clar
 FN:9,get-balance
 FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
 FNF:9
 FNH:0
 end_of_record
-TN:Ensure that user can mint an NFT on the hyperchain and L1 miner can withdraw it by minting
+TN:Ensure that user can mint an NFT on the subnet and L1 miner can withdraw it by minting
 SF:./core-contracts/contracts/helper/simple-nft.clar
 FN:13,get-last-token-id
 FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
 end_of_record
-TN:Ensure that user can mint an NFT on the hyperchain and L1 miner can withdraw it by minting
+TN:Ensure that user can mint an NFT on the subnet and L1 miner can withdraw it by minting
 SF:./core-contracts/contracts/helper/simple-ft.clar
 FN:9,get-balance
 FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
 FNF:9
 FNH:0
 end_of_record
-TN:Ensure that user can mint an NFT on the hyperchain and L1 miner can withdraw it by minting
+TN:Ensure that user can mint an NFT on the subnet and L1 miner can withdraw it by minting
 SF:./core-contracts/contracts/helper/simple-nft.clar
 FN:13,get-last-token-id
 FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNDA:1,get-owner
-FNDA:1,mint-from-hyperchain
+FNDA:1,mint-from-subnet
 FNF:7
 FNH:2
 DA:15,0
@@ -2613,7 +2613,7 @@ DA:47,3
 DA:52,0
 DA:53,0
 end_of_record
-TN:Ensure that user can mint an NFT on the hyperchain and L1 miner can withdraw it by minting
+TN:Ensure that user can mint an NFT on the subnet and L1 miner can withdraw it by minting
 SF:./core-contracts/contracts/helper/simple-nft-no-mint.clar
 FN:14,get-last-token-id
 FN:18,get-owner
@@ -2624,7 +2624,7 @@ FN:42,gift-nft
 FNF:6
 FNH:0
 end_of_record
-TN:Ensure that user can mint an NFT on the hyperchain and L1 miner can withdraw it by minting
+TN:Ensure that user can mint an NFT on the subnet and L1 miner can withdraw it by minting
 SF:./core-contracts/contracts/subnets.clar
 FN:56,set-hc-miner
 FN:115,is-miner
@@ -2885,13 +2885,13 @@ DA:584,2
 DA:585,0
 DA:595,3
 end_of_record
-TN:Ensure that user can mint an NFT on the hyperchain and L1 miner can withdraw it by minting
+TN:Ensure that user can mint an NFT on the subnet and L1 miner can withdraw it by minting
 SF:./core-contracts/contracts/helper/test-helpers.clar
 FN:5,get-id-header-hash
 FNF:1
 FNH:0
 end_of_record
-TN:Ensure that user can mint an NFT on the hyperchain and L1 miner can withdraw it by minting
+TN:Ensure that user can mint an NFT on the subnet and L1 miner can withdraw it by minting
 SF:./core-contracts/contracts/helper/trait-standards.clar
 FNF:0
 FNH:0
@@ -2917,7 +2917,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -2931,7 +2931,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -2943,7 +2943,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -2957,7 +2957,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -3235,7 +3235,7 @@ SF:./core-contracts/contracts/helper/trait-standards.clar
 FNF:0
 FNH:0
 end_of_record
-TN:Ensure that user can withdraw FT minted on hyperchain & L1 miner can mint it
+TN:Ensure that user can withdraw FT minted on subnet & L1 miner can mint it
 SF:./core-contracts/contracts/multi-miner.clar
 FN:22,get-miners
 FN:31,set-miners
@@ -3249,47 +3249,47 @@ FN:75,commit-block
 FNF:9
 FNH:0
 end_of_record
-TN:Ensure that user can withdraw FT minted on hyperchain & L1 miner can mint it
+TN:Ensure that user can withdraw FT minted on subnet & L1 miner can mint it
 SF:./core-contracts/contracts/helper/simple-ft.clar
 FN:9,get-balance
 FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
 FNF:9
 FNH:0
 end_of_record
-TN:Ensure that user can withdraw FT minted on hyperchain & L1 miner can mint it
+TN:Ensure that user can withdraw FT minted on subnet & L1 miner can mint it
 SF:./core-contracts/contracts/helper/simple-nft.clar
 FN:13,get-last-token-id
 FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
 end_of_record
-TN:Ensure that user can withdraw FT minted on hyperchain & L1 miner can mint it
+TN:Ensure that user can withdraw FT minted on subnet & L1 miner can mint it
 SF:./core-contracts/contracts/helper/simple-ft.clar
 FN:9,get-balance
 FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
 FNDA:1,get-balance
 FNDA:2,get-name
 FNDA:1,gift-tokens
-FNDA:1,mint-from-hyperchain
+FNDA:1,mint-from-subnet
 FNDA:2,transfer
 FNF:9
 FNH:5
@@ -3311,19 +3311,19 @@ DA:53,1
 DA:54,4
 DA:55,3
 end_of_record
-TN:Ensure that user can withdraw FT minted on hyperchain & L1 miner can mint it
+TN:Ensure that user can withdraw FT minted on subnet & L1 miner can mint it
 SF:./core-contracts/contracts/helper/simple-nft.clar
 FN:13,get-last-token-id
 FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
 end_of_record
-TN:Ensure that user can withdraw FT minted on hyperchain & L1 miner can mint it
+TN:Ensure that user can withdraw FT minted on subnet & L1 miner can mint it
 SF:./core-contracts/contracts/helper/simple-nft-no-mint.clar
 FN:14,get-last-token-id
 FN:18,get-owner
@@ -3334,7 +3334,7 @@ FN:42,gift-nft
 FNF:6
 FNH:0
 end_of_record
-TN:Ensure that user can withdraw FT minted on hyperchain & L1 miner can mint it
+TN:Ensure that user can withdraw FT minted on subnet & L1 miner can mint it
 SF:./core-contracts/contracts/subnets.clar
 FN:56,set-hc-miner
 FN:115,is-miner
@@ -3597,13 +3597,13 @@ DA:584,2
 DA:585,0
 DA:595,3
 end_of_record
-TN:Ensure that user can withdraw FT minted on hyperchain & L1 miner can mint it
+TN:Ensure that user can withdraw FT minted on subnet & L1 miner can mint it
 SF:./core-contracts/contracts/helper/test-helpers.clar
 FN:5,get-id-header-hash
 FNF:1
 FNH:0
 end_of_record
-TN:Ensure that user can withdraw FT minted on hyperchain & L1 miner can mint it
+TN:Ensure that user can withdraw FT minted on subnet & L1 miner can mint it
 SF:./core-contracts/contracts/helper/trait-standards.clar
 FNF:0
 FNH:0
@@ -3629,7 +3629,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -3643,7 +3643,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -3655,7 +3655,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -3690,7 +3690,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNDA:1,get-owner
 FNDA:1,test-mint
@@ -4072,7 +4072,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -4086,7 +4086,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -4098,7 +4098,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -4112,7 +4112,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -4455,7 +4455,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -4469,7 +4469,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -4481,7 +4481,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -4495,7 +4495,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -4829,7 +4829,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -4860,7 +4860,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -4887,7 +4887,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -4918,7 +4918,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -5275,7 +5275,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -5289,7 +5289,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0
@@ -5301,7 +5301,7 @@ FN:14,get-total-supply
 FN:18,get-name
 FN:22,get-symbol
 FN:26,get-decimals
-FN:30,mint-from-hyperchain
+FN:30,mint-from-subnet
 FN:40,transfer
 FN:48,get-token-uri
 FN:51,gift-tokens
@@ -5315,7 +5315,7 @@ FN:17,get-owner
 FN:21,get-token-uri
 FN:25,transfer
 FN:34,test-mint
-FN:41,mint-from-hyperchain
+FN:41,mint-from-subnet
 FN:50,gift-nft
 FNF:7
 FNH:0

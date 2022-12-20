@@ -400,7 +400,7 @@ pub struct ConnectionOptions {
     pub disable_inbound_handshakes: bool,
     pub force_disconnect_interval: Option<u64>,
 
-    /// hyperchain validator key
+    /// subnet validator key
     pub hyperchain_validator: Option<Secp256k1PrivateKey>,
     /// the contract used to submit multiparty commits (if a validator)
     pub hyperchain_signing_contract: Option<QualifiedContractIdentifier>,

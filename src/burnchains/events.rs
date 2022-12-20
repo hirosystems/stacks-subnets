@@ -195,7 +195,7 @@ where
 
 impl StacksHyperOp {
     /// This method tries to parse a `StacksHyperOp` from a Clarity value: this should be a tuple
-    /// emitted from the hyperchain contract in a statement like:
+    /// emitted from the subnet contract in a statement like:
     /// `(print { event: "block-commit", block-commit: 0x123... })`
     ///
     /// If the provided value does not match that tuple, this method will return an error.
@@ -512,7 +512,7 @@ impl StacksHyperOp {
 impl StacksHyperBlock {
     /// Process a `NewBlock` event from a layer-1 Stacks node, filter
     /// for the transaction events in the block that are relevant to
-    /// the hyperchain and parse out the `StacksHyperOp`s from the
+    /// the subnet and parse out the `StacksHyperOp`s from the
     /// block, producing a `StacksHyperBlock` struct.
     pub fn from_new_block_event(
         hyperchain_contract: &QualifiedContractIdentifier,

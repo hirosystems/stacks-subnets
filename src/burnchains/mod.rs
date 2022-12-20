@@ -50,14 +50,14 @@ pub use stacks_common::types::{Address, PrivateKey, PublicKey};
 
 pub mod burnchain;
 pub mod db;
-/// Stacks events parser used to construct the L1 hyperchain operations.
+/// Stacks events parser used to construct the L1 subnet operations.
 ///
 /// The events module processes an event stream from a Layer-1 Stacks
 /// node (provided by an indexer) and produces `BurnchainTransaction`
 /// and `BurnchainBlock` types. These types are fed into the sortition
 /// db (again, by the indexer) in order to prepare the rest of the
-/// hyperchain node to download and validate the corresponding
-/// hyperchain blocks.
+/// subnet node to download and validate the corresponding
+/// subnet blocks.
 pub mod events;
 pub mod indexer;
 
@@ -279,7 +279,7 @@ impl BurnchainTransaction {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-/// Represents a layer-1 Stacks block with the Hyperchain
+/// Represents a layer-1 Stacks block with the subnet
 /// relevant information parsed into th `ops` vector.
 pub struct StacksHyperBlock {
     pub current_block: StacksBlockId,

@@ -245,7 +245,7 @@ pub struct DepositFtOp {
 
     // Contract ID on L1 chain for this fungible token
     pub l1_contract_id: QualifiedContractIdentifier,
-    // Contract ID on hyperchain for this fungible token
+    // Contract ID on subnet for this fungible token
     pub hc_contract_id: QualifiedContractIdentifier,
     // Name of the function to call in the subnets contract to execute deposit
     pub hc_function_name: ClarityName,
@@ -266,7 +266,7 @@ pub struct DepositNftOp {
 
     // Contract ID on L1 chain for this NFT
     pub l1_contract_id: QualifiedContractIdentifier,
-    // Contract ID on hyperchain for this NFT
+    // Contract ID on subnet for this NFT
     pub hc_contract_id: QualifiedContractIdentifier,
     // Name of the function to call in the subnets contract to execute deposit
     pub hc_function_name: ClarityName,

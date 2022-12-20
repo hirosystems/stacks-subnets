@@ -11330,7 +11330,7 @@ pub mod test {
         let hyperchain_simple_ft = "
         (define-fungible-token ft-token)
 
-        (define-public (hyperchain-deposit-ft-token (amount uint) (recipient principal))
+        (define-public (subnet-deposit-ft-token (amount uint) (recipient principal))
           (ft-mint? ft-token amount recipient)
         )
 
@@ -11369,7 +11369,7 @@ pub mod test {
                     StandardPrincipalData::from(addr_publisher),
                     ContractName::from("hc-deposit-contract"),
                 ),
-                hc_function_name: ClarityName::from("hyperchain-deposit-ft-token"),
+                hc_function_name: ClarityName::from("subnet-deposit-ft-token"),
                 name: "ft-token".to_string(),
                 amount: 2,
                 sender: PrincipalData::from(addr_publisher),
@@ -11383,7 +11383,7 @@ pub mod test {
                     StandardPrincipalData::from(addr_publisher),
                     ContractName::from("hc-deposit-contract"),
                 ),
-                hc_function_name: ClarityName::from("hyperchain-deposit-ft-token-DNE"),
+                hc_function_name: ClarityName::from("subnet-deposit-ft-token-DNE"),
                 name: "ft-token".to_string(),
                 amount: 5,
                 sender: PrincipalData::from(addr_publisher),
@@ -11397,7 +11397,7 @@ pub mod test {
                     StandardPrincipalData::from(addr_publisher),
                     ContractName::from("hc-deposit-contract-DNE"),
                 ),
-                hc_function_name: ClarityName::from("hyperchain-deposit-ft-token"),
+                hc_function_name: ClarityName::from("subnet-deposit-ft-token"),
                 name: "ft-token".to_string(),
                 amount: 2,
                 sender: PrincipalData::from(addr_publisher),
@@ -11433,7 +11433,7 @@ pub mod test {
         let hyperchain_simple_nft = "
         (define-non-fungible-token nft-token uint)
 
-        (define-public (hyperchain-deposit-nft-token (id uint) (recipient principal))
+        (define-public (subnet-deposit-nft-token (id uint) (recipient principal))
           (nft-mint? nft-token id recipient)
         )
 
@@ -11472,7 +11472,7 @@ pub mod test {
                     StandardPrincipalData::from(addr_publisher),
                     ContractName::from("hc-deposit-contract"),
                 ),
-                hc_function_name: ClarityName::from("hyperchain-deposit-nft-token"),
+                hc_function_name: ClarityName::from("subnet-deposit-nft-token"),
                 id: 2,
                 sender: PrincipalData::from(addr_publisher),
             },
@@ -11485,7 +11485,7 @@ pub mod test {
                     StandardPrincipalData::from(addr_publisher),
                     ContractName::from("hc-deposit-contract"),
                 ),
-                hc_function_name: ClarityName::from("hyperchain-deposit-nft-token-DNE"),
+                hc_function_name: ClarityName::from("subnet-deposit-nft-token-DNE"),
                 id: 2,
                 sender: PrincipalData::from(addr_publisher),
             },
@@ -11498,7 +11498,7 @@ pub mod test {
                     StandardPrincipalData::from(addr_publisher),
                     ContractName::from("hc-deposit-contract-DNE"),
                 ),
-                hc_function_name: ClarityName::from("hyperchain-deposit-nft-token"),
+                hc_function_name: ClarityName::from("subnet-deposit-nft-token"),
                 id: 2,
                 sender: PrincipalData::from(addr_publisher),
             },

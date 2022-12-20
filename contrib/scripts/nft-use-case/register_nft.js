@@ -18,7 +18,7 @@ async function main() {
         contractAddress: 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM',
         contractName: 'hc-alpha',
         functionName: 'register-new-nft-contract',
-        functionArgs: [contractPrincipalCV(userAddr, 'simple-nft-l1'), stringAsciiCV("hyperchain-deposit-nft-token")],
+        functionArgs: [contractPrincipalCV(userAddr, 'simple-nft-l1'), stringAsciiCV("subnet-deposit-nft-token")],
         senderKey,
         validateWithAbi: false,
         network,

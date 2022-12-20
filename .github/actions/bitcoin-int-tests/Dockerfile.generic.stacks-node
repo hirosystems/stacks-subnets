@@ -16,5 +16,5 @@ COPY --from=stacks-node /bin/stacks-node /bin/
 COPY . .
 
 RUN cargo build --workspace && \
-    cargo test --workspace --bin=hyperchain-node --no-run
+    cargo test --workspace --bin=subnet-node --no-run
 

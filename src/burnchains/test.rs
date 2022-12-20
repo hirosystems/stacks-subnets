@@ -1018,39 +1018,39 @@ fn create_stacks_events_failures_deposit_ft() {
     let inputs = [
         (
             r#"{ event: "deposit-ft", l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft",
-            hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft"   }"#,
+            hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-deposit-simple-ft"   }"#,
             "No 'ft-amount' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft"  }"#,
+            hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-deposit-simple-ft"  }"#,
             "No 'ft-name' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            ft-name: "simple-ft", hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, hc-function-name: "hyperchain-deposit-simple-ft" }"#,
+            ft-name: "simple-ft", hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, hc-function-name: "subnet-deposit-simple-ft" }"#,
             "No 'sender' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, ft-name: "simple-ft",
             hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H,
-            hc-function-name: "hyperchain-deposit-simple-ft"  }"#,
+            hc-function-name: "subnet-deposit-simple-ft"  }"#,
             "No 'l1-contract-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H, ft-name: "simple-ft",
-            hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft"  }"#,
+            hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-deposit-simple-ft"  }"#,
             "Expected 'l1-contract-id' to be a contract principal",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            ft-name: "simple-ft", sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft"  }"#,
+            ft-name: "simple-ft", sender: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-deposit-simple-ft"  }"#,
             "No 'hc-contract-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
             ft-name: "simple-ft", hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH, sender: 'ST000000000000000000002AMW42H,
-            hc-function-name: "hyperchain-deposit-simple-ft"  }"#,
+            hc-function-name: "subnet-deposit-simple-ft"  }"#,
             "Expected 'hc-contract-id' to be a contract principal",
         ),
         (
@@ -1079,34 +1079,34 @@ fn create_stacks_events_failures_deposit_nft() {
         (
             r#"{ event: "deposit-nft", l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
             hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H,
-            hc-function-name: "hyperchain-deposit-simple-nft"  }"#,
+            hc-function-name: "subnet-deposit-simple-nft"  }"#,
             "No 'nft-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, hc-function-name: "hyperchain-deposit-simple-nft" }"#,
+            hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, hc-function-name: "subnet-deposit-simple-nft" }"#,
             "No 'sender' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft,
-            sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-nft"  }"#,
+            sender: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-deposit-simple-nft"  }"#,
             "No 'l1-contract-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H,
             hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H,
-            hc-function-name: "hyperchain-deposit-simple-nft"  }"#,
+            hc-function-name: "subnet-deposit-simple-nft"  }"#,
             "Expected 'l1-contract-id' to be a contract principal",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-nft"  }"#,
+            sender: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-deposit-simple-nft"  }"#,
             "No 'hc-contract-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
             hc-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH, sender: 'ST000000000000000000002AMW42H,
-            hc-function-name: "hyperchain-deposit-simple-nft"  }"#,
+            hc-function-name: "subnet-deposit-simple-nft"  }"#,
             "Expected 'hc-contract-id' to be a contract principal",
         ),
         (
@@ -1444,7 +1444,7 @@ fn create_stacks_event_block_for_deposit_ft() {
                     ContractEvent {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
-                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft" }"#,)
+                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-deposit-simple-ft" }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1459,7 +1459,7 @@ fn create_stacks_event_block_for_deposit_ft() {
                     ContractEvent {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
-                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft"  }"#,)
+                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-deposit-simple-ft"  }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1474,7 +1474,7 @@ fn create_stacks_event_block_for_deposit_ft() {
                     ContractEvent {
                         contract_identifier: ignored_contract.clone(),
                         topic: "print".into(),
-                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-ft" }"#)
+                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-deposit-simple-ft" }"#)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1536,7 +1536,7 @@ fn create_stacks_event_block_for_deposit_nft() {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
                         value: execute(r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-                                hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-nft"  }"#,)
+                                hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-deposit-simple-nft"  }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1552,7 +1552,7 @@ fn create_stacks_event_block_for_deposit_nft() {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
                         value: execute(r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-                                hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-nft"  }"#,)
+                                hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-deposit-simple-nft"  }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1568,7 +1568,7 @@ fn create_stacks_event_block_for_deposit_nft() {
                         contract_identifier: ignored_contract.clone(),
                         topic: "print".into(),
                         value: execute(r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-                                hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-deposit-simple-nft"  }"#)
+                                hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-deposit-simple-nft"  }"#)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1722,7 +1722,7 @@ fn create_stacks_event_block_for_withdraw_ft() {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
                         value: execute(r#"{ event: "withdraw-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-                                ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, recipient: 'ST000000000000000000002AMW42H, hc-function-name: "hyperchain-withdraw-simple-ft"  }"#,)
+                                ft-name: "simple-ft", hc-contract-id: 'ST000000000000000000002AMW42H.simple-ft, recipient: 'ST000000000000000000002AMW42H, hc-function-name: "subnet-withdraw-simple-ft"  }"#,)
                             .unwrap().unwrap(),
                     }
                 )

@@ -1590,7 +1590,7 @@ impl StacksNode {
         } else {
             info!("No Stacks chain tip known, will return a genesis block");
             let burnchain_params =
-                // TODO(subnets): set burnchain parameters with hyperchain configuration
+                // TODO(subnets): set burnchain parameters with subnet configuration
                 BurnchainParameters::from_params(&config.burnchain.chain, "mainnet")
                     .expect("Bitcoin network unsupported");
 
@@ -1889,7 +1889,7 @@ impl StacksNode {
 
         let block_height = anchored_block.header.total_work.work;
         debug!(
-            "Assembled hyperchain block";
+            "Assembled subnet block";
             "height" => block_height,
             "tx_count" => anchored_block.txs.len(),
             "block_hash" => %anchored_block.block_hash(),
