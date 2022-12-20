@@ -13,7 +13,7 @@ This guide will follow the list above, step by step.
 It is also possible to mint assets directly on the hyperchain, and withdraw them onto the L1. This bonus step is mentioned
 at the end of step 5. 
 
-## Hyperchains Background
+## Subnets Background
 A hyperchain is a network that is separate from the Stacks chain. A hyperchain can be thought of as a layer-2 (L2), 
 and the Stacks chain can be thought of as a layer-1 (L1). The hyperchain interfaces with the Stacks chain via a smart 
 contract that is specific to the hyperchain. Different hyperchain networks will use distinct Stacks contracts as an interface. 

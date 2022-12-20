@@ -2052,7 +2052,7 @@ impl<'a> SortitionDBConn<'a> {
 // High-level functions used by ChainsCoordinator
 impl SortitionDB {
     /// Get the sortition identifier corresponding to the provided
-    ///  burnchain hash. In Hyperchains, because there is *no* PoX, this
+    ///  burnchain hash. In Subnets, because there is *no* PoX, this
     ///  is always just equal to the burnchain hash.
     pub fn get_sortition_id(
         &self,
