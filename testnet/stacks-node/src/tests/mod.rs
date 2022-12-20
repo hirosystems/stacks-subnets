@@ -243,7 +243,7 @@ pub fn new_l1_test_conf(
     config.node.p2p_bind = "127.0.0.1:30444".into();
 
     config.burnchain.contract_identifier =
-        QualifiedContractIdentifier::new(to_addr(&broadcast_key).into(), "hyperchains".into());
+        QualifiedContractIdentifier::new(to_addr(&broadcast_key).into(), "subnets".into());
 
     config.node.miner = true;
 

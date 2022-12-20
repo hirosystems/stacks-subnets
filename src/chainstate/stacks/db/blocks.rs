@@ -4644,7 +4644,7 @@ impl StacksChainState {
     }
 
     /// Process any deposit STX operations that haven't been processed in this
-    /// hyperchains fork yet.
+    /// subnets fork yet.
     pub fn process_deposit_stx_ops(
         clarity_tx: &mut ClarityTx,
         operations: Vec<DepositStxOp>,
@@ -4660,7 +4660,7 @@ impl StacksChainState {
                             sender,
                             ..
                         } = deposit_stx_op;
-                        // call the corresponding deposit function in the hyperchains contract
+                        // call the corresponding deposit function in the subnets contract
                         let result = clarity_tx.connection().as_transaction(|tx| {
                             StacksChainState::account_credit(tx, &sender, amount as u64);
                             StacksTransactionEvent::STXEvent(STXEventType::STXMintEvent(
@@ -4692,7 +4692,7 @@ impl StacksChainState {
     }
 
     /// Process any deposit fungible token operations that haven't been processed in this
-    /// hyperchains fork yet.
+    /// subnets fork yet.
     pub fn process_deposit_ft_ops(
         clarity_tx: &mut ClarityTx,
         operations: Vec<DepositFtOp>,
@@ -4711,7 +4711,7 @@ impl StacksChainState {
                     sender,
                     ..
                 } = deposit_ft_op;
-                // call the corresponding deposit function in the hyperchains contract
+                // call the corresponding deposit function in the subnets contract
                 let result = clarity_tx.connection().as_transaction(|tx| {
                     tx.run_contract_call(
                         &sender.clone(),
@@ -4751,7 +4751,7 @@ impl StacksChainState {
     }
 
     /// Process any deposit NFT operations that haven't been processed in this
-    /// hyperchains fork yet.
+    /// subnets fork yet.
     pub fn process_deposit_nft_ops(
         clarity_tx: &mut ClarityTx,
         operations: Vec<DepositNftOp>,
@@ -11354,7 +11354,7 @@ pub mod test {
 
         let signed_contract_tx = signer.get_tx().unwrap();
 
-        // publish contract on hyperchains
+        // publish contract on subnets
         let _ =
             StacksChainState::process_transaction(&mut conn, &signed_contract_tx, false).unwrap();
 
@@ -11374,7 +11374,7 @@ pub mod test {
                 amount: 2,
                 sender: PrincipalData::from(addr_publisher),
             },
-            // this op calls a function that does not exist in the designated hyperchains contract
+            // this op calls a function that does not exist in the designated subnets contract
             DepositFtOp {
                 txid: Txid([2; 32]),
                 burn_header_hash: BurnchainHeaderHash([0; 32]),
@@ -11457,7 +11457,7 @@ pub mod test {
 
         let signed_contract_tx = signer.get_tx().unwrap();
 
-        // publish contract on hyperchains
+        // publish contract on subnets
         let _ =
             StacksChainState::process_transaction(&mut conn, &signed_contract_tx, false).unwrap();
 
@@ -11476,7 +11476,7 @@ pub mod test {
                 id: 2,
                 sender: PrincipalData::from(addr_publisher),
             },
-            // this op calls a function that does not exist in the designated hyperchains contract
+            // this op calls a function that does not exist in the designated subnets contract
             DepositNftOp {
                 txid: Txid([1; 32]),
                 burn_header_hash: BurnchainHeaderHash([0; 32]),

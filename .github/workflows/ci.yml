@@ -231,7 +231,7 @@ jobs:
       - name: Build/Tag/Push Image
         uses: docker/build-push-action@v1
         with:
-          repository: hirosystems/hyperchains
+          repository: hirosystems/subnets
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           tags: ${{ env.STRETCH_TAG }}
@@ -274,7 +274,7 @@ jobs:
       - name: Build/Tag/Push Image
         uses: docker/build-push-action@v1
         with:
-          repository: hirosystems/hyperchains
+          repository: hirosystems/subnets
           dockerfile: Dockerfile.stretch
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}

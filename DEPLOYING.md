@@ -56,7 +56,7 @@ amount = 10000000000000000
 
 
 ```bash
-./target/release/stacks-node start --config=/var/devel/stacks-hyperchains/contrib/conf/stacks-l1-testnet.toml 2>&1 | tee -i /tmp/stacks-testnet-0426-1055.log
+./target/release/stacks-node start --config=/var/devel/stacks-subnets/contrib/conf/stacks-l1-testnet.toml 2>&1 | tee -i /tmp/stacks-testnet-0426-1055.log
 ```
 
 Note: You can use an existing testnet chain state if you have one available.
@@ -71,14 +71,14 @@ Collect the contracts:
 ```bash
 mkdir my-hyperchain/
 mkdir my-hyperchain/contracts
-cp stacks-hyperchains/core-contracts/contracts/hyperchains.clar my-hyperchain/contracts/
-cp stacks-hyperchains/core-contracts/contracts/helper/trait-standards.clar my-hyperchain/contracts/
+cp stacks-subnets/core-contracts/contracts/subnets.clar my-hyperchain/contracts/
+cp stacks-subnets/core-contracts/contracts/helper/trait-standards.clar my-hyperchain/contracts/
 ```
 
 Set the miners list to contain the address generated in Step 1:
 
 ```bash
-sed -ie "s#^(define-constant miners.*#(define-constant miners (list \'STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P))#" my-hyperchain/contracts/hyperchains.clar
+sed -ie "s#^(define-constant miners.*#(define-constant miners (list \'STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P))#" my-hyperchain/contracts/subnets.clar
 ```
 
 Make the transactions -- you will need to set the private key of the contract publisher as an env var:
@@ -91,13 +91,13 @@ This is the private key from the first step.
 
 ```bash
 mkdir my-hyperchain/scripts
-cp stacks-hyperchains/contrib/scripts/* my-hyperchain/scripts/
+cp stacks-subnets/contrib/scripts/* my-hyperchain/scripts/
 cd my-hyperchain/scripts/
 npm i @stacks/network
 npm i @stacks/transactions
 mkdir ../transactions/
 node ./publish_tx.js trait-standards ../contracts/trait-standards.clar 0 > ../transactions/trait-publish.hex
-node ./publish_tx.js hc-alpha ../contracts/hyperchains.clar 1 > ../transactions/hc-publish.hex
+node ./publish_tx.js hc-alpha ../contracts/subnets.clar 1 > ../transactions/hc-publish.hex
 ```
 
 Submit the transactions:
@@ -116,7 +116,7 @@ $ node ./broadcast_tx.js ../transactions/hc-publish.hex
 
 ## 4. Configure the HC miner
 
-Create a `toml` configuration for the hyperchains miner.  Importantly,
+Create a `toml` configuration for the subnets miner.  Importantly,
 you should set the `contract_identifier` to the contract published in
 Steps 3 (e.g., `STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P.hc-alpha`).
 
@@ -171,5 +171,5 @@ The `stacks-node` must be started from a state _before_ the
 in the hyperchain node's TOML.
 
 ```bash
-./target/release/stacks-node start --config=/var/stacks-hyperchains/contrib/conf/stacks-l1-testnet.toml 2>&1 | tee -i /tmp/stacks-testnet.log
+./target/release/stacks-node start --config=/var/stacks-subnets/contrib/conf/stacks-l1-testnet.toml 2>&1 | tee -i /tmp/stacks-testnet.log
 ```

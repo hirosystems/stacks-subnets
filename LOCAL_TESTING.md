@@ -17,15 +17,15 @@ Collect the contracts:
 ```bash
 mkdir my-hyperchain/
 mkdir my-hyperchain/contracts
-cp stacks-hyperchains/core-contracts/contracts/hyperchains.clar my-hyperchain/contracts/
-cp stacks-hyperchains/core-contracts/contracts/helper/ft-trait-standard.clar my-hyperchain/contracts/
-cp stacks-hyperchains/core-contracts/contracts/helper/nft-trait-standard.clar my-hyperchain/contracts/
+cp stacks-subnets/core-contracts/contracts/subnets.clar my-hyperchain/contracts/
+cp stacks-subnets/core-contracts/contracts/helper/ft-trait-standard.clar my-hyperchain/contracts/
+cp stacks-subnets/core-contracts/contracts/helper/nft-trait-standard.clar my-hyperchain/contracts/
 ```
 
 Set the miners list to contain the address generated in Step 1:
 
 ```bash
-sed -ie "s#^(define-data-var miner (optional principal) none)#(define-data-var miner (optional principal) (some \'ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP))#" my-hyperchain/contracts/hyperchains.clar
+sed -ie "s#^(define-data-var miner (optional principal) none)#(define-data-var miner (optional principal) (some \'ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP))#" my-hyperchain/contracts/subnets.clar
 ```
 
 Make the transactions -- you will need to set the private key of the contract publisher as an env var:
@@ -38,14 +38,14 @@ This is the private key from the first step.
 
 ```bash
 mkdir my-hyperchain/scripts
-cp stacks-hyperchains/contrib/scripts/* my-hyperchain/scripts/
+cp stacks-subnets/contrib/scripts/* my-hyperchain/scripts/
 cd my-hyperchain/scripts/
 npm i @stacks/network
 npm i @stacks/transactions
 mkdir ../transactions/
 node ./publish_tx.js ft-trait-standard ../contracts/ft-trait-standard.clar 0 > ../transactions/ft-publish.hex
 node ./publish_tx.js nft-trait-standard ../contracts/nft-trait-standard.clar 1 > ../transactions/nft-publish.hex
-node ./publish_tx.js hyperchain ../contracts/hyperchains.clar 2 > ../transactions/hc-publish.hex
+node ./publish_tx.js hyperchain ../contracts/subnets.clar 2 > ../transactions/hc-publish.hex
 ```
 
 Submit the transactions:

@@ -249,7 +249,7 @@ pub struct StacksHyperOp {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-/// Enum for wrapping Layer-1 operation providers for hyperchains
+/// Enum for wrapping Layer-1 operation providers for subnets
 pub enum BurnchainTransaction {
     StacksBase(StacksHyperOp),
 }
@@ -289,7 +289,7 @@ pub struct StacksHyperBlock {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-/// Enum for wrapping Layer-1 blocks for hyperchains
+/// Enum for wrapping Layer-1 blocks for subnets
 pub enum BurnchainBlock {
     StacksHyperBlock(StacksHyperBlock),
 }

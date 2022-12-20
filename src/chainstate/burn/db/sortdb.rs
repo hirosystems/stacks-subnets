@@ -3062,7 +3062,7 @@ impl<'a> SortitionHandleTx<'a> {
                     "amount" => %op.amount,
                     "recipient" => %op.recipient,
                 );
-                // TODO(hyperchains) - store operation!
+                // TODO(subnets) - store operation!
                 Ok(())
             }
             BlockstackOperationType::WithdrawFt(ref op) => {
@@ -3077,7 +3077,7 @@ impl<'a> SortitionHandleTx<'a> {
                     "recipient" => %op.recipient,
                 );
 
-                // TODO(hyperchains) - store operation!
+                // TODO(subnets) - store operation!
                 Ok(())
             }
             BlockstackOperationType::WithdrawNft(ref op) => {
@@ -3091,7 +3091,7 @@ impl<'a> SortitionHandleTx<'a> {
                     "recipient" => %op.recipient,
                 );
 
-                // TODO(hyperchains) - store operation!
+                // TODO(subnets) - store operation!
                 Ok(())
             }
         }

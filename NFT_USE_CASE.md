@@ -20,14 +20,14 @@ contract that is specific to the hyperchain. Different hyperchain networks will 
 This interface contract has several functions that allow it to act as an intermediary between the Stacks chain and 
 some particular hyperchain. These functions include but are not limited to:
 - `commit-block`: Called by hyperchain miners to record block hashes and withdrawal state on the Stacks chain.
-- `deposit-ft-asset` / `deposit-stx` / `deposit-nft-asset`: Called by users to deposit assets into the hyperchains 
-  contract. The Hyperchain "listens" for calls to these functions, and performs a mint on the hyperchains to 
+- `deposit-ft-asset` / `deposit-stx` / `deposit-nft-asset`: Called by users to deposit assets into the subnets 
+  contract. The Hyperchain "listens" for calls to these functions, and performs a mint on the subnets to 
   replicate this state. Meanwhile, on the L1, the assets live in the contract.
 - `withdraw-ft-asset` / `withdraw-stx` / `withdraw-nft-asset`: Called by miners to withdraw assets from the hyperchain. 
-  In an upcoming update to the hyperchains repo, this function will be called by users directly. 
+  In an upcoming update to the subnets repo, this function will be called by users directly. 
 
 In order to register new allowed assets, a valid miner may call `setup-allowed-contracts`, `register-ft-contract`, or `register-nft-contract`. 
-The transaction sender must be part of the miners list defined in the hyperchains contract.
+The transaction sender must be part of the miners list defined in the subnets contract.
 
 ## Setup
 
@@ -39,18 +39,18 @@ Let's create a new clarinet project. This will create a new directory with a Cla
 clarinet new nft-use-case 
 ```
 
-Let us copy contract files and scripts over from the `stacks-hyperchains` repository into the `nft-use-case` directory. 
-If you don't already have the stacks-hyperchains repository, you can [clone it](https://github.com/hirosystems/stacks-hyperchains).
-Here's the command to clone the stacks-hyperchains repository:
+Let us copy contract files and scripts over from the `stacks-subnets` repository into the `nft-use-case` directory. 
+If you don't already have the stacks-subnets repository, you can [clone it](https://github.com/hirosystems/stacks-subnets).
+Here's the command to clone the stacks-subnets repository:
 ```
-git clone https://github.com/hirosystems/stacks-hyperchains.git
+git clone https://github.com/hirosystems/stacks-subnets.git
 ```
-Set the environment variable `HYPERCHAIN_PATH` to the location of the stacks-hyperchains repository on your computer. 
+Set the environment variable `HYPERCHAIN_PATH` to the location of the stacks-subnets repository on your computer. 
 ```
 export HYPERCHAIN_PATH=<YOUR_PATH_HERE>
 ```
 
-Now, we can copy files from the stacks-hyperchains repository. These files are contracts which will define the layer-1
+Now, we can copy files from the stacks-subnets repository. These files are contracts which will define the layer-1
 and layer-2 Clarity traits for NFTs and fungible tokens, implement an NFT in layer-1 and layer-2, and some NodeJS scripts for 
 helping to deploy the contracts.
 ```
@@ -130,7 +130,7 @@ node ./publish_tx.js trait-standards ../contracts-l2/trait-standards.clar 2 0
 node ./publish_tx.js simple-nft-l2 ../contracts-l2/simple-nft-l2.clar 2 1 
 ```
 
-To verify that the layer 2 transactions were processed, grep the hyperchains log for the transaction IDs 
+To verify that the layer 2 transactions were processed, grep the subnets log for the transaction IDs 
 of *each* hyperchain transaction.
 The transaction ID is logged to the console after the call to `publish_tx` - make sure this is the ID you grep for.
 ```
@@ -149,7 +149,7 @@ docker logs hyperchain-node.nft-use-case.devnet 2>&1 | grep "simple-nft-l2"
 ```
 
 ## Step 2: Register the new NFT asset in the interface hyperchain contract
-Create the transaction to register the new NFT asset we just published. This must be called by a miner of the hyperchains contract.
+Create the transaction to register the new NFT asset we just published. This must be called by a miner of the subnets contract.
 Specifically, this transaction will be sent by `AUTH_HC_MINER_ADDR`. 
 ```
 node ./register_nft.js 0
@@ -169,7 +169,7 @@ Verify that the transaction is acknowledged within the next few blocks in the St
 🟩  invoked: ST2NEB84ASENDXKYGJPQW86YXQCEFEX2ZQPG87ND.simple-nft-l1::gift-nft(ST2NEB84ASENDXKYGJPQW86YXQCEFEX2ZQPG87ND, u5) (ok true)
 
 ## Step 4: Deposit the NFT onto the Hyperchain 
-Now, we can call the deposit NFT function in the hyperchains interface contract. This 
+Now, we can call the deposit NFT function in the subnets interface contract. This 
 function is called by the principal `USER_ADDR`. 
 ```
 node ./deposit_nft.js 3
@@ -187,7 +187,7 @@ Jul 19 12:51:02.396923 INFO ACCEPTED burnchain operation (ThreadId(8), src/chain
 ```
 
 ## Step 5: Transfer the NFT within the Hyperchain 
-On the hyperchains, the NFT should belong to the principal that sent the deposit transaction, `USER_ADDR`. 
+On the subnets, the NFT should belong to the principal that sent the deposit transaction, `USER_ADDR`. 
 This principal can now transfer the NFT within the hyperchain. The principal `USER_ADDR` will now make a 
 transaction to transfer the NFT to `ALT_USER_ADDR`. 
 ```
@@ -215,7 +215,7 @@ which destroys those assets on the hyperchain, and adds that particular withdraw
 The withdrawal data structure serves as a cryptographic record of the withdrawals in a particular block, and has an 
 overall associated hash. This hash is committed to the L1 interface contract via the `commit-block` function.
 
-The second step involves calling the appropriate withdraw function in the hyperchains interface 
+The second step involves calling the appropriate withdraw function in the subnets interface 
 contract on the L1 chain. You must also pass in the "proof" that corresponds to your withdrawal. 
 This proof includes the hash of the withdrawal data structure that this withdrawal was included in, 
 the hash of the withdrawal itself, and a list of hashes to be used to prove that the particular withdrawal is valid. Currently, 
@@ -267,4 +267,4 @@ principal now owns the NFT (`ALT_USER_ADDR`). You can check this by clicking on 
 
 
 That is the conclusion of this demo! If you have any issues with this demo, reach out on the Stacks Discord or leave an issue in the 
-stacks-hyperchains repository.
+stacks-subnets repository.

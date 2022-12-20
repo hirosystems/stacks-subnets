@@ -259,7 +259,7 @@ fn select_transactions_where(
     return result;
 }
 
-/// Uses MOCKNET_PRIVATE_KEY_1 to publish the hyperchains contract and supporting
+/// Uses MOCKNET_PRIVATE_KEY_1 to publish the subnets contract and supporting
 ///  trait contracts
 pub fn publish_hc_contracts_to_l1(mut l1_nonce: u64, config: &Config, miner: PrincipalData) -> u64 {
     let trait_standard_contract_name = "trait-standards";
@@ -277,8 +277,8 @@ pub fn publish_hc_contracts_to_l1(mut l1_nonce: u64, config: &Config, miner: Pri
     );
     l1_nonce += 1;
 
-    // Publish the default hyperchains contract on the L1 chain
-    let contract_content = include_str!("../../../../core-contracts/contracts/hyperchains.clar")
+    // Publish the default subnets contract on the L1 chain
+    let contract_content = include_str!("../../../../core-contracts/contracts/subnets.clar")
         .replace(
             "(define-data-var miner (optional principal) none)",
             &format!(
@@ -512,8 +512,8 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     let nft_contract_name = ContractName::from("simple-nft");
     let nft_contract_id = QualifiedContractIdentifier::new(user_addr.into(), nft_contract_name);
 
-    // Publish the default hyperchains contract on the L1 chain
-    let contract_content = include_str!("../../../../core-contracts/contracts/hyperchains.clar")
+    // Publish the default subnets contract on the L1 chain
+    let contract_content = include_str!("../../../../core-contracts/contracts/subnets.clar")
         .replace(
             "(define-data-var miner (optional principal) none)",
             &format!(
@@ -566,7 +566,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         "Miner should have produced at least 2 coinbase transactions"
     );
 
-    // Publish hyperchains contract for ft-token
+    // Publish subnets contract for ft-token
     let hyperchain_simple_ft = "
     (define-fungible-token ft-token)
 
@@ -593,7 +593,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     l2_nonce += 1;
     let hc_ft_contract_id =
         QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft"));
-    // Publish hyperchains contract for nft-token
+    // Publish subnets contract for nft-token
     let hyperchain_simple_nft = "
     (define-non-fungible-token nft-token uint)
 
@@ -646,7 +646,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     );
     l1_nonce += 1;
 
-    // Setup hyperchains contract
+    // Setup subnets contract
     let hc_setup_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -735,9 +735,9 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     );
     l1_nonce += 1;
 
-    // deposit ft-token into hyperchains contract on L1
+    // deposit ft-token into subnets contract on L1
     submit_tx(&l1_rpc_origin, &l1_deposit_ft_tx);
-    // deposit nft-token into hyperchains contract on L1
+    // deposit nft-token into subnets contract on L1
     submit_tx(&l1_rpc_origin, &l1_deposit_nft_tx);
 
     wait_for_next_stacks_block(&sortition_db);
@@ -860,9 +860,9 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &[Value::UInt(1), Value::Principal(user_addr.into())],
     );
     l2_nonce += 1;
-    // Withdraw ft-token from hyperchains contract on L2
+    // Withdraw ft-token from subnets contract on L2
     submit_tx(&l2_rpc_origin, &l2_withdraw_ft_tx);
-    // Withdraw nft-token from hyperchains contract on L2
+    // Withdraw nft-token from subnets contract on L2
     submit_tx(&l2_rpc_origin, &l2_withdraw_nft_tx);
 
     // Sleep to give the run loop time to mine a block
@@ -1151,9 +1151,9 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
             Value::list_from(nft_sib_data).unwrap(),
         ],
     );
-    // Withdraw ft-token from hyperchains contract on L1
+    // Withdraw ft-token from subnets contract on L1
     submit_tx(&l1_rpc_origin, &l1_withdraw_ft_tx);
-    // Withdraw nft-token from hyperchains contract on L1
+    // Withdraw nft-token from subnets contract on L1
     submit_tx(&l1_rpc_origin, &l1_withdraw_nft_tx);
 
     // Sleep to give the run loop time to mine a block
@@ -1213,7 +1213,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     run_loop_thread.join().expect("Failed to join run loop.");
 }
 
-/// This test calls the `deposit-stx` function in the hyperchains contract.
+/// This test calls the `deposit-stx` function in the subnets contract.
 /// We expect to see the stx balance for the user in question increase.
 #[test]
 fn l1_deposit_and_withdraw_stx_integration_test() {
@@ -1284,8 +1284,8 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     );
     l1_nonce += 1;
 
-    // Publish the default hyperchains contract on the L1 chain
-    let contract_content = include_str!("../../../../core-contracts/contracts/hyperchains.clar")
+    // Publish the default subnets contract on the L1 chain
+    let contract_content = include_str!("../../../../core-contracts/contracts/subnets.clar")
         .replace(
             "(define-data-var miner (optional principal) none)",
             &format!(
@@ -1326,7 +1326,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
         "Miner should have produced at least 2 coinbase transactions"
     );
 
-    // Publish hyperchains contract for withdrawing stx
+    // Publish subnets contract for withdrawing stx
     let hyperchain_simple_stx = "
     (define-public (hyperchain-withdraw-stx (amount uint) (sender principal))
       (stx-withdraw? amount sender)
@@ -1342,7 +1342,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     );
     l2_nonce += 1;
 
-    // Setup hyperchains contract
+    // Setup subnets contract
     let hc_setup_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -1385,7 +1385,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     );
     l1_nonce += 1;
 
-    // Deposit stx into hyperchains contract on L1
+    // Deposit stx into subnets contract on L1
     submit_tx(&l1_rpc_origin, &l1_deposit_stx_tx);
 
     // Wait to give the run loop time to mine a block
@@ -1606,7 +1606,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     );
     l1_nonce += 1;
 
-    // Withdraw 1 stx from hyperchains contract on L1
+    // Withdraw 1 stx from subnets contract on L1
     submit_tx(&l1_rpc_origin, &l1_withdraw_stx_tx);
 
     // Sleep to give the run loop time to mine a block
@@ -1831,8 +1831,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     let nft_contract_name = ContractName::from("simple-nft");
     let nft_contract_id = QualifiedContractIdentifier::new(user_addr.into(), nft_contract_name);
 
-    // Publish the default hyperchains contract on the L1 chain
-    let contract_content = include_str!("../../../../core-contracts/contracts/hyperchains.clar")
+    // Publish the default subnets contract on the L1 chain
+    let contract_content = include_str!("../../../../core-contracts/contracts/subnets.clar")
         .replace(
             "(define-data-var miner (optional principal) none)",
             &format!(
@@ -1896,7 +1896,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     );
     l2_nonce += 1;
 
-    // Publish hyperchains contract for nft-token
+    // Publish subnets contract for nft-token
     let hyperchain_simple_nft = "
     (impl-trait .trait-standards.nft-trait)
 
@@ -2039,7 +2039,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     );
     l1_nonce += 1;
 
-    // deposit nft-token into hyperchains contract on L1
+    // deposit nft-token into subnets contract on L1
     submit_tx(&l1_rpc_origin, &l1_deposit_nft_tx);
 
     // Sleep to give the run loop time to mine a block
@@ -2496,7 +2496,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         ],
     );
     l1_nonce += 1;
-    // Withdraw nft-token from hyperchains contract on L1
+    // Withdraw nft-token from subnets contract on L1
     submit_tx(&l1_rpc_origin, &l1_withdraw_l1_native_nft_tx);
     submit_tx(&l1_rpc_origin, &l1_withdraw_hc_native_nft_tx);
 

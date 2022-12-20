@@ -81,4 +81,4 @@
          ;; check that we have enough signatures
          (try! (check-miners (append (get signers signer-principals) tx-sender)))
          ;; execute the block commit
-         (as-contract (contract-call? .hyperchains commit-block (get block block-data) (get target-tip block-data) (get withdrawal-root block-data)))))
+         (as-contract (contract-call? .subnets commit-block (get block block-data) (get target-tip block-data) (get withdrawal-root block-data)))))

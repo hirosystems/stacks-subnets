@@ -30,7 +30,7 @@ use std::time::Duration;
 /// This is the height to wait for the L1 mocknet node to reach the 2.1 epoch
 pub const MOCKNET_EPOCH_2_1: u64 = 4;
 
-/// Uses MOCKNET_PRIVATE_KEY_1 to publish the hyperchains contract and supporting
+/// Uses MOCKNET_PRIVATE_KEY_1 to publish the subnets contract and supporting
 ///  trait contracts
 pub fn publish_multiparty_contract_to_l1(
     mut l1_nonce: u64,

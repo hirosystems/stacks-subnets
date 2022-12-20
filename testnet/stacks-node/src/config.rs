@@ -814,7 +814,7 @@ impl std::default::Default for Config {
 
 #[derive(Clone, Debug)]
 pub enum CommitStrategy {
-    /// Commit directly to the hyperchains contract
+    /// Commit directly to the subnets contract
     Direct,
     /// Commit through a multi-miner style contract (see `core-contracts/contracts/multi-miner.clar`)
     MultiMiner {
@@ -871,7 +871,7 @@ pub struct BurnchainConfig {
     /// The anchor mode for any transactions submitted to L1
     pub anchor_mode: TransactionAnchorMode,
     /// This is the strategy used for submitting block commits. That is, whether or not
-    /// the miner should directly submit to the hyperchains contract, or they need to
+    /// the miner should directly submit to the subnets contract, or they need to
     /// submit through another contract (e.g., a multi-party commit contract
     pub commit_strategy: CommitStrategy,
 }
