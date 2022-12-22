@@ -1,4 +1,4 @@
-import { Clarinet, Tx, Chain, Account, Contract, types } from 'https://deno.land/x/clarinet@v1.2.0/index.ts';
+import { Clarinet, Tx, Chain, Account, Contract, types } from 'https://deno.land/x/clarinet@v0.31.0/index.ts';
 import { assertEquals } from "https://deno.land/std@0.90.0/testing/asserts.ts";
 
 import { decode as decHex, encode as encHex } from "https://deno.land/std@0.149.0/encoding/hex.ts";
@@ -85,6 +85,7 @@ Clarinet.test({
                 ],
                 alice.address),
         ]);
+        assertEquals(block.height, 3);
         block.receipts[0].result
             .expectOk()
             .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
@@ -105,6 +106,7 @@ Clarinet.test({
                 ],
                 bob.address),
         ]);
+        assertEquals(block.height, 4);
         // should return (err ERR_BLOCK_ALREADY_COMMITTED)
         block.receipts[0].result
             .expectErr()
@@ -121,6 +123,7 @@ Clarinet.test({
                 ],
                 alice.address),
         ]);
+        assertEquals(block.height, 5);
         block.receipts[0].result
             .expectOk()
             .expectBuff(new Uint8Array([0, 2, 2, 2, 2]));
@@ -365,6 +368,7 @@ Clarinet.test({
                 ],
                 alice.address),
         ]);
+        assertEquals(block.height, 9);
         block.receipts[0].result
             .expectOk()
             .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
@@ -378,7 +382,7 @@ Clarinet.test({
                     types.uint(0),
                     types.uint(0),
                     types.principal(nft_contract.contract_id),
-                    types.some(types.principal(nft_contract.contract_id)),
+                    types.principal(nft_contract.contract_id),
                     types.buff(root_hash),
                     types.buff(nft_leaf_hash),
                     types.list([types.tuple({
@@ -408,7 +412,7 @@ Clarinet.test({
                     types.uint(0),
                     types.uint(0),
                     types.principal(nft_contract.contract_id),
-                    types.some(types.principal(nft_contract.contract_id)),
+                    types.principal(nft_contract.contract_id),
                     types.buff(root_hash),
                     types.buff(nft_leaf_hash),
                     types.list([types.tuple({
@@ -1015,7 +1019,7 @@ Clarinet.test({
                     types.uint(2),
                     types.uint(0),
                     types.principal(nft_contract.contract_id),
-                    types.some(types.principal(nft_contract.contract_id)),
+                    types.principal(nft_contract.contract_id),
                     types.buff(root_hash),
                     types.buff(nft_leaf_hash),
                     types.list([types.tuple({
@@ -1112,7 +1116,7 @@ Clarinet.test({
                     types.uint(2),
                     types.uint(0),
                     types.principal(nft_contract.contract_id),
-                    types.some(types.principal(nft_contract.contract_id)),
+                    types.principal(nft_contract.contract_id),
                     types.buff(root_hash),
                     types.buff(nft_leaf_hash),
                     types.list([types.tuple({
@@ -1207,7 +1211,7 @@ Clarinet.test({
                     types.uint(0),
                     types.uint(0),
                     types.principal(nft_contract.contract_id),
-                    types.some(types.principal(nft_contract.contract_id)),
+                    types.principal(nft_contract.contract_id),
                     types.buff(root_hash),
                     types.buff(nft_leaf_hash),
                     types.list([types.tuple({
@@ -1278,6 +1282,7 @@ Clarinet.test({
                 ],
                 alice.address),
         ]);
+        assertEquals(block.height, 4);
         block.receipts[0].result
             .expectOk()
             .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
@@ -1291,7 +1296,7 @@ Clarinet.test({
                     types.uint(0),
                     types.uint(0),                    
                     types.principal(nft_contract.contract_id),
-                    types.some(types.principal(nft_contract.contract_id)),
+                    types.principal(nft_contract.contract_id),
                     types.buff(root_hash),
                     types.buff(nft_leaf_hash),
                     types.list([types.tuple({
@@ -1318,7 +1323,7 @@ Clarinet.test({
                     types.uint(0),
                     types.uint(0),
                     types.principal(nft_contract.contract_id),
-                    types.some(types.principal(nft_contract.contract_id)),
+                    types.principal(nft_contract.contract_id),
                     types.buff(root_hash),
                     types.buff(nft_leaf_hash),
                     types.list([types.tuple({
@@ -1381,20 +1386,20 @@ Clarinet.test({
                 ],
                 miner.address),
         ]);
+        assertEquals(block.height, 4);
         block.receipts[0].result
             .expectOk()
             .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
 
         // Miner should *not* be able to withdraw NFT asset because the contract doesn't own it.
         block = chain.mineBlock([
-            Tx.contractCall("hyperchains", "withdraw-nft-asset",
+            Tx.contractCall("hyperchains", "withdraw-nft-asset-no-mint",
                 [
                     types.uint(1),
                     types.principal(user.address),
                     types.uint(0),
                     types.uint(0),
                     types.principal(nft_contract.contract_id),
-                    types.none(),
                     types.buff(root_hash),
                     types.buff(nft_leaf_hash),
                     types.list([types.tuple({
@@ -1483,6 +1488,7 @@ Clarinet.test({
                 ],
                 miner.address),
         ]);
+        assertEquals(block.height, 6);
         block.receipts[0].result
             .expectOk()
             .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
@@ -1490,14 +1496,13 @@ Clarinet.test({
 
         // Miner should be able to withdraw NFT asset to original user.
         block = chain.mineBlock([
-            Tx.contractCall("hyperchains", "withdraw-nft-asset",
+            Tx.contractCall("hyperchains", "withdraw-nft-asset-no-mint",
                 [
                     types.uint(1),
                     types.principal(user.address),
                     types.uint(0),
                     types.uint(0),
                     types.principal(nft_contract.contract_id),
-                    types.none(),
                     types.buff(root_hash),
                     types.buff(nft_leaf_hash),
                     types.list([types.tuple({
@@ -1602,20 +1607,20 @@ Clarinet.test({
                 ],
                 miner.address),
         ]);
+        assertEquals(block.height, 6);
         block.receipts[0].result
             .expectOk()
             .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
 
         // Miner should be able to withdraw NFT asset to other_user.
         block = chain.mineBlock([
-            Tx.contractCall("hyperchains", "withdraw-nft-asset",
+            Tx.contractCall("hyperchains", "withdraw-nft-asset-no-mint",
                 [
                     types.uint(1),
                     types.principal(other_user.address),
                     types.uint(0),
                     types.uint(0),
                     types.principal(nft_contract.contract_id),
-                    types.none(),
                     types.buff(root_hash),
                     types.buff(nft_leaf_hash),
                     types.list([types.tuple({

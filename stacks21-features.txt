@@ -1,0 +1,3 @@
+* investigate adding back in ClarityRuntimeTxError::AnalysisError case
+* Coinbase(CoinbasePayload, Option<PrincipalData>),
+* should we assume Clarity2?

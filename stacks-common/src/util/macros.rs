@@ -100,7 +100,7 @@ macro_rules! define_versioned_named_enum {
             pub const ALL: &'static [$Name] = &[$($Name::$Variant),*];
             pub const ALL_NAMES: &'static [&'static str] = &[$($VarName),*];
 
-            pub fn lookup_by_name(name: &str) -> Option<Self> {
+            fn lookup_by_name(name: &str) -> Option<Self> {
                 match name {
                     $(
                         $VarName => Some($Name::$Variant),
@@ -644,16 +644,5 @@ macro_rules! impl_byte_array_rusqlite_only {
                 Ok(hex_str.into())
             }
         }
-    };
-}
-
-// Test hepler to get the name of the current function.
-#[macro_export]
-macro_rules! function_name {
-    () => {
-        stdext::function_name!()
-            .rsplit_once("::")
-            .expect("Failed to split current function name")
-            .1
     };
 }
