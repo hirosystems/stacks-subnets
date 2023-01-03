@@ -1565,7 +1565,7 @@ const WITHDRAW_TOKEN: SpecialAPI = SpecialAPI {
     signature: "(ft-withdraw? token-name amount sender)",
     description:
         "`ft-withdraw?` is used to withdraw the token balance for the `sender` principal for a token
-type defined using `define-fungible-token` from the hyperchain. The Stacks L1 chain will then be
+type defined using `define-fungible-token` from the subnet. The Stacks L1 chain will then be
 able to verify this withdraw when it processes the withdrawal of this asset.
 
 On a successful withdraw, it returns `(ok true)`. In the event of an unsuccessful withdraw it
@@ -1586,7 +1586,7 @@ const WITHDRAW_ASSET: SpecialAPI = SpecialAPI {
     output_type: "(response bool uint)",
     signature: "(nft-withdraw? asset-class asset-identifier recipient)",
     description: "`nft-withdraw?` is used to withdraw an asset for the `sender` principal for an
-asset defined using `define-non-fungible-token` on the hyperchain. The Stacks L1 chain will then be
+asset defined using `define-non-fungible-token` on the subnet. The Stacks L1 chain will then be
 able to verify this withdraw when it processes the withdrawal of this asset.
 
 The supplied `asset-identifier` must be of the same type specified in
@@ -1674,7 +1674,7 @@ const STX_WITHDRAW: SimpleFunctionAPI = SimpleFunctionAPI {
     name: None,
     signature: "(stx-withdraw? amount sender)",
     description: "`stx-withdraw?` debits the `sender` principal's STX holdings by `amount`, destroying
-the STX on the hyperchain. The Stacks L1 chain will then be able to verify this withdraw when
+the STX on the subnet. The Stacks L1 chain will then be able to verify this withdraw when
 it processes the withdrawal of this asset.
 
 The `sender` principal _must_ be equal to the current context's `tx-sender`.

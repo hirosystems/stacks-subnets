@@ -10,7 +10,7 @@ use crate::Config;
 
 use crate::neon;
 use crate::tests::l1_observer_test::{
-    publish_hc_contracts_to_l1, wait_for_next_stacks_block, StacksL1Controller,
+    publish_subnet_contracts_to_l1, wait_for_next_stacks_block, StacksL1Controller,
     MOCKNET_PRIVATE_KEY_1, MOCKNET_PRIVATE_KEY_2, MOCKNET_PRIVATE_KEY_3,
 };
 use crate::tests::neon_integrations::submit_tx;
@@ -30,7 +30,7 @@ use std::time::Duration;
 /// This is the height to wait for the L1 mocknet node to reach the 2.1 epoch
 pub const MOCKNET_EPOCH_2_1: u64 = 4;
 
-/// Uses MOCKNET_PRIVATE_KEY_1 to publish the hyperchains contract and supporting
+/// Uses MOCKNET_PRIVATE_KEY_1 to publish the subnet contract and supporting
 ///  trait contracts
 pub fn publish_multiparty_contract_to_l1(
     mut l1_nonce: u64,
@@ -105,7 +105,7 @@ fn l1_multiparty_1_of_n_integration_test() {
 
     let multi_party_contract = QualifiedContractIdentifier::new(
         to_addr(&MOCKNET_PRIVATE_KEY_1).into(),
-        "hc-multiparty-miner".into(),
+        "subnet-multiparty-miner".into(),
     );
 
     config.burnchain.commit_strategy = CommitStrategy::MultiMiner {
@@ -135,7 +135,7 @@ fn l1_multiparty_1_of_n_integration_test() {
 
     wait_for_target_l1_block(&sortition_db, MOCKNET_EPOCH_2_1);
 
-    let l1_nonce = publish_hc_contracts_to_l1(0, &config, multi_party_contract.clone().into());
+    let l1_nonce = publish_subnet_contracts_to_l1(0, &config, multi_party_contract.clone().into());
     publish_multiparty_contract_to_l1(l1_nonce, &config, &[miner_account.clone().into()]);
 
     // Wait for exactly two stacks blocks.
@@ -189,7 +189,7 @@ fn l1_multiparty_2_of_2_integration_test() {
 
     let multi_party_contract = QualifiedContractIdentifier::new(
         to_addr(&MOCKNET_PRIVATE_KEY_1).into(),
-        "hc-multiparty-miner".into(),
+        "subnet-multiparty-miner".into(),
     );
 
     let mut follower_config =
@@ -197,8 +197,7 @@ fn l1_multiparty_2_of_2_integration_test() {
     follower_config.node.chain_id = leader_config.node.chain_id;
 
     let follower_account = to_addr(&MOCKNET_PRIVATE_KEY_3);
-    follower_config.connection_options.hyperchain_validator =
-        follower_config.node.mining_key.clone();
+    follower_config.connection_options.subnet_validator = follower_config.node.mining_key.clone();
     follower_config.node.rpc_bind = "127.0.0.1:30643".into();
     follower_config.node.data_url = "http://127.0.0.1:30643".into();
     follower_config.node.p2p_bind = "127.0.0.1:30644".into();
@@ -217,9 +216,7 @@ fn l1_multiparty_2_of_2_integration_test() {
         leader: false,
     };
 
-    follower_config
-        .connection_options
-        .hyperchain_signing_contract = Some(multi_party_contract.clone());
+    follower_config.connection_options.subnet_signing_contract = Some(multi_party_contract.clone());
 
     follower_config.add_bootstrap_node(
         "024d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766@127.0.0.1:30444",
@@ -265,7 +262,7 @@ fn l1_multiparty_2_of_2_integration_test() {
     wait_for_target_l1_block(&sortition_db, MOCKNET_EPOCH_2_1);
 
     let l1_nonce =
-        publish_hc_contracts_to_l1(0, &leader_config, multi_party_contract.clone().into());
+        publish_subnet_contracts_to_l1(0, &leader_config, multi_party_contract.clone().into());
     publish_multiparty_contract_to_l1(
         l1_nonce,
         &leader_config,

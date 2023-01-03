@@ -526,7 +526,7 @@ fn is_close_f64(a: f64, b: f64) -> bool {
 
 #[test]
 #[ignore]
-/// Simple test for the mock backend: test that the hyperchain miner
+/// Simple test for the mock backend: test that the subnet miner
 /// is capable of producing blocks
 fn mockstack_integration_test() {
     reset_static_burnblock_simulator_channel();
@@ -1000,7 +1000,7 @@ fn faucet_test() {
     channel.stop_chains_coordinator();
 }
 
-/// Create burnchain fork, and see that the hyper-chain miner can continue to call.
+/// Create burnchain fork, and see that the subnet miner can continue to call.
 /// Does not exercise contract calls.
 #[test]
 #[ignore]
