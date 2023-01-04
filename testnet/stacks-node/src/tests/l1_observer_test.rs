@@ -1149,7 +1149,10 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
             Value::UInt(1),
             Value::UInt(withdrawal_height.into()),
             Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
-            Value::some(Value::Principal(PrincipalData::Contract(nft_contract_id.clone()))).expect("Couldn't create a some."),
+            Value::some(Value::Principal(PrincipalData::Contract(
+                nft_contract_id.clone(),
+            )))
+            .unwrap(),
             Value::buff_from(root_hash).unwrap(),
             Value::buff_from(nft_withdrawal_leaf_hash).unwrap(),
             Value::list_from(nft_sib_data).unwrap(),
@@ -2473,7 +2476,10 @@ fn nft_deposit_and_withdraw_integration_test() {
             Value::UInt(0),
             Value::UInt(withdrawal_height.into()),
             Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
-            Value::some(Value::Principal(PrincipalData::Contract(nft_contract_id.clone()))).expect("Couldn't create a some."),
+            Value::some(Value::Principal(PrincipalData::Contract(
+                nft_contract_id.clone(),
+            )))
+            .unwrap(),
             Value::buff_from(root_hash.clone()).unwrap(),
             Value::buff_from(l1_native_nft_withdrawal_leaf_hash).unwrap(),
             Value::list_from(l1_native_nft_sib_data).unwrap(),
@@ -2494,7 +2500,10 @@ fn nft_deposit_and_withdraw_integration_test() {
             Value::UInt(1),
             Value::UInt(withdrawal_height.into()),
             Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
-            Value::some(Value::Principal(PrincipalData::Contract(nft_contract_id.clone()))).expect("Couldn't create a some."),
+            Value::some(Value::Principal(PrincipalData::Contract(
+                nft_contract_id.clone(),
+            )))
+            .unwrap(),
             Value::buff_from(root_hash).unwrap(),
             Value::buff_from(subnet_native_nft_withdrawal_leaf_hash).unwrap(),
             Value::list_from(subnet_native_nft_sib_data).unwrap(),
