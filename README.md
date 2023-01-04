@@ -72,7 +72,7 @@ You can launch your contracts, deposit funds to your subnets layer and withdraw 
 
 In your terminal, you can run tests by navigating to the `testnet/stacks-node/` directory and running the following command:
 
-`testnet/stacks-node$ cargo test`
+`cargo test`
 
 If you want to ignore some tests, you can use the following command:
 
