@@ -76,7 +76,7 @@ In your terminal, you can run tests by navigating to the `testnet/stacks-node/` 
 
 If you want to ignore some tests, you can use the following command:
 
-`testnet/stacks-node$ cargo test -- --ignored --num-threads=1`
+`cargo test -- --ignored --num-threads=1`
 
 ## Resources
 
