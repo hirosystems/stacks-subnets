@@ -97,7 +97,7 @@ export USER_KEY=f9d7206a47f14d2870c163ebab4bf3e70d18f5d14ce1031f3902fbbc894fe4c7
 
 export ALT_USER_ADDR=ST2REHHS5J3CERCRBEPMGH7921Q6PYKAADT7JP2VB
 export ALT_USER_KEY=3eccc5dac8056590432db6a35d52b9896876a3d5cbdea53b72400bc9c2099fe801
-export SUBNETS_URL="http://localhost:30443"
+export SUBNET_URL="http://localhost:30443"
 ```
 
 ## Step 1: Publish the NFT contract to the Stacks L1 and the Subnet

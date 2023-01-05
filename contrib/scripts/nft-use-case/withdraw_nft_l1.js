@@ -14,8 +14,8 @@ import { StacksTestnet, HIRO_MOCKNET_DEFAULT } from '@stacks/network';
 // NOTE: The arguments to the `withdraw-nft-asset` function change with Stacks 2.1
 async function main() {
     const network = new StacksTestnet({url: HIRO_MOCKNET_DEFAULT});
-    const subnetsUrl = process.env.SUBNETS_URL;
-    const senderKey = process.env.AUTH_HC_MINER_KEY;
+    const subnetUrl = process.env.SUBNET_URL;
+    const senderKey = process.env.AUTH_SUBNET_MINER_KEY;
     const addr = process.env.ALT_USER_ADDR;
     const contractAddr = process.env.USER_ADDR;
     const withdrawalBlockHeight = process.argv[2];
