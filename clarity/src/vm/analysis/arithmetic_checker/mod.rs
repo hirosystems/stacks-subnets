@@ -177,11 +177,11 @@ impl<'a> ArithmeticOnlyChecker<'a> {
     ) -> Result<(), Error> {
         use crate::vm::functions::NativeFunctions::*;
         match function {
-            FetchVar | GetBlockInfo | GetBurnBlockInfo | GetTokenBalance | GetAssetOwner
-            | FetchEntry | SetEntry | DeleteEntry | InsertEntry | SetVar | MintAsset
-            | MintToken | TransferAsset | TransferToken | ContractCall | StxTransfer
-            | StxTransferMemo | StxBurn | AtBlock | GetStxBalance | GetTokenSupply | BurnToken
-            | FromConsensusBuff | ToConsensusBuff | BurnAsset | StxGetAccount => {
+            FetchVar | GetBlockInfo | GetTokenBalance | GetAssetOwner | FetchEntry | SetEntry
+            | DeleteEntry | InsertEntry | SetVar | MintAsset | MintToken | TransferAsset
+            | TransferToken | ContractCall | StxTransfer | StxBurn | AtBlock | GetStxBalance
+            | GetTokenSupply | BurnToken | BurnAsset | WithdrawToken | WithdrawAsset
+            | StxWithdraw => {
                 return Err(Error::FunctionNotPermitted(function));
             }
             Append | Concat | AsMaxLen | ContractOf | PrincipalOf | ListCons | Print

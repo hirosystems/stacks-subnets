@@ -246,6 +246,8 @@ fn test_functions_clarity1() {
          Err(FunctionNotPermitted(NativeFunctions::GetStxBalance))),
         ("(stx-burn? u100 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF)",
          Err(FunctionNotPermitted(NativeFunctions::StxBurn))),
+        ("(stx-withdraw? u100 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF)",
+         FunctionNotPermitted(NativeFunctions::StxWithdraw)),
         (r#"(stx-transfer? u100 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF)"#,
          Err(FunctionNotPermitted(NativeFunctions::StxTransfer))),
         ("(define-private (foo (a (list 3 uint)))

@@ -313,9 +313,9 @@ impl<'a, 'b> ReadOnlyChecker<'a, 'b> {
                 check_argument_count(2, args)?;
                 self.check_each_expression_is_read_only(args)
             }
-            StxTransfer | StxTransferMemo | StxBurn | SetEntry | DeleteEntry | InsertEntry
-            | SetVar | MintAsset | MintToken | TransferAsset | TransferToken | BurnAsset
-            | BurnToken => {
+            StxTransfer | StxBurn | SetEntry | DeleteEntry | InsertEntry | SetVar | MintAsset
+            | MintToken | TransferAsset | TransferToken | BurnAsset | BurnToken | WithdrawAsset
+            | WithdrawToken | StxWithdraw => {
                 self.check_each_expression_is_read_only(args)?;
                 Ok(false)
             }

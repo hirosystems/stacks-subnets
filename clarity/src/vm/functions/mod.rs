@@ -184,6 +184,9 @@ define_versioned_named_enum!(NativeFunctions(ClarityVersion) {
     ToConsensusBuff("to-consensus-buff?", ClarityVersion::Clarity2),
     FromConsensusBuff("from-consensus-buff?", ClarityVersion::Clarity2),
     ReplaceAt("replace-at?", ClarityVersion::Clarity2),
+    StxWithdraw("stx-withdraw?", ClarityVersion::Clarity2),
+    WithdrawToken("ft-withdraw?", ClarityVersion::Clarity2),
+    WithdrawAsset("nft-withdraw?", ClarityVersion::Clarity2),
 });
 
 impl NativeFunctions {
@@ -517,6 +520,13 @@ pub fn lookup_reserved_functions(name: &str, version: &ClarityVersion) -> Option
                 "special_stx_transfer_memo",
                 &assets::special_stx_transfer_memo,
             ),
+            StxWithdraw => SpecialFunction("special_stx_withdraw", &assets::special_stx_withdraw),
+            WithdrawAsset => {
+                SpecialFunction("special_withdraw_asset", &assets::special_withdraw_asset)
+            }
+            WithdrawToken => {
+                SpecialFunction("special_withdraw_token", &assets::special_withdraw_token)
+            }
             StxBurn => SpecialFunction("special_stx_burn", &assets::special_stx_burn),
             StxGetAccount => SpecialFunction("stx_get_account", &assets::special_stx_account),
             ToConsensusBuff => NativeFunction205(
