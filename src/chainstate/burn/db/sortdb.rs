@@ -300,8 +300,9 @@ impl FromRow<DepositFtOp> for DepositFtOp {
         let burn_header_hash = BurnchainHeaderHash::from_column(row, "l1_block_id")?;
 
         let l1_contract_id = QualifiedContractIdentifier::from_column(row, "l1_contract_id")?;
-        let hc_contract_id = QualifiedContractIdentifier::from_column(row, "hc_contract_id")?;
-        let hc_function_name = ClarityName::from_column(row, "hc_function_name")?;
+        let subnet_contract_id =
+            QualifiedContractIdentifier::from_column(row, "subnet_contract_id")?;
+        let subnet_function_name = ClarityName::from_column(row, "subnet_function_name")?;
         let name: String = row.get_unwrap("name");
         let amount_str: String = row.get_unwrap("amount");
         let amount =
@@ -312,8 +313,8 @@ impl FromRow<DepositFtOp> for DepositFtOp {
             txid,
             burn_header_hash,
             l1_contract_id,
-            hc_contract_id,
-            hc_function_name,
+            subnet_contract_id,
+            subnet_function_name,
             name,
             amount,
             sender: PrincipalData::from(sender),
@@ -327,8 +328,9 @@ impl FromRow<DepositNftOp> for DepositNftOp {
         let burn_header_hash = BurnchainHeaderHash::from_column(row, "l1_block_id")?;
 
         let l1_contract_id = QualifiedContractIdentifier::from_column(row, "l1_contract_id")?;
-        let hc_contract_id = QualifiedContractIdentifier::from_column(row, "hc_contract_id")?;
-        let hc_function_name = ClarityName::from_column(row, "hc_function_name")?;
+        let subnet_contract_id =
+            QualifiedContractIdentifier::from_column(row, "subnet_contract_id")?;
+        let subnet_function_name = ClarityName::from_column(row, "subnet_function_name")?;
         let id_str: String = row.get_unwrap("id");
         let id = u128::from_str_radix(&id_str, 10).expect("CORRUPTION: bad u128 written to sortdb");
         let sender = StacksAddress::from_column(row, "sender")?;
@@ -337,8 +339,8 @@ impl FromRow<DepositNftOp> for DepositNftOp {
             txid,
             burn_header_hash,
             l1_contract_id,
-            hc_contract_id,
-            hc_function_name,
+            subnet_contract_id,
+            subnet_function_name,
             id,
             sender: PrincipalData::from(sender),
         })
@@ -436,8 +438,8 @@ const SORTITION_DB_INITIAL_SCHEMA: &'static [&'static str] = &[
          txid TEXT NOT NULL,
          l1_block_id TEXT NOT NULL,
          l1_contract_id TEXT NOT NULL,
-         hc_contract_id TEXT NOT NULL,
-         hc_function_name TEXT NOT NULL,
+         subnet_contract_id TEXT NOT NULL,
+         subnet_function_name TEXT NOT NULL,
          name TEXT NOT NULL,
          amount TEXT NOT NULL,
          sender TEXT NOT NULL,
@@ -451,8 +453,8 @@ const SORTITION_DB_INITIAL_SCHEMA: &'static [&'static str] = &[
          txid TEXT NOT NULL,
          l1_block_id TEXT NOT NULL,
          l1_contract_id TEXT NOT NULL,
-         hc_contract_id TEXT NOT NULL,
-         hc_function_name TEXT NOT NULL,
+         subnet_contract_id TEXT NOT NULL,
+         subnet_function_name TEXT NOT NULL,
          id TEXT NOT NULL,
          sender TEXT NOT NULL,
          sortition_id TEXT NOT NULL,
@@ -1843,7 +1845,6 @@ impl SortitionDB {
             StacksEpochId::Epoch10 => false,
             StacksEpochId::Epoch20 => version == "1" || version == "2" || version == "3",
             StacksEpochId::Epoch2_05 => version == "2" || version == "3",
-            // DO NOT SUBMIT: is this right?
             StacksEpochId::Epoch21 => version == "2" || version == "3",
         }
     }
@@ -2100,7 +2101,7 @@ impl<'a> SortitionDBConn<'a> {
 // High-level functions used by ChainsCoordinator
 impl SortitionDB {
     /// Get the sortition identifier corresponding to the provided
-    ///  burnchain hash. In Hyperchains, because there is *no* PoX, this
+    ///  burnchain hash. In Subnets, because there is *no* PoX, this
     ///  is always just equal to the burnchain hash.
     pub fn get_sortition_id(
         &self,
@@ -3077,8 +3078,8 @@ impl<'a> SortitionHandleTx<'a> {
                     "l1_stacks_block_id" => %op.burn_header_hash,
                     "txid" => %op.txid,
                     "l1_contract_id" => %op.l1_contract_id,
-                    "hc_contract_id" => %op.hc_contract_id,
-                    "hc_function_name" => %op.hc_function_name,
+                    "subnet_contract_id" => %op.subnet_contract_id,
+                    "subnet_function_name" => %op.subnet_function_name,
                     "name" => %op.name,
                     "amount" => %op.amount,
                     "sender" => %op.sender,
@@ -3093,8 +3094,8 @@ impl<'a> SortitionHandleTx<'a> {
                     "l1_stacks_block_id" => %op.burn_header_hash,
                     "txid" => %op.txid,
                     "l1_contract_id" => %op.l1_contract_id,
-                    "hc_contract_id" => %op.hc_contract_id,
-                    "hc_function_name" => %op.hc_function_name,
+                    "subnet_contract_id" => %op.subnet_contract_id,
+                    "subnet_function_name" => %op.subnet_function_name,
                     "id" => %op.id,
                     "sender" => %op.sender,
                 );
@@ -3110,7 +3111,7 @@ impl<'a> SortitionHandleTx<'a> {
                     "amount" => %op.amount,
                     "recipient" => %op.recipient,
                 );
-                // TODO(hyperchains) - store operation!
+                // TODO(subnets) - store operation!
                 Ok(())
             }
             BlockstackOperationType::WithdrawFt(ref op) => {
@@ -3125,7 +3126,7 @@ impl<'a> SortitionHandleTx<'a> {
                     "recipient" => %op.recipient,
                 );
 
-                // TODO(hyperchains) - store operation!
+                // TODO(subnets) - store operation!
                 Ok(())
             }
             BlockstackOperationType::WithdrawNft(ref op) => {
@@ -3139,7 +3140,7 @@ impl<'a> SortitionHandleTx<'a> {
                     "recipient" => %op.recipient,
                 );
 
-                // TODO(hyperchains) - store operation!
+                // TODO(subnets) - store operation!
                 Ok(())
             }
         }
@@ -3200,15 +3201,15 @@ impl<'a> SortitionHandleTx<'a> {
             &op.txid,
             &op.burn_header_hash,
             &op.l1_contract_id.to_string(),
-            &op.hc_contract_id.to_string(),
-            &op.hc_function_name.to_string(),
+            &op.subnet_contract_id.to_string(),
+            &op.subnet_function_name.to_string(),
             &op.name,
             &op.amount.to_string(),
             &op.sender.to_string(),
             sort_id,
         ];
 
-        self.execute("REPLACE INTO deposit_ft (txid, l1_block_id, l1_contract_id, hc_contract_id, hc_function_name, name, amount, sender, sortition_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)", args)?;
+        self.execute("REPLACE INTO deposit_ft (txid, l1_block_id, l1_contract_id, subnet_contract_id, subnet_function_name, name, amount, sender, sortition_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)", args)?;
 
         Ok(())
     }
@@ -3223,14 +3224,14 @@ impl<'a> SortitionHandleTx<'a> {
             &op.txid,
             &op.burn_header_hash,
             &op.l1_contract_id.to_string(),
-            &op.hc_contract_id.to_string(),
-            &op.hc_function_name.to_string(),
+            &op.subnet_contract_id.to_string(),
+            &op.subnet_function_name.to_string(),
             &op.id.to_string(),
             &op.sender.to_string(),
             sort_id,
         ];
 
-        self.execute("REPLACE INTO deposit_nft (txid, l1_block_id, l1_contract_id, hc_contract_id, hc_function_name, id, sender, sortition_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)", args)?;
+        self.execute("REPLACE INTO deposit_nft (txid, l1_block_id, l1_contract_id, subnet_contract_id, subnet_function_name, id, sender, sortition_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)", args)?;
 
         Ok(())
     }

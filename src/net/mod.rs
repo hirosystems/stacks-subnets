@@ -2171,7 +2171,7 @@ pub mod test {
                             "amount": op.amount,
                             "sender": op.sender,
                             "l1_contract_id": op.l1_contract_id,
-                            "hc_contract_id": op.hc_contract_id,
+                            "subnet_contract_id": op.subnet_contract_id,
                             "name": op.name
                         }),
                     )
@@ -2186,7 +2186,7 @@ pub mod test {
                             "id": op.id,
                             "sender": op.sender,
                             "l1_contract_id": op.l1_contract_id,
-                            "hc_contract_id": op.hc_contract_id,
+                            "subnet_contract_id": op.subnet_contract_id,
                         }),
                     )
                     .unwrap();

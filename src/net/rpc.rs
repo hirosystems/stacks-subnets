@@ -2802,8 +2802,8 @@ impl ConversationHttp {
                 None
             }
             HttpRequestType::BlockProposal(_, ref proposal) => {
-                let validator_key = self.connection.options.hyperchain_validator.as_ref();
-                let signing_contract = self.connection.options.hyperchain_signing_contract.as_ref();
+                let validator_key = self.connection.options.subnet_validator.as_ref();
+                let signing_contract = self.connection.options.subnet_signing_contract.as_ref();
 
                 // TODO(#135): add sender validation. This method should only
                 //  be sent by the leader: we should not accept proposals

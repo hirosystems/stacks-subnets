@@ -54,10 +54,10 @@ Clarinet.test({
             address: "STECHMJGSBWNGW3MS334R3PHQD4F59EFMAXY7Y7F"
         };
 
-        // set the multi_miner_contract as the miner of the hyperchains contract
+        // set the multi_miner_contract as the miner of the subnet contract
         //  and set alice and signatory as miners in the multi-miner contract
         let initialize = chain.mineBlock([
-            Tx.contractCall("hyperchains", "set-hc-miner",
+            Tx.contractCall("subnet", "set-subnet-miner",
             [
                 types.principal(multi_miner_contract),
             ],
@@ -179,10 +179,10 @@ Clarinet.test({
             address: "STECHMJGSBWNGW3MS334R3PHQD4F59EFMAXY7Y7F"
         };
 
-        // set the multi_miner_contract as the miner of the hyperchains contract
+        // set the multi_miner_contract as the miner of the subnet contract
         //  and set signatory1 and signatory2 as miners in the multi-miner contract
         let initialize = chain.mineBlock([
-            Tx.contractCall("hyperchains", "set-hc-miner",
+            Tx.contractCall("subnet", "set-subnet-miner",
             [
                 types.principal(multi_miner_contract),
             ],

@@ -102,7 +102,7 @@ pub trait BurnchainIndexer {
         end_height: Option<u64>,
     ) -> Result<u64, burnchain_error>;
 
-    /// This is a no-op for hyper-chains. TODO: Remove this.
+    /// This is a no-op for subnets. TODO: Remove this.
     fn drop_headers(&mut self, new_height: u64) -> Result<(), burnchain_error>;
 
     /// Reads in the headers from `start_block` to `end_block`.

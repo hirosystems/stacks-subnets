@@ -18,9 +18,9 @@ use crate::vm::types::CharType;
 use crate::vm::types::SequenceData;
 use stacks_common::util::hash::{to_hex, Sha512Trunc256Sum};
 
-use super::StacksHyperBlock;
-use super::StacksHyperOp;
-use super::StacksHyperOpType;
+use super::StacksSubnetBlock;
+use super::StacksSubnetOp;
+use super::StacksSubnetOpType;
 use clarity::vm::types::PrincipalData;
 use stacks_common::codec::StacksMessageCodec;
 use std::fmt::Write;
@@ -193,9 +193,9 @@ where
     serializer.serialize_str(as_str)
 }
 
-impl StacksHyperOp {
-    /// This method tries to parse a `StacksHyperOp` from a Clarity value: this should be a tuple
-    /// emitted from the hyperchain contract in a statement like:
+impl StacksSubnetOp {
+    /// This method tries to parse a `StacksSubnetOp` from a Clarity value: this should be a tuple
+    /// emitted from the subnet contract in a statement like:
     /// `(print { event: "block-commit", block-commit: 0x123... })`
     ///
     /// If the provided value does not match that tuple, this method will return an error.
@@ -265,7 +265,7 @@ impl StacksHyperOp {
                     event_index,
                     in_block: in_block.clone(),
                     opcode: 0,
-                    event: StacksHyperOpType::BlockCommit {
+                    event: StacksSubnetOpType::BlockCommit {
                         subnet_block_hash: BlockHeaderHash(block_commit),
                         withdrawal_merkle_root: Sha512Trunc256Sum(withdrawal_merkle_root),
                     },
@@ -289,11 +289,11 @@ impl StacksHyperOp {
                     event_index,
                     in_block: in_block.clone(),
                     opcode: 1,
-                    event: StacksHyperOpType::DepositStx { amount, sender },
+                    event: StacksSubnetOpType::DepositStx { amount, sender },
                 })
             }
             "\"deposit-ft\"" => {
-                // Parse 5 fields: ft-amount, ft-name, l1-contract-id, hc-contract-id, and sender
+                // Parse 5 fields: ft-amount, ft-name, l1-contract-id, subnet-contract-id, and sender
                 let amount = tuple
                     .get("ft-amount")
                     .map_err(|_| "No 'ft-amount' field in Clarity tuple")?
@@ -309,15 +309,15 @@ impl StacksHyperOp {
                 } else {
                     Err("Expected 'l1-contract-id' to be a contract principal")
                 }?;
-                let hc_contract_id = tuple
-                    .get("hc-contract-id")
-                    .map_err(|_| "No 'hc-contract-id' field in Clarity tuple")?
+                let subnet_contract_id = tuple
+                    .get("subnet-contract-id")
+                    .map_err(|_| "No 'subnet-contract-id' field in Clarity tuple")?
                     .clone()
                     .expect_principal();
-                let hc_contract_id = if let PrincipalData::Contract(id) = hc_contract_id {
+                let subnet_contract_id = if let PrincipalData::Contract(id) = subnet_contract_id {
                     Ok(id)
                 } else {
-                    Err("Expected 'hc-contract-id' to be a contract principal")
+                    Err("Expected 'subnet-contract-id' to be a contract principal")
                 }?;
                 let name = tuple
                     .get("ft-name")
@@ -329,12 +329,12 @@ impl StacksHyperOp {
                     .map_err(|_| "No 'sender' field in Clarity tuple")?
                     .clone()
                     .expect_principal();
-                let hc_function_name = tuple
-                    .get("hc-function-name")
-                    .map_err(|_| "No 'hc-function-name' field in Clarity tuple")?
+                let subnet_function_name = tuple
+                    .get("subnet-function-name")
+                    .map_err(|_| "No 'subnet-function-name' field in Clarity tuple")?
                     .clone()
                     .expect_ascii();
-                let hc_function_name = ClarityName::try_from(hc_function_name)
+                let subnet_function_name = ClarityName::try_from(subnet_function_name)
                     .map_err(|e| format!("Failed to parse Clarity name: {:?}", e))?;
 
                 Ok(Self {
@@ -342,10 +342,10 @@ impl StacksHyperOp {
                     event_index,
                     in_block: in_block.clone(),
                     opcode: 2,
-                    event: StacksHyperOpType::DepositFt {
+                    event: StacksSubnetOpType::DepositFt {
                         l1_contract_id,
-                        hc_contract_id,
-                        hc_function_name,
+                        subnet_contract_id,
+                        subnet_function_name,
                         name,
                         amount,
                         sender,
@@ -353,7 +353,7 @@ impl StacksHyperOp {
                 })
             }
             "\"deposit-nft\"" => {
-                // Parse 4 fields: nft-id, l1-contract-id, hc-contract-id, and sender
+                // Parse 4 fields: nft-id, l1-contract-id, subnet-contract-id, and sender
                 let id = tuple
                     .get("nft-id")
                     .map_err(|_| "No 'nft-id' field in Clarity tuple")?
@@ -370,27 +370,27 @@ impl StacksHyperOp {
                 } else {
                     Err("Expected 'l1-contract-id' to be a contract principal")
                 }?;
-                let hc_contract_id = tuple
-                    .get("hc-contract-id")
-                    .map_err(|_| "No 'hc-contract-id' field in Clarity tuple")?
+                let subnet_contract_id = tuple
+                    .get("subnet-contract-id")
+                    .map_err(|_| "No 'subnet-contract-id' field in Clarity tuple")?
                     .clone()
                     .expect_principal();
-                let hc_contract_id = if let PrincipalData::Contract(id) = hc_contract_id {
+                let subnet_contract_id = if let PrincipalData::Contract(id) = subnet_contract_id {
                     Ok(id)
                 } else {
-                    Err("Expected 'hc-contract-id' to be a contract principal")
+                    Err("Expected 'subnet-contract-id' to be a contract principal")
                 }?;
                 let sender = tuple
                     .get("sender")
                     .map_err(|_| "No 'sender' field in Clarity tuple")?
                     .clone()
                     .expect_principal();
-                let hc_function_name = tuple
-                    .get("hc-function-name")
-                    .map_err(|_| "No 'hc-function-name' field in Clarity tuple")?
+                let subnet_function_name = tuple
+                    .get("subnet-function-name")
+                    .map_err(|_| "No 'subnet-function-name' field in Clarity tuple")?
                     .clone()
                     .expect_ascii();
-                let hc_function_name = ClarityName::try_from(hc_function_name)
+                let subnet_function_name = ClarityName::try_from(subnet_function_name)
                     .map_err(|e| format!("Failed to parse Clarity name: {:?}", e))?;
 
                 Ok(Self {
@@ -398,10 +398,10 @@ impl StacksHyperOp {
                     event_index,
                     in_block: in_block.clone(),
                     opcode: 3,
-                    event: StacksHyperOpType::DepositNft {
+                    event: StacksSubnetOpType::DepositNft {
                         l1_contract_id,
-                        hc_contract_id,
-                        hc_function_name,
+                        subnet_contract_id,
+                        subnet_function_name,
                         id,
                         sender,
                     },
@@ -425,7 +425,7 @@ impl StacksHyperOp {
                     event_index,
                     in_block: in_block.clone(),
                     opcode: 1,
-                    event: StacksHyperOpType::WithdrawStx { amount, recipient },
+                    event: StacksSubnetOpType::WithdrawStx { amount, recipient },
                 })
             }
             "\"withdraw-ft\"" => {
@@ -460,7 +460,7 @@ impl StacksHyperOp {
                     event_index,
                     in_block: in_block.clone(),
                     opcode: 4,
-                    event: StacksHyperOpType::WithdrawFt {
+                    event: StacksSubnetOpType::WithdrawFt {
                         l1_contract_id,
                         name,
                         amount,
@@ -497,7 +497,7 @@ impl StacksHyperOp {
                     event_index,
                     in_block: in_block.clone(),
                     opcode: 5,
-                    event: StacksHyperOpType::WithdrawNft {
+                    event: StacksSubnetOpType::WithdrawNft {
                         l1_contract_id,
                         id,
                         recipient,
@@ -509,13 +509,13 @@ impl StacksHyperOp {
     }
 }
 
-impl StacksHyperBlock {
+impl StacksSubnetBlock {
     /// Process a `NewBlock` event from a layer-1 Stacks node, filter
     /// for the transaction events in the block that are relevant to
-    /// the hyperchain and parse out the `StacksHyperOp`s from the
-    /// block, producing a `StacksHyperBlock` struct.
+    /// the subnet and parse out the `StacksSubnetOp`s from the
+    /// block, producing a `StacksSubnetBlock` struct.
     pub fn from_new_block_event(
-        hyperchain_contract: &QualifiedContractIdentifier,
+        subnet_contract: &QualifiedContractIdentifier,
         b: NewBlock,
     ) -> Self {
         let NewBlock {
@@ -545,17 +545,17 @@ impl StacksHyperBlock {
                         Ok(x) => Some(x),
                         Err(_e) => {
                             warn!(
-                                "StacksHyperBlock skipped event because event_index was not a u32"
+                                "StacksSubnetBlock skipped event because event_index was not a u32"
                             );
                             None
                         }
                     }?;
 
                     if let Some(contract_event) = contract_event {
-                        if &contract_event.contract_identifier != hyperchain_contract {
+                        if &contract_event.contract_identifier != subnet_contract {
                             None
                         } else {
-                            match StacksHyperOp::try_from_clar_value(
+                            match StacksSubnetOp::try_from_clar_value(
                                 contract_event.value,
                                 txid,
                                 event_index,
@@ -564,7 +564,7 @@ impl StacksHyperBlock {
                                 Ok(x) => Some(x),
                                 Err(e) => {
                                     info!(
-                                        "StacksHyperBlock parser skipped event because of {:?}",
+                                        "StacksSubnetBlock parser skipped event because of {:?}",
                                         e
                                     );
                                     None

@@ -50,14 +50,14 @@ pub use stacks_common::types::{Address, PrivateKey, PublicKey};
 
 pub mod burnchain;
 pub mod db;
-/// Stacks events parser used to construct the L1 hyperchain operations.
+/// Stacks events parser used to construct the L1 subnet operations.
 ///
 /// The events module processes an event stream from a Layer-1 Stacks
 /// node (provided by an indexer) and produces `BurnchainTransaction`
 /// and `BurnchainBlock` types. These types are fed into the sortition
 /// db (again, by the indexer) in order to prepare the rest of the
-/// hyperchain node to download and validate the corresponding
-/// hyperchain blocks.
+/// subnet node to download and validate the corresponding
+/// subnet blocks.
 pub mod events;
 pub mod indexer;
 
@@ -106,7 +106,7 @@ impl BurnchainParameters {
     pub fn from_params(chain: &str, network: &str) -> Option<BurnchainParameters> {
         match (chain, network) {
             ("stacks_layer_1", "mainnet") | ("mockstack", "mainnet") => {
-                Some(BurnchainParameters::hyperchain_mocknet())
+                Some(BurnchainParameters::subnet_mocknet())
             }
             ("bitcoin", "mainnet") => Some(BurnchainParameters::bitcoin_mainnet()),
             ("bitcoin", "testnet") => Some(BurnchainParameters::bitcoin_testnet()),
@@ -115,7 +115,7 @@ impl BurnchainParameters {
         }
     }
 
-    pub fn hyperchain_mocknet() -> BurnchainParameters {
+    pub fn subnet_mocknet() -> BurnchainParameters {
         BurnchainParameters {
             chain_id: LAYER_1_CHAIN_ID_MAINNET,
             network_id: NETWORK_ID_MAINNET,
@@ -196,7 +196,7 @@ pub struct BurnchainRecipient {
 #[derive(Debug, PartialEq, Clone)]
 /// This is the inner type of the Layer-1 Stacks event,
 /// containing any operation specific data.
-pub enum StacksHyperOpType {
+pub enum StacksSubnetOpType {
     BlockCommit {
         subnet_block_hash: BlockHeaderHash,
         withdrawal_merkle_root: Sha512Trunc256Sum,
@@ -207,16 +207,16 @@ pub enum StacksHyperOpType {
     },
     DepositFt {
         l1_contract_id: QualifiedContractIdentifier,
-        hc_contract_id: QualifiedContractIdentifier,
-        hc_function_name: ClarityName,
+        subnet_contract_id: QualifiedContractIdentifier,
+        subnet_function_name: ClarityName,
         name: String,
         amount: u128,
         sender: PrincipalData,
     },
     DepositNft {
         l1_contract_id: QualifiedContractIdentifier,
-        hc_contract_id: QualifiedContractIdentifier,
-        hc_function_name: ClarityName,
+        subnet_contract_id: QualifiedContractIdentifier,
+        subnet_function_name: ClarityName,
         id: u128,
         sender: PrincipalData,
     },
@@ -240,18 +240,18 @@ pub enum StacksHyperOpType {
 #[derive(Debug, PartialEq, Clone)]
 /// These operations are derived from a Layer-1 Stacks chain,
 /// parsed from the `stacks-node` events API.
-pub struct StacksHyperOp {
+pub struct StacksSubnetOp {
     pub txid: Txid,
     pub in_block: StacksBlockId,
     pub opcode: u8,
     pub event_index: u32,
-    pub event: StacksHyperOpType,
+    pub event: StacksSubnetOpType,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-/// Enum for wrapping Layer-1 operation providers for hyperchains
+/// Enum for wrapping Layer-1 operation providers for subnets
 pub enum BurnchainTransaction {
-    StacksBase(StacksHyperOp),
+    StacksBase(StacksSubnetOp),
 }
 
 impl BurnchainTransaction {
@@ -279,19 +279,19 @@ impl BurnchainTransaction {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-/// Represents a layer-1 Stacks block with the Hyperchain
+/// Represents a layer-1 Stacks block with the Subnet
 /// relevant information parsed into th `ops` vector.
-pub struct StacksHyperBlock {
+pub struct StacksSubnetBlock {
     pub current_block: StacksBlockId,
     pub parent_block: StacksBlockId,
     pub block_height: u64,
-    pub ops: Vec<StacksHyperOp>,
+    pub ops: Vec<StacksSubnetOp>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-/// Enum for wrapping Layer-1 blocks for hyperchains
+/// Enum for wrapping Layer-1 blocks for subnets
 pub enum BurnchainBlock {
-    StacksHyperBlock(StacksHyperBlock),
+    StacksSubnetBlock(StacksSubnetBlock),
 }
 
 #[derive(Debug, PartialEq, Clone)]

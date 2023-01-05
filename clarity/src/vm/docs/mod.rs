@@ -2239,6 +2239,60 @@ returns one of the following error codes:
 (define-non-fungible-token stackaroo (string-ascii 40))
 (nft-mint? stackaroo \"Roo\" 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF) ;; Returns (ok true)
 (nft-burn? stackaroo \"Roo\" 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF) ;; Returns (ok true)
+"
+};
+
+const WITHDRAW_TOKEN: SpecialAPI = SpecialAPI {
+    input_type: "TokenName, uint, principal",
+    output_type: "(response bool uint)",
+    signature: "(ft-withdraw? token-name amount sender)",
+    description:
+        "`ft-withdraw?` is used to withdraw the token balance for the `sender` principal for a token
+type defined using `define-fungible-token` from the subnet. The Stacks L1 chain will then be
+able to verify this withdraw when it processes the withdrawal of this asset.
+
+On a successful withdraw, it returns `(ok true)`. In the event of an unsuccessful withdraw it
+returns one of the following error codes:
+
+`(err u1)` -- `sender` does not have enough balance to withdraw this amount
+`(err u3)` -- the amount specified is not positive
+",
+    example: "
+(define-fungible-token stackaroo)
+(ft-mint? stackaroo u100 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF) ;; Returns (ok true)
+(ft-withdraw? stackaroo u50 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF) ;; Returns (ok true)
+",
+};
+
+const WITHDRAW_ASSET: SpecialAPI = SpecialAPI {
+    input_type: "AssetName, A, principal",
+    output_type: "(response bool uint)",
+    signature: "(nft-withdraw? asset-class asset-identifier recipient)",
+    description: "`nft-withdraw?` is used to withdraw an asset for the `sender` principal for an
+asset defined using `define-non-fungible-token` on the subnet. The Stacks L1 chain will then be
+able to verify this withdraw when it processes the withdrawal of this asset.
+
+The supplied `asset-identifier` must be of the same type specified in
+that definition.
+
+Currently, it is only possible to withdraw NFTs that have type uint (NFTs that have the potential to
+be SIP-009 compliant).
+
+On a successful withdraw, it returns `(ok true)`. In the event of an unsuccessful withdraw it
+returns one of the following error codes:
+
+`(err u1)` -- `sender` does not own the specified asset
+`(err u3)` -- the asset specified by `asset-identifier` does not exist
+`(err u4)` -- the asset specified by `asset-identifier` does not have type uint.
+",
+    example: "
+(define-non-fungible-token foo uint)
+(nft-mint? foo u7 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF) ;; Returns (ok true)
+(nft-withdraw? foo u7 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF) ;; Returns (ok true)
+
+(define-non-fungible-token stackaroo (string-ascii 40))
+(nft-mint? stackaroo \"Roo\" 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF) ;; Returns (ok true)
+(nft-withdraw? stackaroo \"Roo\" 'SPAXYA5XS51713FDTQ8H94EJ4V579CXMTRNBZKSF) ;; Returns (err u4)
 ",
 };
 
@@ -2348,6 +2402,13 @@ Clarity value into a buffer, using the SIP-005 serialization of the
 Clarity value. Not all values can be serialized: some value's
 consensus serialization is too large to fit in a Clarity buffer (this
 is because of the type prefix in the consensus serialization).
+
+const STX_WITHDRAW: SimpleFunctionAPI = SimpleFunctionAPI {
+    name: None,
+    signature: "(stx-withdraw? amount sender)",
+    description: "`stx-withdraw?` debits the `sender` principal's STX holdings by `amount`, destroying
+the STX on the subnet. The Stacks L1 chain will then be able to verify this withdraw when
+it processes the withdrawal of this asset.
 
 If the value cannot fit as serialized into the maximum buffer size,
 this returns `none`, otherwise, it will be

@@ -1,7 +1,7 @@
 (define-constant ERR_NOT_AUTHORIZED (err u1001))
 
 (impl-trait .trait-standards.ft-trait)
-(impl-trait .trait-standards.mint-from-hyperchain-trait)
+(impl-trait .trait-standards.mint-from-subnet-trait)
 
 (define-fungible-token ft-token)
 
@@ -26,8 +26,8 @@
 (define-read-only (get-decimals)
   (ok u0))
 
-;; Implement mint-from-hyperchain trait
-(define-public (mint-from-hyperchain (amount uint) (sender principal) (recipient principal))
+;; Implement mint-from-subnet trait
+(define-public (mint-from-subnet (amount uint) (sender principal) (recipient principal))
     (begin
         ;; Check that the tx-sender is the provided sender
         (asserts! (is-eq tx-sender sender) ERR_NOT_AUTHORIZED)

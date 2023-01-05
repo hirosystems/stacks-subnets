@@ -78,7 +78,7 @@ impl<'a> SortitionHandleTx<'a> {
                     "l1_stacks_block_id" => %op.burn_header_hash,
                     "txid" => %op.txid,
                     "l1_contract_id" => %op.l1_contract_id,
-                    "hc_contract_id" => %op.hc_contract_id,
+                    "subnet_contract_id" => %op.subnet_contract_id,
                     "name" => %op.name,
                     "amount" => %op.amount,
                     "sender" => %op.sender,
@@ -92,7 +92,7 @@ impl<'a> SortitionHandleTx<'a> {
                     "l1_stacks_block_id" => %op.burn_header_hash,
                     "txid" => %op.txid,
                     "l1_contract_id" => %op.l1_contract_id,
-                    "hc_contract_id" => %op.hc_contract_id,
+                    "subnet_contract_id" => %op.subnet_contract_id,
                     "id" => %op.id,
                     "sender" => %op.sender,
                 );
@@ -174,7 +174,7 @@ impl<'a> SortitionHandleTx<'a> {
             .map(|ref op| op.txid())
             .collect();
 
-        // the SortitionId in Hyperchains is always equal to the identifying hash
+        // the SortitionId in Subnets is always equal to the identifying hash
         // of the L1 block (i.e., the burn block hash)
         let next_sortition_id = SortitionId(this_block_hash.0.clone());
 

@@ -4655,7 +4655,7 @@ impl StacksChainState {
     }
 
     /// Process any deposit STX operations that haven't been processed in this
-    /// hyperchains fork yet.
+    /// subnet fork yet.
     pub fn process_deposit_stx_ops(
         clarity_tx: &mut ClarityTx,
         operations: Vec<DepositStxOp>,
@@ -4671,7 +4671,7 @@ impl StacksChainState {
                             sender,
                             ..
                         } = deposit_stx_op;
-                        // call the corresponding deposit function in the hyperchains contract
+                        // call the corresponding deposit function in the subnet contract
                         let result = clarity_tx.connection().as_transaction(|tx| {
                             StacksChainState::account_credit(tx, &sender, amount as u64);
                             StacksTransactionEvent::STXEvent(STXEventType::STXMintEvent(
@@ -4703,7 +4703,7 @@ impl StacksChainState {
     }
 
     /// Process any deposit fungible token operations that haven't been processed in this
-    /// hyperchains fork yet.
+    /// subnet fork yet.
     pub fn process_deposit_ft_ops(
         clarity_tx: &mut ClarityTx,
         operations: Vec<DepositFtOp>,
@@ -4716,19 +4716,19 @@ impl StacksChainState {
                 let DepositFtOp {
                     txid,
                     burn_header_hash,
-                    hc_contract_id,
-                    hc_function_name,
+                    subnet_contract_id,
+                    subnet_function_name,
                     amount,
                     sender,
                     ..
                 } = deposit_ft_op;
-                // call the corresponding deposit function in the hyperchains contract
+                // call the corresponding deposit function in the subnet contract
                 let result = clarity_tx.connection().as_transaction(|tx| {
                     tx.run_contract_call(
                         &sender.clone(),
                         None,
-                        &hc_contract_id,
-                        &*hc_function_name,
+                        &subnet_contract_id,
+                        &*subnet_function_name,
                         &[Value::UInt(amount), Value::Principal(sender)],
                         |_, _| false,
                     )
@@ -4763,7 +4763,7 @@ impl StacksChainState {
     }
 
     /// Process any deposit NFT operations that haven't been processed in this
-    /// hyperchains fork yet.
+    /// subnet fork yet.
     pub fn process_deposit_nft_ops(
         clarity_tx: &mut ClarityTx,
         operations: Vec<DepositNftOp>,
@@ -4776,8 +4776,8 @@ impl StacksChainState {
                 let DepositNftOp {
                     txid,
                     burn_header_hash,
-                    hc_contract_id,
-                    hc_function_name,
+                    subnet_contract_id,
+                    subnet_function_name,
                     id,
                     sender,
                     ..
@@ -4786,8 +4786,8 @@ impl StacksChainState {
                     tx.run_contract_call(
                         &sender.clone(),
                         None,
-                        &hc_contract_id,
-                        &*hc_function_name,
+                        &subnet_contract_id,
+                        &*subnet_function_name,
                         &[Value::UInt(id), Value::Principal(sender)],
                         |_, _| false,
                     )
@@ -11359,10 +11359,10 @@ pub mod test {
             &BlockHeaderHash([1u8; 32]),
         );
 
-        let hyperchain_simple_ft = "
+        let subnet_simple_ft = "
         (define-fungible-token ft-token)
 
-        (define-public (hyperchain-deposit-ft-token (amount uint) (recipient principal))
+        (define-public (subnet-deposit-ft-token (amount uint) (recipient principal))
           (ft-mint? ft-token amount recipient)
         )
 
@@ -11371,26 +11371,22 @@ pub mod test {
         )
         ";
 
-        let mut hc_deposit_contract_tx = StacksTransaction::new(
+        let mut subnet_deposit_contract_tx = StacksTransaction::new(
             TransactionVersion::Testnet,
             auth_user.clone(),
-            TransactionPayload::new_smart_contract(
-                "hc-deposit-contract",
-                hyperchain_simple_ft,
-                None,
-            )
-            .unwrap(),
+            TransactionPayload::new_smart_contract("subnet-deposit-contract", subnet_simple_ft)
+                .unwrap(),
         );
 
-        hc_deposit_contract_tx.chain_id = 0x80000000;
-        hc_deposit_contract_tx.set_tx_fee(0);
+        subnet_deposit_contract_tx.chain_id = 0x80000000;
+        subnet_deposit_contract_tx.set_tx_fee(0);
 
-        let mut signer = StacksTransactionSigner::new(&hc_deposit_contract_tx);
+        let mut signer = StacksTransactionSigner::new(&subnet_deposit_contract_tx);
         signer.sign_origin(&privk_user).unwrap();
 
         let signed_contract_tx = signer.get_tx().unwrap();
 
-        // publish contract on hyperchains
+        // publish contract on the subnet
         let _ =
             StacksChainState::process_transaction(&mut conn, &signed_contract_tx, false).unwrap();
 
@@ -11401,25 +11397,25 @@ pub mod test {
                 txid: Txid([1; 32]),
                 burn_header_hash: BurnchainHeaderHash([0; 32]),
                 l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
-                hc_contract_id: QualifiedContractIdentifier::new(
+                subnet_contract_id: QualifiedContractIdentifier::new(
                     StandardPrincipalData::from(addr_publisher),
-                    ContractName::from("hc-deposit-contract"),
+                    ContractName::from("subnet-deposit-contract"),
                 ),
-                hc_function_name: ClarityName::from("hyperchain-deposit-ft-token"),
+                subnet_function_name: ClarityName::from("subnet-deposit-ft-token"),
                 name: "ft-token".to_string(),
                 amount: 2,
                 sender: PrincipalData::from(addr_publisher),
             },
-            // this op calls a function that does not exist in the designated hyperchains contract
+            // this op calls a function that does not exist in the designated subnet contract
             DepositFtOp {
                 txid: Txid([2; 32]),
                 burn_header_hash: BurnchainHeaderHash([0; 32]),
                 l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
-                hc_contract_id: QualifiedContractIdentifier::new(
+                subnet_contract_id: QualifiedContractIdentifier::new(
                     StandardPrincipalData::from(addr_publisher),
-                    ContractName::from("hc-deposit-contract"),
+                    ContractName::from("subnet-deposit-contract"),
                 ),
-                hc_function_name: ClarityName::from("hyperchain-deposit-ft-token-DNE"),
+                subnet_function_name: ClarityName::from("subnet-deposit-ft-token-DNE"),
                 name: "ft-token".to_string(),
                 amount: 5,
                 sender: PrincipalData::from(addr_publisher),
@@ -11429,11 +11425,11 @@ pub mod test {
                 txid: Txid([1; 32]),
                 burn_header_hash: BurnchainHeaderHash([0; 32]),
                 l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
-                hc_contract_id: QualifiedContractIdentifier::new(
+                subnet_contract_id: QualifiedContractIdentifier::new(
                     StandardPrincipalData::from(addr_publisher),
-                    ContractName::from("hc-deposit-contract-DNE"),
+                    ContractName::from("subnet-deposit-contract-DNE"),
                 ),
-                hc_function_name: ClarityName::from("hyperchain-deposit-ft-token"),
+                subnet_function_name: ClarityName::from("subnet-deposit-ft-token"),
                 name: "ft-token".to_string(),
                 amount: 2,
                 sender: PrincipalData::from(addr_publisher),
@@ -11466,10 +11462,10 @@ pub mod test {
             &BlockHeaderHash([1u8; 32]),
         );
 
-        let hyperchain_simple_nft = "
+        let subnet_simple_nft = "
         (define-non-fungible-token nft-token uint)
 
-        (define-public (hyperchain-deposit-nft-token (id uint) (recipient principal))
+        (define-public (subnet-deposit-nft-token (id uint) (recipient principal))
           (nft-mint? nft-token id recipient)
         )
 
@@ -11478,26 +11474,22 @@ pub mod test {
         )
         ";
 
-        let mut hc_deposit_contract_tx = StacksTransaction::new(
+        let mut subnet_deposit_contract_tx = StacksTransaction::new(
             TransactionVersion::Testnet,
             auth_user.clone(),
-            TransactionPayload::new_smart_contract(
-                "hc-deposit-contract",
-                hyperchain_simple_nft,
-                None,
-            )
-            .unwrap(),
+            TransactionPayload::new_smart_contract("subnet-deposit-contract", subnet_simple_nft)
+                .unwrap(),
         );
 
-        hc_deposit_contract_tx.chain_id = 0x80000000;
-        hc_deposit_contract_tx.set_tx_fee(0);
+        subnet_deposit_contract_tx.chain_id = 0x80000000;
+        subnet_deposit_contract_tx.set_tx_fee(0);
 
-        let mut signer = StacksTransactionSigner::new(&hc_deposit_contract_tx);
+        let mut signer = StacksTransactionSigner::new(&subnet_deposit_contract_tx);
         signer.sign_origin(&privk_user).unwrap();
 
         let signed_contract_tx = signer.get_tx().unwrap();
 
-        // publish contract on hyperchains
+        // publish contract on the subnet
         let _ =
             StacksChainState::process_transaction(&mut conn, &signed_contract_tx, false).unwrap();
 
@@ -11508,24 +11500,24 @@ pub mod test {
                 txid: Txid([1; 32]),
                 burn_header_hash: BurnchainHeaderHash([0; 32]),
                 l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
-                hc_contract_id: QualifiedContractIdentifier::new(
+                subnet_contract_id: QualifiedContractIdentifier::new(
                     StandardPrincipalData::from(addr_publisher),
-                    ContractName::from("hc-deposit-contract"),
+                    ContractName::from("subnet-deposit-contract"),
                 ),
-                hc_function_name: ClarityName::from("hyperchain-deposit-nft-token"),
+                subnet_function_name: ClarityName::from("subnet-deposit-nft-token"),
                 id: 2,
                 sender: PrincipalData::from(addr_publisher),
             },
-            // this op calls a function that does not exist in the designated hyperchains contract
+            // this op calls a function that does not exist in the designated subnet contract
             DepositNftOp {
                 txid: Txid([1; 32]),
                 burn_header_hash: BurnchainHeaderHash([0; 32]),
                 l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
-                hc_contract_id: QualifiedContractIdentifier::new(
+                subnet_contract_id: QualifiedContractIdentifier::new(
                     StandardPrincipalData::from(addr_publisher),
-                    ContractName::from("hc-deposit-contract"),
+                    ContractName::from("subnet-deposit-contract"),
                 ),
-                hc_function_name: ClarityName::from("hyperchain-deposit-nft-token-DNE"),
+                subnet_function_name: ClarityName::from("subnet-deposit-nft-token-DNE"),
                 id: 2,
                 sender: PrincipalData::from(addr_publisher),
             },
@@ -11534,11 +11526,11 @@ pub mod test {
                 txid: Txid([1; 32]),
                 burn_header_hash: BurnchainHeaderHash([0; 32]),
                 l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
-                hc_contract_id: QualifiedContractIdentifier::new(
+                subnet_contract_id: QualifiedContractIdentifier::new(
                     StandardPrincipalData::from(addr_publisher),
-                    ContractName::from("hc-deposit-contract-DNE"),
+                    ContractName::from("subnet-deposit-contract-DNE"),
                 ),
-                hc_function_name: ClarityName::from("hyperchain-deposit-nft-token"),
+                subnet_function_name: ClarityName::from("subnet-deposit-nft-token"),
                 id: 2,
                 sender: PrincipalData::from(addr_publisher),
             },
