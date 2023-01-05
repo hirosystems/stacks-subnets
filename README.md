@@ -87,5 +87,5 @@ If you want to ignore some tests, you can use the following command:
 
 ## License information
 
-Copyright (C) Hiro Systems PBC
-Copyright (C) Stacks Open Internet Foundation, Inc.
+- Copyright (C) Hiro Systems PBC
+- Copyright (C) Stacks Open Internet Foundation, Inc.
