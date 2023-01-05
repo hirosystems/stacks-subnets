@@ -86,4 +86,6 @@ If you want to ignore some tests, you can use the following command:
 
 
 ## License information
-To be added
+
+Copyright (C) Hiro Systems PBC
+Copyright (C) Stacks Open Internet Foundation, Inc.

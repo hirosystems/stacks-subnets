@@ -10,7 +10,7 @@ import { StacksTestnet } from '@stacks/network';
 
 
 async function main() {
-    const network = new StacksTestnet({url: process.env.SUBNET_URL});
+    const network = new StacksTestnet({url: process.env.SUBNETS_URL});
     const senderKey = process.env.USER_KEY;
     const addr = process.env.USER_ADDR;
     const alt_addr = process.env.ALT_USER_ADDR;
