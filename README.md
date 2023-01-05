@@ -58,7 +58,7 @@ You can build subnets using any of the following methods:
 
 ### Build with Clarinet
 
-You can start building with Clarinet using the instructions noted [here](https://github.com/hirosystems/stacks-subnets/blob/master/NFT_USE_CASE.md#setup). You can run through all the six steps indicated in the NFT_USE_CASE.md document to finish the deposit and withdrawal of NFT.
+You can start building with Clarinet using the instructions noted [here](https://github.com/hirosystems/stacks-subnets/blob/master/NFT_USE_CASE.md#setup). You can run through all the six steps indicated in the Setup section of the [NFT_USE_CASE.md](https://github.com/hirosystems/stacks-subnets/blob/master/NFT_USE_CASE.md) document to finish the deposit and withdrawal of NFT.
 
 ### Build with Testnet
 
