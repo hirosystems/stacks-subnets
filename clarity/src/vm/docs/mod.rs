@@ -2244,6 +2244,7 @@ returns one of the following error codes:
 
 const WITHDRAW_TOKEN: SpecialAPI = SpecialAPI {
     input_type: "TokenName, uint, principal",
+    snippet: "ft-withdraw? ${1:token-name} ${2:amount} ${3:sender}",
     output_type: "(response bool uint)",
     signature: "(ft-withdraw? token-name amount sender)",
     description:
@@ -2266,6 +2267,7 @@ returns one of the following error codes:
 
 const WITHDRAW_ASSET: SpecialAPI = SpecialAPI {
     input_type: "AssetName, A, principal",
+    snippet: "nft-withdraw? ${1:asset-class} ${2:asset-identifier} ${3:recipient}",
     output_type: "(response bool uint)",
     signature: "(nft-withdraw? asset-class asset-identifier recipient)",
     description: "`nft-withdraw?` is used to withdraw an asset for the `sender` principal for an
@@ -2403,8 +2405,27 @@ Clarity value. Not all values can be serialized: some value's
 consensus serialization is too large to fit in a Clarity buffer (this
 is because of the type prefix in the consensus serialization).
 
+If the value cannot fit as serialized into the maximum buffer size,
+this returns `none`, otherwise, it will be
+`(some consensus-serialized-buffer)`. During type checking, the
+analyzed type of the result of this method will be the maximum possible
+consensus buffer length based on the inferred type of the supplied value.
+",
+    example: r#"
+(to-consensus-buff? 1) ;; Returns (some 0x0000000000000000000000000000000001)
+(to-consensus-buff? u1) ;; Returns (some 0x0100000000000000000000000000000001)
+(to-consensus-buff? true) ;; Returns (some 0x03)
+(to-consensus-buff? false) ;; Returns (some 0x04)
+(to-consensus-buff? none) ;; Returns (some 0x09)
+(to-consensus-buff? 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR) ;; Returns (some 0x051fa46ff88886c2ef9762d970b4d2c63678835bd39d)
+(to-consensus-buff? { abc: 3, def: 4 }) ;; Returns (some 0x0c00000002036162630000000000000000000000000000000003036465660000000000000000000000000000000004)
+"#,
+};
+
+
 const STX_WITHDRAW: SimpleFunctionAPI = SimpleFunctionAPI {
     name: None,
+    snippet: "stx-withdraw?  ${1:amount} ${2:sender}",
     signature: "(stx-withdraw? amount sender)",
     description: "`stx-withdraw?` debits the `sender` principal's STX holdings by `amount`, destroying
 the STX on the subnet. The Stacks L1 chain will then be able to verify this withdraw when
