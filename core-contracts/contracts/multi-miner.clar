@@ -61,7 +61,7 @@
          (ok true)))
 
 (define-read-only (make-block-commit-hash (block-data { block: (buff 32), withdrawal-root: (buff 32), target-tip: (buff 32) }))
-    (let ((data-buff (unwrap-panic (to-consensus-buff (merge block-data { multi-contract: CONTRACT_ADDRESS }))))
+    (let ((data-buff (unwrap-panic (to-consensus-buff? (merge block-data { multi-contract: CONTRACT_ADDRESS }))))
           (data-hash (sha256 data-buff))
         (structured-hash (sha256 (concat sip18-data-prefix data-hash))))
         structured-hash
