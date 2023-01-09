@@ -46,6 +46,9 @@ pub const SYSTEM_FORK_SET_VERSION: [u8; 4] = [23u8, 0u8, 0u8, 0u8];
 pub const LAYER_1_CHAIN_ID_MAINNET: u32 = 0x00000001;
 pub const LAYER_1_CHAIN_ID_TESTNET: u32 = 0x80000000;
 
+/// Stacks epoch that we assume in subnets.
+pub const SUBNETS_STACKS_EPOCH: StacksEpochId = StacksEpochId::Epoch21;
+
 // ClarityVersion in use.
 pub const SUBNETS_CLARITY_VERSION: ClarityVersion = ClarityVersion::Clarity2;
 

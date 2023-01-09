@@ -38,7 +38,7 @@ use crate::util_lib::db::FromColumn;
 use stacks_common::address::c32::c32_address;
 use stacks_common::util::hash::{bytes_to_hex, Hash160, Sha512Trunc256Sum};
 
-use crate::clarity::{
+use clarity::{
     vm::analysis,
     vm::analysis::contract_interface_builder::build_contract_interface,
     vm::analysis::{errors::CheckError, errors::CheckResult, AnalysisDatabase, ContractAnalysis},
@@ -67,10 +67,9 @@ use crate::burnchains::Txid;
 use stacks_common::types::chainstate::*;
 
 use crate::chainstate::stacks::boot::{
-    BOOT_CODE_BNS, BOOT_CODE_COSTS, BOOT_CODE_COSTS_2, BOOT_CODE_COSTS_2_TESTNET,
-    BOOT_CODE_COSTS_3, BOOT_CODE_COST_VOTING_MAINNET, BOOT_CODE_COST_VOTING_TESTNET,
-    BOOT_CODE_GENESIS, BOOT_CODE_LOCKUP, BOOT_CODE_POX_MAINNET, BOOT_CODE_POX_TESTNET,
-    POX_2_MAINNET_CODE, POX_2_TESTNET_CODE,
+    BOOT_CODE_COSTS, BOOT_CODE_COSTS_2, BOOT_CODE_COSTS_2_TESTNET, BOOT_CODE_COSTS_3,
+    BOOT_CODE_COST_VOTING_MAINNET, BOOT_CODE_COST_VOTING_TESTNET, BOOT_CODE_GENESIS,
+    BOOT_CODE_SUBNET,
 };
 
 use crate::util_lib::boot::{boot_code_addr, boot_code_id};
@@ -103,26 +102,20 @@ use stacks_common::types::chainstate::VRFSeed;
 use std::str::FromStr;
 
 lazy_static! {
-    pub static ref STACKS_BOOT_CODE_MAINNET_2_1: [(&'static str, &'static str); 9] = [
-        ("pox", &BOOT_CODE_POX_MAINNET),
-        ("lockup", BOOT_CODE_LOCKUP),
+    pub static ref STACKS_BOOT_CODE_MAINNET_2_1: [(&'static str, &'static str); 6] = [
+        ("subnet", &BOOT_CODE_SUBNET),
         ("costs", BOOT_CODE_COSTS),
         ("cost-voting", BOOT_CODE_COST_VOTING_MAINNET),
-        ("bns", &BOOT_CODE_BNS),
         ("genesis", &BOOT_CODE_GENESIS),
         ("costs-2", BOOT_CODE_COSTS_2),
-        ("pox-2", &POX_2_MAINNET_CODE),
         ("costs-3", BOOT_CODE_COSTS_3),
     ];
-    pub static ref STACKS_BOOT_CODE_TESTNET_2_1: [(&'static str, &'static str); 9] = [
-        ("pox", &BOOT_CODE_POX_TESTNET),
-        ("lockup", BOOT_CODE_LOCKUP),
+    pub static ref STACKS_BOOT_CODE_TESTNET_2_1: [(&'static str, &'static str); 6] = [
+        ("subnet", &BOOT_CODE_SUBNET),
         ("costs", BOOT_CODE_COSTS),
         ("cost-voting", &BOOT_CODE_COST_VOTING_TESTNET),
-        ("bns", &BOOT_CODE_BNS),
         ("genesis", &BOOT_CODE_GENESIS),
         ("costs-2", BOOT_CODE_COSTS_2_TESTNET),
-        ("pox-2", &POX_2_TESTNET_CODE),
         ("costs-3", BOOT_CODE_COSTS_3),
     ];
 }

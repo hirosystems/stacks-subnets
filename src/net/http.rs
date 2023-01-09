@@ -131,8 +131,8 @@ lazy_static! {
     static ref PATH_POST_BLOCK_PROPOSAL: Regex = Regex::new(&format!("^{}$", PATH_STR_POST_BLOCK_PROPOSAL))
     .unwrap();
     static ref PATH_GET_NFT_WITHDRAWAL: Regex = Regex::new(&format!(
-         "^/v2/withdrawal/nft/(?P<block_height>[0-9]+)/(?P<sender>{})/(?P<withdrawal_id>[0-9]+)/(?P<contract_address>{})/(?P<contract_name>{})/(?P<asset_name>{})/(?P<id>[0-9]+)$",
-         *PRINCIPAL_DATA_REGEX_STRING,  *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING, *CLARITY_NAME_REGEX_STRING
+         "^/v2/withdrawal/nft/(?P<block_height>[0-9]+)/(?P<sender>{})/(?P<withdrawal_id>[0-9]+)/(?P<contract_address>{})/(?P<contract_name>{})/(?P<id>[0-9]+)$",
+         *PRINCIPAL_DATA_REGEX_STRING,  *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING
      ))
      .unwrap();
     static ref PATH_GET_ACCOUNT: Regex = Regex::new(&format!(
@@ -1887,8 +1887,6 @@ impl HttpRequestType {
             })?;
         let contract_name = ContractName::try_from(captures["contract_name"].to_string())
             .map_err(|_e| net_error::DeserializeError("Failed to parse contract name".into()))?;
-        let asset_name = ClarityName::try_from(captures["asset_name"].to_string())
-            .map_err(|_e| net_error::DeserializeError("Failed to parse data var name".into()))?;
         let id = u128::from_str(&captures["id"])
             .map_err(|_e| net_error::DeserializeError("Failed to parse amount".into()))?;
 
@@ -1897,13 +1895,10 @@ impl HttpRequestType {
             withdraw_block_height,
             sender,
             withdrawal_id,
-            asset_identifier: AssetIdentifier {
-                contract_identifier: QualifiedContractIdentifier::new(
-                    contract_addr.into(),
-                    contract_name,
-                ),
-                asset_name,
-            },
+            contract_identifier: QualifiedContractIdentifier::new(
+                contract_addr.into(),
+                contract_name,
+            ),
             id,
         })
     }
@@ -3045,16 +3040,15 @@ impl HttpRequestType {
                 withdraw_block_height,
                 sender,
                 withdrawal_id,
-                asset_identifier,
+                contract_identifier,
                 id,
             } => format!(
-                "/v2/withdrawal/nft/{}/{}/{}/{}/{}/{}/{}",
+                "/v2/withdrawal/nft/{}/{}/{}/{}/{}/{}",
                 withdraw_block_height,
                 sender,
                 withdrawal_id,
-                StacksAddress::from(asset_identifier.clone().contract_identifier.issuer),
-                asset_identifier.contract_identifier.name.as_str(),
-                asset_identifier.asset_name.to_string(),
+                StacksAddress::from(contract_identifier.issuer.clone()),
+                contract_identifier.name.as_str(),
                 id
             ),
         }
@@ -3097,7 +3091,7 @@ impl HttpRequestType {
             }
             HttpRequestType::BlockProposal(..) => PATH_STR_POST_BLOCK_PROPOSAL,
             HttpRequestType::GetWithdrawalNft { .. } => {
-                "/v2/withdrawal/nft/:block-height/:sender/:withdrawal_id/:contract_address/:contract_name/:asset_name/:id"
+                "/v2/withdrawal/nft/:block-height/:sender/:withdrawal_id/:contract_address/:contract_name/:id"
             }
         }
     }

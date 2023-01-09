@@ -3,9 +3,7 @@ use std::convert::TryFrom;
 use std::convert::TryInto;
 
 use crate::chainstate::burn::ConsensusHash;
-use crate::chainstate::stacks::boot::{
-    BOOT_CODE_COST_VOTING_TESTNET as BOOT_CODE_COST_VOTING, BOOT_CODE_POX_TESTNET,
-};
+use crate::chainstate::stacks::boot::BOOT_CODE_COST_VOTING_TESTNET as BOOT_CODE_COST_VOTING;
 use crate::chainstate::stacks::db::{MinerPaymentSchedule, StacksHeaderInfo};
 use crate::chainstate::stacks::index::MarfTrieId;
 use crate::chainstate::stacks::index::{ClarityMarfTrieId, TrieMerkleProof};
@@ -15,7 +13,7 @@ use crate::clarity_vm::database::marf::MarfedKV;
 use crate::core::{
     BITCOIN_REGTEST_FIRST_BLOCK_HASH, BITCOIN_REGTEST_FIRST_BLOCK_HEIGHT,
     BITCOIN_REGTEST_FIRST_BLOCK_TIMESTAMP, BLOCK_INVENTORY_SYNC_CYCLE_SIZE,
-    FIRST_BURNCHAIN_CONSENSUS_HASH, FIRST_STACKS_BLOCK_HASH,
+    FIRST_BURNCHAIN_CONSENSUS_HASH, FIRST_STACKS_BLOCK_HASH, SUBNETS_STACKS_EPOCH,
 };
 use crate::util_lib::db::{DBConn, FromRow};
 use clarity::vm::analysis::arithmetic_checker::ArithmeticOnlyChecker;
@@ -38,7 +36,6 @@ use clarity::vm::types::{
     TupleData, TupleTypeSignature, TypeSignature, Value, NONE,
 };
 use stacks_common::address::AddressHashMode;
-use stacks_common::types::SUBNETS_STACKS_EPOCH;
 use stacks_common::util::hash::to_hex;
 use stacks_common::util::hash::{Sha256Sum, Sha512Trunc256Sum};
 
@@ -308,83 +305,6 @@ impl HeadersDB for TestSimHeadersDB {
     ) -> std::option::Option<u128> {
         todo!()
     }
-}
-
-#[test]
-fn recency_tests() {
-    let mut sim = ClarityTestSim::new();
-    let delegator = StacksPrivateKey::new();
-
-    sim.execute_next_block(|env| {
-        env.initialize_versioned_contract(
-            POX_CONTRACT_TESTNET.clone(),
-            ClarityVersion::Clarity2,
-            &BOOT_CODE_POX_TESTNET,
-            None,
-            ASTRules::PrecheckSize,
-        )
-        .unwrap()
-    });
-    sim.execute_next_block(|env| {
-        // try to issue a far future stacking tx
-        assert_eq!(
-            env.execute_transaction(
-                (&USER_KEYS[0]).into(),
-                None,
-                POX_CONTRACT_TESTNET.clone(),
-                "stack-stx",
-                &symbols_from_values(vec![
-                    Value::UInt(USTX_PER_HOLDER),
-                    POX_ADDRS[0].clone(),
-                    Value::UInt(3000),
-                    Value::UInt(3),
-                ])
-            )
-            .unwrap()
-            .0
-            .to_string(),
-            "(err 24)".to_string()
-        );
-        // let's delegate, and check if the delegate can issue a far future
-        //   stacking tx
-        assert_eq!(
-            env.execute_transaction(
-                (&USER_KEYS[0]).into(),
-                None,
-                POX_CONTRACT_TESTNET.clone(),
-                "delegate-stx",
-                &symbols_from_values(vec![
-                    Value::UInt(2 * USTX_PER_HOLDER),
-                    (&delegator).into(),
-                    Value::none(),
-                    Value::none()
-                ])
-            )
-            .unwrap()
-            .0,
-            Value::okay_true()
-        );
-
-        assert_eq!(
-            env.execute_transaction(
-                (&delegator).into(),
-                None,
-                POX_CONTRACT_TESTNET.clone(),
-                "delegate-stack-stx",
-                &symbols_from_values(vec![
-                    (&USER_KEYS[0]).into(),
-                    Value::UInt(USTX_PER_HOLDER),
-                    POX_ADDRS[1].clone(),
-                    Value::UInt(3000),
-                    Value::UInt(2)
-                ])
-            )
-            .unwrap()
-            .0
-            .to_string(),
-            "(err 24)".to_string()
-        );
-    });
 }
 
 #[test]

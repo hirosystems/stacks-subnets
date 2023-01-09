@@ -1021,14 +1021,14 @@ impl ConversationHttp {
         requested_block_height: u64,
         sender: &PrincipalData,
         withdrawal_id: u32,
-        asset_identifier: &AssetIdentifier,
+        contract_identifier: &QualifiedContractIdentifier,
         id: u128,
         canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
         let withdrawal_key = withdrawal::make_key_for_nft_withdrawal(
             sender,
             withdrawal_id,
-            asset_identifier,
+            contract_identifier,
             id,
             requested_block_height,
         );
@@ -2826,7 +2826,7 @@ impl ConversationHttp {
                 ref sender,
                 withdrawal_id,
                 id,
-                ref asset_identifier,
+                ref contract_identifier,
                 ..
             } => {
                 if let Some(tip) = ConversationHttp::handle_load_stacks_chain_tip(
@@ -2847,7 +2847,7 @@ impl ConversationHttp {
                         withdraw_block_height,
                         &sender.clone(),
                         withdrawal_id,
-                        asset_identifier,
+                        contract_identifier,
                         id,
                         network.burnchain_tip.canonical_stacks_tip_height,
                     )?;

@@ -10,16 +10,15 @@ use crate::tests::neon_integrations::{
 };
 use crate::tests::{make_contract_call, make_contract_publish, to_addr};
 use crate::{neon, Config};
+use clarity::boot_util::boot_code_id;
 use clarity::types::chainstate::StacksAddress;
 use clarity::util::hash::{MerklePathOrder, MerkleTree, Sha512Trunc256Sum};
 use clarity::vm::database::ClaritySerializable;
-use clarity::vm::events::NFTEventType::NFTWithdrawEvent;
-use clarity::vm::events::STXEventType::STXWithdrawEvent;
-use clarity::vm::events::STXWithdrawEventData;
+use clarity::vm::events::SmartContractEventData;
+use clarity::vm::events::StacksTransactionEvent;
 use clarity::vm::representations::ContractName;
 use clarity::vm::types::{AssetIdentifier, PrincipalData, TypeSignature};
 use clarity::vm::Value;
-
 use stacks::burnchains::Burnchain;
 use stacks::chainstate::burn::db::sortdb::SortitionDB;
 use stacks::chainstate::stacks::events::{StacksTransactionReceipt, TransactionOrigin};
@@ -28,18 +27,14 @@ use stacks::chainstate::stacks::{
     TransactionSpendingCondition, TransactionVersion,
 };
 use stacks::clarity::types::chainstate::StacksPublicKey;
-use stacks::clarity::vm::events::NFTWithdrawEventData;
 use stacks::clarity_vm::withdrawal::{
     convert_withdrawal_key_to_bytes, create_withdrawal_merkle_tree, generate_key_from_event,
 };
 use stacks::codec::StacksMessageCodec;
 use stacks::core::LAYER_1_CHAIN_ID_TESTNET;
 use stacks::net::CallReadOnlyRequestBody;
-
 use stacks::util::hash::hex_bytes;
 use stacks::vm::costs::ExecutionCost;
-use stacks::vm::events::FTEventType::FTWithdrawEvent;
-use stacks::vm::events::{FTWithdrawEventData, StacksTransactionEvent};
 use stacks::vm::types::{QualifiedContractIdentifier, TupleData};
 use stacks::vm::ClarityName;
 use std::convert::{TryFrom, TryInto};
@@ -1007,31 +1002,59 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     spending_condition.set_tx_fee(1000);
     let auth = TransactionAuth::Standard(spending_condition);
     let mut ft_withdraw_event =
-        StacksTransactionEvent::FTEvent(FTWithdrawEvent(FTWithdrawEventData {
-            asset_identifier: AssetIdentifier {
-                contract_identifier: QualifiedContractIdentifier::new(
-                    user_addr.into(),
-                    ContractName::from("simple-ft"),
-                ),
-                asset_name: ClarityName::from("ft-token"),
-            },
-            sender: user_addr.into(),
-            amount: 1,
-            withdrawal_id: None,
-        }));
+        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+            key: (boot_code_id("subnet".into(), false), "print".into()),
+            value: Value::Tuple(
+                TupleData::from_data(vec![
+                    (
+                        "type".into(),
+                        Value::string_ascii_from_bytes("ft".to_string().into_bytes()).unwrap(),
+                    ),
+                    (
+                        "asset-contract".into(),
+                        Value::Principal(PrincipalData::Contract(
+                            QualifiedContractIdentifier::new(
+                                user_addr.into(),
+                                ContractName::from("simple-ft"),
+                            ),
+                        )),
+                    ),
+                    (
+                        "sender".into(),
+                        Value::Principal(PrincipalData::Standard(user_addr.into())),
+                    ),
+                    ("amount".into(), Value::UInt(1)),
+                ])
+                .expect("Failed to create tuple data."),
+            ),
+        });
     let mut nft_withdraw_event =
-        StacksTransactionEvent::NFTEvent(NFTWithdrawEvent(NFTWithdrawEventData {
-            asset_identifier: AssetIdentifier {
-                contract_identifier: QualifiedContractIdentifier::new(
-                    user_addr.into(),
-                    ContractName::from("simple-nft"),
-                ),
-                asset_name: ClarityName::from("nft-token"),
-            },
-            sender: user_addr.into(),
-            id: 1,
-            withdrawal_id: None,
-        }));
+        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+            key: (boot_code_id("subnet".into(), false), "print".into()),
+            value: Value::Tuple(
+                TupleData::from_data(vec![
+                    (
+                        "type".into(),
+                        Value::string_ascii_from_bytes("nft".to_string().into_bytes()).unwrap(),
+                    ),
+                    (
+                        "asset-contract".into(),
+                        Value::Principal(PrincipalData::Contract(
+                            QualifiedContractIdentifier::new(
+                                user_addr.into(),
+                                ContractName::from("simple-nft"),
+                            ),
+                        )),
+                    ),
+                    (
+                        "sender".into(),
+                        Value::Principal(PrincipalData::Standard(user_addr.into())),
+                    ),
+                    ("id".into(), Value::UInt(1)),
+                ])
+                .expect("Failed to create tuple data."),
+            ),
+        });
     let withdrawal_receipt = StacksTransactionReceipt {
         transaction: TransactionOrigin::Stacks(StacksTransaction::new(
             TransactionVersion::Testnet,
@@ -1524,11 +1547,23 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     spending_condition.set_tx_fee(1000);
     let auth = TransactionAuth::Standard(spending_condition);
     let mut stx_withdraw_event =
-        StacksTransactionEvent::STXEvent(STXWithdrawEvent(STXWithdrawEventData {
-            sender: user_addr.into(),
-            amount: 1,
-            withdrawal_id: None,
-        }));
+        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+            key: (boot_code_id("subnet".into(), false), "print".into()),
+            value: Value::Tuple(
+                TupleData::from_data(vec![
+                    (
+                        "type".into(),
+                        Value::string_ascii_from_bytes("stx".to_string().into_bytes()).unwrap(),
+                    ),
+                    (
+                        "sender".into(),
+                        Value::Principal(PrincipalData::Standard(user_addr.into())),
+                    ),
+                    ("amount".into(), Value::UInt(1)),
+                ])
+                .expect("Failed to create tuple data."),
+            ),
+        });
 
     let withdrawal_receipt = StacksTransactionReceipt {
         transaction: TransactionOrigin::Stacks(StacksTransaction::new(
@@ -2324,31 +2359,59 @@ fn nft_deposit_and_withdraw_integration_test() {
     spending_condition.set_tx_fee(1000);
     let auth = TransactionAuth::Standard(spending_condition);
     let mut l1_native_nft_withdraw_event =
-        StacksTransactionEvent::NFTEvent(NFTWithdrawEvent(NFTWithdrawEventData {
-            asset_identifier: AssetIdentifier {
-                contract_identifier: QualifiedContractIdentifier::new(
-                    user_addr.into(),
-                    ContractName::from("simple-nft"),
-                ),
-                asset_name: ClarityName::from("nft-token"),
-            },
-            sender: user_addr.into(),
-            id: 1,
-            withdrawal_id: None,
-        }));
+        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+            key: (boot_code_id("subnet".into(), false), "print".into()),
+            value: Value::Tuple(
+                TupleData::from_data(vec![
+                    (
+                        "type".into(),
+                        Value::string_ascii_from_bytes("nft".to_string().into_bytes()).unwrap(),
+                    ),
+                    (
+                        "asset-contract".into(),
+                        Value::Principal(PrincipalData::Contract(
+                            QualifiedContractIdentifier::new(
+                                user_addr.into(),
+                                ContractName::from("simple-nft"),
+                            ),
+                        )),
+                    ),
+                    (
+                        "sender".into(),
+                        Value::Principal(PrincipalData::Standard(user_addr.into())),
+                    ),
+                    ("id".into(), Value::UInt(1)),
+                ])
+                .expect("Failed to create tuple data."),
+            ),
+        });
     let mut subnet_native_nft_withdraw_event =
-        StacksTransactionEvent::NFTEvent(NFTWithdrawEvent(NFTWithdrawEventData {
-            asset_identifier: AssetIdentifier {
-                contract_identifier: QualifiedContractIdentifier::new(
-                    user_addr.into(),
-                    ContractName::from("simple-nft"),
-                ),
-                asset_name: ClarityName::from("nft-token"),
-            },
-            sender: user_addr.into(),
-            id: 5,
-            withdrawal_id: None,
-        }));
+        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+            key: (boot_code_id("subnet".into(), false), "print".into()),
+            value: Value::Tuple(
+                TupleData::from_data(vec![
+                    (
+                        "type".into(),
+                        Value::string_ascii_from_bytes("nft".to_string().into_bytes()).unwrap(),
+                    ),
+                    (
+                        "asset-contract".into(),
+                        Value::Principal(PrincipalData::Contract(
+                            QualifiedContractIdentifier::new(
+                                user_addr.into(),
+                                ContractName::from("simple-nft"),
+                            ),
+                        )),
+                    ),
+                    (
+                        "sender".into(),
+                        Value::Principal(PrincipalData::Standard(user_addr.into())),
+                    ),
+                    ("id".into(), Value::UInt(5)),
+                ])
+                .expect("Failed to create tuple data."),
+            ),
+        });
     let withdrawal_receipt = StacksTransactionReceipt {
         transaction: TransactionOrigin::Stacks(StacksTransaction::new(
             TransactionVersion::Testnet,

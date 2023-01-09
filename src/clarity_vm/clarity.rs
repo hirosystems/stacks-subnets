@@ -22,7 +22,7 @@ use std::thread;
 use crate::chainstate::stacks::boot::BOOT_CODE_COSTS_2_TESTNET;
 use crate::chainstate::stacks::boot::{
     BOOT_CODE_COSTS, BOOT_CODE_COSTS_2, BOOT_CODE_COST_VOTING_TESTNET as BOOT_CODE_COST_VOTING,
-    BOOT_CODE_POX_TESTNET, COSTS_2_NAME,
+    BOOT_CODE_SUBNET, COSTS_2_NAME,
 };
 use crate::chainstate::stacks::db::StacksAccount;
 use crate::chainstate::stacks::db::StacksChainState;
@@ -397,18 +397,18 @@ impl ClarityInstance {
         conn.as_transaction(|clarity_db| {
             let (ast, _analysis) = clarity_db
                 .analyze_smart_contract(
-                    &boot_code_id("pox", use_mainnet),
-                    ClarityVersion::Clarity1,
-                    &*BOOT_CODE_POX_TESTNET,
+                    &boot_code_id("subnet", use_mainnet),
+                    ClarityVersion::Clarity2,
+                    &*BOOT_CODE_SUBNET,
                     ASTRules::PrecheckSize,
                 )
                 .unwrap();
             clarity_db
                 .initialize_smart_contract(
-                    &boot_code_id("pox", use_mainnet),
-                    ClarityVersion::Clarity1,
+                    &boot_code_id("subnet", use_mainnet),
+                    ClarityVersion::Clarity2,
                     &ast,
-                    &*BOOT_CODE_POX_TESTNET,
+                    &*BOOT_CODE_SUBNET,
                     None,
                     |_, _| false,
                 )
