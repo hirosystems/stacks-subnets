@@ -6962,7 +6962,6 @@ pub mod test {
 
         let mut mempool_settings = MemPoolWalkSettings::default();
         mempool_settings.min_tx_fee = 10;
-        let mut tx_events = Vec::new();
 
         let txs = codec_all_transactions(
             &TransactionVersion::Testnet,
@@ -7048,25 +7047,11 @@ pub mod test {
                     if mempool
                         .iterate_candidates::<_, ChainstateError, _>(
                             clarity_conn,
-                            &mut tx_events,
                             2,
                             mempool_settings.clone(),
                             |_, available_tx, _| {
                                 count_txs += 1;
-                                Ok(Some(
-                                    // Generate any success result
-                                    TransactionResult::success(
-                                        &available_tx.tx.tx,
-                                        available_tx.tx.metadata.tx_fee,
-                                        StacksTransactionReceipt::from_stx_transfer(
-                                            available_tx.tx.tx.clone(),
-                                            vec![],
-                                            Value::okay(Value::Bool(true)).unwrap(),
-                                            ExecutionCost::zero(),
-                                        ),
-                                    )
-                                    .convert_to_event(),
-                                ))
+                                Ok(true)
                             },
                         )
                         .unwrap()
