@@ -1517,6 +1517,8 @@ pub struct MinerConfigFile {
     pub subsequent_attempt_time_ms: Option<u64>,
     pub microblock_attempt_time_ms: Option<u64>,
     pub probability_pick_no_estimate_tx: Option<u8>,
+    pub nonce_cache_size: Option<u64>,
+    pub candidate_retry_cache_size: Option<u64>,
 }
 
 #[derive(Clone, Deserialize, Default)]
