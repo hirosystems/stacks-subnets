@@ -132,11 +132,11 @@
 ;; deposit-fn-name is on the L2
 (define-public (register-new-ft-contract (ft-contract <ft-trait>) (deposit-fn-name (string-ascii 45) )
                               (height uint) (signatures (list 9 (buff 65))) )
-    (let ((contract_principal (contract-of ft-contract))
+    (let (contract_principal (contract-of ft-contract))
          (try! (check-registration signatures
              {principal: contract_principal, deposit-fn-name: deposit-fn-name, height: height})))
          ;; execute the registration
-         (as-contract (contract-call? .subnet register-new-ft-contract ft-contract deposit-fn-name)) ))
+         (as-contract (contract-call? .subnet register-new-ft-contract ft-contract deposit-fn-name)) )
 
 ;; height is the block-height when the hash was created that was signed
 ;; the purpose of this is to ensure that this is the same fork
@@ -144,8 +144,8 @@
 ;; deposit-fn-name is on the L2
 (define-public (register-new-nft-contract (nft-contract <nft-trait>) (deposit-fn-name (string-ascii 45) )
                               (height uint) (signatures (list 9 (buff 65))) )
-    (let ((contract_principal (contract-of nft-contract))
+    (let (contract_principal (contract-of nft-contract))
          (try! (check-registration signatures
              {principal: contract_principal, deposit-fn-name: deposit-fn-name, height: height})))
          ;; execute the registration
-         (as-contract (contract-call? .subnet register-new-nft-contract nft-contract deposit-fn-name)) ))
+         (as-contract (contract-call? .subnet register-new-nft-contract nft-contract deposit-fn-name)) )
