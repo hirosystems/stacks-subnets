@@ -2535,15 +2535,18 @@ pub mod test {
     use crate::chainstate::stacks::db::blocks::test::store_staging_block;
     use crate::chainstate::stacks::db::test::*;
     use crate::chainstate::stacks::db::*;
+    use crate::chainstate::stacks::test::codec_all_transactions;
     use crate::chainstate::stacks::Error as ChainstateError;
     use crate::chainstate::stacks::C32_ADDRESS_VERSION_TESTNET_SINGLESIG;
     use crate::chainstate::stacks::*;
+    use crate::core::tests::make_block;
     use crate::net::test::*;
     use crate::util_lib::db::Error as db_error;
     use clarity::vm::types::*;
     use stacks_common::address::*;
     use stacks_common::util::sleep_ms;
     use stacks_common::util::vrf::VRFProof;
+    use clarity::vm::test_util::TEST_BURN_STATE_DB;
 
     use crate::cost_estimates::metrics::UnitMetric;
     use crate::cost_estimates::UnitEstimator;
