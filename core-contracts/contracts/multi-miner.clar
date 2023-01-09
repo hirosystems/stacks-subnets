@@ -94,7 +94,6 @@
 ;; miner needs to pass in the block height at the time the proposal was created
 ;; the id-header-hash for that block height (on the current fork) will verify that the signatures
 ;; are for the function by that name on this fork
-
 (define-private (check-registration (signatures (list 9 (buff 65)))
                     (data {principal: principal, deposit-fn-name: (string-ascii 45), height: uint}) )
     (let ((registration-hash make-registration-hash data)
@@ -102,7 +101,7 @@
            ;; TODO: perform checks on height?
            ;; TODO: should we pass around the block-id as well to provide a meaningful error?
            ;; check that the caller is a direct caller!
-           (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
+           (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER)))
            ;; check that we have enough signatures
            (check-miners (append (get signers signer-principals) tx-sender)))
 
@@ -135,7 +134,7 @@
                               (height uint) (signatures (list 9 (buff 65))) )
     (let ((contract_principal (contract-of ft-contract))
          (try! (check-registration signatures
-             {principal: contract_principal, deposit-fn-name: deposit-fn-name, height: height}))
+             {principal: contract_principal, deposit-fn-name: deposit-fn-name, height: height})))
          ;; execute the registration
          (as-contract (contract-call? .subnet register-new-ft-contract ft-contract deposit-fn-name)) ))
 
@@ -147,6 +146,6 @@
                               (height uint) (signatures (list 9 (buff 65))) )
     (let ((contract_principal (contract-of nft-contract))
          (try! (check-registration signatures
-             {principal: contract_principal, deposit-fn-name: deposit-fn-name, height: height}))
+             {principal: contract_principal, deposit-fn-name: deposit-fn-name, height: height})))
          ;; execute the registration
          (as-contract (contract-call? .subnet register-new-nft-contract nft-contract deposit-fn-name)) ))
