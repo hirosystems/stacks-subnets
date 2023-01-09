@@ -1234,6 +1234,13 @@ impl MemPoolDB {
         Ok(())
     }
 
+    pub fn reset_nonce_cache(&mut self) -> Result<(), db_error> {
+        debug!("reset nonce cache");
+        let sql = "DELETE FROM nonces";
+        self.db.execute(sql, rusqlite::NO_PARAMS)?;
+        Ok(())
+    }
+
     fn update_last_known_nonces(
         &self,
         address: &StacksAddress,
@@ -1660,13 +1667,11 @@ impl MemPoolDB {
                                     );
                                 }
                             }
-                            output_events.push(tx_event);
                         }
                         TransactionEvent::Skipped(_) => {
                             // don't push `Skipped` events to the observer
                         }
                         _ => {
-                            output_events.push(tx_event);
                         }
                     }
                 }
