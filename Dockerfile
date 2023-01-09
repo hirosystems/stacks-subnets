@@ -14,7 +14,7 @@ RUN mkdir /out
 
 RUN cd testnet/stacks-node && cargo build --features monitoring_prom,slog_json --release
 
-RUN cp target/release/hyperchain-node /out
+RUN cp target/release/subnet-node /out
 
 FROM alpine:latest
 
@@ -22,4 +22,4 @@ RUN apk add --no-cache openssl musl
 
 COPY --from=build /out/ /bin/
 
-CMD ["hyperchain-node", "start"]
+CMD ["subnet-node", "start"]

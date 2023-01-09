@@ -165,7 +165,7 @@ pub struct Proposal {
     ///  microblocks.
     pub microblock_pubkey_hash: Hash160,
     /// This is the total burn amount up to this block, used in the
-    ///  Stacks header. In hyperchains, this is just an incrementing
+    ///  Stacks header. In subnets, this is just an incrementing
     ///  value.
     pub total_burn: u64,
 }

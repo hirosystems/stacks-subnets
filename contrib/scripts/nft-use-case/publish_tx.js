@@ -13,7 +13,7 @@ async function main() {
   const networkLayer = parseInt(process.argv[4]);
   const nonce = parseInt(process.argv[5]);
   const senderKey = process.env.USER_KEY;
-  const networkUrl = networkLayer == 2 ? process.env.HYPERCHAIN_URL : HIRO_MOCKNET_DEFAULT ;
+  const networkUrl = networkLayer == 2 ? process.env.SUBNET_URL : HIRO_MOCKNET_DEFAULT ;
 
   const codeBody = readFileSync(contractFilename, { encoding: 'utf-8' });
 

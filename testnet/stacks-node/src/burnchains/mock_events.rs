@@ -12,7 +12,7 @@ use stacks::burnchains::indexer::{
     BurnBlockIPC, BurnHeaderIPC, BurnchainBlockDownloader, BurnchainBlockParser, BurnchainIndexer,
 };
 use stacks::burnchains::{
-    Burnchain, BurnchainBlock, Error as BurnchainError, StacksHyperBlock, Txid,
+    Burnchain, BurnchainBlock, Error as BurnchainError, StacksSubnetBlock, Txid,
 };
 
 use stacks::burnchains;
@@ -64,7 +64,7 @@ pub struct MockController {
 pub struct MockIndexer {
     /// This is the channel that new mocked L1 blocks are fed into
     incoming_channel: Arc<MockChannel>,
-    /// This is the Layer 1 contract that is watched for hyperchain events.
+    /// This is the Layer 1 contract that is watched for subnet events.
     watch_contract: QualifiedContractIdentifier,
     blocks: Vec<NewBlock>,
     /// The lowest height that the indexer is holding. Defaults to 0,
@@ -620,8 +620,8 @@ impl BurnchainBlockParser for MockParser {
     type B = BlockIPC;
 
     fn parse(&mut self, block: &BlockIPC) -> Result<BurnchainBlock, BurnchainError> {
-        Ok(BurnchainBlock::StacksHyperBlock(
-            StacksHyperBlock::from_new_block_event(&self.watch_contract, block.block()),
+        Ok(BurnchainBlock::StacksSubnetBlock(
+            StacksSubnetBlock::from_new_block_event(&self.watch_contract, block.block()),
         ))
     }
 }

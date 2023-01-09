@@ -75,9 +75,9 @@ jobs:
         # Remove .dockerignore file so codecov has access to git info
         run: |
           rm .dockerignore
-          docker build -f ./.github/actions/bitcoin-int-tests/Dockerfile.generic.stacks-node -t hyperchain-node:integrations .
+          docker build -f ./.github/actions/bitcoin-int-tests/Dockerfile.generic.stacks-node -t subnet-node:integrations .
       - name: Export docker image as tarball
-        run: docker save -o integration-image.tar hyperchain-node:integrations
+        run: docker save -o integration-image.tar subnet-node:integrations
       - name: Upload built docker image
         uses: actions/upload-artifact@v2
         with:
@@ -91,7 +91,7 @@ jobs:
       - uses: actions/checkout@v2
       - id: set-matrix
         run: |
-          cargo test --workspace --bin=hyperchain-node -- l1_ --list --format=terse | sed -e 's/: test//g' | jq -ncR '{"test-name": [inputs]}' > test_names.json
+          cargo test --workspace --bin=subnet-node -- l1_ --list --format=terse | sed -e 's/: test//g' | jq -ncR '{"test-name": [inputs]}' > test_names.json
           echo "::set-output name=matrix::$(cat test_names.json)"
   # Run the tests that require stacks-node
   layer-1-tests:
@@ -170,7 +170,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           repository: hirosystems/clarinet
-          ref: hack/2.1
+          ref: develop
           submodules: recursive
       - name: Build Clarinet with 2.1
         run: cargo build -p=clarinet-cli
@@ -191,7 +191,7 @@ jobs:
       - name: "Make Clarinet executable"
         run: chmod +x ./clarinet
       - name: "Execute Clarinet tests"
-        run: ./clarinet test --coverage --manifest-path=./core-contracts/Clarinet.toml
+        run: ./clarinet test --coverage --manifest-path=./core-contracts/Clarinet.toml --import-map=./core-contracts/import_map.json --allow-net
       - name: "Export code coverage"
         uses: codecov/codecov-action@v1
         with:
@@ -231,7 +231,7 @@ jobs:
       - name: Build/Tag/Push Image
         uses: docker/build-push-action@v1
         with:
-          repository: hirosystems/hyperchains
+          repository: hirosystems/stacks-subnets
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           tags: ${{ env.STRETCH_TAG }}
@@ -274,7 +274,7 @@ jobs:
       - name: Build/Tag/Push Image
         uses: docker/build-push-action@v1
         with:
-          repository: hirosystems/hyperchains
+          repository: hirosystems/stacks-subnets
           dockerfile: Dockerfile.stretch
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}

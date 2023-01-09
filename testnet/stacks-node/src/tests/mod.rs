@@ -223,7 +223,7 @@ pub fn make_contract_publish_microblock_only(
     )
 }
 
-/// Configures a frequently used config for hyperchain test nodes which
+/// Configures a frequently used config for subnet test nodes which
 ///  listen to l1 events from a mocknet l1 node.
 pub fn new_l1_test_conf(
     mining_key: &Secp256k1PrivateKey,
@@ -243,7 +243,7 @@ pub fn new_l1_test_conf(
     config.node.p2p_bind = "127.0.0.1:30444".into();
 
     config.burnchain.contract_identifier =
-        QualifiedContractIdentifier::new(to_addr(&broadcast_key).into(), "hyperchains".into());
+        QualifiedContractIdentifier::new(to_addr(&broadcast_key).into(), "subnet".into());
 
     config.node.miner = true;
 
@@ -260,7 +260,7 @@ pub fn new_test_conf() -> Config {
 
     let mut conf = Config::default();
     conf.node.working_dir = format!(
-        "/tmp/hyperchain-node-tests/integrations-neon/{}-{}",
+        "/tmp/subnet-node-tests/integrations-neon/{}-{}",
         to_hex(&buf),
         get_epoch_time_secs()
     );
