@@ -63,7 +63,7 @@ use crate::util_lib::boot::boot_code_tx_auth;
 use crate::util_lib::db::DBConn;
 use crate::util_lib::db::Error as db_error;
 use crate::util_lib::strings::UrlString;
-use clarity::vm::types::{AssetIdentifier, TraitIdentifier};
+use clarity::vm::types::{QualifiedContractIdentifier, TraitIdentifier};
 use clarity::vm::{
     analysis::contract_interface_builder::ContractInterface, types::PrincipalData, ClarityName,
     ContractName, Value,
@@ -1446,7 +1446,7 @@ pub enum HttpRequestType {
         withdraw_block_height: u64,
         sender: PrincipalData,
         withdrawal_id: u32,
-        asset_identifier: AssetIdentifier,
+        contract_identifier: QualifiedContractIdentifier,
         id: u128,
     },
     GetAccount(HttpRequestMetadata, PrincipalData, TipRequest, bool),

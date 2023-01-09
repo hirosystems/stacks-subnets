@@ -65,6 +65,7 @@ pub const BOOT_CODE_GENESIS: &'static str = std::include_str!("genesis.clar");
 pub const COSTS_1_NAME: &'static str = "costs";
 pub const COSTS_2_NAME: &'static str = "costs-2";
 const POX_2_BODY: &'static str = std::include_str!("pox-2.clar");
+pub const BOOT_CODE_SUBNET: &'static str = std::include_str!("subnet.clar");
 
 pub mod docs;
 
@@ -78,7 +79,8 @@ lazy_static! {
     pub static ref POX_2_TESTNET_CODE: String =
         format!("{}\n{}", BOOT_CODE_POX_TESTNET_CONSTS, POX_2_BODY);
     pub static ref BOOT_CODE_COST_VOTING_TESTNET: String = make_testnet_cost_voting();
-    pub static ref STACKS_BOOT_CODE_MAINNET: [(&'static str, &'static str); 6] = [
+    pub static ref STACKS_BOOT_CODE_MAINNET: [(&'static str, &'static str); 7] = [
+        ("subnet", &BOOT_CODE_SUBNET),
         ("pox", &BOOT_CODE_POX_MAINNET),
         ("lockup", BOOT_CODE_LOCKUP),
         ("costs", BOOT_CODE_COSTS),
@@ -86,7 +88,8 @@ lazy_static! {
         ("bns", &BOOT_CODE_BNS),
         ("genesis", &BOOT_CODE_GENESIS),
     ];
-    pub static ref STACKS_BOOT_CODE_TESTNET: [(&'static str, &'static str); 6] = [
+    pub static ref STACKS_BOOT_CODE_TESTNET: [(&'static str, &'static str); 7] = [
+        ("subnet", &BOOT_CODE_SUBNET),
         ("pox", &BOOT_CODE_POX_TESTNET),
         ("lockup", BOOT_CODE_LOCKUP),
         ("costs", BOOT_CODE_COSTS),

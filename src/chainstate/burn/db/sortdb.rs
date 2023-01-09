@@ -1845,7 +1845,7 @@ impl SortitionDB {
             StacksEpochId::Epoch10 => false,
             StacksEpochId::Epoch20 => version == "1" || version == "2" || version == "3",
             StacksEpochId::Epoch2_05 => version == "2" || version == "3",
-            StacksEpochId::Epoch21 => version == "2" || version == "3",
+            StacksEpochId::Epoch21 => version == "3" || version == "4",
         }
     }
 

@@ -12,7 +12,7 @@ rand = "0.7.3"
 serde = "1"
 serde_derive = "1"
 serde_json = { version = "1.0", features = ["arbitrary_precision", "raw_value"] }
-stacks = { package = "blockstack-core", path = "../../." }
+stacks = { package = "stacks-subnets", path = "../../." }
 stx_genesis = { package = "stx-genesis", path = "../../stx-genesis/."}
 toml = "0.5.6"
 async-h1 = "2.3.2"
@@ -22,8 +22,10 @@ base64 = "0.12.0"
 backtrace = "0.3.50"
 libc = "0.2"
 slog = { version = "2.5.2", features = [ "max_level_trace" ] }
-clarity = { package = "clarity", path = "../../clarity/." }
-stacks_common = { package = "stacks-common", path = "../../stacks-common/." }
+clarity = { git = "https://github.com/stacks-network/stacks-blockchain.git", rev = "7f6dde98e5349c64d1ed7410b9af0e126420532b" }
+stacks-common = { git = "https://github.com/stacks-network/stacks-blockchain.git", rev = "7f6dde98e5349c64d1ed7410b9af0e126420532b" }
+# clarity = { package = "clarity", path = "../../../stacks-blockchain-develop/clarity" }
+# stacks-common = { package = "stacks-common", path = "../stacks-blockchain-develop/stacks-common" }
 tokio = { version = "=1.15.0", features = ["full"] }
 reqwest = { version = "0.11", features = ["blocking", "json", "rustls"] }
 warp = "0.3"
@@ -45,6 +47,6 @@ path = "src/main.rs"
 
 [features]
 monitoring_prom = ["stacks/monitoring_prom"]
-slog_json = ["stacks/slog_json", "stacks_common/slog_json", "clarity/slog_json"]
+slog_json = ["stacks/slog_json", "stacks-common/slog_json", "clarity/slog_json"]
 prod-genesis-chainstate = []
 default = []
