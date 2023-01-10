@@ -574,7 +574,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     )
 
     (define-public (subnet-withdraw-ft-token (amount uint) (recipient principal))
-      (ft-withdraw? ft-token amount recipient)
+      (contract-call? 'ST000000000000000000002AMW42H.subnet ft-withdraw? .simple-ft amount recipient)
     )
 
     (define-read-only (get-token-balance (user principal))
@@ -601,7 +601,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     )
 
     (define-public (subnet-withdraw-nft-token (id uint) (recipient principal))
-      (nft-withdraw? nft-token id recipient)
+      (contract-call? 'ST000000000000000000002AMW42H.subnet nft-withdraw? .simple-nft id recipient)
     )
 
     (define-read-only (get-token-owner (id uint))
@@ -1359,7 +1359,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     // Publish subnet contract for withdrawing stx
     let subnet_simple_stx = "
     (define-public (subnet-withdraw-stx (amount uint) (sender principal))
-      (stx-withdraw? amount sender)
+      (contract-call? 'ST000000000000000000002AMW42H.subnet stx-withdraw? amount sender)
     )
     ";
     let subnet_stx_publish = make_contract_publish(
@@ -1983,7 +1983,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     )
 
     (define-public (subnet-withdraw-nft-token (id uint) (recipient principal))
-      (nft-withdraw? nft-token id recipient)
+      (contract-call? 'ST000000000000000000002AMW42H.subnet nft-withdraw? .simple-nft id recipient)
     )
 
     (define-read-only (get-token-owner (id uint))
