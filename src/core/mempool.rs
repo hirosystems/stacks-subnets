@@ -936,11 +936,14 @@ impl CandidateCache {
 
     /// Retrieve the next candidate transaction from the cache.
     fn next(&mut self) -> Option<MemPoolTxInfoPartial> {
+        info!("next");
+
         self.cache.pop_front()
     }
 
     /// Push a candidate to the cache for the next iteration.
     fn push(&mut self, tx: MemPoolTxInfoPartial) {
+        info!("push");
         if self.next.len() < self.max_cache_size {
             self.next.push_back(tx);
         }
@@ -951,6 +954,8 @@ impl CandidateCache {
 
     /// Prepare for the next iteration, transferring transactions from `next` to `cache`.
     fn reset(&mut self) {
+        info!("reset");
+
         // We do not need a size check here, because the cache can only grow in size
         // after `cache` is empty. New transactions are not walked until the entire
         // cache has been walked, so whenever we are adding brand new transactions to
@@ -1042,8 +1047,10 @@ impl MemPoolDB {
 
     /// Apply all schema migrations up to the latest schema.
     fn apply_schema_migrations(tx: &mut DBTx) -> Result<(), db_error> {
+        info!("apply_schema_migrations");
         loop {
             let version = MemPoolDB::get_schema_version(&tx)?.unwrap_or(1);
+            info!("version: {}", version);
             match version {
                 1 => {
                     MemPoolDB::instantiate_cost_estimator(tx)?;
@@ -1107,6 +1114,7 @@ impl MemPoolDB {
 
     /// Denormalize fee rate schema 5
     fn denormalize_fee_rate(tx: &DBTx) -> Result<(), db_error> {
+info!("denormalize_fee_rate");
         for sql_exec in MEMPOOL_SCHEMA_5 {
             tx.execute_batch(sql_exec)?;
         }
@@ -1214,12 +1222,6 @@ impl MemPoolDB {
         })
     }
 
-    pub fn reset_last_known_nonces(&mut self) -> Result<(), db_error> {
-        let sql =
-            "UPDATE mempool SET last_known_origin_nonce = NULL, last_known_sponsor_nonce = NULL";
-        self.db.execute(sql, rusqlite::NO_PARAMS)?;
-        Ok(())
-    }
 
     fn bump_last_known_nonces(&self, address: &StacksAddress) -> Result<(), db_error> {
         let query_by = address.to_string();
@@ -1405,7 +1407,10 @@ impl MemPoolDB {
             .query(NO_PARAMS)
             .map_err(|err| Error::SqliteError(err))?;
 
+            info!("before loop");
+
         loop {
+            info!("start loop");
             if start_time.elapsed().as_millis() > settings.max_walk_time_ms as u128 {
                 debug!("Mempool iteration deadline exceeded";
                        "deadline_ms" => settings.max_walk_time_ms);
@@ -1414,6 +1419,7 @@ impl MemPoolDB {
 
             let start_with_no_estimate =
                 tx_consideration_sampler.sample(&mut rng) < settings.consider_no_estimate_tx_prob;
+            info!("start_with_no_estimate: {}", start_with_no_estimate);
 
             // First, try to read from the retry list
             let (candidate, update_estimate) = match candidate_cache.next() {
@@ -1457,6 +1463,8 @@ impl MemPoolDB {
                 }
             };
 
+            info!("candidate: {:?}", &candidate);
+
             // Check the nonces.
             let (expected_origin_nonce, retry_store_origin_nonce) =
                 nonce_cache.get(&candidate.origin_address, clarity_tx, self.conn());
@@ -1489,7 +1497,7 @@ impl MemPoolDB {
                 expected_sponsor_nonce,
             ) {
                 Ordering::Less => {
-                    debug!(
+                    info!(
                         "Mempool: unexecutable: drop tx {}:{} ({})",
                         candidate.origin_address,
                         candidate.origin_nonce,
@@ -1499,7 +1507,7 @@ impl MemPoolDB {
                     continue;
                 }
                 Ordering::Greater => {
-                    debug!(
+                    info!(
                         "Mempool: nonces too high, cached for later {}:{} ({})",
                         candidate.origin_address,
                         candidate.origin_nonce,
@@ -1511,11 +1519,13 @@ impl MemPoolDB {
                 }
                 Ordering::Equal => {
                     // Candidate transaction: fall through
+                    info!("Mempool: fall through.");
                 }
             };
 
             // Read in and deserialize the transaction.
             let tx_info_option = MemPoolDB::get_tx(&self.conn(), &candidate.txid)?;
+            info!("tx_info_option: {:?}", &tx_info_option);
             let tx_info = match tx_info_option {
                 Some(tx) => tx,
                 None => {
@@ -1529,7 +1539,7 @@ impl MemPoolDB {
                 tx: tx_info,
                 update_estimate,
             };
-            debug!("Consider mempool transaction";
+            info!("Consider mempool transaction";
                            "txid" => %consider.tx.tx.txid(),
                            "origin_addr" => %consider.tx.metadata.origin_address,
                            "origin_nonce" => candidate.origin_nonce,

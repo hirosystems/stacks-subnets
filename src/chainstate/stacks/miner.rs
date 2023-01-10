@@ -2077,7 +2077,7 @@ impl StacksBlockBuilder {
                 .convert_to_event(),
         );
 
-        mempool.reset_last_known_nonces()?;
+        mempool.reset_nonce_cache()?;
 
         mempool.estimate_tx_rates(100, &block_limit, &stacks_epoch_id)?;
 

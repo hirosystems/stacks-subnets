@@ -328,7 +328,7 @@ fn mempool_walk_over_fork() {
     );
 
     mempool
-        .reset_last_known_nonces()
+        .reset_nonce_cache()
         .expect("Should be able to reset nonces");
 
     chainstate.with_read_only_clarity_tx(
