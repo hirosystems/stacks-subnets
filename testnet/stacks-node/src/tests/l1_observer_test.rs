@@ -10,7 +10,7 @@ use crate::tests::neon_integrations::{
 };
 use crate::tests::{make_contract_call, make_contract_publish, to_addr};
 use crate::{neon, Config};
-use clarity::boot_util::boot_code_id;
+use clarity::boot_util::{boot_code_addr, boot_code_id};
 use clarity::types::chainstate::StacksAddress;
 use clarity::util::hash::{MerklePathOrder, MerkleTree, Sha512Trunc256Sum};
 use clarity::vm::database::ClaritySerializable;
@@ -573,10 +573,6 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
       (ft-mint? ft-token amount recipient)
     )
 
-    (define-public (subnet-withdraw-ft-token (amount uint) (recipient principal))
-      (contract-call? 'ST000000000000000000002AMW42H.subnet ft-withdraw? .simple-ft amount recipient)
-    )
-
     (define-read-only (get-token-balance (user principal))
         (ft-get-balance ft-token user)
     )
@@ -598,10 +594,6 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
 
     (define-public (subnet-deposit-nft-token (id uint) (recipient principal))
       (nft-mint? nft-token id recipient)
-    )
-
-    (define-public (subnet-withdraw-nft-token (id uint) (recipient principal))
-      (contract-call? 'ST000000000000000000002AMW42H.subnet nft-withdraw? .simple-nft id recipient)
     )
 
     (define-read-only (get-token-owner (id uint))
@@ -841,10 +833,17 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         config.node.chain_id,
         l2_nonce,
         1_000_000,
-        &user_addr,
-        "simple-ft",
-        "subnet-withdraw-ft-token",
-        &[Value::UInt(1), Value::Principal(user_addr.into())],
+        &boot_code_addr(false),
+        "subnet",
+        "ft-withdraw?",
+        &[
+            Value::Principal(PrincipalData::Contract(QualifiedContractIdentifier::new(
+                user_addr.into(),
+                ContractName::from("simple-ft"),
+            ))),
+            Value::UInt(1),
+            Value::Principal(user_addr.into()),
+        ],
     );
     l2_nonce += 1;
     // Withdraw the nft on the L2
@@ -853,10 +852,17 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         config.node.chain_id,
         l2_nonce,
         1_000_000,
-        &user_addr,
-        "simple-nft",
-        "subnet-withdraw-nft-token",
-        &[Value::UInt(1), Value::Principal(user_addr.into())],
+        &boot_code_addr(false),
+        "subnet",
+        "nft-withdraw?",
+        &[
+            Value::Principal(PrincipalData::Contract(QualifiedContractIdentifier::new(
+                user_addr.into(),
+                ContractName::from("simple-nft"),
+            ))),
+            Value::UInt(1),
+            Value::Principal(user_addr.into()),
+        ],
     );
     l2_nonce += 1;
     // Withdraw ft-token from subnet contract on L2
@@ -1982,10 +1988,6 @@ fn nft_deposit_and_withdraw_integration_test() {
       )
     )
 
-    (define-public (subnet-withdraw-nft-token (id uint) (recipient principal))
-      (contract-call? 'ST000000000000000000002AMW42H.subnet nft-withdraw? .simple-nft id recipient)
-    )
-
     (define-read-only (get-token-owner (id uint))
         (nft-get-owner? nft-token id)
     )
@@ -2179,10 +2181,17 @@ fn nft_deposit_and_withdraw_integration_test() {
         config.node.chain_id,
         l2_nonce,
         1_000_000,
-        &user_addr,
-        "simple-nft",
-        "subnet-withdraw-nft-token",
-        &[Value::UInt(1), Value::Principal(user_addr.into())],
+        &boot_code_addr(false),
+        "subnet",
+        "nft-withdraw?",
+        &[
+            Value::Principal(PrincipalData::Contract(QualifiedContractIdentifier::new(
+                user_addr.into(),
+                ContractName::from("simple-nft"),
+            ))),
+            Value::UInt(1),
+            Value::Principal(user_addr.into()),
+        ],
     );
     l2_nonce += 1;
     // Withdraw the subnet native nft from the L2 (with `nft-withdraw?`)
@@ -2191,10 +2200,17 @@ fn nft_deposit_and_withdraw_integration_test() {
         config.node.chain_id,
         l2_nonce,
         1_000_000,
-        &user_addr,
-        "simple-nft",
-        "subnet-withdraw-nft-token",
-        &[Value::UInt(5), Value::Principal(user_addr.into())],
+        &boot_code_addr(false),
+        "subnet",
+        "nft-withdraw?",
+        &[
+            Value::Principal(PrincipalData::Contract(QualifiedContractIdentifier::new(
+                user_addr.into(),
+                ContractName::from("simple-nft"),
+            ))),
+            Value::UInt(5),
+            Value::Principal(user_addr.into()),
+        ],
     );
     l2_nonce += 1;
     // Submit withdrawal function calls
