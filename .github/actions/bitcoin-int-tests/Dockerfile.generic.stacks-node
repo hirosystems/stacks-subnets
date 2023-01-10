@@ -1,6 +1,6 @@
 FROM stacks-blockchain:2.1-stretch as stacks-node
 
-FROM rust:stretch AS test
+FROM rust:bullseye AS test
 
 WORKDIR /build
 
