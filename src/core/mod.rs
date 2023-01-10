@@ -94,8 +94,8 @@ pub const INITIAL_MINING_BONUS_WINDOW: u16 = 10_000;
 
 pub const STACKS_EPOCH_MAX: u64 = i64::MAX as u64;
 
-pub const MAINNET_2_0_GENESIS_ROOT_HASH: &str =
-    "9653c92b1ad726e2dc17862a3786f7438ab9239c16dd8e7aaba8b0b5c34b52af";
+pub const SUBNET_GENESIS_ROOT_HASH: &str =
+    "455fdc5a17b482edd66ae9ca20990bb57795b208a3a2ab0f7707f3ca6bb6560b";
 
 /// This is the "dummy" parent to the actual first burnchain block that we process.
 pub const FIRST_BURNCHAIN_CONSENSUS_HASH: ConsensusHash = ConsensusHash([0u8; 20]);

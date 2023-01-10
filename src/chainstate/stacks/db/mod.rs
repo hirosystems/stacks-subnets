@@ -1475,9 +1475,9 @@ impl StacksChainState {
             if mainnet {
                 assert_eq!(
                     &genesis_root_hash.to_string(),
-                    MAINNET_2_0_GENESIS_ROOT_HASH,
+                    SUBNET_GENESIS_ROOT_HASH,
                     "Incorrect root hash for genesis block computed. expected={} computed={}",
-                    MAINNET_2_0_GENESIS_ROOT_HASH,
+                    SUBNET_GENESIS_ROOT_HASH,
                     genesis_root_hash.to_string()
                 )
             }
