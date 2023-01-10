@@ -9,6 +9,8 @@ In this demo, you will learn how to:
 5. Transfer the NFT in the subnet.
 6. Withdraw the NFT back to the L1 chain, which has two steps.
 
+▶️ [Watch distributed systems engineer Pavi demonstrate interacting with a Subnet here.](https://www.youtube.com/watch?v=GbGNlOsPDXM)
+
 This guide will follow the list above, step by step.
 It is also possible to mint assets directly on the subnet, and withdraw them onto the L1. This bonus step is mentioned
 at the end of step 5. 
@@ -34,7 +36,7 @@ The transaction sender must be part of the miners list defined in the subnet con
 Make sure you have `clarinet` installed locally, and that it is at version 0.33.0 or above.
 If you do not have clarinet, you can find installation instructions [here](https://github.com/hirosystems/clarinet).
 
-Let's create a new clarinet project. This will create a new directory with a Clarinet project initialized.
+Let's create a new Clarinet project. This will create a new directory with the Clarinet project initialized.
 ```
 clarinet new nft-use-case 
 ```
@@ -97,7 +99,6 @@ export USER_KEY=f9d7206a47f14d2870c163ebab4bf3e70d18f5d14ce1031f3902fbbc894fe4c7
 
 export ALT_USER_ADDR=ST2REHHS5J3CERCRBEPMGH7921Q6PYKAADT7JP2VB
 export ALT_USER_KEY=3eccc5dac8056590432db6a35d52b9896876a3d5cbdea53b72400bc9c2099fe801
-
 export SUBNET_URL="http://localhost:30443"
 ```
 

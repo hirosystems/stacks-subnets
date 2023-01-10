@@ -30,7 +30,7 @@ When a miner proposes a block to the other miners, the other miners must approve
 
 ![Screenshot of subnet miners proposing and approving the blocks.](/docs/images/subnet-miners.png)
 
-### Trust models in subnets
+### Trust models in Subnets
 
 The current implementation of subnets uses a federated system of miners. This federation is fully-trusted, but future work on subnets will explore alternative trust models.
 
@@ -41,14 +41,51 @@ In a fully - trusted model:
 - Trust can be federated with a 2-phase commit and BFT protocol for miner block issuance.
 - Federation requires a majority of miners to approve withdrawals.
 
-## Getting started
 
-You can start with an NFT use case demo [here](https://github.com/hirosystems/stacks-subnets/blob/master/NFT_USE_CASE.md).
+## Getting Started
+
+You can build subnets using any of the following methods:
+- Build with Clarinet
+  - You'll build with Clarinet using the NFT use case highlighting the deposit-withdraw features on subnets.
+- Build with Testnet
+  - You can build with testnet to run your subnets-node.
+- Test Locally
+  - You can test the deposit and withdrawal of funds in this method.
+
+> **_NOTE:_**
+>
+> Hyperchains have been renamed "subnets" due to the trademark for "hyperchains" already being registered. Learn more [here](https://www.hiro.so/blog/its-official-hyperchains-are-now-named-subnets).
+
+### Build with Clarinet
+
+You can start building with Clarinet using the instructions noted [here](https://github.com/hirosystems/stacks-subnets/blob/master/NFT_USE_CASE.md#setup). You can run through all the six steps indicated in the Setup section of the [NFT_USE_CASE.md](https://github.com/hirosystems/stacks-subnets/blob/master/NFT_USE_CASE.md) document to finish the deposit and withdrawal of NFT.
+
+### Build with Testnet
+
+You can set up configurations for subnet miners on testnet using the instructions noted [here](https://github.com/hirosystems/stacks-subnets/blob/master/DEPLOYING.md).
+
+### Test locally
+
+You can launch your contracts, deposit funds to your subnets layer and withdraw funds using the instructions noted [here](https://github.com/hirosystems/stacks-subnets/blob/master/LOCAL_TESTING.md).
+
+## Run Tests
+
+In your terminal, you can run tests by navigating to the `testnet/stacks-node/` directory and running the following command:
+
+`cargo test`
+
+If you want to ignore some tests, you can use the following command:
+
+`cargo test -- --ignored --num-threads=1`
 
 ## Resources
 
 - [Introductions to subnets.](https://www.youtube.com/watch?v=PFPwuVCGGuI)
-- [Introducing subnets blog post.](https://www.hiro.so/blog/introducing-hyperchains-by-hiro)
-- [Update on subnets, a scaling solution for Stacks.](https://www.hiro.so/blog/an-update-on-hyperchains-a-scaling-solution-for-stacks)
+- [Introducing Hyperchains by Hiro.](https://www.hiro.so/blog/introducing-hyperchains-by-hiro)
+- [An Update on Hyperchains: a Scaling Solution for Stacks.](https://www.hiro.so/blog/an-update-on-hyperchains-a-scaling-solution-for-stacks)
 
 
+## License information
+
+- Copyright (C) Hiro Systems PBC
+- Copyright (C) Stacks Open Internet Foundation, Inc.
