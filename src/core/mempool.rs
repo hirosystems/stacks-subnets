@@ -1223,19 +1223,6 @@ info!("denormalize_fee_rate");
     }
 
 
-    fn bump_last_known_nonces(&self, address: &StacksAddress) -> Result<(), db_error> {
-        let query_by = address.to_string();
-
-        let sql = "UPDATE mempool SET last_known_origin_nonce = last_known_origin_nonce + 1
-                   WHERE origin_address = ? AND last_known_origin_nonce IS NOT NULL";
-        self.db.execute(sql, &[&query_by])?;
-
-        let sql = "UPDATE mempool SET last_known_sponsor_nonce = last_known_sponsor_nonce + 1
-                   WHERE sponsor_address = ? AND last_known_sponsor_nonce IS NOT NULL";
-        self.db.execute(sql, &[&query_by])?;
-        Ok(())
-    }
-
     pub fn reset_nonce_cache(&mut self) -> Result<(), db_error> {
         debug!("reset nonce cache");
         let sql = "DELETE FROM nonces";
@@ -1551,10 +1538,46 @@ info!("denormalize_fee_rate");
                            "size" => consider.tx.metadata.len);
             total_considered += 1;
 
-                    if !todo(clarity_tx, &consider, self.cost_estimator.as_mut())? {
-                        debug!("Mempool iteration early exit from iterator");
-                        break;
+            // Run `todo` on the transaction.
+            match todo(clarity_tx, &consider, self.cost_estimator.as_mut())? {
+
+                        true => {
+                            // Bump nonces in the cache for the executed transaction
+                            let stored = nonce_cache.update(
+                                consider.tx.metadata.origin_address,
+                                expected_origin_nonce + 1,
+                                self.conn(),
+                            );
+                            if !stored {
+                                Self::save_nonce_for_retry(
+                                    &mut retry_store,
+                                    settings.nonce_cache_size,
+                                    consider.tx.metadata.origin_address,
+                                    expected_origin_nonce + 1,
+                                );
+                            }
+
+                            if consider.tx.tx.auth.is_sponsored() {
+                                let stored = nonce_cache.update(
+                                    consider.tx.metadata.sponsor_address,
+                                    expected_sponsor_nonce + 1,
+                                    self.conn(),
+                                );
+                                if !stored {
+                                    Self::save_nonce_for_retry(
+                                        &mut retry_store,
+                                        settings.nonce_cache_size,
+                                        consider.tx.metadata.sponsor_address,
+                                        expected_sponsor_nonce + 1,
+                                    );
+                                }
+                            }
+                        }
+                        false => {
+                            debug!("Mempool iteration early exit from iterator");
+                            break;                        
                     }
+                }
 
             // Reset for finding the next transaction to process
             debug!(
