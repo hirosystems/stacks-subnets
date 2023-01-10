@@ -1,30 +1,73 @@
 ;; The withdraw contract
 ;; For withdrawing assets from a subnmet back to the L1.
 
-(use-trait ft-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard)
-(use-trait nft-trait 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)
+(define-trait nft-trait
+  (
+    ;; Last token ID, limited to uint range
+    (get-last-token-id () (response uint uint))
 
-(define-map withdraw { key-name-1: key-type-1 } { val-name-1: vals-type-1 })
+    ;; URI for metadata associated with the token
+    (get-token-uri (uint) (response (optional (string-ascii 256)) uint))
+
+     ;; Owner of a given token identifier
+    (get-owner (uint) (response (optional principal) uint))
+
+    ;; Transfer from the sender to a new principal
+    (transfer (uint principal principal) (response bool uint))
+  )
+)
+
+(define-trait ft-trait
+  (
+    ;; Transfer from the caller to a new principal
+    (transfer (uint principal principal (optional (buff 34))) (response bool uint))
+
+    ;; the human readable name of the token
+    (get-name () (response (string-ascii 32) uint))
+
+    ;; the ticker symbol, or empty if none
+    (get-symbol () (response (string-ascii 32) uint))
+
+    ;; the number of decimals used, e.g. 6 would mean 1_000_000 represents 1 token
+    (get-decimals () (response uint uint))
+
+    ;; the balance of the passed principal
+    (get-balance (principal) (response uint uint))
+
+    ;; the current total supply (which does not need to be a constant)
+    (get-total-supply () (response uint uint))
+
+    ;; an optional URI that represents metadata of this token
+    (get-token-uri () (response (optional (string-utf8 256)) uint))
+  )
+)
+
+(define-trait mint-from-subnet-trait
+  (
+    ;; Transfer from the sender to a new principal
+    (mint-from-subnet (uint principal principal) (response bool uint))
+  )
+)
 
 (define-public (ft-withdraw? (asset <ft-trait>) (amount uint) (sender principal))
     (begin
         (print {
-            "type": "ft",
-            "sender": sender,
-            "amount": amount,
-            "asset-contract": (contract-of asset),
+            type: "ft",
+            sender: sender,
+            amount: amount,
+            asset-contract: (contract-of asset),
         })
-        (contract-call? asset transfer amount tx-sender (as-contract tx-sender))
+        (contract-call? asset transfer amount tx-sender (as-contract tx-sender) none)
     )
 )
 
 (define-public (nft-withdraw? (asset <nft-trait>) (id uint) (sender principal))
     (begin
         (print {
-            "type": "nft",
-            "sender": sender,
-            "id": id,
-            "asset-contract": (contract-of asset),
+            type: "nft",
+            sender: sender,
+            id: id,
+            asset-contract: (contract-of asset),
         })
         (contract-call? asset transfer id tx-sender (as-contract tx-sender))
     )
@@ -33,9 +76,9 @@
 (define-public (stx-withdraw? (amount uint) (sender principal))
     (begin
         (print {
-            "type": "stx",
-            "sender": sender,
-            "amount": amount,
+            type: "stx",
+            sender: sender,
+            amount: amount,
         })
         (stx-transfer? amount tx-sender (as-contract tx-sender))
     )
