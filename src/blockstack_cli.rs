@@ -26,6 +26,7 @@ use std::io::prelude::*;
 use std::io::Read;
 use std::{env, fs, io};
 
+use clarity::vm::ClarityVersion;
 use subnet_lib::address::b58;
 use subnet_lib::address::AddressHashMode;
 use subnet_lib::burnchains::Address;
@@ -50,7 +51,6 @@ use subnet_lib::vm::{
     types::PrincipalData,
     ClarityName, ContractName, Value,
 };
-use clarity::vm::ClarityVersion;
 
 const USAGE: &str = "blockstack-cli (options) [method] [args...]
 
