@@ -20,12 +20,12 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-extern crate subnet_lib;
 extern crate serde_json;
+extern crate subnet_lib;
 
-use subnet_lib::{clarity_cli as clarity, util::log};
 use std::env;
 use std::process;
+use subnet_lib::{clarity_cli as clarity, util::log};
 
 fn main() {
     let argv: Vec<String> = env::args().collect();

@@ -20,8 +20,8 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-extern crate subnet_lib;
 extern crate rusqlite;
+extern crate subnet_lib;
 #[macro_use]
 extern crate stacks_common;
 
@@ -38,6 +38,9 @@ use std::thread;
 use std::{collections::HashMap, env};
 use std::{convert::TryFrom, fs};
 
+use rusqlite::types::ToSql;
+use rusqlite::Connection;
+use rusqlite::OpenFlags;
 use subnet_lib::burnchains::BLOCKSTACK_MAGIC_MAINNET;
 use subnet_lib::clarity_cli;
 use subnet_lib::cost_estimates::UnitEstimator;
@@ -45,10 +48,9 @@ use subnet_lib::types::PrivateKey;
 use subnet_lib::util::secp256k1::secp256k1_recover;
 use subnet_lib::util::secp256k1::Secp256k1PrivateKey;
 use subnet_lib::util::secp256k1::Secp256k1PublicKey;
-use rusqlite::types::ToSql;
-use rusqlite::Connection;
-use rusqlite::OpenFlags;
 
+use clarity::vm::ClarityVersion;
+use std::collections::HashSet;
 use subnet_lib::burnchains::db::BurnchainDB;
 use subnet_lib::burnchains::Address;
 use subnet_lib::burnchains::Burnchain;
@@ -89,8 +91,6 @@ use subnet_lib::{
     util::{hash::Hash160, vrf::VRFProof},
     util_lib::db::sqlite_open,
 };
-use clarity::vm::ClarityVersion;
-use std::collections::HashSet;
 
 fn main() {
     let argv: Vec<String> = env::args().collect();

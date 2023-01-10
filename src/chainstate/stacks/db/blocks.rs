@@ -11373,8 +11373,12 @@ pub mod test {
         let mut subnet_deposit_contract_tx = StacksTransaction::new(
             TransactionVersion::Testnet,
             auth_user.clone(),
-            TransactionPayload::new_smart_contract("subnet-deposit-contract", subnet_simple_ft, None)
-                .unwrap(),
+            TransactionPayload::new_smart_contract(
+                "subnet-deposit-contract",
+                subnet_simple_ft,
+                None,
+            )
+            .unwrap(),
         );
 
         subnet_deposit_contract_tx.chain_id = 0x80000000;
@@ -11476,8 +11480,12 @@ pub mod test {
         let mut subnet_deposit_contract_tx = StacksTransaction::new(
             TransactionVersion::Testnet,
             auth_user.clone(),
-            TransactionPayload::new_smart_contract("subnet-deposit-contract", subnet_simple_nft, None)
-                .unwrap(),
+            TransactionPayload::new_smart_contract(
+                "subnet-deposit-contract",
+                subnet_simple_nft,
+                None,
+            )
+            .unwrap(),
         );
 
         subnet_deposit_contract_tx.chain_id = 0x80000000;
