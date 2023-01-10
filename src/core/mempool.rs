@@ -1114,7 +1114,7 @@ impl MemPoolDB {
 
     /// Denormalize fee rate schema 5
     fn denormalize_fee_rate(tx: &DBTx) -> Result<(), db_error> {
-info!("denormalize_fee_rate");
+        info!("denormalize_fee_rate");
         for sql_exec in MEMPOOL_SCHEMA_5 {
             tx.execute_batch(sql_exec)?;
         }
@@ -1221,7 +1221,6 @@ info!("denormalize_fee_rate");
             metric,
         })
     }
-
 
     pub fn reset_nonce_cache(&mut self) -> Result<(), db_error> {
         debug!("reset nonce cache");
@@ -1394,7 +1393,7 @@ info!("denormalize_fee_rate");
             .query(NO_PARAMS)
             .map_err(|err| Error::SqliteError(err))?;
 
-            info!("before loop");
+        info!("before loop");
 
         loop {
             info!("start loop");
@@ -1540,44 +1539,43 @@ info!("denormalize_fee_rate");
 
             // Run `todo` on the transaction.
             match todo(clarity_tx, &consider, self.cost_estimator.as_mut())? {
+                true => {
+                    // Bump nonces in the cache for the executed transaction
+                    let stored = nonce_cache.update(
+                        consider.tx.metadata.origin_address,
+                        expected_origin_nonce + 1,
+                        self.conn(),
+                    );
+                    if !stored {
+                        Self::save_nonce_for_retry(
+                            &mut retry_store,
+                            settings.nonce_cache_size,
+                            consider.tx.metadata.origin_address,
+                            expected_origin_nonce + 1,
+                        );
+                    }
 
-                        true => {
-                            // Bump nonces in the cache for the executed transaction
-                            let stored = nonce_cache.update(
-                                consider.tx.metadata.origin_address,
-                                expected_origin_nonce + 1,
-                                self.conn(),
+                    if consider.tx.tx.auth.is_sponsored() {
+                        let stored = nonce_cache.update(
+                            consider.tx.metadata.sponsor_address,
+                            expected_sponsor_nonce + 1,
+                            self.conn(),
+                        );
+                        if !stored {
+                            Self::save_nonce_for_retry(
+                                &mut retry_store,
+                                settings.nonce_cache_size,
+                                consider.tx.metadata.sponsor_address,
+                                expected_sponsor_nonce + 1,
                             );
-                            if !stored {
-                                Self::save_nonce_for_retry(
-                                    &mut retry_store,
-                                    settings.nonce_cache_size,
-                                    consider.tx.metadata.origin_address,
-                                    expected_origin_nonce + 1,
-                                );
-                            }
-
-                            if consider.tx.tx.auth.is_sponsored() {
-                                let stored = nonce_cache.update(
-                                    consider.tx.metadata.sponsor_address,
-                                    expected_sponsor_nonce + 1,
-                                    self.conn(),
-                                );
-                                if !stored {
-                                    Self::save_nonce_for_retry(
-                                        &mut retry_store,
-                                        settings.nonce_cache_size,
-                                        consider.tx.metadata.sponsor_address,
-                                        expected_sponsor_nonce + 1,
-                                    );
-                                }
-                            }
                         }
-                        false => {
-                            debug!("Mempool iteration early exit from iterator");
-                            break;                        
                     }
                 }
+                false => {
+                    debug!("Mempool iteration early exit from iterator");
+                    break;
+                }
+            }
 
             // Reset for finding the next transaction to process
             debug!(

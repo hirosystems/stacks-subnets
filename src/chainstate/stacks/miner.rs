@@ -2542,11 +2542,11 @@ pub mod test {
     use crate::core::tests::make_block;
     use crate::net::test::*;
     use crate::util_lib::db::Error as db_error;
+    use clarity::vm::test_util::TEST_BURN_STATE_DB;
     use clarity::vm::types::*;
     use stacks_common::address::*;
     use stacks_common::util::sleep_ms;
     use stacks_common::util::vrf::VRFProof;
-    use clarity::vm::test_util::TEST_BURN_STATE_DB;
 
     use crate::cost_estimates::metrics::UnitMetric;
     use crate::cost_estimates::UnitEstimator;
