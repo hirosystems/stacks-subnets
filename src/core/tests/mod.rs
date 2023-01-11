@@ -281,7 +281,7 @@ fn mempool_walk_over_fork() {
 
     let mut mempool_settings = MemPoolWalkSettings::default();
     mempool_settings.min_tx_fee = 10;
-
+    let mut tx_events = Vec::new();
     chainstate.with_read_only_clarity_tx(
         &TEST_BURN_STATE_DB,
         &StacksBlockHeader::make_index_block_hash(&b_2.0, &b_2.1),
@@ -290,11 +290,25 @@ fn mempool_walk_over_fork() {
             mempool
                 .iterate_candidates::<_, ChainstateError, _>(
                     clarity_conn,
+                    &mut tx_events,
                     2,
                     mempool_settings.clone(),
                     |_, available_tx, _| {
                         count_txs += 1;
-                        Ok(true)
+                        Ok(Some(
+                            // Generate any success result
+                            TransactionResult::success(
+                                &available_tx.tx.tx,
+                                available_tx.tx.metadata.tx_fee,
+                                StacksTransactionReceipt::from_stx_transfer(
+                                    available_tx.tx.tx.clone(),
+                                    vec![],
+                                    Value::okay(Value::Bool(true)).unwrap(),
+                                    ExecutionCost::zero(),
+                                ),
+                            )
+                            .convert_to_event(),
+                        ))
                     },
                 )
                 .unwrap();
@@ -315,11 +329,25 @@ fn mempool_walk_over_fork() {
             mempool
                 .iterate_candidates::<_, ChainstateError, _>(
                     clarity_conn,
+                    &mut tx_events,
                     2,
                     mempool_settings.clone(),
                     |_, available_tx, _| {
                         count_txs += 1;
-                        Ok(true)
+                        Ok(Some(
+                            // Generate any success result
+                            TransactionResult::success(
+                                &available_tx.tx.tx,
+                                available_tx.tx.metadata.tx_fee,
+                                StacksTransactionReceipt::from_stx_transfer(
+                                    available_tx.tx.tx.clone(),
+                                    vec![],
+                                    Value::okay(Value::Bool(true)).unwrap(),
+                                    ExecutionCost::zero(),
+                                ),
+                            )
+                            .convert_to_event(),
+                        ))
                     },
                 )
                 .unwrap();
@@ -339,11 +367,25 @@ fn mempool_walk_over_fork() {
             mempool
                 .iterate_candidates::<_, ChainstateError, _>(
                     clarity_conn,
+                    &mut tx_events,
                     3,
                     mempool_settings.clone(),
                     |_, available_tx, _| {
                         count_txs += 1;
-                        Ok(true)
+                        Ok(Some(
+                            // Generate any success result
+                            TransactionResult::success(
+                                &available_tx.tx.tx,
+                                available_tx.tx.metadata.tx_fee,
+                                StacksTransactionReceipt::from_stx_transfer(
+                                    available_tx.tx.tx.clone(),
+                                    vec![],
+                                    Value::okay(Value::Bool(true)).unwrap(),
+                                    ExecutionCost::zero(),
+                                ),
+                            )
+                            .convert_to_event(),
+                        ))
                     },
                 )
                 .unwrap();
@@ -368,11 +410,25 @@ fn mempool_walk_over_fork() {
             mempool
                 .iterate_candidates::<_, ChainstateError, _>(
                     clarity_conn,
+                    &mut tx_events,
                     2,
                     mempool_settings.clone(),
                     |_, available_tx, _| {
                         count_txs += 1;
-                        Ok(true)
+                        Ok(Some(
+                            // Generate any success result
+                            TransactionResult::success(
+                                &available_tx.tx.tx,
+                                available_tx.tx.metadata.tx_fee,
+                                StacksTransactionReceipt::from_stx_transfer(
+                                    available_tx.tx.tx.clone(),
+                                    vec![],
+                                    Value::okay(Value::Bool(true)).unwrap(),
+                                    ExecutionCost::zero(),
+                                ),
+                            )
+                            .convert_to_event(),
+                        ))
                     },
                 )
                 .unwrap();
@@ -395,11 +451,25 @@ fn mempool_walk_over_fork() {
             mempool
                 .iterate_candidates::<_, ChainstateError, _>(
                     clarity_conn,
+                    &mut tx_events,
                     3,
                     mempool_settings.clone(),
                     |_, available_tx, _| {
                         count_txs += 1;
-                        Ok(true)
+                        Ok(Some(
+                            // Generate any success result
+                            TransactionResult::success(
+                                &available_tx.tx.tx,
+                                available_tx.tx.metadata.tx_fee,
+                                StacksTransactionReceipt::from_stx_transfer(
+                                    available_tx.tx.tx.clone(),
+                                    vec![],
+                                    Value::okay(Value::Bool(true)).unwrap(),
+                                    ExecutionCost::zero(),
+                                ),
+                            )
+                            .convert_to_event(),
+                        ))
                     },
                 )
                 .unwrap();
@@ -550,6 +620,7 @@ fn test_iterate_candidates_consider_no_estimate_tx_prob() {
 
     let mut mempool_settings = MemPoolWalkSettings::default();
     mempool_settings.min_tx_fee = 10;
+    let mut tx_events = Vec::new();
 
     let mut txs = codec_all_transactions(
         &TransactionVersion::Testnet,
@@ -620,11 +691,25 @@ fn test_iterate_candidates_consider_no_estimate_tx_prob() {
             mempool
                 .iterate_candidates::<_, ChainstateError, _>(
                     clarity_conn,
+                    &mut tx_events,
                     2,
                     mempool_settings.clone(),
                     |_, available_tx, _| {
                         count_txs += 1;
-                        Ok(true)
+                        Ok(Some(
+                            // Generate any success result
+                            TransactionResult::success(
+                                &available_tx.tx.tx,
+                                available_tx.tx.metadata.tx_fee,
+                                StacksTransactionReceipt::from_stx_transfer(
+                                    available_tx.tx.tx.clone(),
+                                    vec![],
+                                    Value::okay(Value::Bool(true)).unwrap(),
+                                    ExecutionCost::zero(),
+                                ),
+                            )
+                            .convert_to_event(),
+                        ))
                     },
                 )
                 .unwrap();
@@ -644,11 +729,25 @@ fn test_iterate_candidates_consider_no_estimate_tx_prob() {
             mempool
                 .iterate_candidates::<_, ChainstateError, _>(
                     clarity_conn,
+                    &mut tx_events,
                     2,
                     mempool_settings.clone(),
                     |_, available_tx, _| {
                         count_txs += 1;
-                        Ok(true)
+                        Ok(Some(
+                            // Generate any success result
+                            TransactionResult::success(
+                                &available_tx.tx.tx,
+                                available_tx.tx.metadata.tx_fee,
+                                StacksTransactionReceipt::from_stx_transfer(
+                                    available_tx.tx.tx.clone(),
+                                    vec![],
+                                    Value::okay(Value::Bool(true)).unwrap(),
+                                    ExecutionCost::zero(),
+                                ),
+                            )
+                            .convert_to_event(),
+                        ))
                     },
                 )
                 .unwrap();
@@ -668,11 +767,25 @@ fn test_iterate_candidates_consider_no_estimate_tx_prob() {
             mempool
                 .iterate_candidates::<_, ChainstateError, _>(
                     clarity_conn,
+                    &mut tx_events,
                     2,
                     mempool_settings.clone(),
                     |_, available_tx, _| {
                         count_txs += 1;
-                        Ok(true)
+                        Ok(Some(
+                            // Generate any success result
+                            TransactionResult::success(
+                                &available_tx.tx.tx,
+                                available_tx.tx.metadata.tx_fee,
+                                StacksTransactionReceipt::from_stx_transfer(
+                                    available_tx.tx.tx.clone(),
+                                    vec![],
+                                    Value::okay(Value::Bool(true)).unwrap(),
+                                    ExecutionCost::zero(),
+                                ),
+                            )
+                            .convert_to_event(),
+                        ))
                     },
                 )
                 .unwrap();
@@ -707,6 +820,7 @@ fn test_iterate_candidates_skipped_transaction() {
 
     let mut mempool_settings = MemPoolWalkSettings::default();
     mempool_settings.min_tx_fee = 10;
+    let mut tx_events = Vec::new();
 
     let mut txs = codec_all_transactions(
         &TransactionVersion::Testnet,
@@ -759,6 +873,7 @@ fn test_iterate_candidates_skipped_transaction() {
             mempool
                 .iterate_candidates::<_, ChainstateError, _>(
                     clarity_conn,
+                    &mut tx_events,
                     2,
                     mempool_settings.clone(),
                     |_, available_tx, _| {
@@ -784,7 +899,7 @@ fn test_iterate_candidates_skipped_transaction() {
                             )
                             .convert_to_event()
                         };
-                        Ok(true)
+                        Ok(Some(result))
                     },
                 )
                 .unwrap();
@@ -822,6 +937,7 @@ fn test_iterate_candidates_processing_error_transaction() {
 
     let mut mempool_settings = MemPoolWalkSettings::default();
     mempool_settings.min_tx_fee = 10;
+    let mut tx_events = Vec::new();
 
     let mut txs = codec_all_transactions(
         &TransactionVersion::Testnet,
@@ -874,6 +990,7 @@ fn test_iterate_candidates_processing_error_transaction() {
             mempool
                 .iterate_candidates::<_, ChainstateError, _>(
                     clarity_conn,
+                    &mut tx_events,
                     2,
                     mempool_settings.clone(),
                     |_, available_tx, _| {
@@ -901,7 +1018,7 @@ fn test_iterate_candidates_processing_error_transaction() {
                             )
                             .convert_to_event()
                         };
-                        Ok(true)
+                        Ok(Some(result))
                     },
                 )
                 .unwrap();
