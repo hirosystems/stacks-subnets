@@ -476,45 +476,6 @@ const MEMPOOL_SCHEMA_3_BLOOM_STATE: &'static [&'static str] = &[
     "#,
 ];
 
-const MEMPOOL_SCHEMA_4_BLACKLIST: &'static [&'static str] = &[
-    r#"
-    -- List of transactions that will never be stored to the mempool again, for as long as the rows exist.
-    -- `arrival_time` indicates when the entry was created. This is used to garbage-collect the list.
-    -- A transaction that is blacklisted may still be served from the mempool, but it will never be (re)submitted.
-    CREATE TABLE IF NOT EXISTS tx_blacklist(
-        txid TEXT PRIMARY KEY NOT NULL,
-        arrival_time INTEGER NOT NULL
-    );
-    "#,
-    r#"
-    -- Count the number of entries in the blacklist
-    CREATE TABLE IF NOT EXISTS tx_blacklist_size(
-        size INTEGER NOT NULL
-    );
-    "#,
-    r#"
-    -- Maintain a count of the size of the blacklist
-    CREATE TRIGGER IF NOT EXISTS tx_blacklist_size_inc
-    AFTER INSERT ON tx_blacklist
-    BEGIN
-        UPDATE tx_blacklist_size SET size = size + 1;
-    END
-    "#,
-    r#"
-    CREATE TRIGGER IF NOT EXISTS tx_blacklist_size_dec
-    AFTER DELETE ON tx_blacklist
-    BEGIN
-        UPDATE tx_blacklist_size SET size = size - 1;
-    END
-    "#,
-    r#"
-    INSERT INTO tx_blacklist_size (size) VALUES (0)
-    "#,
-    r#"
-    INSERT INTO schema_version (version) VALUES (4)
-    "#,
-];
-
 const MEMPOOL_SCHEMA_5: &'static [&'static str] = &[
     r#"
     ALTER TABLE mempool ADD COLUMN fee_rate NUMBER;
@@ -1059,7 +1020,7 @@ impl MemPoolDB {
                     MemPoolDB::instantiate_bloom_state(tx)?;
                 }
                 3 => {
-                    MemPoolDB::instantiate_tx_blacklist(tx)?;
+                    // Pass through. This level was inherited from the L1, and left here for simplicity.
                 }
                 4 => {
                     MemPoolDB::denormalize_fee_rate(tx)?;
@@ -1116,15 +1077,6 @@ impl MemPoolDB {
     fn denormalize_fee_rate(tx: &DBTx) -> Result<(), db_error> {
         info!("denormalize_fee_rate");
         for sql_exec in MEMPOOL_SCHEMA_5 {
-            tx.execute_batch(sql_exec)?;
-        }
-
-        Ok(())
-    }
-
-    /// Instantiate the tx blacklist schema
-    fn instantiate_tx_blacklist(tx: &DBTx) -> Result<(), db_error> {
-        for sql_exec in MEMPOOL_SCHEMA_4_BLACKLIST {
             tx.execute_batch(sql_exec)?;
         }
 
