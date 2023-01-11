@@ -935,6 +935,7 @@ impl<'a> StacksMicroblockBuilder<'a> {
                 let mut num_added = 0;
                 intermediate_result = mem_pool.iterate_candidates(
                     &mut clarity_tx,
+                    &mut tx_events,
                     self.anchor_block_height,
                     mempool_settings.clone(),
                     |clarity_tx, to_consider, estimator| {
@@ -946,11 +947,12 @@ impl<'a> StacksMicroblockBuilder<'a> {
                                 "Microblock miner deadline exceeded ({} ms)",
                                 self.settings.max_miner_time_ms
                             );
-                            return Ok(false);
+                            return Ok(None);
                         }
 
                         if considered.contains(&mempool_tx.tx.txid()) {
-                            return Ok(true);
+                            return Ok(Some(TransactionResult::skipped(
+                                &mempool_tx.tx, "Transaction already considered.".to_string()).convert_to_event()));
                         } else {
                             considered.insert(mempool_tx.tx.txid());
                         }
@@ -963,7 +965,7 @@ impl<'a> StacksMicroblockBuilder<'a> {
                             &block_limit_hit,
                         ) {
                             Ok(tx_result) => {
-                                tx_events.push(tx_result.convert_to_event());
+                                let result_event = tx_result.convert_to_event();
                                 match tx_result {
                                     TransactionResult::Success(TransactionSuccess {
                                         receipt,
@@ -993,7 +995,7 @@ impl<'a> StacksMicroblockBuilder<'a> {
                                         num_txs += 1;
                                         num_added += 1;
                                         num_selected += 1;
-                                        Ok(true)
+                                        Ok(Some(result_event))
                                     }
                                     TransactionResult::Skipped(TransactionSkipped {
                                         error,
@@ -1019,7 +1021,7 @@ impl<'a> StacksMicroblockBuilder<'a> {
                                                     debug!("Block budget exceeded while mining microblock"; 
                                                         "tx" => %mempool_tx.tx.txid(), "next_behavior" => "Stop mining microblock");
                                                     block_limit_hit = BlockLimitFunction::LIMIT_REACHED;
-                                                    return Ok(false);
+                                                    return Ok(None);
                                                 }
                                             }
                                             Error::TransactionTooBigError => {
@@ -1027,7 +1029,7 @@ impl<'a> StacksMicroblockBuilder<'a> {
                                             }
                                             _ => {}
                                         }
-                                        return Ok(true)
+                                        return Ok(Some(result_event))
                                     }
                                 }
                             }
