@@ -1340,16 +1340,25 @@ impl MemPoolDB {
     /// `todo` returns an option to a `TransactionEvent` representing the
     /// outcome, or None to indicate that iteration through the mempool should
     /// be halted.
+    ///
+    /// `output_events` is modified in place, adding all substantive
+    /// transaction events (success and error events, but not skipped) output
+    /// by `todo`.
     pub fn iterate_candidates<F, E, C>(
         &mut self,
         clarity_tx: &mut C,
+        output_events: &mut Vec<TransactionEvent>,
         _tip_height: u64,
         settings: MemPoolWalkSettings,
         mut todo: F,
     ) -> Result<u64, E>
     where
         C: ClarityConnection,
-        F: FnMut(&mut C, &ConsiderTransaction, &mut dyn CostEstimator) -> Result<bool, E>,
+        F: FnMut(
+            &mut C,
+            &ConsiderTransaction,
+            &mut dyn CostEstimator,
+        ) -> Result<Option<TransactionEvent>, E>,
         E: From<db_error> + From<ChainstateError>,
     {
         let start_time = Instant::now();
@@ -1539,39 +1548,50 @@ impl MemPoolDB {
 
             // Run `todo` on the transaction.
             match todo(clarity_tx, &consider, self.cost_estimator.as_mut())? {
-                true => {
-                    // Bump nonces in the cache for the executed transaction
-                    let stored = nonce_cache.update(
-                        consider.tx.metadata.origin_address,
-                        expected_origin_nonce + 1,
-                        self.conn(),
-                    );
-                    if !stored {
-                        Self::save_nonce_for_retry(
-                            &mut retry_store,
-                            settings.nonce_cache_size,
-                            consider.tx.metadata.origin_address,
-                            expected_origin_nonce + 1,
-                        );
-                    }
-
-                    if consider.tx.tx.auth.is_sponsored() {
-                        let stored = nonce_cache.update(
-                            consider.tx.metadata.sponsor_address,
-                            expected_sponsor_nonce + 1,
-                            self.conn(),
-                        );
-                        if !stored {
-                            Self::save_nonce_for_retry(
-                                &mut retry_store,
-                                settings.nonce_cache_size,
-                                consider.tx.metadata.sponsor_address,
-                                expected_sponsor_nonce + 1,
+                Some(tx_event) => {
+                    match tx_event {
+                        TransactionEvent::Success(_) => {
+                            // Bump nonces in the cache for the executed transaction
+                            let stored = nonce_cache.update(
+                                consider.tx.metadata.origin_address,
+                                expected_origin_nonce + 1,
+                                self.conn(),
                             );
+                            if !stored {
+                                Self::save_nonce_for_retry(
+                                    &mut retry_store,
+                                    settings.nonce_cache_size,
+                                    consider.tx.metadata.origin_address,
+                                    expected_origin_nonce + 1,
+                                );
+                            }
+
+                            if consider.tx.tx.auth.is_sponsored() {
+                                let stored = nonce_cache.update(
+                                    consider.tx.metadata.sponsor_address,
+                                    expected_sponsor_nonce + 1,
+                                    self.conn(),
+                                );
+                                if !stored {
+                                    Self::save_nonce_for_retry(
+                                        &mut retry_store,
+                                        settings.nonce_cache_size,
+                                        consider.tx.metadata.sponsor_address,
+                                        expected_sponsor_nonce + 1,
+                                    );
+                                }
+                            }
+                            output_events.push(tx_event);
+                        }
+                        TransactionEvent::Skipped(_) => {
+                            // don't push `Skipped` events to the observer
+                        }
+                        _ => {
+                            output_events.push(tx_event);
                         }
                     }
                 }
-                false => {
+                None => {
                     debug!("Mempool iteration early exit from iterator");
                     break;
                 }
