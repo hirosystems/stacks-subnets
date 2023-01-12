@@ -10,6 +10,7 @@ use stacks::{
     vm::types::{QualifiedContractIdentifier, TupleData},
 };
 
+mod commitment;
 pub mod db_indexer;
 
 pub fn random_sortdb_test_dir() -> String {

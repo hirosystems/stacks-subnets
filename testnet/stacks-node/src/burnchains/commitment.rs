@@ -1,4 +1,5 @@
 use reqwest::StatusCode;
+use serde_json::json;
 use stacks::address::AddressHashMode;
 use stacks::chainstate::stacks::miner::Proposal;
 use stacks::chainstate::stacks::{
@@ -7,17 +8,22 @@ use stacks::chainstate::stacks::{
     TransactionVersion,
 };
 use stacks::net::http::HttpBlockProposalRejected;
+use stacks::net::RPCFeeEstimateResponse;
 use stacks::util::hash::hex_bytes;
 use stacks::vm::types::{QualifiedContractIdentifier, TupleData};
 use stacks::vm::ClarityName;
 use stacks::vm::Value as ClarityValue;
 use stacks_common::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksAddress};
-use stacks_common::util::hash::Sha512Trunc256Sum;
+use stacks_common::util::hash::{to_hex, Sha512Trunc256Sum};
 
 use crate::config::BurnchainConfig;
 use crate::operations::BurnchainOpSigner;
+use crate::stacks_common::codec::StacksMessageCodec;
 
 use super::ClaritySignature;
+
+/// Default fee to pay for a miner commitment, in case no estimate is available.
+const DEFAULT_MINER_COMMITMENT_FEE: u64 = 100_000u64;
 
 pub trait Layer1Committer {
     /// Return the number of signatures that need to be included alongside a commit transaction
@@ -96,6 +102,92 @@ fn l1_get_nonce(l1_rpc_interface: &str, address: &StacksAddress) -> Result<u64, 
         .json()
         .map_err(|e| Error::NonceGetFailure(e.to_string()))?;
     Ok(response_json.nonce)
+}
+
+/// Compute an effective fee to use, based on a transaction, and response scalars. Use the equation:
+///     `base_fee` + `fee_rate` x `cost_scalar_change_by_byte` x (`final_size` - `estimated_size`)
+pub fn calculate_fee_rate_adjustment(
+    transaction: &StacksTransaction,
+    base_fee: u64,
+    fee_rate: f64,
+    cost_scalar_change_by_byte: f64,
+) -> Result<u64, FeeCalculationError> {
+    let transaction_bytes = transaction.serialize_to_vec();
+
+    let final_size = transaction_bytes.len();
+    let estimated_size = transaction.payload.serialize_to_vec().len();
+    let adjustment = (fee_rate * cost_scalar_change_by_byte) * (final_size - estimated_size) as f64;
+
+    Ok(base_fee + adjustment as u64)
+}
+
+/// 1) Parse `response`.
+/// 2) Ensure there are fee estimates and extract the median fee rate.
+/// 3) Use the `fee rate` and the `cost scalar change by byte` to get the adjusted fee.
+pub fn compute_fee_from_response_and_transaction(
+    transaction: &StacksTransaction,
+    response: &reqwest::Result<RPCFeeEstimateResponse>,
+) -> Result<u64, FeeCalculationError> {
+    match response {
+        Ok(fee_estimate_response) => {
+            let estimations = &fee_estimate_response.estimations;
+            if estimations.len() == 0 {
+                return Err(FeeCalculationError::NoEstimatesReturned);
+            }
+
+            let mid_point = estimations.len() / 2;
+            let fee_rate = estimations[mid_point].fee_rate;
+
+            let adjusted = calculate_fee_rate_adjustment(
+                transaction,
+                estimations[mid_point].fee,
+                fee_rate,
+                fee_estimate_response.cost_scalar_change_by_byte,
+            )?;
+
+            Ok(adjusted)
+        }
+        Err(e) => {
+            warn!(
+                "Failure getting response from L1 on recommended fee rate: {:?}",
+                &e
+            );
+            Err(FeeCalculationError::L1ResponseFailure)
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum FeeCalculationError {
+    /// The L1 response was an error.
+    L1ResponseFailure,
+    /// The L1 response, for some unexpected reason, has no estimation objects at all.
+    NoEstimatesReturned,
+    /// A fluke error occurred when serializing a transaction.
+    ErrorSerializingTransaction,
+}
+
+/// Ask the L1 fee estimate endpoint for fee estimates. Return the median estimate of 3 estimates,
+/// if it exists, or else return None.
+fn calculate_l1_fee_for_transaction(
+    transaction: &StacksTransaction,
+    http_origin: &str,
+) -> Result<u64, FeeCalculationError> {
+    // query L1 for an estimate response
+    let client = reqwest::blocking::Client::new();
+    let path = format!("{}/v2/fees/transaction", &http_origin);
+    let payload_data = transaction.payload.serialize_to_vec();
+    let payload_hex = format!("0x{}", to_hex(&payload_data));
+    let body = json!({ "transaction_payload": payload_hex.clone() });
+    let res = client.post(&path).json(&body).send().map_err(|e| {
+        warn!("Error getting response from L1 about fee rate: {:?}", &e);
+        FeeCalculationError::L1ResponseFailure
+    })?;
+    let json_response: reqwest::Result<RPCFeeEstimateResponse> =
+        res.json::<RPCFeeEstimateResponse>();
+
+    // parse the response and calculate a fee
+    compute_fee_from_response_and_transaction(transaction, &json_response)
 }
 
 impl std::fmt::Display for Error {
@@ -219,19 +311,41 @@ impl MultiPartyCommitter {
             return Err(Error::AlreadyCommitted);
         }
 
-        // step 1: figure out the miner's nonce
+        // figure out the miner's nonce
         let miner_address = l1_addr_from_signer(self.config.is_mainnet(), op_signer);
         let nonce = l1_get_nonce(&self.config.get_rpc_url(), &miner_address).map_err(|e| {
             error!("Failed to obtain miner nonce: {}", e);
             e
         })?;
 
-        // step 2: fee estimate (todo: #140)
-        let fee = 100_000;
+        // fee estimate
+        let pre_transaction = self
+            .make_mine_contract_call(
+                op_signer.get_sk(),
+                nonce,
+                DEFAULT_MINER_COMMITMENT_FEE,
+                committed_block_hash,
+                target_tip,
+                withdrawal_merkle_root,
+                signatures.clone(),
+            )
+            .map_err(|e| {
+                error!("Failed to construct contract call operation: {}", e);
+                e
+            })?;
+        let computed_fee =
+            calculate_l1_fee_for_transaction(&pre_transaction, &self.config.get_rpc_url())
+                .map_err(|e| {
+                    error!("Failed to get L1 fee estimate: {:?}", &e);
+                    e
+                })
+                .unwrap_or(DEFAULT_MINER_COMMITMENT_FEE);
+
+        // create the call
         self.make_mine_contract_call(
             op_signer.get_sk(),
             nonce,
-            fee,
+            computed_fee,
             committed_block_hash,
             target_tip,
             withdrawal_merkle_root,
@@ -429,19 +543,40 @@ impl DirectCommitter {
             return Err(Error::AlreadyCommitted);
         }
 
-        // step 1: figure out the miner's nonce
+        // figure out the miner's nonce
         let miner_address = l1_addr_from_signer(self.config.is_mainnet(), op_signer);
         let nonce = l1_get_nonce(&self.config.get_rpc_url(), &miner_address).map_err(|e| {
             error!("Failed to obtain miner nonce: {}", e);
             e
         })?;
 
-        // step 2: fee estimate (todo: #140)
-        let fee = 100_000;
+        // calculate a fee estimate
+        let pre_transaction = self
+            .make_mine_contract_call(
+                op_signer.get_sk(),
+                nonce,
+                DEFAULT_MINER_COMMITMENT_FEE,
+                committed_block_hash,
+                target_tip,
+                withdrawal_merkle_root,
+            )
+            .map_err(|e| {
+                error!("Failed to construct contract call operation: {}", e);
+                e
+            })?;
+        let computed_fee =
+            calculate_l1_fee_for_transaction(&pre_transaction, &self.config.get_rpc_url())
+                .map_err(|e| {
+                    error!("Failed to get L1 fee estimate: {:?}", &e);
+                    e
+                })
+                .unwrap_or(DEFAULT_MINER_COMMITMENT_FEE);
+
+        // create the call
         self.make_mine_contract_call(
             op_signer.get_sk(),
             nonce,
-            fee,
+            computed_fee,
             committed_block_hash,
             target_tip,
             withdrawal_merkle_root,
