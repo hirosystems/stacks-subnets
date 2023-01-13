@@ -4506,7 +4506,13 @@ impl StacksChainState {
                         applied = true;
                     }
                     StacksEpochId::Epoch2_05 => {
-                        panic!("No defined transition from Epoch2_05 forward")
+                        assert_eq!(
+                            sortition_epoch.epoch_id,
+                            StacksEpochId::Epoch21,
+                            "Should only transition from Epoch2_05 to Epoch21"
+                        );
+                        receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
+                        applied = true;
                     }
                     StacksEpochId::Epoch21 => {
                         panic!("No defined transition from Epoch21 forward")

@@ -588,6 +588,7 @@ pub struct SortitionDBTxContext {
 #[derive(Clone)]
 pub struct SortitionHandleContext {
     pub first_block_height: u64,
+    pub pox_constants: PoxConstants,
     pub chain_tip: SortitionId,
 }
 
@@ -764,6 +765,7 @@ impl<'a> SortitionHandleTx<'a> {
             SortitionHandleContext {
                 chain_tip: parent_chain_tip.clone(),
                 first_block_height: conn.first_block_height,
+                pox_constants: conn.pox_constants.clone(),
             },
         );
 
@@ -1278,6 +1280,7 @@ impl<'a> SortitionHandleConn<'a> {
             context: SortitionHandleContext {
                 chain_tip: chain_tip.clone(),
                 first_block_height: connection.context.first_block_height,
+                pox_constants: connection.context.pox_constants.clone(),
             },
             index: &connection.index,
         })
@@ -1521,6 +1524,7 @@ impl SortitionDB {
             SortitionHandleContext {
                 first_block_height: self.first_block_height,
                 chain_tip: chain_tip.clone(),
+                pox_constants: self.pox_constants.clone(),
             },
         )
     }
@@ -1538,6 +1542,7 @@ impl SortitionDB {
             SortitionHandleContext {
                 first_block_height: self.first_block_height,
                 chain_tip: chain_tip.clone(),
+                pox_constants: self.pox_constants.clone(),
             },
         ))
     }
@@ -1979,6 +1984,7 @@ impl<'a> SortitionDBConn<'a> {
             context: SortitionHandleContext {
                 first_block_height: self.context.first_block_height.clone(),
                 chain_tip: chain_tip.clone(),
+                pox_constants: self.context.pox_constants.clone(),
             },
         }
     }

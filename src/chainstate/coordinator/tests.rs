@@ -644,7 +644,7 @@ fn test_simple_setup() {
         &committers,
         None,
         None,
-        StacksEpochId::Epoch20,
+        StacksEpochId::Epoch21,
     );
 
     let mut coord = make_coordinator(path, None);
