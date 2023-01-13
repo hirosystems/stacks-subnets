@@ -82,7 +82,7 @@ pub const MINING_COMMITMENT_WINDOW: u8 = 6;
 //  them again.
 pub const TX_BLOCK_LIMIT_PROPORTION_HEURISTIC: u64 = 20;
 
-pub const GENESIS_EPOCH: StacksEpochId = StacksEpochId::Epoch20;
+pub const GENESIS_EPOCH: StacksEpochId = StacksEpochId::Epoch21;
 
 /// The number of blocks which will share the block bonus
 ///   from burn blocks that occurred without a sortition.
@@ -107,12 +107,14 @@ pub const BITCOIN_MAINNET_FIRST_BLOCK_HASH: &str =
     "0000000000000000000ab248c8e35c574514d052a83dbc12669e19bc43df486e";
 pub const BITCOIN_MAINNET_INITIAL_REWARD_START_BLOCK: u64 = 651389;
 pub const BITCOIN_MAINNET_STACKS_2_05_BURN_HEIGHT: u64 = 713_000;
+pub const BITCOIN_MAINNET_STACKS_21_BURN_HEIGHT: u64 = 2_000_000;
 
 pub const BITCOIN_TESTNET_FIRST_BLOCK_HEIGHT: u64 = 2000000;
 pub const BITCOIN_TESTNET_FIRST_BLOCK_TIMESTAMP: u32 = 1622691840;
 pub const BITCOIN_TESTNET_FIRST_BLOCK_HASH: &str =
     "000000000000010dd0863ec3d7a0bae17c1957ae1de9cbcdae8e77aad33e3b8c";
 pub const BITCOIN_TESTNET_STACKS_2_05_BURN_HEIGHT: u64 = 2_104_380;
+pub const BITCOIN_TESTNET_STACKS_21_BURN_HEIGHT: u64 = 2_412_532;
 
 pub const BITCOIN_REGTEST_FIRST_BLOCK_HEIGHT: u64 = 0;
 pub const BITCOIN_REGTEST_FIRST_BLOCK_TIMESTAMP: u32 = 0;
@@ -148,6 +150,12 @@ pub const POX_THRESHOLD_STEPS_USTX: u128 = 10_000 * (MICROSTACKS_PER_STACKS as u
 
 pub const POX_MAX_NUM_CYCLES: u8 = 12;
 
+// TODO: pick a real value for Stacks 2.1
+pub const POX_V1_MAINNET_EARLY_UNLOCK_HEIGHT: u32 =
+    (BITCOIN_MAINNET_STACKS_21_BURN_HEIGHT as u32) + 1;
+pub const POX_V1_TESTNET_EARLY_UNLOCK_HEIGHT: u32 =
+    (BITCOIN_TESTNET_STACKS_21_BURN_HEIGHT as u32) + 1;
+
 // Stacks 1.0 did not allow smart contracts so all limits are 0.
 pub const BLOCK_LIMIT_MAINNET_10: ExecutionCost = ExecutionCost {
     write_length: 0,
@@ -168,6 +176,15 @@ pub const BLOCK_LIMIT_MAINNET_20: ExecutionCost = ExecutionCost {
 
 // Block limit in Stacks 2.05.
 pub const BLOCK_LIMIT_MAINNET_205: ExecutionCost = ExecutionCost {
+    write_length: 15_000_000,
+    write_count: 15_000,
+    read_length: 100_000_000,
+    read_count: 15_000,
+    runtime: 5_000_000_000,
+};
+
+// Block limit in Stacks 2.1
+pub const BLOCK_LIMIT_MAINNET_21: ExecutionCost = ExecutionCost {
     write_length: 15_000_000,
     write_count: 15_000,
     read_length: 100_000_000,
@@ -200,7 +217,7 @@ pub fn check_fault_injection(fault_name: &str) -> bool {
 }
 
 lazy_static! {
-    pub static ref STACKS_EPOCHS_MAINNET: [StacksEpoch; 3] = [
+    pub static ref STACKS_EPOCHS_MAINNET: [StacksEpoch; 4] = [
         StacksEpoch {
             epoch_id: StacksEpochId::Epoch10,
             start_height: 0,
@@ -218,15 +235,22 @@ lazy_static! {
         StacksEpoch {
             epoch_id: StacksEpochId::Epoch2_05,
             start_height: BITCOIN_MAINNET_STACKS_2_05_BURN_HEIGHT,
-            end_height: STACKS_EPOCH_MAX,
+            end_height: BITCOIN_MAINNET_STACKS_21_BURN_HEIGHT,
             block_limit: BLOCK_LIMIT_MAINNET_205.clone(),
             network_epoch: PEER_VERSION_EPOCH_2_05
+        },
+        StacksEpoch {
+            epoch_id: StacksEpochId::Epoch21,
+            start_height: BITCOIN_MAINNET_STACKS_21_BURN_HEIGHT,
+            end_height: STACKS_EPOCH_MAX,
+            block_limit: BLOCK_LIMIT_MAINNET_21.clone(),
+            network_epoch: PEER_VERSION_EPOCH_2_1
         },
     ];
 }
 
 lazy_static! {
-    pub static ref STACKS_EPOCHS_TESTNET: [StacksEpoch; 3] = [
+    pub static ref STACKS_EPOCHS_TESTNET: [StacksEpoch; 4] = [
         StacksEpoch {
             epoch_id: StacksEpochId::Epoch10,
             start_height: 0,
@@ -244,15 +268,22 @@ lazy_static! {
         StacksEpoch {
             epoch_id: StacksEpochId::Epoch2_05,
             start_height: BITCOIN_TESTNET_STACKS_2_05_BURN_HEIGHT,
-            end_height: STACKS_EPOCH_MAX,
+            end_height: BITCOIN_TESTNET_STACKS_21_BURN_HEIGHT,
             block_limit: BLOCK_LIMIT_MAINNET_205.clone(),
             network_epoch: PEER_VERSION_EPOCH_2_05
+        },
+        StacksEpoch {
+            epoch_id: StacksEpochId::Epoch21,
+            start_height: BITCOIN_TESTNET_STACKS_21_BURN_HEIGHT,
+            end_height: STACKS_EPOCH_MAX,
+            block_limit: BLOCK_LIMIT_MAINNET_21.clone(),
+            network_epoch: PEER_VERSION_EPOCH_2_1
         },
     ];
 }
 
 lazy_static! {
-    pub static ref STACKS_EPOCHS_REGTEST: [StacksEpoch; 3] = [
+    pub static ref STACKS_EPOCHS_REGTEST: [StacksEpoch; 4] = [
         StacksEpoch {
             epoch_id: StacksEpochId::Epoch10,
             start_height: 0,
@@ -270,9 +301,16 @@ lazy_static! {
         StacksEpoch {
             epoch_id: StacksEpochId::Epoch2_05,
             start_height: 1000,
-            end_height: STACKS_EPOCH_MAX,
+            end_height: 2000,
             block_limit: HELIUM_BLOCK_LIMIT_20.clone(),
             network_epoch: PEER_VERSION_EPOCH_2_05
+        },
+        StacksEpoch {
+            epoch_id: StacksEpochId::Epoch21,
+            start_height: 2000,
+            end_height: STACKS_EPOCH_MAX,
+            block_limit: HELIUM_BLOCK_LIMIT_20.clone(),
+            network_epoch: PEER_VERSION_EPOCH_2_1
         },
     ];
 }

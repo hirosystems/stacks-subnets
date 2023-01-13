@@ -5,13 +5,18 @@ use clarity::types::chainstate::{BlockHeaderHash, ConsensusHash, StacksBlockId, 
 use clarity::util::hash::{MerkleTree, Sha512Trunc256Sum};
 use clarity::vm::database::ClarityBackingStore;
 use clarity::vm::events::StacksTransactionEvent;
+use clarity::vm::representations::ClarityName;
 use clarity::vm::types::{PrincipalData, QualifiedContractIdentifier, SequenceData, TupleData};
 use clarity::vm::Value;
 use regex::internal::Input;
+use std::collections::BTreeMap;
 
-lazy_static! {
-    pub static ref WITHDRAW_CONTRACT: (QualifiedContractIdentifier, String) =
-        (boot_code_id("subnet", true), "print".to_string(),);
+fn is_subnet_contract_event(contract: &QualifiedContractIdentifier, function: &String) -> bool {
+    if function != "print" {
+        return false;
+    }
+    // TODO: Do we know if we are in mainnet or testnet?
+    contract == &boot_code_id("subnet", true) || contract == &boot_code_id("subnet", false)
 }
 
 fn clarity_ascii_str(input: &str) -> Value {
@@ -61,9 +66,14 @@ pub fn generate_key_from_event(
     withdrawal_id: u32,
     block_height: u64,
 ) -> Option<Value> {
-    if let StacksTransactionEvent::SmartContractEvent(data) = event {
-        if data.key == WITHDRAW_CONTRACT.clone() {
-            let data_map = data.value.clone().expect_tuple();
+    if let StacksTransactionEvent::SmartContractEvent(event_data) = event {
+        if !is_subnet_contract_event(&event_data.key.0, &event_data.key.1) {
+            return None;
+        }
+
+        if let Value::Tuple(ref mut data) = event_data.value {
+            let data_map = &mut data.data_map;
+            data_map.insert("withdrawal_id".into(), Value::UInt(withdrawal_id as u128));
             let event_type = data_map
                 .get("type")
                 .expect("withdraw event has no type")
@@ -94,7 +104,7 @@ pub fn generate_key_from_event(
 }
 
 pub fn make_key_for_ft_withdrawal_event(
-    data: TupleData,
+    data: &mut BTreeMap<ClarityName, Value>,
     withdrawal_id: u32,
     block_height: u64,
 ) -> Value {
@@ -130,7 +140,7 @@ pub fn make_key_for_ft_withdrawal_event(
 }
 
 pub fn make_key_for_nft_withdrawal_event(
-    data: TupleData,
+    data: &mut BTreeMap<ClarityName, Value>,
     withdrawal_id: u32,
     block_height: u64,
 ) -> Value {
@@ -164,7 +174,7 @@ pub fn make_key_for_nft_withdrawal_event(
 }
 
 pub fn make_key_for_stx_withdrawal_event(
-    data: TupleData,
+    data: &mut BTreeMap<ClarityName, Value>,
     withdrawal_id: u32,
     block_height: u64,
 ) -> Value {
@@ -300,11 +310,11 @@ mod test {
     };
     use crate::clarity_vm::withdrawal::{
         convert_withdrawal_key_to_bytes, create_withdrawal_merkle_tree, generate_key_from_event,
-        WITHDRAW_CONTRACT,
     };
     use crate::net::test::to_addr;
     use crate::vm::ClarityName;
     use crate::vm::ContractName;
+    use clarity::boot_util::boot_code_id;
     use clarity::types::chainstate::{
         BlockHeaderHash, ConsensusHash, StacksBlockId, StacksPrivateKey, StacksPublicKey, TrieHash,
     };
@@ -332,7 +342,7 @@ mod test {
         let auth = TransactionAuth::Standard(spending_condition);
         let mut stx_withdraw_event =
             StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-                key: WITHDRAW_CONTRACT.clone(),
+                key: (boot_code_id("subnet", false), "print".into()),
                 value: Value::Tuple(
                     TupleData::from_data(vec![
                         (
@@ -350,7 +360,7 @@ mod test {
             });
         let mut ft_withdraw_event =
             StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-                key: WITHDRAW_CONTRACT.clone(),
+                key: (boot_code_id("subnet", false), "print".into()),
                 value: Value::Tuple(
                     TupleData::from_data(vec![
                         (
@@ -377,7 +387,7 @@ mod test {
             });
         let mut nft_withdraw_event =
             StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-                key: WITHDRAW_CONTRACT.clone(),
+                key: (boot_code_id("subnet", false), "print".into()),
                 value: Value::Tuple(
                     TupleData::from_data(vec![
                         (
