@@ -373,6 +373,20 @@ impl PoxConstants {
     fn num_sync_cycles_to_height_internal(target_height: u64, cycle_length: u64) -> u64 {
         (target_height / cycle_length) + 1
     }
+
+    /// Returns the active reward cycle at the given burn block height
+    /// * `first_block_ht` - the first burn block height that the Stacks network monitored
+    /// * `reward_cycle_len` - the length of each reward cycle in the network.
+    pub fn static_block_height_to_reward_cycle(
+        block_ht: u64,
+        first_block_ht: u64,
+        reward_cycle_len: u64,
+    ) -> Option<u64> {
+        if block_ht < first_block_ht {
+            return None;
+        }
+        Some((block_ht - first_block_ht) / (reward_cycle_len))
+    }
 }
 
 /// Structure for encoding our view of the network
