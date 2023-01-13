@@ -57,7 +57,7 @@
             amount: amount,
             asset-contract: (contract-of asset),
         })
-        (contract-call? asset transfer amount tx-sender (as-contract tx-sender) none)
+        (contract-call? asset transfer amount sender (as-contract tx-sender) none)
     )
 )
 
@@ -69,7 +69,7 @@
             id: id,
             asset-contract: (contract-of asset),
         })
-        (contract-call? asset transfer id tx-sender (as-contract tx-sender))
+        (contract-call? asset transfer id sender (as-contract tx-sender))
     )
 )
 
@@ -80,6 +80,6 @@
             sender: sender,
             amount: amount,
         })
-        (stx-transfer? amount tx-sender (as-contract tx-sender))
+        (stx-transfer? amount sender (as-contract tx-sender))
     )
 )
