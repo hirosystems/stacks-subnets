@@ -25,8 +25,8 @@ use std::convert::TryFrom;
 pub use self::mempool::MemPoolDB;
 use crate::types::chainstate::StacksBlockId;
 use crate::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash};
+use stacks_common::types::StacksEpoch as GenericStacksEpoch;
 pub use stacks_common::types::StacksEpochId;
-use stacks_common::types::{StacksEpoch as GenericStacksEpoch, PEER_VERSION_EPOCH_2_1};
 pub mod mempool;
 
 #[cfg(test)]
@@ -62,6 +62,7 @@ pub const PEER_VERSION_TESTNET: u32 = 0xfacade05;
 pub const PEER_VERSION_EPOCH_1_0: u8 = 0x00;
 pub const PEER_VERSION_EPOCH_2_0: u8 = 0x00;
 pub const PEER_VERSION_EPOCH_2_05: u8 = 0x05;
+pub const PEER_VERSION_EPOCH_2_1: u8 = 0x06;
 
 // network identifiers
 pub const NETWORK_ID_MAINNET: u32 = 0x17000000;
@@ -82,7 +83,7 @@ pub const MINING_COMMITMENT_WINDOW: u8 = 6;
 //  them again.
 pub const TX_BLOCK_LIMIT_PROPORTION_HEURISTIC: u64 = 20;
 
-pub const GENESIS_EPOCH: StacksEpochId = StacksEpochId::Epoch21;
+pub const GENESIS_EPOCH: StacksEpochId = StacksEpochId::Epoch20;
 
 /// The number of blocks which will share the block bonus
 ///   from burn blocks that occurred without a sortition.
