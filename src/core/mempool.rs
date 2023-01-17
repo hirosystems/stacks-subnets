@@ -1375,6 +1375,8 @@ impl MemPoolDB {
         // single transaction.  This cannot grow to more than `settings.nonce_cache_size` entries.
         let mut retry_store = HashMap::new();
 
+        let all_candidates = MemPoolDB::get_all_txs(&mut self.db)?;
+        info!("all_candidates.len(): {}", all_candidates.len());
         let sql = "
              SELECT txid, origin_nonce, origin_address, sponsor_nonce, sponsor_address, fee_rate
              FROM mempool
@@ -1407,7 +1409,7 @@ impl MemPoolDB {
         loop {
             info!("start loop");
             if start_time.elapsed().as_millis() > settings.max_walk_time_ms as u128 {
-                debug!("Mempool iteration deadline exceeded";
+                info!("Mempool iteration deadline exceeded";
                        "deadline_ms" => settings.max_walk_time_ms);
                 break;
             }
@@ -1449,7 +1451,7 @@ impl MemPoolDB {
                                     !start_with_no_estimate,
                                 ),
                                 None => {
-                                    debug!("No more transactions to consider in mempool");
+                                    info!("No more transactions to consider in mempool");
                                     break;
                                 }
                             }
@@ -1660,7 +1662,6 @@ impl MemPoolDB {
     }
 
     /// Get all transactions across all tips
-    #[cfg(test)]
     pub fn get_all_txs(conn: &DBConn) -> Result<Vec<MemPoolTxInfo>, db_error> {
         let sql = "SELECT * FROM mempool";
         let rows = query_rows::<MemPoolTxInfo, _>(conn, &sql, NO_PARAMS)?;
