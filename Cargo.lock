@@ -487,7 +487,7 @@ dependencies = [
 [[package]]
 name = "clarity"
 version = "0.0.1"
-source = "git+https://github.com/stacks-network/stacks-blockchain.git?rev=7f6dde98e5349c64d1ed7410b9af0e126420532b#7f6dde98e5349c64d1ed7410b9af0e126420532b"
+source = "git+https://github.com/stacks-network/stacks-blockchain.git?rev=580e811223a389d38071dcb9fde79ab55cd6f685#580e811223a389d38071dcb9fde79ab55cd6f685"
 dependencies = [
  "integer-sqrt",
  "lazy_static",
@@ -2650,7 +2650,7 @@ dependencies = [
 [[package]]
 name = "stacks-common"
 version = "0.0.1"
-source = "git+https://github.com/stacks-network/stacks-blockchain.git?rev=7f6dde98e5349c64d1ed7410b9af0e126420532b#7f6dde98e5349c64d1ed7410b9af0e126420532b"
+source = "git+https://github.com/stacks-network/stacks-blockchain.git?rev=580e811223a389d38071dcb9fde79ab55cd6f685#580e811223a389d38071dcb9fde79ab55cd6f685"
 dependencies = [
  "chrono",
  "curve25519-dalek",
