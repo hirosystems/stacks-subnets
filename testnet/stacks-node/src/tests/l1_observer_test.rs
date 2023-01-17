@@ -2304,7 +2304,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
-    // Check that user no longer owns the l1 native NFT on L2 chain
+    // Check that user no longer owns the l1 native NFT on L2 chain,
+    // instead, the subnet contract should own it.
     let res = call_read_only(
         &l2_rpc_origin,
         &user_addr,
@@ -2324,8 +2325,15 @@ fn nft_deposit_and_withdraw_integration_test() {
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
-    assert_eq!(addr, Value::none());
-    // Check that user no longer owns the subnet native NFT on L2 chain
+    assert_eq!(
+        addr,
+        Value::some(Value::Principal(PrincipalData::Contract(
+            boot_code_id("subnet".into(), false).into()
+        )))
+        .unwrap()
+    );
+    // Check that user no longer owns the subnet native NFT on L2 chain,
+    // instead, the subnet contract should own it.
     let res = call_read_only(
         &l2_rpc_origin,
         &user_addr,
@@ -2345,7 +2353,13 @@ fn nft_deposit_and_withdraw_integration_test() {
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
-    assert_eq!(addr, Value::none());
+    assert_eq!(
+        addr,
+        Value::some(Value::Principal(PrincipalData::Contract(
+            boot_code_id("subnet".into(), false).into()
+        )))
+        .unwrap()
+    );
 
     // Check that the user does not *yet* own the L1 native NFT on the L1 (the contract should still own it)
     let res = call_read_only(
