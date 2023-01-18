@@ -1405,7 +1405,7 @@ impl MemPoolDB {
         info!("before loop");
 
         loop {
-            info!("start loop");
+            debug!("start loop");
             if start_time.elapsed().as_millis() > settings.max_walk_time_ms as u128 {
                 debug!("Mempool iteration deadline exceeded";
                        "deadline_ms" => settings.max_walk_time_ms);
@@ -1414,7 +1414,7 @@ impl MemPoolDB {
 
             let start_with_no_estimate =
                 tx_consideration_sampler.sample(&mut rng) < settings.consider_no_estimate_tx_prob;
-            info!("start_with_no_estimate: {}", start_with_no_estimate);
+            debug!("start_with_no_estimate: {}", start_with_no_estimate);
 
             // First, try to read from the retry list
             let (candidate, update_estimate) = match candidate_cache.next() {
@@ -1458,7 +1458,7 @@ impl MemPoolDB {
                 }
             };
 
-            info!("candidate: {:?}", &candidate);
+            debug!("candidate: {:?}", &candidate);
 
             // Check the nonces.
             let (expected_origin_nonce, retry_store_origin_nonce) =
@@ -1492,7 +1492,7 @@ impl MemPoolDB {
                 expected_sponsor_nonce,
             ) {
                 Ordering::Less => {
-                    info!(
+                    debug!(
                         "Mempool: unexecutable: drop tx {}:{} ({})",
                         candidate.origin_address,
                         candidate.origin_nonce,
@@ -1502,7 +1502,7 @@ impl MemPoolDB {
                     continue;
                 }
                 Ordering::Greater => {
-                    info!(
+                    debug!(
                         "Mempool: nonces too high, cached for later {}:{} ({})",
                         candidate.origin_address,
                         candidate.origin_nonce,
@@ -1514,13 +1514,13 @@ impl MemPoolDB {
                 }
                 Ordering::Equal => {
                     // Candidate transaction: fall through
-                    info!("Mempool: fall through.");
+                    debug!("Mempool: fall through.");
                 }
             };
 
             // Read in and deserialize the transaction.
             let tx_info_option = MemPoolDB::get_tx(&self.conn(), &candidate.txid)?;
-            info!("tx_info_option: {:?}", &tx_info_option);
+            debug!("tx_info_option: {:?}", &tx_info_option);
             let tx_info = match tx_info_option {
                 Some(tx) => tx,
                 None => {
@@ -1534,7 +1534,7 @@ impl MemPoolDB {
                 tx: tx_info,
                 update_estimate,
             };
-            info!("Consider mempool transaction";
+            debug!("Consider mempool transaction";
                            "txid" => %consider.tx.tx.txid(),
                            "origin_addr" => %consider.tx.metadata.origin_address,
                            "origin_nonce" => candidate.origin_nonce,
