@@ -936,14 +936,14 @@ impl CandidateCache {
 
     /// Retrieve the next candidate transaction from the cache.
     fn next(&mut self) -> Option<MemPoolTxInfoPartial> {
-        info!("next");
+        // info!("next");
 
         self.cache.pop_front()
     }
 
     /// Push a candidate to the cache for the next iteration.
     fn push(&mut self, tx: MemPoolTxInfoPartial) {
-        info!("push");
+        // info!("push");
         if self.next.len() < self.max_cache_size {
             self.next.push_back(tx);
         }
@@ -954,7 +954,7 @@ impl CandidateCache {
 
     /// Prepare for the next iteration, transferring transactions from `next` to `cache`.
     fn reset(&mut self) {
-        info!("reset");
+        // info!("reset");
 
         // We do not need a size check here, because the cache can only grow in size
         // after `cache` is empty. New transactions are not walked until the entire
