@@ -74,11 +74,7 @@ pub fn generate_key_from_event(
         if let Value::Tuple(ref mut data) = event_data.value {
             let data_map = &mut data.data_map;
             data_map.insert("withdrawal_id".into(), Value::UInt(withdrawal_id as u128));
-            let event_type = data_map
-                .get("type")
-                .expect("withdraw event has no type")
-                .clone()
-                .expect_ascii();
+            let event_type = data_map.get("type")?.clone().expect_ascii();
 
             return match event_type.as_str() {
                 "stx" => Some(make_key_for_stx_withdrawal_event(
