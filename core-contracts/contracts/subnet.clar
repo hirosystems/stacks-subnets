@@ -22,7 +22,6 @@
 (define-constant ERR_IN_COMPUTATION 15)
 ;; The contract does not own this NFT to withdraw it.
 (define-constant ERR_NFT_NOT_OWNED_BY_CONTRACT 16)
-(define-constant ERR_MINER_ALREADY_SET 20)
 (define-constant ERR_VALIDATION_LEAF_FAILED 30)
 
 ;; Map from Stacks block height to block commit
@@ -33,7 +32,7 @@
 (define-map processed-withdrawal-leaves-map { withdrawal-leaf-hash: (buff 32), withdrawal-root-hash: (buff 32) } bool)
 
 ;; List of miners
-(define-data-var miner (optional principal) none)
+(define-data-var miner principal tx-sender)
 
 ;; Map of allowed contracts for asset transfers - maps contract principal to name of the deposit function in the given contract
 (define-map allowed-contracts principal (string-ascii 45))
@@ -47,17 +46,13 @@
 (use-trait ft-trait .trait-standards.ft-trait)
 (use-trait mint-from-subnet-trait .trait-standards.mint-from-subnet-trait)
 
-;; Set the subnet miner for this contract. Can be called by *anyone*
-;;  before the miner is set. This is an unsafe way to initialize the
-;;  contract, because a re-org could allow someone to reinitialize
-;;  this field. Instead, authors should initialize the variable
-;;  directly at the data-var instantiation. This is used for testing
-;;  purposes only. 
-(define-public (set-subnet-miner (miner-to-set principal))
-    (match (var-get miner) existing-miner (err ERR_MINER_ALREADY_SET) 
-        (begin 
-            (var-set miner (some miner-to-set))
-            (ok true))))
+;; Update the miner for this contract.
+(define-public (update-miner (new-miner principal))
+    (begin
+        (asserts! (is-eq tx-sender (var-get miner)) (err ERR_INVALID_MINER))
+        (ok (var-set miner new-miner))
+    )
+)
 
 ;; This function adds contracts to the allowed-contracts map.
 ;; Once in this map, asset transfers from that contract will be allowed in the deposit and withdraw operations.
@@ -105,8 +100,8 @@
 ;; Helper function: returns a boolean indicating whether the given principal is a miner
 ;; Returns bool
 (define-private (is-miner (miner-to-check principal))
-    (is-eq (some miner-to-check) (var-get  miner)))
-
+    (is-eq miner-to-check (var-get miner))
+)
 
 ;; Helper function: determines whether the commit-block operation satisfies pre-conditions
 ;; listed in `commit-block`.
