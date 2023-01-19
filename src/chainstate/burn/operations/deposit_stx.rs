@@ -1,15 +1,15 @@
-use crate::burnchains::{Burnchain, StacksHyperOp, StacksHyperOpType};
+use crate::burnchains::{Burnchain, StacksSubnetOp, StacksSubnetOpType};
 use crate::chainstate::burn::db::sortdb::SortitionHandleTx;
 use crate::chainstate::burn::operations::DepositStxOp;
 use crate::chainstate::burn::operations::Error as op_error;
 use clarity::types::chainstate::BurnchainHeaderHash;
 use std::convert::TryFrom;
 
-impl TryFrom<&StacksHyperOp> for DepositStxOp {
+impl TryFrom<&StacksSubnetOp> for DepositStxOp {
     type Error = op_error;
 
-    fn try_from(value: &StacksHyperOp) -> Result<Self, Self::Error> {
-        if let StacksHyperOpType::DepositStx {
+    fn try_from(value: &StacksSubnetOp) -> Result<Self, Self::Error> {
+        if let StacksSubnetOpType::DepositStx {
             ref amount,
             ref sender,
         } = value.event

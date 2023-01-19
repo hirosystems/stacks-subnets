@@ -21,7 +21,7 @@ use crate::burnchains::Address;
 use crate::burnchains::Burnchain;
 use crate::burnchains::BurnchainBlockHeader;
 use crate::burnchains::Txid;
-use crate::burnchains::{BitcoinNetworkType, StacksHyperOp, StacksHyperOpType};
+use crate::burnchains::{BitcoinNetworkType, StacksSubnetOp, StacksSubnetOpType};
 use crate::burnchains::{BurnchainRecipient, BurnchainSigner};
 use crate::burnchains::{BurnchainTransaction, PublicKey};
 use crate::chainstate::burn::db::sortdb::{SortitionDB, SortitionHandleTx};
@@ -61,11 +61,11 @@ struct ParsedData {
 pub static OUTPUTS_PER_COMMIT: usize = 2;
 pub static BURN_BLOCK_MINED_AT_MODULUS: u64 = 5;
 
-impl TryFrom<&StacksHyperOp> for LeaderBlockCommitOp {
+impl TryFrom<&StacksSubnetOp> for LeaderBlockCommitOp {
     type Error = op_error;
 
-    fn try_from(value: &StacksHyperOp) -> Result<Self, Self::Error> {
-        if let StacksHyperOpType::BlockCommit {
+    fn try_from(value: &StacksSubnetOp) -> Result<Self, Self::Error> {
+        if let StacksSubnetOpType::BlockCommit {
             ref subnet_block_hash,
             ref withdrawal_merkle_root,
         } = value.event

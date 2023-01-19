@@ -16,7 +16,7 @@ use stacks::burnchains::indexer::BurnBlockIPC;
 use stacks::burnchains::indexer::BurnchainBlockDownloader;
 use stacks::burnchains::indexer::BurnchainIndexer;
 use stacks::burnchains::indexer::{BurnHeaderIPC, BurnchainBlockParser};
-use stacks::burnchains::{BurnchainBlock, Error as BurnchainError, StacksHyperBlock};
+use stacks::burnchains::{BurnchainBlock, Error as BurnchainError, StacksSubnetBlock};
 use stacks::chainstate::burn::db::DBConn;
 use stacks::core::StacksEpoch;
 use stacks::types::chainstate::{BurnchainHeaderHash, StacksBlockId};
@@ -443,8 +443,8 @@ impl BurnchainBlockParser for DBBurnchainParser {
     type B = BlockIPC;
 
     fn parse(&mut self, block: &BlockIPC) -> Result<BurnchainBlock, BurnchainError> {
-        Ok(BurnchainBlock::StacksHyperBlock(
-            StacksHyperBlock::from_new_block_event(&self.watch_contract, block.block()),
+        Ok(BurnchainBlock::StacksSubnetBlock(
+            StacksSubnetBlock::from_new_block_event(&self.watch_contract, block.block()),
         ))
     }
 }
