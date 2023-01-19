@@ -79,6 +79,7 @@ impl From<burnchains::Error> for Error {
     }
 }
 
+#[derive(Clone)]
 pub struct ClaritySignature([u8; 65]);
 
 /// The `BurnchainController` manages overall relations with the underlying burnchain.
