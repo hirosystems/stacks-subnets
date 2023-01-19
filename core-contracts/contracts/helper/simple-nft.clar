@@ -4,7 +4,7 @@
 (define-constant ERR_NOT_AUTHORIZED (err u1001))
 
 (impl-trait .trait-standards.nft-trait)
-(impl-trait .trait-standards.mint-from-hyperchain-trait)
+(impl-trait .trait-standards.mint-from-subnet-trait)
 
 (define-data-var lastId uint u0)
 (define-map CFG_BASE_URI bool (string-ascii 256))
@@ -39,7 +39,7 @@
   )
 )
 
-(define-public (mint-from-hyperchain (id uint) (sender principal) (recipient principal))
+(define-public (mint-from-subnet (id uint) (sender principal) (recipient principal))
     (begin
         ;; Check that the tx-sender is the provided sender
         (asserts! (is-eq tx-sender sender) ERR_NOT_AUTHORIZED)

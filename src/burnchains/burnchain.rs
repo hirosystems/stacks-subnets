@@ -34,7 +34,7 @@ use crate::burnchains::indexer::{
 use crate::burnchains::Address;
 use crate::burnchains::Burnchain;
 use crate::burnchains::PublicKey;
-use crate::burnchains::StacksHyperOpType;
+use crate::burnchains::StacksSubnetOpType;
 use crate::burnchains::Txid;
 use crate::burnchains::{
     BurnchainBlock, BurnchainBlockHeader, BurnchainParameters, BurnchainRecipient, BurnchainSigner,
@@ -70,7 +70,7 @@ use stacks_common::util::hash::to_hex;
 use stacks_common::util::log;
 use stacks_common::util::vrf::VRFPublicKey;
 
-use crate::burnchains::StacksHyperOpType::WithdrawStx;
+use crate::burnchains::StacksSubnetOpType::WithdrawStx;
 use crate::chainstate::stacks::address::StacksAddressExtensions;
 use crate::types::chainstate::BurnchainHeaderHash;
 
@@ -143,25 +143,25 @@ impl BurnchainSigner {
 impl BurnchainBlock {
     pub fn block_height(&self) -> u64 {
         match self {
-            BurnchainBlock::StacksHyperBlock(b) => b.block_height,
+            BurnchainBlock::StacksSubnetBlock(b) => b.block_height,
         }
     }
 
     pub fn block_hash(&self) -> BurnchainHeaderHash {
         match self {
-            BurnchainBlock::StacksHyperBlock(b) => BurnchainHeaderHash(b.current_block.clone().0),
+            BurnchainBlock::StacksSubnetBlock(b) => BurnchainHeaderHash(b.current_block.clone().0),
         }
     }
 
     pub fn parent_block_hash(&self) -> BurnchainHeaderHash {
         match self {
-            BurnchainBlock::StacksHyperBlock(b) => BurnchainHeaderHash(b.parent_block.clone().0),
+            BurnchainBlock::StacksSubnetBlock(b) => BurnchainHeaderHash(b.parent_block.clone().0),
         }
     }
 
     pub fn txs(&self) -> Vec<BurnchainTransaction> {
         match self {
-            BurnchainBlock::StacksHyperBlock(b) => b
+            BurnchainBlock::StacksSubnetBlock(b) => b
                 .ops
                 .iter()
                 .map(|ev_op| BurnchainTransaction::StacksBase(ev_op.clone()))
@@ -175,7 +175,7 @@ impl BurnchainBlock {
 
     pub fn header(&self) -> BurnchainBlockHeader {
         match self {
-            BurnchainBlock::StacksHyperBlock(b) => BurnchainBlockHeader {
+            BurnchainBlock::StacksSubnetBlock(b) => BurnchainBlockHeader {
                 block_height: self.block_height(),
                 block_hash: self.block_hash(),
                 parent_block_hash: self.parent_block_hash(),
@@ -191,17 +191,17 @@ impl Burnchain {
     pub fn new(working_dir: &str, chain_name: &str) -> Result<Burnchain, burnchain_error> {
         let (params, pox_constants, peer_version) = match chain_name {
             "mockstack" => (
-                BurnchainParameters::hyperchain_mocknet(),
+                BurnchainParameters::subnet_mocknet(),
                 PoxConstants::mainnet_default(),
                 PEER_VERSION_MAINNET,
             ),
             "stacks_layer_1" => (
-                BurnchainParameters::hyperchain_mocknet(),
+                BurnchainParameters::subnet_mocknet(),
                 PoxConstants::mainnet_default(),
                 PEER_VERSION_MAINNET,
             ),
             "stacks_layer_1::mainnet" => (
-                BurnchainParameters::hyperchain_mocknet(),
+                BurnchainParameters::subnet_mocknet(),
                 PoxConstants::mainnet_default(),
                 PEER_VERSION_MAINNET,
             ),
@@ -395,7 +395,7 @@ impl Burnchain {
     ) -> Option<BlockstackOperationType> {
         match burn_tx {
             BurnchainTransaction::StacksBase(ref event) => match event.event {
-                StacksHyperOpType::BlockCommit { .. } => {
+                StacksSubnetOpType::BlockCommit { .. } => {
                     match LeaderBlockCommitOp::try_from(event) {
                         Ok(op) => Some(BlockstackOperationType::from(op)),
                         Err(e) => {
@@ -408,7 +408,7 @@ impl Burnchain {
                         }
                     }
                 }
-                StacksHyperOpType::DepositStx { .. } => match DepositStxOp::try_from(event) {
+                StacksSubnetOpType::DepositStx { .. } => match DepositStxOp::try_from(event) {
                     Ok(op) => Some(BlockstackOperationType::from(op)),
                     Err(e) => {
                         warn!(
@@ -419,7 +419,7 @@ impl Burnchain {
                         None
                     }
                 },
-                StacksHyperOpType::DepositFt { .. } => match DepositFtOp::try_from(event) {
+                StacksSubnetOpType::DepositFt { .. } => match DepositFtOp::try_from(event) {
                     Ok(op) => Some(BlockstackOperationType::from(op)),
                     Err(e) => {
                         warn!(
@@ -430,7 +430,7 @@ impl Burnchain {
                         None
                     }
                 },
-                StacksHyperOpType::DepositNft { .. } => match DepositNftOp::try_from(event) {
+                StacksSubnetOpType::DepositNft { .. } => match DepositNftOp::try_from(event) {
                     Ok(op) => Some(BlockstackOperationType::from(op)),
                     Err(e) => {
                         warn!(
@@ -441,7 +441,7 @@ impl Burnchain {
                         None
                     }
                 },
-                StacksHyperOpType::WithdrawStx { .. } => match WithdrawStxOp::try_from(event) {
+                StacksSubnetOpType::WithdrawStx { .. } => match WithdrawStxOp::try_from(event) {
                     Ok(op) => Some(BlockstackOperationType::from(op)),
                     Err(e) => {
                         warn!(
@@ -452,7 +452,7 @@ impl Burnchain {
                         None
                     }
                 },
-                StacksHyperOpType::WithdrawFt { .. } => match WithdrawFtOp::try_from(event) {
+                StacksSubnetOpType::WithdrawFt { .. } => match WithdrawFtOp::try_from(event) {
                     Ok(op) => Some(BlockstackOperationType::from(op)),
                     Err(e) => {
                         warn!(
@@ -463,7 +463,7 @@ impl Burnchain {
                         None
                     }
                 },
-                StacksHyperOpType::WithdrawNft { .. } => match WithdrawNftOp::try_from(event) {
+                StacksSubnetOpType::WithdrawNft { .. } => match WithdrawNftOp::try_from(event) {
                     Ok(op) => Some(BlockstackOperationType::from(op)),
                     Err(e) => {
                         warn!(

@@ -1,6 +1,6 @@
 FROM stacks-blockchain:2.1-stretch as stacks-node
 
-FROM rust:stretch AS test
+FROM rust:bullseye AS test
 
 WORKDIR /build
 
@@ -16,5 +16,5 @@ COPY --from=stacks-node /bin/stacks-node /bin/
 COPY . .
 
 RUN cargo build --workspace && \
-    cargo test --workspace --bin=hyperchain-node --no-run
+    cargo test --workspace --bin=subnet-node --no-run
 

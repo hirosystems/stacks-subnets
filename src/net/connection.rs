@@ -400,10 +400,10 @@ pub struct ConnectionOptions {
     pub disable_inbound_handshakes: bool,
     pub force_disconnect_interval: Option<u64>,
 
-    /// hyperchain validator key
-    pub hyperchain_validator: Option<Secp256k1PrivateKey>,
+    /// subnet validator key
+    pub subnet_validator: Option<Secp256k1PrivateKey>,
     /// the contract used to submit multiparty commits (if a validator)
-    pub hyperchain_signing_contract: Option<QualifiedContractIdentifier>,
+    pub subnet_signing_contract: Option<QualifiedContractIdentifier>,
 }
 
 impl std::default::Default for ConnectionOptions {
@@ -490,8 +490,8 @@ impl std::default::Default for ConnectionOptions {
             disable_natpunch: false,
             disable_inbound_handshakes: false,
             force_disconnect_interval: None,
-            hyperchain_validator: None,
-            hyperchain_signing_contract: None,
+            subnet_validator: None,
+            subnet_signing_contract: None,
         }
     }
 }

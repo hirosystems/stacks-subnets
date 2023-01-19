@@ -9,7 +9,7 @@
 
 ;; SIP-018 Constants
 (define-constant sip18-prefix 0x534950303138)
-;; (define-constant (sha256 (unwrap-panic (to-consensus-buff { name: "hyperchain-multi-miner", version: "1.0.0", chain-id: u1 }))))
+;; (define-constant (sha256 (unwrap-panic (to-consensus-buff { name: "subnet-multi-miner", version: "1.0.0", chain-id: u1 }))))
 (define-constant sip18-domain-hash 0x81c24181e24119f609a28023c4943d3a41592656eb90560c15ee02b8e1ce19b8)
 (define-constant sip18-data-prefix (concat sip18-prefix sip18-domain-hash))
 
@@ -22,7 +22,7 @@
 (define-private (get-miners)
     (unwrap-panic (var-get miners)))
 
-;; Set the hc miners for this contract. Can be called by *anyone*
+;; Set the subnet miners for this contract. Can be called by *anyone*
 ;;  before the miner is set. This is an unsafe way to initialize the
 ;;  contract, because a re-org could allow someone to reinitialize
 ;;  this field. Instead, authors should initialize the variable
@@ -56,7 +56,7 @@
          (ok true)))
 
 (define-read-only (make-block-commit-hash (block-data { block: (buff 32), withdrawal-root: (buff 32), target-tip: (buff 32) }))
-    (let ((data-buff (unwrap-panic (to-consensus-buff (merge block-data { multi-contract: CONTRACT_ADDRESS }))))
+    (let ((data-buff (unwrap-panic (to-consensus-buff? (merge block-data { multi-contract: CONTRACT_ADDRESS }))))
           (data-hash (sha256 data-buff))
           ;; in 2.0, this is a constant: 0xe2f4d0b1eca5f1b4eb853cd7f1c843540cfb21de8bfdaa59c504a6775cd2cfe9
           (structured-hash (sha256 (concat sip18-data-prefix data-hash))))
@@ -81,4 +81,4 @@
          ;; check that we have enough signatures
          (try! (check-miners (append (get signers signer-principals) tx-sender)))
          ;; execute the block commit
-         (as-contract (contract-call? .hyperchains commit-block (get block block-data) (get target-tip block-data) (get withdrawal-root block-data)))))
+         (as-contract (contract-call? .subnet commit-block (get block block-data) (get target-tip block-data) (get withdrawal-root block-data)))))

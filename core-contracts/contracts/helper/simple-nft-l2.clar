@@ -46,7 +46,7 @@
 )
 
 ;; deposit function
-(define-public (hyperchain-deposit-nft-token (id uint) (recipient principal))
+(define-public (subnet-deposit-nft-token (id uint) (recipient principal))
    (begin
        (nft-mint? nft-token id recipient)
    )

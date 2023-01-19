@@ -79,10 +79,11 @@ impl From<burnchains::Error> for Error {
     }
 }
 
+#[derive(Clone)]
 pub struct ClaritySignature([u8; 65]);
 
 /// The `BurnchainController` manages overall relations with the underlying burnchain.
-/// In the case of a hyper-chain, the burnchain is the Stacks L1 chain.
+/// In the case of a subnet, the burnchain is the Stacks L1 chain.
 pub trait BurnchainController {
     fn start(&mut self, target_block_height_opt: Option<u64>)
         -> Result<(BurnchainTip, u64), Error>;
