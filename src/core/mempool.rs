@@ -1448,8 +1448,6 @@ impl MemPoolDB {
                 }
             };
 
-            info!("candidate: {:?}", &candidate);
-
             // Check the nonces.
             let (expected_origin_nonce, retry_store_origin_nonce) =
                 nonce_cache.get(&candidate.origin_address, clarity_tx, self.conn());
