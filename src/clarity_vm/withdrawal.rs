@@ -1,15 +1,23 @@
 use crate::chainstate::stacks::events::StacksTransactionReceipt;
+use clarity::boot_util::boot_code_id;
 use clarity::codec::StacksMessageCodec;
 use clarity::types::chainstate::{BlockHeaderHash, ConsensusHash, StacksBlockId, TrieHash};
 use clarity::util::hash::{MerkleTree, Sha512Trunc256Sum};
 use clarity::vm::database::ClarityBackingStore;
-use clarity::vm::events::{
-    FTEventType, FTWithdrawEventData, NFTEventType, NFTWithdrawEventData, STXEventType,
-    STXWithdrawEventData, StacksTransactionEvent,
-};
-use clarity::vm::types::{AssetIdentifier, PrincipalData, SequenceData, TupleData};
+use clarity::vm::events::StacksTransactionEvent;
+use clarity::vm::representations::ClarityName;
+use clarity::vm::types::{PrincipalData, QualifiedContractIdentifier, SequenceData, TupleData};
 use clarity::vm::Value;
 use regex::internal::Input;
+use std::collections::BTreeMap;
+
+fn is_subnet_contract_event(contract: &QualifiedContractIdentifier, function: &String) -> bool {
+    if function != "print" {
+        return false;
+    }
+    // TODO: Do we know if we are in mainnet or testnet?
+    contract == &boot_code_id("subnet", true) || contract == &boot_code_id("subnet", false)
+}
 
 fn clarity_ascii_str(input: &str) -> Value {
     Value::string_ascii_from_bytes(input.as_bytes().to_vec())
@@ -35,9 +43,6 @@ pub fn buffer_from_hash(hash: Sha512Trunc256Sum) -> Value {
 ///     amount: u128 }
 /// ```
 ///
-/// *NOTE*: because subnets support SIP-009 and SIP-010 tokens only,
-///   these wire formats *do not* include the `asset-name`, because
-///   only one asset can be supported per contract.
 /// ```javascript
 ///   { type: "nft",
 ///     asset-contract: principal,
@@ -61,74 +66,124 @@ pub fn generate_key_from_event(
     withdrawal_id: u32,
     block_height: u64,
 ) -> Option<Value> {
-    match event {
-        StacksTransactionEvent::NFTEvent(NFTEventType::NFTWithdrawEvent(data)) => {
-            data.withdrawal_id = Some(withdrawal_id);
-            Some(make_key_for_nft_withdrawal_event(data, block_height))
+    if let StacksTransactionEvent::SmartContractEvent(event_data) = event {
+        if !is_subnet_contract_event(&event_data.key.0, &event_data.key.1) {
+            return None;
         }
-        StacksTransactionEvent::FTEvent(FTEventType::FTWithdrawEvent(data)) => {
-            data.withdrawal_id = Some(withdrawal_id);
-            Some(make_key_for_ft_withdrawal_event(data, block_height))
+
+        if let Value::Tuple(ref mut data) = event_data.value {
+            let data_map = &mut data.data_map;
+            data_map.insert("withdrawal_id".into(), Value::UInt(withdrawal_id as u128));
+            let event_type = data_map.get("type")?.clone().expect_ascii();
+
+            return match event_type.as_str() {
+                "stx" => Some(make_key_for_stx_withdrawal_event(
+                    data_map,
+                    withdrawal_id,
+                    block_height,
+                )),
+                "ft" => Some(make_key_for_ft_withdrawal_event(
+                    data_map,
+                    withdrawal_id,
+                    block_height,
+                )),
+                "nft" => Some(make_key_for_nft_withdrawal_event(
+                    data_map,
+                    withdrawal_id,
+                    block_height,
+                )),
+                _ => None,
+            };
         }
-        StacksTransactionEvent::STXEvent(STXEventType::STXWithdrawEvent(data)) => {
-            data.withdrawal_id = Some(withdrawal_id);
-            Some(make_key_for_stx_withdrawal_event(data, block_height))
-        }
-        _ => None,
     }
+    None
 }
 
-pub fn make_key_for_ft_withdrawal_event(data: &FTWithdrawEventData, block_height: u64) -> Value {
-    let withdrawal_id = data
-        .withdrawal_id
-        .expect("Tried to serialize a withdraw event before setting withdrawal ID");
+pub fn make_key_for_ft_withdrawal_event(
+    data: &mut BTreeMap<ClarityName, Value>,
+    withdrawal_id: u32,
+    block_height: u64,
+) -> Value {
+    let sender = data.get("sender").unwrap().clone().expect_principal();
+    let amount = data.get("amount").unwrap().clone().expect_u128();
+    let contract_identifier = match data
+        .get("asset-contract")
+        .unwrap()
+        .clone()
+        .expect_principal()
+    {
+        PrincipalData::Standard(_) => {
+            unreachable!("invalid principal in withdraw event")
+        }
+        PrincipalData::Contract(contract_principal) => contract_principal,
+    };
+
     info!("Parsed L2 withdrawal event";
           "type" => "ft",
           "block_height" => block_height,
-          "sender" => %data.sender,
+          "sender" => %sender.to_string(),
           "withdrawal_id" => withdrawal_id,
-          "amount" => %data.amount,
-          "asset_id" => %data.asset_identifier);
+          "amount" => amount,
+          "asset_contract" => %contract_identifier.to_string());
 
     make_key_for_ft_withdrawal(
-        &data.sender,
+        &sender,
         withdrawal_id,
-        &data.asset_identifier,
-        data.amount,
+        &contract_identifier,
+        amount,
         block_height,
     )
 }
 
-pub fn make_key_for_nft_withdrawal_event(data: &NFTWithdrawEventData, block_height: u64) -> Value {
-    let withdrawal_id = data
-        .withdrawal_id
-        .expect("Tried to serialize a withdraw event before setting withdrawal ID");
+pub fn make_key_for_nft_withdrawal_event(
+    data: &mut BTreeMap<ClarityName, Value>,
+    withdrawal_id: u32,
+    block_height: u64,
+) -> Value {
+    let sender = data.get("sender").unwrap().clone().expect_principal();
+    let id = data.get("id").unwrap().clone().expect_u128();
+    let contract_identifier = match data
+        .get("asset-contract")
+        .unwrap()
+        .clone()
+        .expect_principal()
+    {
+        PrincipalData::Standard(_) => {
+            unreachable!("invalid principal in withdraw event")
+        }
+        PrincipalData::Contract(contract_principal) => contract_principal,
+    };
+
     info!("Parsed L2 withdrawal event";
           "type" => "nft",
           "block_height" => block_height,
-          "sender" => %data.sender,
+          "sender" => %sender.to_string(),
           "withdrawal_id" => withdrawal_id,
-          "asset_id" => %data.asset_identifier);
+          "asset_id" => %contract_identifier.to_string());
     make_key_for_nft_withdrawal(
-        &data.sender,
+        &sender,
         withdrawal_id,
-        &data.asset_identifier,
-        data.id,
+        &contract_identifier,
+        id,
         block_height,
     )
 }
 
-pub fn make_key_for_stx_withdrawal_event(data: &STXWithdrawEventData, block_height: u64) -> Value {
-    let withdrawal_id = data
-        .withdrawal_id
-        .expect("Tried to serialize a withdraw event before setting withdrawal ID");
+pub fn make_key_for_stx_withdrawal_event(
+    data: &mut BTreeMap<ClarityName, Value>,
+    withdrawal_id: u32,
+    block_height: u64,
+) -> Value {
+    let sender = data.get("sender").unwrap().clone().expect_principal();
+    let amount = data.get("amount").unwrap().clone().expect_u128();
+
     info!("Parsed L2 withdrawal event";
           "type" => "stx",
           "block_height" => block_height,
-          "sender" => %data.sender,
+          "sender" => %sender.to_string(),
           "withdrawal_id" => withdrawal_id,
-          "amount" => %data.amount);
-    make_key_for_stx_withdrawal(&data.sender, withdrawal_id, data.amount, block_height)
+          "amount" => amount);
+    make_key_for_stx_withdrawal(&sender, withdrawal_id, amount, block_height)
 }
 
 pub fn make_key_for_stx_withdrawal(
@@ -154,13 +209,11 @@ pub fn make_key_for_stx_withdrawal(
 pub fn make_key_for_nft_withdrawal(
     sender: &PrincipalData,
     withdrawal_id: u32,
-    asset_identifier: &AssetIdentifier,
+    contract_identifier: &QualifiedContractIdentifier,
     id: u128,
     block_height: u64,
 ) -> Value {
-    let asset_contract = Value::Principal(PrincipalData::from(
-        asset_identifier.contract_identifier.clone(),
-    ));
+    let asset_contract = Value::Principal(PrincipalData::from(contract_identifier.clone()));
     TupleData::from_data(vec![
         ("type".into(), clarity_ascii_str("nft")),
         ("asset-contract".into(), asset_contract),
@@ -179,13 +232,11 @@ pub fn make_key_for_nft_withdrawal(
 pub fn make_key_for_ft_withdrawal(
     sender: &PrincipalData,
     withdrawal_id: u32,
-    asset_identifier: &AssetIdentifier,
+    contract_identifier: &QualifiedContractIdentifier,
     amount: u128,
     block_height: u64,
 ) -> Value {
-    let asset_contract = Value::Principal(PrincipalData::from(
-        asset_identifier.contract_identifier.clone(),
-    ));
+    let asset_contract = Value::Principal(PrincipalData::from(contract_identifier.clone()));
     TupleData::from_data(vec![
         ("type".into(), clarity_ascii_str("ft")),
         ("asset-contract".into(), asset_contract),
@@ -245,31 +296,29 @@ mod test {
     use clarity::types::chainstate::StacksAddress;
     use clarity::types::Address;
     use clarity::util::hash::to_hex;
-    use clarity::vm::types::StandardPrincipalData;
+    use clarity::vm::events::SmartContractEventData;
+    use clarity::vm::types::{PrincipalData, StandardPrincipalData, TupleData};
 
     use crate::chainstate::stacks::events::{StacksTransactionReceipt, TransactionOrigin};
     use crate::chainstate::stacks::{
         CoinbasePayload, StacksTransaction, TransactionAuth, TransactionPayload,
         TransactionSpendingCondition, TransactionVersion,
     };
-    use crate::clarity::types::chainstate::{
-        BlockHeaderHash, ConsensusHash, StacksBlockId, StacksPrivateKey, StacksPublicKey, TrieHash,
-    };
-    use crate::clarity::util::hash::{MerkleTree, Sha512Trunc256Sum};
-    use crate::clarity::vm::costs::ExecutionCost;
-    use crate::clarity::vm::events::FTEventType::FTWithdrawEvent;
-    use crate::clarity::vm::events::NFTEventType::NFTWithdrawEvent;
-    use crate::clarity::vm::events::STXEventType::STXWithdrawEvent;
-    use crate::clarity::vm::events::{STXWithdrawEventData, StacksTransactionEvent};
-    use crate::clarity::vm::types::{AssetIdentifier, QualifiedContractIdentifier};
-    use crate::clarity::vm::Value;
     use crate::clarity_vm::withdrawal::{
         convert_withdrawal_key_to_bytes, create_withdrawal_merkle_tree, generate_key_from_event,
     };
     use crate::net::test::to_addr;
-    use crate::vm::events::{FTWithdrawEventData, NFTWithdrawEventData};
     use crate::vm::ClarityName;
     use crate::vm::ContractName;
+    use clarity::boot_util::boot_code_id;
+    use clarity::types::chainstate::{
+        BlockHeaderHash, ConsensusHash, StacksBlockId, StacksPrivateKey, StacksPublicKey, TrieHash,
+    };
+    use clarity::util::hash::{MerkleTree, Sha512Trunc256Sum};
+    use clarity::vm::costs::ExecutionCost;
+    use clarity::vm::events::StacksTransactionEvent;
+    use clarity::vm::types::QualifiedContractIdentifier;
+    use clarity::vm::Value;
 
     #[test]
     fn test_verify_withdrawal_merkle_tree() {
@@ -288,37 +337,77 @@ mod test {
         spending_condition.set_tx_fee(1000);
         let auth = TransactionAuth::Standard(spending_condition);
         let mut stx_withdraw_event =
-            StacksTransactionEvent::STXEvent(STXWithdrawEvent(STXWithdrawEventData {
-                sender: user_addr.into(),
-                amount: 1,
-                withdrawal_id: None,
-            }));
+            StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+                key: (boot_code_id("subnet", false), "print".into()),
+                value: Value::Tuple(
+                    TupleData::from_data(vec![
+                        (
+                            "type".into(),
+                            Value::string_ascii_from_bytes("stx".to_string().into_bytes()).unwrap(),
+                        ),
+                        (
+                            "sender".into(),
+                            Value::from(StandardPrincipalData::from(user_addr)),
+                        ),
+                        ("amount".into(), Value::UInt(1)),
+                    ])
+                    .expect("failed to create event tuple"),
+                ),
+            });
         let mut ft_withdraw_event =
-            StacksTransactionEvent::FTEvent(FTWithdrawEvent(FTWithdrawEventData {
-                asset_identifier: AssetIdentifier {
-                    contract_identifier: QualifiedContractIdentifier::new(
-                        contract_addr.into(),
-                        ContractName::from("simple-ft"),
-                    ),
-                    asset_name: ClarityName::from("ft-token"),
-                },
-                withdrawal_id: None,
-                sender: user_addr.into(),
-                amount: 1,
-            }));
+            StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+                key: (boot_code_id("subnet", false), "print".into()),
+                value: Value::Tuple(
+                    TupleData::from_data(vec![
+                        (
+                            "type".into(),
+                            Value::string_ascii_from_bytes("ft".to_string().into_bytes()).unwrap(),
+                        ),
+                        (
+                            "asset-contract".into(),
+                            Value::Principal(PrincipalData::Contract(
+                                QualifiedContractIdentifier::new(
+                                    contract_addr.into(),
+                                    ContractName::from("simple-ft"),
+                                ),
+                            )),
+                        ),
+                        (
+                            "sender".into(),
+                            Value::from(StandardPrincipalData::from(user_addr)),
+                        ),
+                        ("amount".into(), Value::UInt(1)),
+                    ])
+                    .expect("failed to create event tuple"),
+                ),
+            });
         let mut nft_withdraw_event =
-            StacksTransactionEvent::NFTEvent(NFTWithdrawEvent(NFTWithdrawEventData {
-                asset_identifier: AssetIdentifier {
-                    contract_identifier: QualifiedContractIdentifier::new(
-                        contract_addr.into(),
-                        ContractName::from("simple-nft"),
-                    ),
-                    asset_name: ClarityName::from("nft-token"),
-                },
-                withdrawal_id: None,
-                sender: user_addr.into(),
-                id: 1,
-            }));
+            StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+                key: (boot_code_id("subnet", false), "print".into()),
+                value: Value::Tuple(
+                    TupleData::from_data(vec![
+                        (
+                            "type".into(),
+                            Value::string_ascii_from_bytes("nft".to_string().into_bytes()).unwrap(),
+                        ),
+                        (
+                            "asset-contract".into(),
+                            Value::Principal(PrincipalData::Contract(
+                                QualifiedContractIdentifier::new(
+                                    contract_addr.into(),
+                                    ContractName::from("simple-nft"),
+                                ),
+                            )),
+                        ),
+                        (
+                            "sender".into(),
+                            Value::from(StandardPrincipalData::from(user_addr)),
+                        ),
+                        ("id".into(), Value::UInt(1)),
+                    ])
+                    .expect("failed to create event tuple"),
+                ),
+            });
         let withdrawal_receipt = StacksTransactionReceipt {
             transaction: TransactionOrigin::Stacks(StacksTransaction::new(
                 TransactionVersion::Testnet,

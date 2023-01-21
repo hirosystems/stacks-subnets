@@ -68,7 +68,7 @@ use crate::util_lib::db::{
 };
 use clarity::vm::analysis::analysis_db::AnalysisDatabase;
 use clarity::vm::analysis::run_analysis;
-use clarity::vm::ast::build_ast;
+use clarity::vm::ast::build_ast_with_rules;
 use clarity::vm::clarity::TransactionConnection;
 use clarity::vm::contexts::OwnedEnvironment;
 use clarity::vm::costs::{ExecutionCost, LimitedCostTracker};
@@ -195,6 +195,7 @@ impl DBConfig {
             StacksEpochId::Epoch10 => false,
             StacksEpochId::Epoch20 => self.version == "1" || self.version == "2",
             StacksEpochId::Epoch2_05 => self.version == "2",
+            StacksEpochId::Epoch21 => self.version == "2",
         }
     }
 }
@@ -1110,12 +1111,15 @@ impl StacksChainState {
                     boot_code_contract.len()
                 );
 
-                let smart_contract = TransactionPayload::SmartContract(TransactionSmartContract {
-                    name: ContractName::try_from(boot_code_name.to_string())
-                        .expect("FATAL: invalid boot-code contract name"),
-                    code_body: StacksString::from_str(boot_code_contract)
-                        .expect("FATAL: invalid boot code body"),
-                });
+                let smart_contract = TransactionPayload::SmartContract(
+                    TransactionSmartContract {
+                        name: ContractName::try_from(boot_code_name.to_string())
+                            .expect("FATAL: invalid boot-code contract name"),
+                        code_body: StacksString::from_str(boot_code_contract)
+                            .expect("FATAL: invalid boot code body"),
+                    },
+                    None,
+                );
 
                 let boot_code_smart_contract = StacksTransaction::new(
                     tx_version.clone(),
@@ -1434,6 +1438,7 @@ impl StacksChainState {
             clarity_tx.connection().as_transaction(|conn| {
                 conn.run_contract_call(
                     &sender,
+                    None,
                     &contract,
                     "set-burnchain-parameters",
                     &params,
@@ -1470,9 +1475,9 @@ impl StacksChainState {
             if mainnet {
                 assert_eq!(
                     &genesis_root_hash.to_string(),
-                    MAINNET_2_0_GENESIS_ROOT_HASH,
+                    SUBNET_GENESIS_ROOT_HASH,
                     "Incorrect root hash for genesis block computed. expected={} computed={}",
-                    MAINNET_2_0_GENESIS_ROOT_HASH,
+                    SUBNET_GENESIS_ROOT_HASH,
                     genesis_root_hash.to_string()
                 )
             }
@@ -1634,7 +1639,7 @@ impl StacksChainState {
         )
         .map_err(|e| Error::ClarityError(e.into()))?;
 
-        let clarity_state = ClarityInstance::new(mainnet, vm_state);
+        let clarity_state = ClarityInstance::new(mainnet, chain_id, vm_state);
 
         let mut chainstate = StacksChainState {
             mainnet: mainnet,

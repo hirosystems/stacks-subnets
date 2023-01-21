@@ -373,45 +373,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blockstack-core"
-version = "0.0.1"
-dependencies = [
- "assert-json-diff",
- "chrono",
- "clarity",
- "criterion",
- "curve25519-dalek",
- "ed25519-dalek",
- "integer-sqrt",
- "lazy_static",
- "libc",
- "mio 0.6.23",
- "nix",
- "percent-encoding",
- "prometheus",
- "rand 0.7.3",
- "rand_chacha 0.2.2",
- "regex",
- "ripemd",
- "rusqlite",
- "secp256k1 0.24.2",
- "serde",
- "serde_derive",
- "serde_json",
- "serde_stacker",
- "sha2 0.10.2",
- "sha3",
- "siphasher",
- "slog",
- "slog-json",
- "slog-term",
- "stacks-common",
- "time 0.2.27",
- "url",
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "bstr"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -526,18 +487,21 @@ dependencies = [
 [[package]]
 name = "clarity"
 version = "0.0.1"
+source = "git+https://github.com/stacks-network/stacks-blockchain.git?rev=580e811223a389d38071dcb9fde79ab55cd6f685#580e811223a389d38071dcb9fde79ab55cd6f685"
 dependencies = [
- "assert-json-diff",
  "integer-sqrt",
  "lazy_static",
  "rand 0.7.3",
  "rand_chacha 0.2.2",
  "regex",
+ "rstest",
+ "rstest_reuse",
  "rusqlite",
  "serde",
  "serde_derive",
  "serde_json",
  "serde_stacker",
+ "sha2-asm 0.5.5",
  "slog",
  "stacks-common",
  "time 0.2.27",
@@ -2575,7 +2539,16 @@ dependencies = [
  "cfg-if 1.0.0",
  "cpufeatures",
  "digest 0.10.3",
- "sha2-asm",
+ "sha2-asm 0.6.2",
+]
+
+[[package]]
+name = "sha2-asm"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7c2f225be6502f2134e6bbb35bb5e2957e41ffa0495ed08bce2e2b4ca885da4"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -2696,8 +2669,8 @@ dependencies = [
 [[package]]
 name = "stacks-common"
 version = "0.0.1"
+source = "git+https://github.com/stacks-network/stacks-blockchain.git?rev=580e811223a389d38071dcb9fde79ab55cd6f685#580e811223a389d38071dcb9fde79ab55cd6f685"
 dependencies = [
- "assert-json-diff",
  "chrono",
  "curve25519-dalek",
  "ed25519-dalek",
@@ -2706,8 +2679,6 @@ dependencies = [
  "percent-encoding",
  "rand 0.7.3",
  "ripemd",
- "rstest",
- "rstest_reuse",
  "rusqlite",
  "secp256k1 0.21.2",
  "serde",
@@ -2720,6 +2691,45 @@ dependencies = [
  "slog-json",
  "slog-term",
  "time 0.2.27",
+]
+
+[[package]]
+name = "stacks-subnets"
+version = "0.0.1"
+dependencies = [
+ "assert-json-diff",
+ "chrono",
+ "clarity",
+ "criterion",
+ "curve25519-dalek",
+ "ed25519-dalek",
+ "integer-sqrt",
+ "lazy_static",
+ "libc",
+ "mio 0.6.23",
+ "nix",
+ "percent-encoding",
+ "prometheus",
+ "rand 0.7.3",
+ "rand_chacha 0.2.2",
+ "regex",
+ "ripemd",
+ "rusqlite",
+ "secp256k1 0.24.2",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_stacker",
+ "sha2 0.10.2",
+ "sha3",
+ "siphasher",
+ "slog",
+ "slog-json",
+ "slog-term",
+ "stacks-common",
+ "time 0.2.27",
+ "url",
+ "winapi 0.3.9",
 ]
 
 [[package]]
@@ -2796,7 +2806,6 @@ dependencies = [
  "async-std",
  "backtrace",
  "base64 0.12.3",
- "blockstack-core",
  "clarity",
  "http-types",
  "lazy_static",
@@ -2811,6 +2820,7 @@ dependencies = [
  "serde_json",
  "slog",
  "stacks-common",
+ "stacks-subnets",
  "stx-genesis",
  "tokio",
  "toml",

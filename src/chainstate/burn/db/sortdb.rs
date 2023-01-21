@@ -23,6 +23,7 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 use std::{cmp, fmt, fs, str::FromStr};
 
+use clarity::vm::ast::ASTRules;
 use clarity::vm::costs::ExecutionCost;
 use rand;
 use rand::RngCore;
@@ -206,6 +207,22 @@ impl FromRow<LeaderBlockCommitOp> for LeaderBlockCommitOp {
             burn_header_hash,
         };
         Ok(block_commit)
+    }
+}
+
+impl FromColumn<ASTRules> for ASTRules {
+    fn from_column<'a>(row: &'a Row, column_name: &str) -> Result<ASTRules, db_error> {
+        let x: u8 = row.get_unwrap(column_name);
+        let ast_rules = ASTRules::from_u8(x).ok_or(db_error::ParseError)?;
+        Ok(ast_rules)
+    }
+}
+
+impl FromRow<(ASTRules, u64)> for (ASTRules, u64) {
+    fn from_row<'a>(row: &'a Row) -> Result<(ASTRules, u64), db_error> {
+        let ast_rules = ASTRules::from_column(row, "ast_rule_id")?;
+        let height = u64::from_column(row, "block_height")?;
+        Ok((ast_rules, height))
     }
 }
 
@@ -559,16 +576,19 @@ pub struct SortitionDB {
     pub readwrite: bool,
     pub marf: MARF<SortitionId>,
     pub first_block_height: u64,
+    pub pox_constants: PoxConstants,
 }
 
 #[derive(Clone)]
 pub struct SortitionDBTxContext {
     pub first_block_height: u64,
+    pub pox_constants: PoxConstants,
 }
 
 #[derive(Clone)]
 pub struct SortitionHandleContext {
     pub first_block_height: u64,
+    pub pox_constants: PoxConstants,
     pub chain_tip: SortitionId,
 }
 
@@ -745,6 +765,7 @@ impl<'a> SortitionHandleTx<'a> {
             SortitionHandleContext {
                 chain_tip: parent_chain_tip.clone(),
                 first_block_height: conn.first_block_height,
+                pox_constants: conn.pox_constants.clone(),
             },
         );
 
@@ -1259,6 +1280,7 @@ impl<'a> SortitionHandleConn<'a> {
             context: SortitionHandleContext {
                 chain_tip: chain_tip.clone(),
                 first_block_height: connection.context.first_block_height,
+                pox_constants: connection.context.pox_constants.clone(),
             },
             index: &connection.index,
         })
@@ -1447,6 +1469,28 @@ impl<'a> SortitionHandleConn<'a> {
 
 // Connection methods
 impl SortitionDB {
+    /// What's the default AST rules at the given block height?
+    pub fn get_ast_rules(conn: &DBConn, height: u64) -> Result<ASTRules, db_error> {
+        let ast_rule_sets: Vec<(ASTRules, u64)> = query_rows(
+            conn,
+            "SELECT * FROM ast_rule_heights ORDER BY block_height ASC",
+            NO_PARAMS,
+        )?;
+
+        assert!(ast_rule_sets.len() > 0);
+        let mut last_height = ast_rule_sets[0].1;
+        let mut last_rules = ast_rule_sets[0].0;
+        for (ast_rules, ast_rule_height) in ast_rule_sets.into_iter() {
+            if last_height <= height && height < ast_rule_height {
+                return Ok(last_rules);
+            }
+            last_height = ast_rule_height;
+            last_rules = ast_rules;
+        }
+
+        return Ok(last_rules);
+    }
+
     /// Begin a transaction.
     pub fn tx_begin<'a>(&'a mut self) -> Result<SortitionDBTx<'a>, db_error> {
         if !self.readwrite {
@@ -1457,6 +1501,7 @@ impl SortitionDB {
             &mut self.marf,
             SortitionDBTxContext {
                 first_block_height: self.first_block_height,
+                pox_constants: PoxConstants::default(),
             },
         );
         Ok(index_tx)
@@ -1468,6 +1513,7 @@ impl SortitionDB {
             &self.marf,
             SortitionDBTxContext {
                 first_block_height: self.first_block_height,
+                pox_constants: PoxConstants::default(),
             },
         )
     }
@@ -1478,6 +1524,7 @@ impl SortitionDB {
             SortitionHandleContext {
                 first_block_height: self.first_block_height,
                 chain_tip: chain_tip.clone(),
+                pox_constants: self.pox_constants.clone(),
             },
         )
     }
@@ -1495,6 +1542,7 @@ impl SortitionDB {
             SortitionHandleContext {
                 first_block_height: self.first_block_height,
                 chain_tip: chain_tip.clone(),
+                pox_constants: self.pox_constants.clone(),
             },
         ))
     }
@@ -1529,6 +1577,7 @@ impl SortitionDB {
             marf,
             readwrite,
             first_block_height: first_snapshot.block_height,
+            pox_constants: PoxConstants::default(),
         };
 
         db.check_schema_version_or_error()?;
@@ -1573,6 +1622,7 @@ impl SortitionDB {
             marf,
             readwrite,
             first_block_height,
+            pox_constants: PoxConstants::default(),
         };
 
         if create_flag {
@@ -1800,6 +1850,7 @@ impl SortitionDB {
             StacksEpochId::Epoch10 => false,
             StacksEpochId::Epoch20 => version == "1" || version == "2" || version == "3",
             StacksEpochId::Epoch2_05 => version == "2" || version == "3",
+            StacksEpochId::Epoch21 => version == "3" || version == "4",
         }
     }
 
@@ -1897,6 +1948,7 @@ impl SortitionDB {
                 readwrite: true,
                 // not used by migration logic
                 first_block_height: 0,
+                pox_constants: PoxConstants::default(),
             };
             db.check_schema_version_and_update(epochs)
         } else {
@@ -1932,6 +1984,7 @@ impl<'a> SortitionDBConn<'a> {
             context: SortitionHandleContext {
                 first_block_height: self.context.first_block_height.clone(),
                 chain_tip: chain_tip.clone(),
+                pox_constants: self.context.pox_constants.clone(),
             },
         }
     }
@@ -2436,7 +2489,7 @@ impl SortitionDB {
         //  reverse block order (but the correct direction within the blocks).
         let mut ops = vec![];
         let mut curr_block_id = start_block.clone();
-        let mut curr_sortition_id = SortitionId::new(&start_block);
+        let mut curr_sortition_id = SortitionId::stubbed(&start_block);
 
         loop {
             if curr_block_id == BurnchainHeaderHash::zero() {

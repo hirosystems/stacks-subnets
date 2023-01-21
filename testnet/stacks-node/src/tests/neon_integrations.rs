@@ -35,7 +35,6 @@ use crate::{Config, Keychain};
 use std::convert::TryFrom;
 
 use super::make_contract_call_mblock_only;
-use clarity::vm::types::AssetIdentifier;
 
 pub fn mockstack_test_conf() -> (Config, StacksAddress) {
     let mut conf = super::new_test_conf();
@@ -714,19 +713,18 @@ pub fn get_nft_withdrawal_entry<F: std::fmt::Display>(
     block_height: u64,
     sender: F,
     withdrawal_id: u64,
-    asset_identifier: AssetIdentifier,
+    contract_identifier: QualifiedContractIdentifier,
     id: u64,
 ) -> WithdrawalEntry {
     let client = reqwest::blocking::Client::new();
     let path = format!(
-        "{}/v2/withdrawal/nft/{}/{}/{}/{}/{}/{}/{}",
+        "{}/v2/withdrawal/nft/{}/{}/{}/{}/{}/{}",
         http_origin,
         block_height,
         sender,
         withdrawal_id,
-        StacksAddress::from(asset_identifier.clone().contract_identifier.issuer),
-        asset_identifier.contract_identifier.name.as_str(),
-        asset_identifier.asset_name.to_string(),
+        StacksAddress::from(contract_identifier.issuer),
+        contract_identifier.name.as_str(),
         id
     );
 

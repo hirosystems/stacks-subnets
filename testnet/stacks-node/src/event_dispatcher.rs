@@ -572,6 +572,9 @@ impl EventDispatcher {
                             for o_i in observer_indexes {
                                 dispatch_matrix[*o_i as usize].insert(i);
                             }
+                            for o_i in &self.withdrawal_observers_lookup {
+                                dispatch_matrix[*o_i as usize].insert(i);
+                            }
                         }
                     }
                     StacksTransactionEvent::STXEvent(STXEventType::STXTransferEvent(_))
@@ -579,14 +582,6 @@ impl EventDispatcher {
                     | StacksTransactionEvent::STXEvent(STXEventType::STXBurnEvent(_))
                     | StacksTransactionEvent::STXEvent(STXEventType::STXLockEvent(_)) => {
                         for o_i in &self.stx_observers_lookup {
-                            dispatch_matrix[*o_i as usize].insert(i);
-                        }
-                    }
-                    StacksTransactionEvent::STXEvent(STXEventType::STXWithdrawEvent(_)) => {
-                        for o_i in &self.stx_observers_lookup {
-                            dispatch_matrix[*o_i as usize].insert(i);
-                        }
-                        for o_i in &self.withdrawal_observers_lookup {
                             dispatch_matrix[*o_i as usize].insert(i);
                         }
                     }
@@ -613,18 +608,6 @@ impl EventDispatcher {
                             &mut dispatch_matrix,
                         );
                     }
-                    StacksTransactionEvent::NFTEvent(NFTEventType::NFTWithdrawEvent(
-                        event_data,
-                    )) => {
-                        self.update_dispatch_matrix_if_observer_subscribed(
-                            &event_data.asset_identifier,
-                            i,
-                            &mut dispatch_matrix,
-                        );
-                        for o_i in &self.withdrawal_observers_lookup {
-                            dispatch_matrix[*o_i as usize].insert(i);
-                        }
-                    }
                     StacksTransactionEvent::FTEvent(FTEventType::FTTransferEvent(event_data)) => {
                         self.update_dispatch_matrix_if_observer_subscribed(
                             &event_data.asset_identifier,
@@ -645,16 +628,6 @@ impl EventDispatcher {
                             i,
                             &mut dispatch_matrix,
                         );
-                    }
-                    StacksTransactionEvent::FTEvent(FTEventType::FTWithdrawEvent(event_data)) => {
-                        self.update_dispatch_matrix_if_observer_subscribed(
-                            &event_data.asset_identifier,
-                            i,
-                            &mut dispatch_matrix,
-                        );
-                        for o_i in &self.withdrawal_observers_lookup {
-                            dispatch_matrix[*o_i as usize].insert(i);
-                        }
                     }
                 }
                 events.push((!receipt.post_condition_aborted, tx_hash, event));

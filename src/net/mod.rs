@@ -63,7 +63,7 @@ use crate::util_lib::boot::boot_code_tx_auth;
 use crate::util_lib::db::DBConn;
 use crate::util_lib::db::Error as db_error;
 use crate::util_lib::strings::UrlString;
-use clarity::vm::types::{AssetIdentifier, TraitIdentifier};
+use clarity::vm::types::{QualifiedContractIdentifier, TraitIdentifier};
 use clarity::vm::{
     analysis::contract_interface_builder::ContractInterface, types::PrincipalData, ClarityName,
     ContractName, Value,
@@ -252,6 +252,8 @@ impl From<codec_error> for Error {
             codec_error::UnderflowError(s) => Error::UnderflowError(s),
             codec_error::OverflowError(s) => Error::OverflowError(s),
             codec_error::ArrayTooLong => Error::ArrayTooLong,
+            codec_error::SigningError(s) => Error::SigningError(s),
+            codec_error::GenericError(_) => Error::InvalidMessage,
         }
     }
 }
@@ -1444,7 +1446,7 @@ pub enum HttpRequestType {
         withdraw_block_height: u64,
         sender: PrincipalData,
         withdrawal_id: u32,
-        asset_identifier: AssetIdentifier,
+        contract_identifier: QualifiedContractIdentifier,
         id: u128,
     },
     GetAccount(HttpRequestMetadata, PrincipalData, TipRequest, bool),
@@ -2757,13 +2759,15 @@ pub mod test {
                             conf.setup_code.len()
                         );
 
-                        let smart_contract =
-                            TransactionPayload::SmartContract(TransactionSmartContract {
+                        let smart_contract = TransactionPayload::SmartContract(
+                            TransactionSmartContract {
                                 name: ContractName::try_from(conf.test_name.as_str())
                                     .expect("FATAL: invalid boot-code contract name"),
                                 code_body: StacksString::from_str(&conf.setup_code)
                                     .expect("FATAL: invalid boot code body"),
-                            });
+                            },
+                            None,
+                        );
 
                         let boot_code_smart_contract = StacksTransaction::new(
                             TransactionVersion::Testnet,

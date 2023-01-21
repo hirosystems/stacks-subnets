@@ -18,7 +18,8 @@ use crate::chainstate::stacks::index::ClarityMarfTrieId;
 use crate::clarity_vm::clarity::{ClarityInstance, Error as ClarityError};
 use crate::types::chainstate::BlockHeaderHash;
 use crate::types::chainstate::StacksBlockId;
-use clarity::vm::ast;
+use clarity::consts::CHAIN_ID_TESTNET;
+use clarity::vm::ast::{self, ASTRules};
 use clarity::vm::contexts::{Environment, GlobalContext, OwnedEnvironment};
 use clarity::vm::contracts::Contract;
 use clarity::vm::costs::ExecutionCost;
@@ -35,6 +36,8 @@ use stacks_common::util::hash::hex_bytes;
 use crate::clarity_vm::database::marf::MarfedKV;
 use clarity::vm::clarity::TransactionConnection;
 
+use clarity::vm::version::ClarityVersion;
+use stacks_common::types::StacksEpochId;
 fn test_block_headers(n: u8) -> StacksBlockId {
     StacksBlockId([n as u8; 32])
 }
@@ -73,7 +76,7 @@ const SIMPLE_TOKENS: &str = "(define-map tokens { account: principal } { balance
 
 #[test]
 fn test_simple_token_system() {
-    let mut clarity = ClarityInstance::new(false, MarfedKV::temporary());
+    let mut clarity = ClarityInstance::new(false, CHAIN_ID_TESTNET, MarfedKV::temporary());
     let p1 = PrincipalData::from(
         PrincipalData::parse_standard_principal("SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR")
             .unwrap(),
@@ -94,13 +97,23 @@ fn test_simple_token_system() {
 
         let tokens_contract = SIMPLE_TOKENS;
 
-        let contract_ast = ast::build_ast(&contract_identifier, tokens_contract, &mut ()).unwrap();
+        let contract_ast = ast::build_ast_with_rules(
+            &contract_identifier,
+            tokens_contract,
+            &mut (),
+            ClarityVersion::Clarity2,
+            StacksEpochId::Epoch21,
+            ASTRules::PrecheckSize,
+        )
+        .unwrap();
 
         block.as_transaction(|tx| {
             tx.initialize_smart_contract(
                 &contract_identifier,
+                ClarityVersion::Clarity2,
                 &contract_ast,
                 tokens_contract,
+                None,
                 |_, _| false,
             )
             .unwrap()
@@ -110,6 +123,7 @@ fn test_simple_token_system() {
             &block
                 .as_transaction(|tx| tx.run_contract_call(
                     &p2,
+                    None,
                     &contract_identifier,
                     "token-transfer",
                     &[p1.clone().into(), Value::UInt(210)],
@@ -122,6 +136,7 @@ fn test_simple_token_system() {
             &block
                 .as_transaction(|tx| tx.run_contract_call(
                     &p1,
+                    None,
                     &contract_identifier,
                     "token-transfer",
                     &[p2.clone().into(), Value::UInt(9000)],
@@ -135,6 +150,7 @@ fn test_simple_token_system() {
             &block
                 .as_transaction(|tx| tx.run_contract_call(
                     &p1,
+                    None,
                     &contract_identifier,
                     "token-transfer",
                     &[p2.clone().into(), Value::UInt(1001)],
@@ -145,7 +161,7 @@ fn test_simple_token_system() {
         ));
         assert!(is_committed(
             & // send to self!
-            block.as_transaction(|tx| tx.run_contract_call(&p1, &contract_identifier, "token-transfer",
+            block.as_transaction(|tx| tx.run_contract_call(&p1, None, &contract_identifier, "token-transfer",
                                     &[p1.clone().into(), Value::UInt(1000)], |_, _| false)).unwrap().0
         ));
 
@@ -172,6 +188,7 @@ fn test_simple_token_system() {
             &block
                 .as_transaction(|tx| tx.run_contract_call(
                     &p1,
+                    None,
                     &contract_identifier,
                     "faucet",
                     &[],
@@ -185,6 +202,7 @@ fn test_simple_token_system() {
             &block
                 .as_transaction(|tx| tx.run_contract_call(
                     &p1,
+                    None,
                     &contract_identifier,
                     "faucet",
                     &[],
@@ -198,6 +216,7 @@ fn test_simple_token_system() {
             &block
                 .as_transaction(|tx| tx.run_contract_call(
                     &p1,
+                    None,
                     &contract_identifier,
                     "faucet",
                     &[],
@@ -221,6 +240,7 @@ fn test_simple_token_system() {
             &block
                 .as_transaction(|tx| tx.run_contract_call(
                     &p1,
+                    None,
                     &contract_identifier,
                     "mint-after",
                     &[Value::UInt(25)],
@@ -255,6 +275,7 @@ fn test_simple_token_system() {
             &block
                 .as_transaction(|tx| tx.run_contract_call(
                     &p1,
+                    None,
                     &contract_identifier,
                     "mint-after",
                     &[Value::UInt(25)],
@@ -268,6 +289,7 @@ fn test_simple_token_system() {
             &block
                 .as_transaction(|tx| tx.run_contract_call(
                     &p1,
+                    None,
                     &contract_identifier,
                     "faucet",
                     &[],
@@ -290,6 +312,7 @@ fn test_simple_token_system() {
             block
                 .as_transaction(|tx| tx.run_contract_call(
                     &p1,
+                    None,
                     &contract_identifier,
                     "my-get-token-balance",
                     &[p1.clone().into()],
@@ -311,7 +334,7 @@ fn test_simple_token_system() {
 #[ignore]
 pub fn rollback_log_memory_test() {
     let marf = MarfedKV::temporary();
-    let mut clarity_instance = ClarityInstance::new(false, marf);
+    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
     let EXPLODE_N = 100;
 
     let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
@@ -334,6 +357,7 @@ pub fn rollback_log_memory_test() {
 
         let define_data_var = "(define-data-var XZ (buff 1048576) 0x00)";
 
+        let clarity_version = ClarityVersion::Clarity1;
         let mut contract = define_data_var.to_string();
         for i in 0..20 {
             let cur_size = format!("{}", 2u32.pow(i));
@@ -352,13 +376,23 @@ pub fn rollback_log_memory_test() {
 
         conn.as_transaction(|conn| {
             let (ct_ast, _ct_analysis) = conn
-                .analyze_smart_contract(&contract_identifier, &contract)
+                .analyze_smart_contract(
+                    &contract_identifier,
+                    clarity_version,
+                    &contract,
+                    ASTRules::PrecheckSize,
+                )
                 .unwrap();
             assert!(format!(
                 "{:?}",
-                conn.initialize_smart_contract(&contract_identifier, &ct_ast, &contract, |_, _| {
-                    false
-                })
+                conn.initialize_smart_contract(
+                    &contract_identifier,
+                    clarity_version,
+                    &ct_ast,
+                    &contract,
+                    None,
+                    |_, _| { false }
+                )
                 .unwrap_err()
             )
             .contains("MemoryBalanceExceeded"));
@@ -371,7 +405,7 @@ pub fn rollback_log_memory_test() {
 #[test]
 pub fn let_memory_test() {
     let marf = MarfedKV::temporary();
-    let mut clarity_instance = ClarityInstance::new(false, marf);
+    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
     let EXPLODE_N = 100;
 
     let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
@@ -416,15 +450,26 @@ pub fn let_memory_test() {
 
         contract.push_str(") 1)");
 
+        let clarity_version = ClarityVersion::Clarity2;
         conn.as_transaction(|conn| {
             let (ct_ast, _ct_analysis) = conn
-                .analyze_smart_contract(&contract_identifier, &contract)
+                .analyze_smart_contract(
+                    &contract_identifier,
+                    clarity_version,
+                    &contract,
+                    ASTRules::PrecheckSize,
+                )
                 .unwrap();
             assert!(format!(
                 "{:?}",
-                conn.initialize_smart_contract(&contract_identifier, &ct_ast, &contract, |_, _| {
-                    false
-                })
+                conn.initialize_smart_contract(
+                    &contract_identifier,
+                    clarity_version,
+                    &ct_ast,
+                    &contract,
+                    None,
+                    |_, _| { false }
+                )
                 .unwrap_err()
             )
             .contains("MemoryBalanceExceeded"));
@@ -435,7 +480,7 @@ pub fn let_memory_test() {
 #[test]
 pub fn argument_memory_test() {
     let marf = MarfedKV::temporary();
-    let mut clarity_instance = ClarityInstance::new(false, marf);
+    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
     let EXPLODE_N = 100;
 
     let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
@@ -480,15 +525,26 @@ pub fn argument_memory_test() {
 
         contract.push_str(")");
 
+        let clarity_version = ClarityVersion::Clarity2;
         conn.as_transaction(|conn| {
             let (ct_ast, _ct_analysis) = conn
-                .analyze_smart_contract(&contract_identifier, &contract)
+                .analyze_smart_contract(
+                    &contract_identifier,
+                    clarity_version,
+                    &contract,
+                    ASTRules::PrecheckSize,
+                )
                 .unwrap();
             assert!(format!(
                 "{:?}",
-                conn.initialize_smart_contract(&contract_identifier, &ct_ast, &contract, |_, _| {
-                    false
-                })
+                conn.initialize_smart_contract(
+                    &contract_identifier,
+                    clarity_version,
+                    &ct_ast,
+                    &contract,
+                    None,
+                    |_, _| { false }
+                )
                 .unwrap_err()
             )
             .contains("MemoryBalanceExceeded"));
@@ -499,7 +555,7 @@ pub fn argument_memory_test() {
 #[test]
 pub fn fcall_memory_test() {
     let marf = MarfedKV::temporary();
-    let mut clarity_instance = ClarityInstance::new(false, marf);
+    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
     let COUNT_PER_FUNC = 10;
     let FUNCS = 10;
 
@@ -563,16 +619,24 @@ pub fn fcall_memory_test() {
         eprintln!("{}", contract_ok);
         eprintln!("{}", contract_err);
 
+        let clarity_version = ClarityVersion::Clarity2;
         conn.as_transaction(|conn| {
             let (ct_ast, _ct_analysis) = conn
-                .analyze_smart_contract(&contract_identifier, &contract_ok)
+                .analyze_smart_contract(
+                    &contract_identifier,
+                    clarity_version,
+                    &contract_ok,
+                    ASTRules::PrecheckSize,
+                )
                 .unwrap();
             assert!(match conn
                 .initialize_smart_contract(
                     // initialize the ok contract without errs, but still abort.
                     &contract_identifier,
+                    clarity_version,
                     &ct_ast,
                     &contract_ok,
+                    None,
                     |_, _| true
                 )
                 .unwrap_err()
@@ -584,14 +648,21 @@ pub fn fcall_memory_test() {
 
         conn.as_transaction(|conn| {
             let (ct_ast, _ct_analysis) = conn
-                .analyze_smart_contract(&contract_identifier, &contract_err)
+                .analyze_smart_contract(
+                    &contract_identifier,
+                    clarity_version,
+                    &contract_err,
+                    ASTRules::PrecheckSize,
+                )
                 .unwrap();
             assert!(format!(
                 "{:?}",
                 conn.initialize_smart_contract(
                     &contract_identifier,
+                    clarity_version,
                     &ct_ast,
                     &contract_err,
+                    None,
                     |_, _| false
                 )
                 .unwrap_err()
@@ -605,7 +676,7 @@ pub fn fcall_memory_test() {
 #[ignore]
 pub fn ccall_memory_test() {
     let marf = MarfedKV::temporary();
-    let mut clarity_instance = ClarityInstance::new(false, marf);
+    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
     let COUNT_PER_CONTRACT = 20;
     let CONTRACTS = 5;
 
@@ -661,15 +732,23 @@ pub fn ccall_memory_test() {
             let contract_name = format!("contract-{}", i);
             let contract_identifier = QualifiedContractIdentifier::local(&contract_name).unwrap();
 
+            let clarity_version = ClarityVersion::Clarity2;
             if i < (CONTRACTS - 1) {
                 conn.as_transaction(|conn| {
                     let (ct_ast, ct_analysis) = conn
-                        .analyze_smart_contract(&contract_identifier, &contract)
+                        .analyze_smart_contract(
+                            &contract_identifier,
+                            clarity_version,
+                            &contract,
+                            ASTRules::PrecheckSize,
+                        )
                         .unwrap();
                     conn.initialize_smart_contract(
                         &contract_identifier,
+                        clarity_version,
                         &ct_ast,
                         &contract,
+                        None,
                         |_, _| false,
                     )
                     .unwrap();
@@ -679,14 +758,21 @@ pub fn ccall_memory_test() {
             } else {
                 conn.as_transaction(|conn| {
                     let (ct_ast, _ct_analysis) = conn
-                        .analyze_smart_contract(&contract_identifier, &contract)
+                        .analyze_smart_contract(
+                            &contract_identifier,
+                            clarity_version,
+                            &contract,
+                            ASTRules::PrecheckSize,
+                        )
                         .unwrap();
                     assert!(format!(
                         "{:?}",
                         conn.initialize_smart_contract(
                             &contract_identifier,
+                            clarity_version,
                             &ct_ast,
                             &contract,
+                            None,
                             |_, _| false
                         )
                         .unwrap_err()
