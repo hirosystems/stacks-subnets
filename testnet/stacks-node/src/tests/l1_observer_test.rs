@@ -10,16 +10,15 @@ use crate::tests::neon_integrations::{
 };
 use crate::tests::{make_contract_call, make_contract_publish, to_addr};
 use crate::{neon, Config};
+use clarity::boot_util::{boot_code_addr, boot_code_id};
 use clarity::types::chainstate::StacksAddress;
 use clarity::util::hash::{MerklePathOrder, MerkleTree, Sha512Trunc256Sum};
 use clarity::vm::database::ClaritySerializable;
-use clarity::vm::events::NFTEventType::NFTWithdrawEvent;
-use clarity::vm::events::STXEventType::STXWithdrawEvent;
-use clarity::vm::events::STXWithdrawEventData;
+use clarity::vm::events::SmartContractEventData;
+use clarity::vm::events::StacksTransactionEvent;
 use clarity::vm::representations::ContractName;
-use clarity::vm::types::{AssetIdentifier, PrincipalData, TypeSignature};
+use clarity::vm::types::{PrincipalData, TypeSignature};
 use clarity::vm::Value;
-
 use stacks::burnchains::Burnchain;
 use stacks::chainstate::burn::db::sortdb::SortitionDB;
 use stacks::chainstate::stacks::events::{StacksTransactionReceipt, TransactionOrigin};
@@ -28,18 +27,14 @@ use stacks::chainstate::stacks::{
     TransactionSpendingCondition, TransactionVersion,
 };
 use stacks::clarity::types::chainstate::StacksPublicKey;
-use stacks::clarity::vm::events::NFTWithdrawEventData;
 use stacks::clarity_vm::withdrawal::{
     convert_withdrawal_key_to_bytes, create_withdrawal_merkle_tree, generate_key_from_event,
 };
 use stacks::codec::StacksMessageCodec;
 use stacks::core::LAYER_1_CHAIN_ID_TESTNET;
 use stacks::net::CallReadOnlyRequestBody;
-
 use stacks::util::hash::hex_bytes;
 use stacks::vm::costs::ExecutionCost;
-use stacks::vm::events::FTEventType::FTWithdrawEvent;
-use stacks::vm::events::{FTWithdrawEventData, StacksTransactionEvent};
 use stacks::vm::types::{QualifiedContractIdentifier, TupleData};
 use stacks::vm::ClarityName;
 use std::convert::{TryFrom, TryInto};
@@ -574,12 +569,40 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     let subnet_simple_ft = "
     (define-fungible-token ft-token)
 
-    (define-public (subnet-deposit-ft-token (amount uint) (recipient principal))
-      (ft-mint? ft-token amount recipient)
+    ;; get the token balance of owner
+    (define-read-only (get-balance (owner principal))
+        (ok (ft-get-balance ft-token owner)))
+
+    ;; returns the total number of tokens
+    (define-read-only (get-total-supply)
+        (ok (ft-get-supply ft-token)))
+
+    ;; returns the token name
+    (define-read-only (get-name)
+        (ok \"ft-token\"))
+
+    ;; the symbol or \"ticker\" for this token
+    (define-read-only (get-symbol)
+        (ok \"EXFT\"))
+
+    ;; the number of decimals used
+    (define-read-only (get-decimals)
+        (ok u0))
+
+    ;; Transfers tokens to a recipient
+    (define-public (transfer (amount uint) (sender principal) (recipient principal) (memo (optional (buff 34))))
+        (begin
+            (try! (ft-transfer? ft-token amount sender recipient))
+            (print memo)
+            (ok true)
+        )
     )
 
-    (define-public (subnet-withdraw-ft-token (amount uint) (recipient principal))
-      (ft-withdraw? ft-token amount recipient)
+    (define-read-only (get-token-uri)
+        (ok none))
+
+    (define-public (subnet-deposit-ft-token (amount uint) (recipient principal))
+      (ft-mint? ft-token amount recipient)
     )
 
     (define-read-only (get-token-balance (user principal))
@@ -601,12 +624,24 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     let subnet_simple_nft = "
     (define-non-fungible-token nft-token uint)
 
-    (define-public (subnet-deposit-nft-token (id uint) (recipient principal))
-      (nft-mint? nft-token id recipient)
+    (define-read-only (get-last-token-id)
+        (ok u0)
     )
 
-    (define-public (subnet-withdraw-nft-token (id uint) (recipient principal))
-      (nft-withdraw? nft-token id recipient)
+    (define-read-only (get-owner (id uint))
+        (ok (nft-get-owner? nft-token id))
+    )
+
+    (define-read-only (get-token-uri (id uint))
+        (ok none)
+    )
+
+    (define-public (transfer (id uint) (sender principal) (recipient principal))
+        (nft-transfer? nft-token id sender recipient)
+    )
+
+    (define-public (subnet-deposit-nft-token (id uint) (recipient principal))
+      (nft-mint? nft-token id recipient)
     )
 
     (define-read-only (get-token-owner (id uint))
@@ -683,6 +718,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
     assert_eq!(res["result"], "0x0100000000000000000000000000000000");
+
     // Check that the user does not own the NFT on the subnet now
     let res = call_read_only(
         &l2_rpc_origin,
@@ -846,10 +882,17 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         config.node.chain_id,
         l2_nonce,
         1_000_000,
-        &user_addr,
-        "simple-ft",
-        "subnet-withdraw-ft-token",
-        &[Value::UInt(1), Value::Principal(user_addr.into())],
+        &boot_code_addr(false),
+        "subnet",
+        "ft-withdraw?",
+        &[
+            Value::Principal(PrincipalData::Contract(QualifiedContractIdentifier::new(
+                user_addr.into(),
+                ContractName::from("simple-ft"),
+            ))),
+            Value::UInt(1),
+            Value::Principal(user_addr.into()),
+        ],
     );
     l2_nonce += 1;
     // Withdraw the nft on the L2
@@ -858,10 +901,17 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         config.node.chain_id,
         l2_nonce,
         1_000_000,
-        &user_addr,
-        "simple-nft",
-        "subnet-withdraw-nft-token",
-        &[Value::UInt(1), Value::Principal(user_addr.into())],
+        &boot_code_addr(false),
+        "subnet",
+        "nft-withdraw?",
+        &[
+            Value::Principal(PrincipalData::Contract(QualifiedContractIdentifier::new(
+                user_addr.into(),
+                ContractName::from("simple-nft"),
+            ))),
+            Value::UInt(1),
+            Value::Principal(user_addr.into()),
+        ],
     );
     l2_nonce += 1;
     // Withdraw ft-token from subnet contract on L2
@@ -869,8 +919,8 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     // Withdraw nft-token from subnet contract on L2
     submit_tx(&l2_rpc_origin, &l2_withdraw_nft_tx);
 
-    // Sleep to give the run loop time to mine a block
-    thread::sleep(Duration::from_secs(25));
+    wait_for_next_stacks_block(&sortition_db);
+    wait_for_next_stacks_block(&sortition_db);
 
     // Check that user no longer owns the fungible token on L2 chain
     let res = call_read_only(
@@ -893,7 +943,8 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
     assert_eq!(amount, Value::okay(Value::UInt(0)).unwrap());
-    // Check that user no longer owns the nft on L2 chain
+    // Check that user no longer owns the nft on L2 chain,
+    // instead, the subnet contract should own it.
     let res = call_read_only(
         &l2_rpc_origin,
         &user_addr,
@@ -913,7 +964,13 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
-    assert_eq!(addr, Value::none());
+    assert_eq!(
+        addr,
+        Value::some(Value::Principal(PrincipalData::Contract(
+            boot_code_id("subnet".into(), false).into()
+        )))
+        .unwrap()
+    );
     // Check that the user does not *yet* own the FT on the L1
     let res = call_read_only(
         &l1_rpc_origin,
@@ -966,33 +1023,46 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     let block_data = test_observer::get_blocks();
     let mut withdraw_events = filter_map_events(&block_data, |height, event| {
         let ev_type = event.get("type").unwrap().as_str().unwrap();
-        if ev_type == "nft_withdraw_event" {
-            Some((height, event.get("nft_withdraw_event").unwrap().clone()))
+        if ev_type == "contract_event" {
+            let contract_event = event.get("contract_event").unwrap();
+            let contract_identifier = contract_event
+                .get("contract_identifier")
+                .unwrap()
+                .as_str()
+                .unwrap();
+            let topic = contract_event.get("topic").unwrap().as_str().unwrap();
+            match (contract_identifier, topic) {
+                ("ST000000000000000000002AMW42H.subnet", "print") => {
+                    let value: Value =
+                        serde_json::from_value(contract_event.get("value").unwrap().clone())
+                            .unwrap();
+                    let data_map = value.expect_tuple();
+                    if data_map.get("type").unwrap().clone().expect_ascii() != "nft" {
+                        return None;
+                    }
+                    Some((height, data_map.clone()))
+                }
+                _ => None,
+            }
         } else {
             None
         }
     });
     assert_eq!(withdraw_events.len(), 1);
-    let (withdrawal_height, withdrawal_json) = withdraw_events.pop().unwrap();
+    let (withdrawal_height, withdrawal) = withdraw_events.pop().unwrap();
 
-    let withdrawal_id = withdrawal_json
+    let withdrawal_id = withdrawal
         .get("withdrawal_id")
         .unwrap()
-        .as_u64()
-        .unwrap();
+        .clone()
+        .expect_u128() as u64;
 
     let nft_withdrawal_entry = get_nft_withdrawal_entry(
         &l2_rpc_origin,
         withdrawal_height,
         &user_addr,
         withdrawal_id,
-        AssetIdentifier {
-            contract_identifier: QualifiedContractIdentifier::new(
-                user_addr.into(),
-                ContractName::from("simple-nft"),
-            ),
-            asset_name: ClarityName::from("nft-token"),
-        },
+        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-nft")),
         1,
     );
 
@@ -1007,31 +1077,59 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     spending_condition.set_tx_fee(1000);
     let auth = TransactionAuth::Standard(spending_condition);
     let mut ft_withdraw_event =
-        StacksTransactionEvent::FTEvent(FTWithdrawEvent(FTWithdrawEventData {
-            asset_identifier: AssetIdentifier {
-                contract_identifier: QualifiedContractIdentifier::new(
-                    user_addr.into(),
-                    ContractName::from("simple-ft"),
-                ),
-                asset_name: ClarityName::from("ft-token"),
-            },
-            sender: user_addr.into(),
-            amount: 1,
-            withdrawal_id: None,
-        }));
+        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+            key: (boot_code_id("subnet".into(), false), "print".into()),
+            value: Value::Tuple(
+                TupleData::from_data(vec![
+                    (
+                        "type".into(),
+                        Value::string_ascii_from_bytes("ft".to_string().into_bytes()).unwrap(),
+                    ),
+                    (
+                        "asset-contract".into(),
+                        Value::Principal(PrincipalData::Contract(
+                            QualifiedContractIdentifier::new(
+                                user_addr.into(),
+                                ContractName::from("simple-ft"),
+                            ),
+                        )),
+                    ),
+                    (
+                        "sender".into(),
+                        Value::Principal(PrincipalData::Standard(user_addr.into())),
+                    ),
+                    ("amount".into(), Value::UInt(1)),
+                ])
+                .expect("Failed to create tuple data."),
+            ),
+        });
     let mut nft_withdraw_event =
-        StacksTransactionEvent::NFTEvent(NFTWithdrawEvent(NFTWithdrawEventData {
-            asset_identifier: AssetIdentifier {
-                contract_identifier: QualifiedContractIdentifier::new(
-                    user_addr.into(),
-                    ContractName::from("simple-nft"),
-                ),
-                asset_name: ClarityName::from("nft-token"),
-            },
-            sender: user_addr.into(),
-            id: 1,
-            withdrawal_id: None,
-        }));
+        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+            key: (boot_code_id("subnet".into(), false), "print".into()),
+            value: Value::Tuple(
+                TupleData::from_data(vec![
+                    (
+                        "type".into(),
+                        Value::string_ascii_from_bytes("nft".to_string().into_bytes()).unwrap(),
+                    ),
+                    (
+                        "asset-contract".into(),
+                        Value::Principal(PrincipalData::Contract(
+                            QualifiedContractIdentifier::new(
+                                user_addr.into(),
+                                ContractName::from("simple-nft"),
+                            ),
+                        )),
+                    ),
+                    (
+                        "sender".into(),
+                        Value::Principal(PrincipalData::Standard(user_addr.into())),
+                    ),
+                    ("id".into(), Value::UInt(1)),
+                ])
+                .expect("Failed to create tuple data."),
+            ),
+        });
     let withdrawal_receipt = StacksTransactionReceipt {
         transaction: TransactionOrigin::Stacks(StacksTransaction::new(
             TransactionVersion::Testnet,
@@ -1336,7 +1434,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     // Publish subnet contract for withdrawing stx
     let subnet_simple_stx = "
     (define-public (subnet-withdraw-stx (amount uint) (sender principal))
-      (stx-withdraw? amount sender)
+      (contract-call? 'ST000000000000000000002AMW42H.subnet stx-withdraw? amount sender)
     )
     ";
     let subnet_stx_publish = make_contract_publish(
@@ -1450,16 +1548,36 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     // withdraw stx from L2
     submit_tx(&l2_rpc_origin, &l2_withdraw_stx_tx);
 
-    // Sleep to give the run loop time to mine a block
-    thread::sleep(Duration::from_secs(25));
+    // Wait to give the run loop time to mine a block
+    wait_for_next_stacks_block(&sortition_db);
+    wait_for_next_stacks_block(&sortition_db);
 
     // TODO: here, read the withdrawal events to get the withdrawal ID, and figure out the
     //       block height to query.
     let block_data = test_observer::get_blocks();
     let mut withdraw_events = filter_map_events(&block_data, |height, event| {
         let ev_type = event.get("type").unwrap().as_str().unwrap();
-        if ev_type == "stx_withdraw_event" {
-            Some((height, event.get("stx_withdraw_event").unwrap().clone()))
+        if ev_type == "contract_event" {
+            let contract_event = event.get("contract_event").unwrap();
+            let contract_identifier = contract_event
+                .get("contract_identifier")
+                .unwrap()
+                .as_str()
+                .unwrap();
+            let topic = contract_event.get("topic").unwrap().as_str().unwrap();
+            match (contract_identifier, topic) {
+                ("ST000000000000000000002AMW42H.subnet", "print") => {
+                    let value: Value =
+                        serde_json::from_value(contract_event.get("value").unwrap().clone())
+                            .unwrap();
+                    let data_map = value.expect_tuple();
+                    if data_map.get("type").unwrap().clone().expect_ascii() != "stx" {
+                        return None;
+                    }
+                    Some((height, data_map.clone()))
+                }
+                _ => None,
+            }
         } else {
             None
         }
@@ -1467,25 +1585,19 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
 
     // should only be one withdrawal event
     assert_eq!(withdraw_events.len(), 1);
-    let (withdrawal_height, withdrawal_json) = withdraw_events.pop().unwrap();
+    let (withdrawal_height, withdrawal) = withdraw_events.pop().unwrap();
 
-    let withdrawal_id = withdrawal_json
+    let withdrawal_id = withdrawal
         .get("withdrawal_id")
         .unwrap()
-        .as_u64()
-        .unwrap();
-    let withdrawal_amount: u64 = withdrawal_json
-        .get("amount")
-        .unwrap()
-        .as_str()
-        .unwrap()
-        .parse()
-        .unwrap();
-    let withdrawal_sender = withdrawal_json
+        .clone()
+        .expect_u128() as u64;
+    let withdrawal_amount: u64 = withdrawal.get("amount").unwrap().clone().expect_u128() as u64;
+    let withdrawal_sender = withdrawal
         .get("sender")
         .unwrap()
-        .as_str()
-        .unwrap()
+        .clone()
+        .expect_principal()
         .to_string();
 
     assert_eq!(withdrawal_id, 0);
@@ -1524,11 +1636,23 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     spending_condition.set_tx_fee(1000);
     let auth = TransactionAuth::Standard(spending_condition);
     let mut stx_withdraw_event =
-        StacksTransactionEvent::STXEvent(STXWithdrawEvent(STXWithdrawEventData {
-            sender: user_addr.into(),
-            amount: 1,
-            withdrawal_id: None,
-        }));
+        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+            key: (boot_code_id("subnet".into(), false), "print".into()),
+            value: Value::Tuple(
+                TupleData::from_data(vec![
+                    (
+                        "type".into(),
+                        Value::string_ascii_from_bytes("stx".to_string().into_bytes()).unwrap(),
+                    ),
+                    (
+                        "sender".into(),
+                        Value::Principal(PrincipalData::Standard(user_addr.into())),
+                    ),
+                    ("amount".into(), Value::UInt(1)),
+                ])
+                .expect("Failed to create tuple data."),
+            ),
+        });
 
     let withdrawal_receipt = StacksTransactionReceipt {
         transaction: TransactionOrigin::Stacks(StacksTransaction::new(
@@ -1947,10 +2071,6 @@ fn nft_deposit_and_withdraw_integration_test() {
       )
     )
 
-    (define-public (subnet-withdraw-nft-token (id uint) (recipient principal))
-      (nft-withdraw? nft-token id recipient)
-    )
-
     (define-read-only (get-token-owner (id uint))
         (nft-get-owner? nft-token id)
     )
@@ -2144,10 +2264,17 @@ fn nft_deposit_and_withdraw_integration_test() {
         config.node.chain_id,
         l2_nonce,
         1_000_000,
-        &user_addr,
-        "simple-nft",
-        "subnet-withdraw-nft-token",
-        &[Value::UInt(1), Value::Principal(user_addr.into())],
+        &boot_code_addr(false),
+        "subnet",
+        "nft-withdraw?",
+        &[
+            Value::Principal(PrincipalData::Contract(QualifiedContractIdentifier::new(
+                user_addr.into(),
+                ContractName::from("simple-nft"),
+            ))),
+            Value::UInt(1),
+            Value::Principal(user_addr.into()),
+        ],
     );
     l2_nonce += 1;
     // Withdraw the subnet native nft from the L2 (with `nft-withdraw?`)
@@ -2156,10 +2283,17 @@ fn nft_deposit_and_withdraw_integration_test() {
         config.node.chain_id,
         l2_nonce,
         1_000_000,
-        &user_addr,
-        "simple-nft",
-        "subnet-withdraw-nft-token",
-        &[Value::UInt(5), Value::Principal(user_addr.into())],
+        &boot_code_addr(false),
+        "subnet",
+        "nft-withdraw?",
+        &[
+            Value::Principal(PrincipalData::Contract(QualifiedContractIdentifier::new(
+                user_addr.into(),
+                ContractName::from("simple-nft"),
+            ))),
+            Value::UInt(5),
+            Value::Principal(user_addr.into()),
+        ],
     );
     l2_nonce += 1;
     // Submit withdrawal function calls
@@ -2170,7 +2304,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
-    // Check that user no longer owns the l1 native NFT on L2 chain
+    // Check that user no longer owns the l1 native NFT on L2 chain,
+    // instead, the subnet contract should own it.
     let res = call_read_only(
         &l2_rpc_origin,
         &user_addr,
@@ -2190,8 +2325,15 @@ fn nft_deposit_and_withdraw_integration_test() {
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
-    assert_eq!(addr, Value::none());
-    // Check that user no longer owns the subnet native NFT on L2 chain
+    assert_eq!(
+        addr,
+        Value::some(Value::Principal(PrincipalData::Contract(
+            boot_code_id("subnet".into(), false).into()
+        )))
+        .unwrap()
+    );
+    // Check that user no longer owns the subnet native NFT on L2 chain,
+    // instead, the subnet contract should own it.
     let res = call_read_only(
         &l2_rpc_origin,
         &user_addr,
@@ -2211,7 +2353,13 @@ fn nft_deposit_and_withdraw_integration_test() {
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
-    assert_eq!(addr, Value::none());
+    assert_eq!(
+        addr,
+        Value::some(Value::Principal(PrincipalData::Contract(
+            boot_code_id("subnet".into(), false).into()
+        )))
+        .unwrap()
+    );
 
     // Check that the user does not *yet* own the L1 native NFT on the L1 (the contract should still own it)
     let res = call_read_only(
@@ -2275,27 +2423,40 @@ fn nft_deposit_and_withdraw_integration_test() {
     let block_data = test_observer::get_blocks();
     let mut withdraw_events = filter_map_events(&block_data, |height, event| {
         let ev_type = event.get("type").unwrap().as_str().unwrap();
-        if ev_type == "nft_withdraw_event" {
-            Some((height, event.get("nft_withdraw_event").unwrap().clone()))
+        if ev_type == "contract_event" {
+            let contract_event = event.get("contract_event").unwrap();
+            let contract_identifier = contract_event
+                .get("contract_identifier")
+                .unwrap()
+                .as_str()
+                .unwrap();
+            let topic = contract_event.get("topic").unwrap().as_str().unwrap();
+            match (contract_identifier, topic) {
+                ("ST000000000000000000002AMW42H.subnet", "print") => {
+                    let value: Value =
+                        serde_json::from_value(contract_event.get("value").unwrap().clone())
+                            .unwrap();
+                    let data_map = value.expect_tuple();
+                    if data_map.get("type").unwrap().clone().expect_ascii() != "nft" {
+                        return None;
+                    }
+                    Some((height, data_map.clone()))
+                }
+                _ => None,
+            }
         } else {
             None
         }
     });
     assert_eq!(withdraw_events.len(), 2);
-    let (withdrawal_height, _withdrawal_json) = withdraw_events.pop().unwrap();
+    let (withdrawal_height, _withdrawal) = withdraw_events.pop().unwrap();
 
     let l1_native_nft_withdrawal_entry = get_nft_withdrawal_entry(
         &l2_rpc_origin,
         withdrawal_height,
         &user_addr,
         0,
-        AssetIdentifier {
-            contract_identifier: QualifiedContractIdentifier::new(
-                user_addr.into(),
-                ContractName::from("simple-nft"),
-            ),
-            asset_name: ClarityName::from("nft-token"),
-        },
+        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-nft")),
         1,
     );
     let subnet_native_nft_withdrawal_entry = get_nft_withdrawal_entry(
@@ -2303,13 +2464,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         withdrawal_height,
         &user_addr,
         1,
-        AssetIdentifier {
-            contract_identifier: QualifiedContractIdentifier::new(
-                user_addr.into(),
-                ContractName::from("simple-nft"),
-            ),
-            asset_name: ClarityName::from("nft-token"),
-        },
+        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-nft")),
         5,
     );
 
@@ -2324,31 +2479,59 @@ fn nft_deposit_and_withdraw_integration_test() {
     spending_condition.set_tx_fee(1000);
     let auth = TransactionAuth::Standard(spending_condition);
     let mut l1_native_nft_withdraw_event =
-        StacksTransactionEvent::NFTEvent(NFTWithdrawEvent(NFTWithdrawEventData {
-            asset_identifier: AssetIdentifier {
-                contract_identifier: QualifiedContractIdentifier::new(
-                    user_addr.into(),
-                    ContractName::from("simple-nft"),
-                ),
-                asset_name: ClarityName::from("nft-token"),
-            },
-            sender: user_addr.into(),
-            id: 1,
-            withdrawal_id: None,
-        }));
+        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+            key: (boot_code_id("subnet".into(), false), "print".into()),
+            value: Value::Tuple(
+                TupleData::from_data(vec![
+                    (
+                        "type".into(),
+                        Value::string_ascii_from_bytes("nft".to_string().into_bytes()).unwrap(),
+                    ),
+                    (
+                        "asset-contract".into(),
+                        Value::Principal(PrincipalData::Contract(
+                            QualifiedContractIdentifier::new(
+                                user_addr.into(),
+                                ContractName::from("simple-nft"),
+                            ),
+                        )),
+                    ),
+                    (
+                        "sender".into(),
+                        Value::Principal(PrincipalData::Standard(user_addr.into())),
+                    ),
+                    ("id".into(), Value::UInt(1)),
+                ])
+                .expect("Failed to create tuple data."),
+            ),
+        });
     let mut subnet_native_nft_withdraw_event =
-        StacksTransactionEvent::NFTEvent(NFTWithdrawEvent(NFTWithdrawEventData {
-            asset_identifier: AssetIdentifier {
-                contract_identifier: QualifiedContractIdentifier::new(
-                    user_addr.into(),
-                    ContractName::from("simple-nft"),
-                ),
-                asset_name: ClarityName::from("nft-token"),
-            },
-            sender: user_addr.into(),
-            id: 5,
-            withdrawal_id: None,
-        }));
+        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+            key: (boot_code_id("subnet".into(), false), "print".into()),
+            value: Value::Tuple(
+                TupleData::from_data(vec![
+                    (
+                        "type".into(),
+                        Value::string_ascii_from_bytes("nft".to_string().into_bytes()).unwrap(),
+                    ),
+                    (
+                        "asset-contract".into(),
+                        Value::Principal(PrincipalData::Contract(
+                            QualifiedContractIdentifier::new(
+                                user_addr.into(),
+                                ContractName::from("simple-nft"),
+                            ),
+                        )),
+                    ),
+                    (
+                        "sender".into(),
+                        Value::Principal(PrincipalData::Standard(user_addr.into())),
+                    ),
+                    ("id".into(), Value::UInt(5)),
+                ])
+                .expect("Failed to create tuple data."),
+            ),
+        });
     let withdrawal_receipt = StacksTransactionReceipt {
         transaction: TransactionOrigin::Stacks(StacksTransaction::new(
             TransactionVersion::Testnet,

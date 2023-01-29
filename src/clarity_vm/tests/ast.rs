@@ -1,10 +1,14 @@
 use crate::clarity_vm::{clarity::ClarityInstance, database::marf::MarfedKV};
-use clarity::vm::ast::build_ast;
+use clarity::consts::CHAIN_ID_TESTNET;
+use clarity::vm::ast::build_ast_with_rules;
 use clarity::vm::test_util::{TEST_BURN_STATE_DB, TEST_HEADER_DB};
 use clarity::vm::types::QualifiedContractIdentifier;
+use clarity::vm::ClarityVersion;
 use stacks_common::types::chainstate::StacksBlockId;
+use stacks_common::types::StacksEpochId;
 
 use crate::chainstate::stacks::index::ClarityMarfTrieId;
+use crate::vm::ast::ASTRules;
 
 fn dependency_edge_counting_runtime(iters: usize) -> u64 {
     let mut progn = "(define-private (a0) 1)".to_string();
@@ -17,7 +21,7 @@ fn dependency_edge_counting_runtime(iters: usize) -> u64 {
     }
 
     let marf = MarfedKV::temporary();
-    let mut clarity_instance = ClarityInstance::new(false, marf);
+    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
 
     clarity_instance
         .begin_test_genesis_block(
@@ -37,10 +41,15 @@ fn dependency_edge_counting_runtime(iters: usize) -> u64 {
         )
         .commit_block();
 
-    build_ast(
+    let version = ClarityVersion::Clarity2;
+    let epoch = StacksEpochId::Epoch21;
+    build_ast_with_rules(
         &QualifiedContractIdentifier::transient(),
         &progn,
         &mut cost_track,
+        version,
+        epoch,
+        ASTRules::PrecheckSize,
     )
     .unwrap();
 

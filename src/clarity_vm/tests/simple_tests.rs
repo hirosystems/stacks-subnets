@@ -8,6 +8,7 @@ use stacks_common::types::chainstate::StacksBlockId;
 
 use crate::chainstate::stacks::index::ClarityMarfTrieId;
 use crate::clarity_vm::database::marf::MarfedKV;
+use crate::core::SUBNETS_STACKS_EPOCH;
 
 pub fn with_marfed_environment<F>(f: F, top_level: bool)
 where
@@ -33,8 +34,10 @@ where
             &StacksBlockId([1 as u8; 32]),
         );
 
-        let mut owned_env =
-            OwnedEnvironment::new(store.as_clarity_db(&TEST_HEADER_DB, &TEST_BURN_STATE_DB));
+        let mut owned_env = OwnedEnvironment::new(
+            store.as_clarity_db(&TEST_HEADER_DB, &TEST_BURN_STATE_DB),
+            SUBNETS_STACKS_EPOCH,
+        );
         // start an initial transaction.
         if !top_level {
             owned_env.begin();
@@ -54,6 +57,8 @@ fn test_at_unknown_block() {
             .initialize_contract(
                 QualifiedContractIdentifier::local("contract").unwrap(),
                 &contract,
+                None,
+                clarity::vm::ast::ASTRules::PrecheckSize,
             )
             .unwrap_err();
         eprintln!("{}", err);

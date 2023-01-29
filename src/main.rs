@@ -20,8 +20,8 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-extern crate blockstack_lib;
 extern crate rusqlite;
+extern crate subnet_lib;
 #[macro_use]
 extern crate stacks_common;
 
@@ -38,48 +38,50 @@ use std::thread;
 use std::{collections::HashMap, env};
 use std::{convert::TryFrom, fs};
 
-use blockstack_lib::burnchains::BLOCKSTACK_MAGIC_MAINNET;
-use blockstack_lib::clarity_cli;
-use blockstack_lib::cost_estimates::UnitEstimator;
-use blockstack_lib::types::PrivateKey;
-use blockstack_lib::util::secp256k1::secp256k1_recover;
-use blockstack_lib::util::secp256k1::Secp256k1PrivateKey;
-use blockstack_lib::util::secp256k1::Secp256k1PublicKey;
 use rusqlite::types::ToSql;
 use rusqlite::Connection;
 use rusqlite::OpenFlags;
+use subnet_lib::burnchains::BLOCKSTACK_MAGIC_MAINNET;
+use subnet_lib::clarity_cli;
+use subnet_lib::cost_estimates::UnitEstimator;
+use subnet_lib::types::PrivateKey;
+use subnet_lib::util::secp256k1::secp256k1_recover;
+use subnet_lib::util::secp256k1::Secp256k1PrivateKey;
+use subnet_lib::util::secp256k1::Secp256k1PublicKey;
 
-use blockstack_lib::burnchains::db::BurnchainDB;
-use blockstack_lib::burnchains::Address;
-use blockstack_lib::burnchains::Burnchain;
-use blockstack_lib::burnchains::Txid;
-use blockstack_lib::chainstate::burn::ConsensusHash;
-use blockstack_lib::chainstate::stacks::db::blocks::DummyEventDispatcher;
-use blockstack_lib::chainstate::stacks::db::blocks::StagingBlock;
-use blockstack_lib::chainstate::stacks::db::ChainStateBootData;
-use blockstack_lib::chainstate::stacks::index::marf::MARFOpenOpts;
-use blockstack_lib::chainstate::stacks::index::marf::MarfConnection;
-use blockstack_lib::chainstate::stacks::index::marf::MARF;
-use blockstack_lib::chainstate::stacks::index::ClarityMarfTrieId;
-use blockstack_lib::chainstate::stacks::miner::*;
-use blockstack_lib::chainstate::stacks::StacksBlockHeader;
-use blockstack_lib::chainstate::stacks::*;
-use blockstack_lib::clarity::vm::costs::ExecutionCost;
-use blockstack_lib::clarity::vm::types::StacksAddressExtensions;
-use blockstack_lib::codec::StacksMessageCodec;
-use blockstack_lib::core::*;
-use blockstack_lib::cost_estimates::metrics::UnitMetric;
-use blockstack_lib::net::relay::Relayer;
-use blockstack_lib::net::{db::LocalPeer, p2p::PeerNetwork, PeerAddress};
-use blockstack_lib::types::chainstate::StacksAddress;
-use blockstack_lib::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksBlockId};
-use blockstack_lib::util::get_epoch_time_ms;
-use blockstack_lib::util::hash::{hex_bytes, to_hex};
-use blockstack_lib::util::log;
-use blockstack_lib::util::retry::LogReader;
-use blockstack_lib::util::sleep_ms;
-use blockstack_lib::util_lib::strings::UrlString;
-use blockstack_lib::{
+use clarity::vm::ClarityVersion;
+use std::collections::HashSet;
+use subnet_lib::burnchains::db::BurnchainDB;
+use subnet_lib::burnchains::Address;
+use subnet_lib::burnchains::Burnchain;
+use subnet_lib::burnchains::Txid;
+use subnet_lib::chainstate::burn::ConsensusHash;
+use subnet_lib::chainstate::stacks::db::blocks::DummyEventDispatcher;
+use subnet_lib::chainstate::stacks::db::blocks::StagingBlock;
+use subnet_lib::chainstate::stacks::db::ChainStateBootData;
+use subnet_lib::chainstate::stacks::index::marf::MARFOpenOpts;
+use subnet_lib::chainstate::stacks::index::marf::MarfConnection;
+use subnet_lib::chainstate::stacks::index::marf::MARF;
+use subnet_lib::chainstate::stacks::index::ClarityMarfTrieId;
+use subnet_lib::chainstate::stacks::miner::*;
+use subnet_lib::chainstate::stacks::StacksBlockHeader;
+use subnet_lib::chainstate::stacks::*;
+use subnet_lib::clarity::vm::costs::ExecutionCost;
+use subnet_lib::clarity::vm::types::StacksAddressExtensions;
+use subnet_lib::codec::StacksMessageCodec;
+use subnet_lib::core::*;
+use subnet_lib::cost_estimates::metrics::UnitMetric;
+use subnet_lib::net::relay::Relayer;
+use subnet_lib::net::{db::LocalPeer, p2p::PeerNetwork, PeerAddress};
+use subnet_lib::types::chainstate::StacksAddress;
+use subnet_lib::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksBlockId};
+use subnet_lib::util::get_epoch_time_ms;
+use subnet_lib::util::hash::{hex_bytes, to_hex};
+use subnet_lib::util::log;
+use subnet_lib::util::retry::LogReader;
+use subnet_lib::util::sleep_ms;
+use subnet_lib::util_lib::strings::UrlString;
+use subnet_lib::{
     burnchains::{db::BurnchainBlockData, PoxConstants},
     chainstate::{
         burn::db::sortdb::SortitionDB,
@@ -89,7 +91,6 @@ use blockstack_lib::{
     util::{hash::Hash160, vrf::VRFProof},
     util_lib::db::sqlite_open,
 };
-use std::collections::HashSet;
 
 fn main() {
     let argv: Vec<String> = env::args().collect();
@@ -101,7 +102,7 @@ fn main() {
     if argv[1] == "--version" {
         println!(
             "{}",
-            &blockstack_lib::version_string(
+            &subnet_lib::version_string(
                 option_env!("CARGO_PKG_NAME").unwrap_or(&argv[0]),
                 option_env!("CARGO_PKG_VERSION").unwrap_or("0.0.0.0")
             )
@@ -838,7 +839,7 @@ simulating a miner.
         }
         let program: String =
             fs::read_to_string(&argv[2]).expect(&format!("Error reading file: {}", argv[2]));
-        match clarity_cli::vm_execute(&program) {
+        match clarity_cli::vm_execute(&program, ClarityVersion::Clarity2) {
             Ok(Some(result)) => println!("{}", result),
             Ok(None) => println!(""),
             Err(error) => {
@@ -898,7 +899,7 @@ simulating a miner.
     if argv[1] == "docgen" {
         println!(
             "{}",
-            blockstack_lib::clarity::vm::docs::make_json_api_reference()
+            subnet_lib::clarity::vm::docs::make_json_api_reference()
         );
         return;
     }
@@ -906,7 +907,7 @@ simulating a miner.
     if argv[1] == "docgen_boot" {
         println!(
             "{}",
-            blockstack_lib::chainstate::stacks::boot::docs::make_json_boot_contracts_reference()
+            subnet_lib::chainstate::stacks::boot::docs::make_json_boot_contracts_reference()
         );
         return;
     }

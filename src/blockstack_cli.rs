@@ -19,31 +19,34 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-extern crate blockstack_lib;
+extern crate subnet_lib;
 
 use std::convert::TryFrom;
 use std::io::prelude::*;
 use std::io::Read;
 use std::{env, fs, io};
 
-use blockstack_lib::address::b58;
-use blockstack_lib::address::AddressHashMode;
-use blockstack_lib::burnchains::Address;
-use blockstack_lib::chainstate::stacks::StacksBlockHeader;
-use blockstack_lib::chainstate::stacks::{
+use clarity::vm::ClarityVersion;
+use subnet_lib::address::b58;
+use subnet_lib::address::AddressHashMode;
+use subnet_lib::burnchains::Address;
+use subnet_lib::chainstate::stacks::StacksBlockHeader;
+use subnet_lib::chainstate::stacks::{
     StacksBlock, StacksMicroblock, StacksPrivateKey, StacksPublicKey, StacksTransaction,
     StacksTransactionSigner, TokenTransferMemo, TransactionAnchorMode, TransactionAuth,
     TransactionContractCall, TransactionPayload, TransactionSmartContract,
     TransactionSpendingCondition, TransactionVersion, C32_ADDRESS_VERSION_MAINNET_SINGLESIG,
     C32_ADDRESS_VERSION_TESTNET_SINGLESIG,
 };
-use blockstack_lib::codec::{Error as CodecError, StacksMessageCodec};
-use blockstack_lib::core::{LAYER_1_CHAIN_ID_MAINNET, LAYER_1_CHAIN_ID_TESTNET};
-use blockstack_lib::net::Error as NetError;
-use blockstack_lib::types::chainstate::StacksAddress;
-use blockstack_lib::util::{hash::hex_bytes, hash::to_hex, log, retry::LogReader};
-use blockstack_lib::util_lib::strings::StacksString;
-use blockstack_lib::vm::{
+use subnet_lib::codec::{Error as CodecError, StacksMessageCodec};
+use subnet_lib::core::{
+    LAYER_1_CHAIN_ID_MAINNET, LAYER_1_CHAIN_ID_TESTNET, SUBNETS_CLARITY_VERSION,
+};
+use subnet_lib::net::Error as NetError;
+use subnet_lib::types::chainstate::StacksAddress;
+use subnet_lib::util::{hash::hex_bytes, hash::to_hex, log, retry::LogReader};
+use subnet_lib::util_lib::strings::StacksString;
+use subnet_lib::vm::{
     errors::{Error as ClarityError, RuntimeErrorType},
     types::PrincipalData,
     ClarityName, ContractName, Value,
@@ -238,14 +241,14 @@ impl From<io::Error> for CliError {
     }
 }
 
-impl From<blockstack_lib::util::HexError> for CliError {
-    fn from(value: blockstack_lib::util::HexError) -> Self {
+impl From<subnet_lib::util::HexError> for CliError {
+    fn from(value: subnet_lib::util::HexError) -> Self {
         CliError::Message(format!("Bad hex string supplied: {}", value))
     }
 }
 
-impl From<blockstack_lib::vm::types::serialization::SerializationError> for CliError {
-    fn from(value: blockstack_lib::vm::types::serialization::SerializationError) -> Self {
+impl From<subnet_lib::vm::types::serialization::SerializationError> for CliError {
+    fn from(value: subnet_lib::vm::types::serialization::SerializationError) -> Self {
         CliError::Message(format!("Failed to deserialize: {}", value))
     }
 }
@@ -451,7 +454,7 @@ fn handle_contract_call(
                 Value::try_deserialize_hex_untyped(input)?
             },
             "-e" => {
-                blockstack_lib::clarity_cli::vm_execute(input)?
+                subnet_lib::clarity_cli::vm_execute(input, SUBNETS_CLARITY_VERSION)?
                     .ok_or("Supplied argument did not evaluate to a Value")?
             },
             _ => {

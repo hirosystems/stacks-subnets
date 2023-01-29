@@ -322,12 +322,27 @@ pub struct Burnchain {
 pub struct PoxConstants {
     /// the length (in burn blocks) of the reward cycle
     pub reward_cycle_length: u32,
+    /// the length (in burn blocks) of the prepare phase
+    pub prepare_length: u32,
+    /// The auto unlock height for PoX v1 lockups before transition to PoX v2. This
+    /// also defines the burn height at which PoX reward sets are calculated using
+    /// PoX v2 rather than v1
+    pub v1_unlock_height: u32,
+    /// fraction of liquid STX that must vote to reject PoX for
+    /// it to revert to PoB in the next reward cycle
+    pub pox_rejection_fraction: u64,
 }
 
 impl PoxConstants {
+    pub fn default() -> PoxConstants {
+        PoxConstants::new(1000)
+    }
     pub fn new(reward_cycle_length: u32) -> PoxConstants {
         PoxConstants {
             reward_cycle_length,
+            prepare_length: 0,
+            v1_unlock_height: 0,
+            pox_rejection_fraction: 0,
         }
     }
     #[cfg(test)]
@@ -357,6 +372,20 @@ impl PoxConstants {
     /// Implements `num_sync_cycles_to_height`.
     fn num_sync_cycles_to_height_internal(target_height: u64, cycle_length: u64) -> u64 {
         (target_height / cycle_length) + 1
+    }
+
+    /// Returns the active reward cycle at the given burn block height
+    /// * `first_block_ht` - the first burn block height that the Stacks network monitored
+    /// * `reward_cycle_len` - the length of each reward cycle in the network.
+    pub fn static_block_height_to_reward_cycle(
+        block_ht: u64,
+        first_block_ht: u64,
+        reward_cycle_len: u64,
+    ) -> Option<u64> {
+        if block_ht < first_block_ht {
+            return None;
+        }
+        Some((block_ht - first_block_ht) / (reward_cycle_len))
     }
 }
 
