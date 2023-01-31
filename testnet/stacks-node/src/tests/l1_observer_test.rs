@@ -261,11 +261,11 @@ pub fn publish_subnet_contracts_to_l1(
     config: &Config,
     miner: PrincipalData,
 ) -> u64 {
-    let trait_standard_contract_name = "trait-standards";
+    let trait_standard_contract_name = "subnet-traits";
     let l1_rpc_origin = config.burnchain.get_rpc_url();
     // Publish the trait contract
     let trait_content =
-        include_str!("../../../../core-contracts/contracts/helper/trait-standards.clar");
+        include_str!("../../../../core-contracts/contracts/helper/subnet-traits.clar");
     let trait_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -433,7 +433,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     // Start Stacks L1.
     let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
     let l1_rpc_origin = "http://127.0.0.1:20443";
-    let trait_standard_contract_name = "trait-standards";
+    let trait_standard_contract_name = "subnet-traits";
 
     // Start the L2 run loop.
     let mut config = super::new_l1_test_conf(&*MOCKNET_PRIVATE_KEY_2, &*MOCKNET_PRIVATE_KEY_1);
@@ -475,7 +475,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
 
     // Publish the NFT/FT/Subnet traits
     let trait_content =
-        include_str!("../../../../core-contracts/contracts/helper/trait-standards.clar");
+        include_str!("../../../../core-contracts/contracts/helper/subnet-traits.clar");
     let trait_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -1331,7 +1331,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     // Start Stacks L1.
     let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
     let l1_rpc_origin = "http://127.0.0.1:20443";
-    let trait_standard_contract_name = "trait-standards";
+    let trait_standard_contract_name = "subnet-traits";
 
     // Start the L2 run loop.
     let mut config = super::new_l1_test_conf(&*MOCKNET_PRIVATE_KEY_2, &*MOCKNET_PRIVATE_KEY_1);
@@ -1378,7 +1378,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
 
     // Publish the NFT/FT/Subnet traits
     let trait_content =
-        include_str!("../../../../core-contracts/contracts/helper/trait-standards.clar");
+        include_str!("../../../../core-contracts/contracts/helper/subnet-traits.clar");
     let trait_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -1881,7 +1881,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     // Start Stacks L1.
     let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
     let l1_rpc_origin = "http://127.0.0.1:20443";
-    let trait_standards_contract_name = "trait-standards";
+    let trait_standards_contract_name = "subnet-traits";
 
     // Start the L2 run loop.
     let mut config = super::new_test_conf();
@@ -1937,7 +1937,7 @@ fn nft_deposit_and_withdraw_integration_test() {
 
     // Publish the NFT/FT/mint-from-subnet traits onto L1
     let trait_content =
-        include_str!("../../../../core-contracts/contracts/helper/trait-standards.clar");
+        include_str!("../../../../core-contracts/contracts/helper/subnet-traits.clar");
     let trait_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -2029,7 +2029,7 @@ fn nft_deposit_and_withdraw_integration_test() {
 
     // Publish subnet contract for nft-token
     let subnet_simple_nft = "
-    (impl-trait .trait-standards.nft-trait)
+    (impl-trait .subnet-traits.nft-trait)
 
     (define-constant ERR_NOT_AUTHORIZED (err u1001))
 

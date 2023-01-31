@@ -38,9 +38,9 @@
 (define-map allowed-contracts principal principal)
 
 ;; Use trait declarations
-(use-trait nft-trait .trait-standards.nft-trait)
-(use-trait ft-trait .trait-standards.ft-trait)
-(use-trait mint-from-subnet-trait .trait-standards.mint-from-subnet-trait)
+(use-trait nft-trait 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)
+(use-trait ft-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
+(use-trait mint-from-subnet-trait .subnet-traits.mint-from-subnet-trait)
 
 ;; Update the miner for this contract.
 (define-public (update-miner (new-miner principal))
@@ -293,7 +293,8 @@
         (withdrawal-id uint)
         (height uint)
         (nft-mint-contract (optional <mint-from-subnet-trait>))
-        (withdrawal-root (buff 32)) (withdrawal-leaf-hash (buff 32))
+        (withdrawal-root (buff 32))
+        (withdrawal-leaf-hash (buff 32))
         (sibling-hashes (list 50 {
             hash: (buff 32),
             is-left-side: bool,

@@ -4,6 +4,7 @@ import {
     AnchorMode,
     standardPrincipalCV,
     uintCV,
+    someCV,
     PostConditionMode,
     contractPrincipalCV,
     broadcastTransaction,
@@ -38,10 +39,12 @@ async function main() {
         contractName: "subnet-alpha",
         functionName: "withdraw-nft-asset",
         functionArgs: [
+            contractPrincipalCV(contractAddr, 'simple-nft-l1'), // nft-contract
             uintCV(5), // ID
             standardPrincipalCV(addr), // recipient
-            contractPrincipalCV(contractAddr, 'simple-nft-l1'), // nft-contract
-            contractPrincipalCV(contractAddr, 'simple-nft-l1'), // nft-mint-contract
+            uintCV(withdrawalId), // withdrawal ID
+            uintCV(withdrawalBlockHeight), // withdrawal block height
+            someCV(contractPrincipalCV(contractAddr, 'simple-nft-l1')), // nft-mint-contract
             cv_merkle_entry.withdrawal_root, // withdrawal root
             cv_merkle_entry.withdrawal_leaf_hash, // withdrawal leaf hash
             cv_merkle_entry.sibling_hashes ], // sibling hashes

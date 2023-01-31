@@ -91,6 +91,8 @@ use clarity::vm::ClarityVersion;
 use rusqlite::types::ToSqlOutput;
 use stacks_common::types::chainstate::{StacksAddress, StacksBlockId};
 
+static DEPOSIT_FUNCTION_NAME: &str = "deposit-from-burnchain";
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct StagingMicroblock {
     pub consensus_hash: ConsensusHash,
@@ -4722,7 +4724,6 @@ impl StacksChainState {
                     txid,
                     burn_header_hash,
                     subnet_contract_id,
-                    subnet_function_name,
                     amount,
                     sender,
                     ..
@@ -4733,7 +4734,7 @@ impl StacksChainState {
                         &sender.clone(),
                         None,
                         &subnet_contract_id,
-                        &*subnet_function_name,
+                        DEPOSIT_FUNCTION_NAME,
                         &[Value::UInt(amount), Value::Principal(sender)],
                         |_, _| false,
                     )
@@ -4782,7 +4783,6 @@ impl StacksChainState {
                     txid,
                     burn_header_hash,
                     subnet_contract_id,
-                    subnet_function_name,
                     id,
                     sender,
                     ..
@@ -4792,7 +4792,7 @@ impl StacksChainState {
                         &sender.clone(),
                         None,
                         &subnet_contract_id,
-                        &*subnet_function_name,
+                        DEPOSIT_FUNCTION_NAME,
                         &[Value::UInt(id), Value::Principal(sender)],
                         |_, _| false,
                     )
@@ -11410,23 +11410,8 @@ pub mod test {
                     StandardPrincipalData::from(addr_publisher),
                     ContractName::from("subnet-deposit-contract"),
                 ),
-                subnet_function_name: ClarityName::from("subnet-deposit-ft-token"),
                 name: "ft-token".to_string(),
                 amount: 2,
-                sender: PrincipalData::from(addr_publisher),
-            },
-            // this op calls a function that does not exist in the designated subnet contract
-            DepositFtOp {
-                txid: Txid([2; 32]),
-                burn_header_hash: BurnchainHeaderHash([0; 32]),
-                l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
-                subnet_contract_id: QualifiedContractIdentifier::new(
-                    StandardPrincipalData::from(addr_publisher),
-                    ContractName::from("subnet-deposit-contract"),
-                ),
-                subnet_function_name: ClarityName::from("subnet-deposit-ft-token-DNE"),
-                name: "ft-token".to_string(),
-                amount: 5,
                 sender: PrincipalData::from(addr_publisher),
             },
             // this op tries to call a function in an unregistered contract
@@ -11438,7 +11423,6 @@ pub mod test {
                     StandardPrincipalData::from(addr_publisher),
                     ContractName::from("subnet-deposit-contract-DNE"),
                 ),
-                subnet_function_name: ClarityName::from("subnet-deposit-ft-token"),
                 name: "ft-token".to_string(),
                 amount: 2,
                 sender: PrincipalData::from(addr_publisher),
@@ -11474,8 +11458,20 @@ pub mod test {
         let subnet_simple_nft = "
         (define-non-fungible-token nft-token uint)
 
-        (define-public (subnet-deposit-nft-token (id uint) (recipient principal))
-          (nft-mint? nft-token id recipient)
+        (impl-trait 'ST000000000000000000002AMW42H.subnet.subnet-asset)
+
+        (define-public (deposit-from-burnchain (id uint) (recipient principal))
+        (begin
+            (asserts! (is-eq tx-sender 'ST000000000000000000002AMW42H.subnet) ERR_NOT_AUTHORIZED)
+            (nft-mint? nft-token id recipient)
+        )
+        )
+
+        (define-public (burn-for-withdrawal (id uint) (owner principal))
+        (begin
+            (asserts! (is-eq tx-sender owner) ERR_NOT_AUTHORIZED)
+            (nft-burn? nft-token id owner)
+        )
         )
 
         (define-read-only (get-token-owner (id uint))
@@ -11517,33 +11513,6 @@ pub mod test {
                     StandardPrincipalData::from(addr_publisher),
                     ContractName::from("subnet-deposit-contract"),
                 ),
-                subnet_function_name: ClarityName::from("subnet-deposit-nft-token"),
-                id: 2,
-                sender: PrincipalData::from(addr_publisher),
-            },
-            // this op calls a function that does not exist in the designated subnet contract
-            DepositNftOp {
-                txid: Txid([1; 32]),
-                burn_header_hash: BurnchainHeaderHash([0; 32]),
-                l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
-                subnet_contract_id: QualifiedContractIdentifier::new(
-                    StandardPrincipalData::from(addr_publisher),
-                    ContractName::from("subnet-deposit-contract"),
-                ),
-                subnet_function_name: ClarityName::from("subnet-deposit-nft-token-DNE"),
-                id: 2,
-                sender: PrincipalData::from(addr_publisher),
-            },
-            // this op tries to call a function in an unregistered contract
-            DepositNftOp {
-                txid: Txid([1; 32]),
-                burn_header_hash: BurnchainHeaderHash([0; 32]),
-                l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
-                subnet_contract_id: QualifiedContractIdentifier::new(
-                    StandardPrincipalData::from(addr_publisher),
-                    ContractName::from("subnet-deposit-contract-DNE"),
-                ),
-                subnet_function_name: ClarityName::from("subnet-deposit-nft-token"),
                 id: 2,
                 sender: PrincipalData::from(addr_publisher),
             },

@@ -2,6 +2,7 @@ import {
     makeContractCall,
     AnchorMode,
     standardPrincipalCV,
+    contractPrincipalCV,
     uintCV,
     broadcastTransaction,
     PostConditionMode
@@ -17,10 +18,11 @@ async function main() {
     const nonce = parseInt(process.argv[2]);
 
     const txOptions = {
-        contractAddress: contractAddr,
-        contractName: 'simple-nft-l2',
-        functionName: 'withdraw-nft-asset',
+        contractAddress: 'ST000000000000000000002AMW42H',
+        contractName: 'subnet',
+        functionName: 'nft-withdraw?',
         functionArgs: [
+            contractPrincipalCV(contractAddr, 'simple-nft-l2'),
             uintCV(5), // ID
             standardPrincipalCV(addr), // recipient
         ],
