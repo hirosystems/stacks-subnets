@@ -261,6 +261,7 @@ pub fn publish_subnet_contracts_to_l1(
     config: &Config,
     miner: PrincipalData,
 ) -> u64 {
+    // Publish the subnet traits contract
     let trait_standard_contract_name = "subnet-traits";
     let l1_rpc_origin = config.burnchain.get_rpc_url();
     // Publish the trait contract
@@ -269,10 +270,26 @@ pub fn publish_subnet_contracts_to_l1(
     let trait_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
-        0,
+        l1_nonce,
         1_000_000,
         &trait_standard_contract_name,
         &trait_content,
+    );
+    l1_nonce += 1;
+
+    // Publish the SIP traits contract
+    let sip_traits_contract_name = "sip-traits";
+    let l1_rpc_origin = config.burnchain.get_rpc_url();
+    // Publish the trait contract
+    let sip_traits_content =
+        include_str!("../../../../core-contracts/contracts/helper/sip-traits.clar");
+    let sip_traits_publish = make_contract_publish(
+        &MOCKNET_PRIVATE_KEY_1,
+        LAYER_1_CHAIN_ID_TESTNET,
+        l1_nonce,
+        1_000_000,
+        &sip_traits_contract_name,
+        &sip_traits_content,
     );
     l1_nonce += 1;
 
@@ -284,6 +301,12 @@ pub fn publish_subnet_contracts_to_l1(
                 "(define-data-var miner (optional principal) (some '{}))",
                 &miner
             ),
+        ).replace(
+            "(use-trait nft-trait 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)",
+            "(use-trait nft-trait .sip-traits.nft-trait)"
+        ).replace(
+            "(use-trait ft-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)",
+            "(use-trait ft-trait .sip-traits.ft-trait)"
         );
 
     let subnet_contract_publish = make_contract_publish(
@@ -297,6 +320,7 @@ pub fn publish_subnet_contracts_to_l1(
     l1_nonce += 1;
 
     submit_tx(&l1_rpc_origin, &trait_publish);
+    submit_tx(&l1_rpc_origin, &sip_traits_publish);
     // Because the nonce ensures that the trait contract is published
     // before the subnet contract, we can broadcast them all at once, even
     // though the subnet contract depends on that contract.
@@ -365,6 +389,10 @@ fn l1_integration_test() {
 
     // Start Stacks L1.
     let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
+    let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), false);
+    let _stacks_res = stacks_l1_controller
+        .start_process()
+        .expect("stacks l1 controller didn't start");
 
     // Start the L2 run loop.
     let config = super::new_l1_test_conf(&*MOCKNET_PRIVATE_KEY_2, &*MOCKNET_PRIVATE_KEY_1);
@@ -380,11 +408,6 @@ fn l1_integration_test() {
 
     let burnchain = Burnchain::new(&config.get_burn_db_path(), &config.burnchain.chain).unwrap();
     let (sortition_db, burndb) = burnchain.open_db(true).unwrap();
-
-    let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), false);
-    let _stacks_res = stacks_l1_controller
-        .start_process()
-        .expect("stacks l1 controller didn't start");
 
     // Sleep to give the L1 chain time to start
     thread::sleep(Duration::from_millis(10_000));
