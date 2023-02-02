@@ -1871,7 +1871,24 @@ fn nft_deposit_and_withdraw_integration_test() {
     let subnet_nft_contract_id =
         QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-nft"));
 
+    // Setup subnet contract (submitted by miner)
+    let account = get_account(&l2_rpc_origin, &miner_account);
+    let subnet_setup_nft_tx = make_contract_call(
+        &MOCKNET_PRIVATE_KEY_2,
+        LAYER_1_CHAIN_ID_TESTNET,
+        account.nonce + 1,
+        1_000_000,
+        &user_addr,
+        config.burnchain.contract_identifier.name.as_str(),
+        "register-new-nft-contract",
+        &[
+            Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
+            Value::Principal(PrincipalData::Contract(subnet_nft_contract_id.clone())),
+        ],
+    );
+
     submit_tx(&l2_rpc_origin, &subnet_nft_publish);
+    submit_tx(l1_rpc_origin, &subnet_setup_nft_tx);
 
     // Sleep to give the run loop time to mine a block
     wait_for_next_stacks_block(&sortition_db);
@@ -1899,7 +1916,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-nft",
         "gift-nft",
-        &[Value::UInt(5), Value::Principal(user_addr.into())],
+        &[Value::Principal(user_addr.into()), Value::UInt(5)],
     );
     l2_nonce += 1;
 
@@ -2160,6 +2177,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     )
     .unwrap();
     assert_eq!(owner, subnet_contract_principal);
+
     // Check that the user does not *yet* own the subnet native NFT on the L1 (no one should own it)
     let res = call_read_only(
         &l1_rpc_origin,
@@ -2419,11 +2437,11 @@ fn nft_deposit_and_withdraw_integration_test() {
         config.burnchain.contract_identifier.name.as_str(),
         "withdraw-nft-asset",
         &[
+            Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
             Value::UInt(1),
             Value::Principal(user_addr.into()),
             Value::UInt(0),
             Value::UInt(withdrawal_height.into()),
-            Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
             Value::some(Value::Principal(PrincipalData::Contract(
                 nft_contract_id.clone(),
             )))
@@ -2443,11 +2461,11 @@ fn nft_deposit_and_withdraw_integration_test() {
         config.burnchain.contract_identifier.name.as_str(),
         "withdraw-nft-asset",
         &[
+            Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
             Value::UInt(5),
             Value::Principal(user_addr.into()),
             Value::UInt(1),
             Value::UInt(withdrawal_height.into()),
-            Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
             Value::some(Value::Principal(PrincipalData::Contract(
                 nft_contract_id.clone(),
             )))
