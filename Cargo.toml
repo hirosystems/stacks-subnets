@@ -165,4 +165,4 @@ sha2 = { version = "0.10", features = ["asm"] }
 sha2 = { version = "0.10" }
 
 [workspace]
-members = [".", "testnet/stacks-node", "testnet/puppet-chain"]
+members = [".", "testnet/stacks-node", "testnet/puppet-chain", "soar-db"]

@@ -1,0 +1,47 @@
+[package]
+name = "soar-db"
+version = "0.1.0"
+authors = ["Aaron Blankstein <aaron@hiro.so>"]
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+lazy_static = "1.4.0"
+pico-args = "0.3.1"
+rand = "0.7.3"
+serde = "1"
+serde_derive = "1"
+serde_json = { version = "1.0", features = ["arbitrary_precision", "raw_value"] }
+toml = "0.5.6"
+async-h1 = "2.3.2"
+async-std = { version = "1.6", features = ["attributes"] }
+http-types = "2.12"
+base64 = "0.12.0"
+backtrace = "0.3.50"
+libc = "0.2"
+slog = { version = "2.5.2", features = [ "max_level_trace" ] }
+clarity = { git = "https://github.com/stacks-network/stacks-blockchain.git", rev = "580e811223a389d38071dcb9fde79ab55cd6f685" }
+stacks-common = { git = "https://github.com/stacks-network/stacks-blockchain.git", rev = "580e811223a389d38071dcb9fde79ab55cd6f685" }
+# clarity = { package = "clarity", path = "../../../stacks-blockchain-develop/clarity" }
+# stacks-common = { package = "stacks-common", path = "../stacks-blockchain-develop/stacks-common" }
+tokio = { version = "=1.15.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["blocking", "json", "rustls"] }
+warp = "0.3"
+
+[dependencies.rusqlite]
+version = "=0.24.2"
+features = ["blob", "serde_json", "i128_blob", "bundled", "trace"]
+
+[dev-dependencies]
+ring = "0.16.19"
+
+[dev-dependencies.rusqlite]
+version = "=0.24.2"
+features = ["blob", "serde_json", "i128_blob", "bundled", "trace"]
+
+[lib]
+name = "soar_db"
+path = "src/lib.rs"
+
+[features]
+default = []
