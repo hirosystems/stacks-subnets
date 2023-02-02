@@ -11371,12 +11371,16 @@ pub mod test {
         let subnet_simple_ft = "
         (define-fungible-token ft-token)
 
-        (define-public (subnet-deposit-ft-token (amount uint) (recipient principal))
+        (define-public (deposit-from-burnchain (amount uint) (recipient principal))
           (ft-mint? ft-token amount recipient)
         )
 
-        (define-read-only (get-token-balance (user principal))
-            (ft-get-balance ft-token user)
+        (define-public (burn-for-withdrawal (amount uint) (owner principal))
+          (ft-burn? ft-token amount owner)
+        )
+
+        (define-read-only (get-token-balance (owner principal))
+            (ft-get-balance ft-token owner)
         )
         ";
 
@@ -11465,17 +11469,11 @@ pub mod test {
         (impl-trait 'ST000000000000000000002AMW42H.subnet.subnet-asset)
 
         (define-public (deposit-from-burnchain (id uint) (recipient principal))
-        (begin
-            (asserts! (is-eq tx-sender 'ST000000000000000000002AMW42H.subnet) ERR_NOT_AUTHORIZED)
-            (nft-mint? nft-token id recipient)
-        )
+          (nft-mint? nft-token id recipient)
         )
 
         (define-public (burn-for-withdrawal (id uint) (owner principal))
-        (begin
-            (asserts! (is-eq tx-sender owner) ERR_NOT_AUTHORIZED)
-            (nft-burn? nft-token id owner)
-        )
+          (nft-burn? nft-token id owner)
         )
 
         (define-read-only (get-token-owner (id uint))
