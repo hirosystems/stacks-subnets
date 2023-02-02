@@ -59,9 +59,8 @@ helping to deploy the contracts.
 mkdir nft-use-case/contracts-l2
 mkdir nft-use-case/scripts
 cp $SUBNET_PATH/core-contracts/contracts/helper/simple-nft.clar nft-use-case/contracts/
-cp $SUBNET_PATH/core-contracts/contracts/helper/trait-standards.clar nft-use-case/contracts/
+cp $SUBNET_PATH/core-contracts/contracts/helper/sip-traits.clar nft-use-case/contracts/
 cp $SUBNET_PATH/core-contracts/contracts/helper/simple-nft-l2.clar nft-use-case/contracts-l2/
-cp $SUBNET_PATH/core-contracts/contracts/helper/trait-standards.clar nft-use-case/contracts-l2/
 cp $SUBNET_PATH/contrib/scripts/nft-use-case/* nft-use-case/scripts/
 cd nft-use-case/scripts
 ```
@@ -70,6 +69,7 @@ To use the scripts in this demo, we need to install some NodeJS libraries.
 Before running the following instructions, make sure you have [node](https://nodejs.org/en/) installed. 
 ```
 npm install
+cd ..        # back to nft-use-case/
 ```
 
 The `Devnet.toml` file in the `nft-use-case` directory is responsible for configuring the `clarinet integrate` 
