@@ -45,12 +45,16 @@
   )
 )
 
+(define-read-only (get-token-owner (id uint))
+  (nft-get-owner? nft-token id)
+)
+
 (impl-trait 'ST000000000000000000002AMW42H.subnet.subnet-asset)
 
 ;; Called for deposit from the burnchain to the subnet
 (define-public (deposit-from-burnchain (id uint) (recipient principal))
   (begin
-    (asserts! (is-eq tx-sender 'ST000000000000000000002AMW42H.subnet) ERR_NOT_AUTHORIZED)
+    (asserts! (is-eq tx-sender 'ST000000000000000000002AMW42H) ERR_NOT_AUTHORIZED)
     (nft-mint? nft-token id recipient)
   )
 )

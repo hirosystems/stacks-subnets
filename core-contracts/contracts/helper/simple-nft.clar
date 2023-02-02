@@ -3,7 +3,7 @@
 
 (define-constant ERR_NOT_AUTHORIZED (err u1001))
 
-(impl-trait 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)
+(impl-trait .sip-traits.nft-trait)
 (impl-trait .subnet-traits.mint-from-subnet-trait)
 
 (define-data-var lastId uint u0)

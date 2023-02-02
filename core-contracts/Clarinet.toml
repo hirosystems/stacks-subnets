@@ -56,6 +56,11 @@ path = 'contracts/helper/subnet-traits.clar'
 clarity_version = 2
 epoch = 2.1
 
+[contracts.sip-traits]
+path = 'contracts/helper/sip-traits.clar'
+clarity_version = 2
+epoch = 2.1
+
 [repl.analysis]
 passes = []
 

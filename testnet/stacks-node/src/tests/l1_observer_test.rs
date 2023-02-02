@@ -296,12 +296,12 @@ pub fn publish_subnet_contracts_to_l1(
     // Publish the default subnet contract on the L1 chain
     let contract_content = include_str!("../../../../core-contracts/contracts/subnet.clar")
         .replace(
-            "(define-data-var miner (optional principal) none)",
+            "(define-data-var miner principal tx-sender)",
             &format!(
-                "(define-data-var miner (optional principal) (some '{}))",
+                "(define-data-var miner principal '{})",
                 &miner
             ),
-        ).replace(
+    ).replace(
             "(use-trait nft-trait 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)",
             "(use-trait nft-trait .sip-traits.nft-trait)"
         ).replace(
@@ -496,18 +496,8 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     thread::sleep(Duration::from_millis(10_000));
     wait_for_target_l1_block(&sortition_db, MOCKNET_EPOCH_2_1);
 
-    // Publish the NFT/FT/Subnet traits
-    let trait_content =
-        include_str!("../../../../core-contracts/contracts/helper/subnet-traits.clar");
-    let trait_publish = make_contract_publish(
-        &MOCKNET_PRIVATE_KEY_1,
-        LAYER_1_CHAIN_ID_TESTNET,
-        l1_nonce,
-        1_000_000,
-        &trait_standard_contract_name,
-        &trait_content,
-    );
-    l1_nonce += 1;
+    l1_nonce = publish_subnet_contracts_to_l1(l1_nonce, &config, miner_account.clone().into());
+
     // Publish a simple FT and NFT
     let ft_content = include_str!("../../../../core-contracts/contracts/helper/simple-ft.clar");
     let ft_publish = make_contract_publish(
@@ -521,6 +511,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     l1_nonce += 1;
     let ft_contract_name = ContractName::from("simple-ft");
     let ft_contract_id = QualifiedContractIdentifier::new(user_addr.into(), ft_contract_name);
+
     let nft_content = include_str!("../../../../core-contracts/contracts/helper/simple-nft.clar");
     let nft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
@@ -534,41 +525,11 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     let nft_contract_name = ContractName::from("simple-nft");
     let nft_contract_id = QualifiedContractIdentifier::new(user_addr.into(), nft_contract_name);
 
-    // Publish the default subnet contract on the L1 chain
-    let contract_content = include_str!("../../../../core-contracts/contracts/subnet.clar")
-        .replace(
-            "(define-data-var miner (optional principal) none)",
-            &format!(
-                "(define-data-var miner (optional principal) (some '{}))",
-                &miner_account
-            ),
-        );
-
-    let subnet_contract_publish = make_contract_publish(
-        &MOCKNET_PRIVATE_KEY_1,
-        LAYER_1_CHAIN_ID_TESTNET,
-        l1_nonce,
-        1_000_000,
-        config.burnchain.contract_identifier.name.as_str(),
-        &format!(
-            "{}\n (as-contract (setup-allowed-contracts))",
-            contract_content
-        ),
-    );
-    l1_nonce += 1;
-
-    submit_tx(l1_rpc_origin, &trait_publish);
     submit_tx(l1_rpc_origin, &nft_publish);
     submit_tx(l1_rpc_origin, &ft_publish);
-    // Because the nonce ensures that the FT contract and NFT contract
-    // are published before the subnet contract, we can broadcast them
-    // all at once, even though the subnet contract depends on those
-    // contracts.
-    submit_tx(l1_rpc_origin, &subnet_contract_publish);
 
     println!("Submitted FT, NFT, and Subnet contracts!");
 
-    wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
@@ -589,95 +550,30 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     );
 
     // Publish subnet contract for ft-token
-    let subnet_simple_ft = "
-    (define-fungible-token ft-token)
-
-    ;; get the token balance of owner
-    (define-read-only (get-balance (owner principal))
-        (ok (ft-get-balance ft-token owner)))
-
-    ;; returns the total number of tokens
-    (define-read-only (get-total-supply)
-        (ok (ft-get-supply ft-token)))
-
-    ;; returns the token name
-    (define-read-only (get-name)
-        (ok \"ft-token\"))
-
-    ;; the symbol or \"ticker\" for this token
-    (define-read-only (get-symbol)
-        (ok \"EXFT\"))
-
-    ;; the number of decimals used
-    (define-read-only (get-decimals)
-        (ok u0))
-
-    ;; Transfers tokens to a recipient
-    (define-public (transfer (amount uint) (sender principal) (recipient principal) (memo (optional (buff 34))))
-        (begin
-            (try! (ft-transfer? ft-token amount sender recipient))
-            (print memo)
-            (ok true)
-        )
-    )
-
-    (define-read-only (get-token-uri)
-        (ok none))
-
-    (define-public (subnet-deposit-ft-token (amount uint) (recipient principal))
-      (ft-mint? ft-token amount recipient)
-    )
-
-    (define-read-only (get-token-balance (user principal))
-        (ft-get-balance ft-token user)
-    )
-    ";
+    let subnet_ft_content =
+        include_str!("../../../../core-contracts/contracts/helper/simple-ft-l2.clar");
     let subnet_ft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,
         l2_nonce,
         1_000_000,
         "simple-ft",
-        subnet_simple_ft,
+        subnet_ft_content,
     );
     l2_nonce += 1;
     let subnet_ft_contract_id =
         QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft"));
+
     // Publish subnet contract for nft-token
-    let subnet_simple_nft = "
-    (define-non-fungible-token nft-token uint)
-
-    (define-read-only (get-last-token-id)
-        (ok u0)
-    )
-
-    (define-read-only (get-owner (id uint))
-        (ok (nft-get-owner? nft-token id))
-    )
-
-    (define-read-only (get-token-uri (id uint))
-        (ok none)
-    )
-
-    (define-public (transfer (id uint) (sender principal) (recipient principal))
-        (nft-transfer? nft-token id sender recipient)
-    )
-
-    (define-public (subnet-deposit-nft-token (id uint) (recipient principal))
-      (nft-mint? nft-token id recipient)
-    )
-
-    (define-read-only (get-token-owner (id uint))
-        (nft-get-owner? nft-token id)
-    )
-    ";
+    let subnet_nft_content =
+        include_str!("../../../../core-contracts/contracts/helper/simple-nft-l2.clar");
     let subnet_nft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,
         l2_nonce,
         1_000_000,
         "simple-nft",
-        subnet_simple_nft,
+        subnet_nft_content,
     );
     l2_nonce += 1;
     let subnet_nft_contract_id =
@@ -708,24 +604,41 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     );
     l1_nonce += 1;
 
-    // Setup subnet contract
-    let subnet_setup_tx = make_contract_call(
-        &MOCKNET_PRIVATE_KEY_1,
+    // Setup subnet contract (submitted by miner)
+    let account = get_account(&l2_rpc_origin, &miner_account);
+    let subnet_setup_ft_tx = make_contract_call(
+        &MOCKNET_PRIVATE_KEY_2,
         LAYER_1_CHAIN_ID_TESTNET,
-        l1_nonce,
+        account.nonce,
         1_000_000,
         &user_addr,
         config.burnchain.contract_identifier.name.as_str(),
-        "setup-allowed-contracts",
-        &[],
+        "register-new-ft-contract",
+        &[
+            Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
+            Value::Principal(PrincipalData::Contract(subnet_ft_contract_id.clone())),
+        ],
     );
-    l1_nonce += 1;
+    let subnet_setup_nft_tx = make_contract_call(
+        &MOCKNET_PRIVATE_KEY_2,
+        LAYER_1_CHAIN_ID_TESTNET,
+        account.nonce + 1,
+        1_000_000,
+        &user_addr,
+        config.burnchain.contract_identifier.name.as_str(),
+        "register-new-nft-contract",
+        &[
+            Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
+            Value::Principal(PrincipalData::Contract(subnet_nft_contract_id.clone())),
+        ],
+    );
 
     submit_tx(&l2_rpc_origin, &subnet_ft_publish);
     submit_tx(&l2_rpc_origin, &subnet_nft_publish);
     submit_tx(l1_rpc_origin, &l1_mint_ft_tx);
     submit_tx(l1_rpc_origin, &l1_mint_nft_tx);
-    submit_tx(l1_rpc_origin, &subnet_setup_tx);
+    submit_tx(l1_rpc_origin, &subnet_setup_ft_tx);
+    submit_tx(l1_rpc_origin, &subnet_setup_nft_tx);
 
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
@@ -773,11 +686,10 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         config.burnchain.contract_identifier.name.as_str(),
         "deposit-ft-asset",
         &[
+            Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
             Value::UInt(1),
             Value::Principal(user_addr.into()),
             Value::none(),
-            Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
-            Value::Principal(PrincipalData::Contract(subnet_ft_contract_id.clone())),
         ],
     );
     l1_nonce += 1;
@@ -790,10 +702,9 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         config.burnchain.contract_identifier.name.as_str(),
         "deposit-nft-asset",
         &[
+            Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
             Value::UInt(1),
             Value::Principal(user_addr.into()),
-            Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
-            Value::Principal(PrincipalData::Contract(subnet_nft_contract_id.clone())),
         ],
     );
     l1_nonce += 1;
@@ -945,7 +856,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
-    // Check that user no longer owns the fungible token on L2 chain
+    // Check that user no longer owns the fungible token on L2 chain.
     let res = call_read_only(
         &l1_rpc_origin,
         &user_addr,
@@ -966,8 +877,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
     assert_eq!(amount, Value::okay(Value::UInt(0)).unwrap());
-    // Check that user no longer owns the nft on L2 chain,
-    // instead, the subnet contract should own it.
+    // Check that user no longer owns the nft on L2 chain.
     let res = call_read_only(
         &l2_rpc_origin,
         &user_addr,
@@ -987,13 +897,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
-    assert_eq!(
-        addr,
-        Value::some(Value::Principal(PrincipalData::Contract(
-            boot_code_id("subnet".into(), false).into()
-        )))
-        .unwrap()
-    );
+    assert_eq!(addr, Value::none(),);
     // Check that the user does not *yet* own the FT on the L1
     let res = call_read_only(
         &l1_rpc_origin,
@@ -1243,13 +1147,16 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         config.burnchain.contract_identifier.name.as_str(),
         "withdraw-ft-asset",
         &[
+            Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
             Value::UInt(1),
             Value::Principal(user_addr.into()),
             Value::UInt(0),
             Value::UInt(withdrawal_height.into()),
             Value::none(),
-            Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
-            Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
+            Value::some(Value::Principal(PrincipalData::Contract(
+                ft_contract_id.clone(),
+            )))
+            .unwrap(),
             Value::buff_from(root_hash.clone()).unwrap(),
             Value::buff_from(ft_withdrawal_leaf_hash).unwrap(),
             Value::list_from(ft_sib_data).unwrap(),
@@ -1265,11 +1172,11 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         config.burnchain.contract_identifier.name.as_str(),
         "withdraw-nft-asset",
         &[
+            Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
             Value::UInt(1),
             Value::Principal(user_addr.into()),
             Value::UInt(1),
             Value::UInt(withdrawal_height.into()),
-            Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
             Value::some(Value::Principal(PrincipalData::Contract(
                 nft_contract_id.clone(),
             )))
@@ -1279,6 +1186,8 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
             Value::list_from(nft_sib_data).unwrap(),
         ],
     );
+    l1_nonce += 1;
+
     // Withdraw ft-token from subnet contract on L1
     submit_tx(&l1_rpc_origin, &l1_withdraw_ft_tx);
     // Withdraw nft-token from subnet contract on L1
@@ -1354,7 +1263,6 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     // Start Stacks L1.
     let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
     let l1_rpc_origin = "http://127.0.0.1:20443";
-    let trait_standard_contract_name = "subnet-traits";
 
     // Start the L2 run loop.
     let mut config = super::new_l1_test_conf(&*MOCKNET_PRIVATE_KEY_2, &*MOCKNET_PRIVATE_KEY_1);
@@ -1399,43 +1307,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     thread::sleep(Duration::from_millis(10_000));
     wait_for_target_l1_block(&sortition_db, MOCKNET_EPOCH_2_1);
 
-    // Publish the NFT/FT/Subnet traits
-    let trait_content =
-        include_str!("../../../../core-contracts/contracts/helper/subnet-traits.clar");
-    let trait_publish = make_contract_publish(
-        &MOCKNET_PRIVATE_KEY_1,
-        LAYER_1_CHAIN_ID_TESTNET,
-        l1_nonce,
-        1_000_000,
-        &trait_standard_contract_name,
-        &trait_content,
-    );
-    l1_nonce += 1;
-
-    // Publish the default subnet contract on the L1 chain
-    let contract_content = include_str!("../../../../core-contracts/contracts/subnet.clar")
-        .replace(
-            "(define-data-var miner (optional principal) none)",
-            &format!(
-                "(define-data-var miner (optional principal) (some '{}))",
-                &miner_account
-            ),
-        );
-    let subnet_contract_publish = make_contract_publish(
-        &MOCKNET_PRIVATE_KEY_1,
-        LAYER_1_CHAIN_ID_TESTNET,
-        l1_nonce,
-        1_000_000,
-        config.burnchain.contract_identifier.name.as_str(),
-        &contract_content,
-    );
-
-    l1_nonce += 1;
-    submit_tx(l1_rpc_origin, &trait_publish);
-    submit_tx(l1_rpc_origin, &subnet_contract_publish);
-
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    l1_nonce = publish_subnet_contracts_to_l1(l1_nonce, &config, miner_account.clone().into());
 
     // The burnchain should have registered what the listener recorded.
     let tip = burndb
@@ -1446,13 +1318,9 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     // We check that we have moved past 3 just to establish we are reliably getting blocks.
     assert!(tip.block_height > 3);
 
-    // test the miner's nonce has incremented: this shows that L2 blocks have
-    //  been mined (because the coinbase transactions bump the miner's nonce)
-    let account = get_account(&l2_rpc_origin, &miner_account);
-    assert!(
-        account.nonce >= 2,
-        "Miner should have produced at least 2 coinbase transactions"
-    );
+    // Wait a couple blocks to ensure the L2 chain has started
+    wait_for_next_stacks_block(&sortition_db);
+    wait_for_next_stacks_block(&sortition_db);
 
     // Publish subnet contract for withdrawing stx
     let subnet_simple_stx = "
@@ -1470,20 +1338,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     );
     l2_nonce += 1;
 
-    // Setup subnet contract
-    let subnet_setup_tx = make_contract_call(
-        &MOCKNET_PRIVATE_KEY_1,
-        LAYER_1_CHAIN_ID_TESTNET,
-        l1_nonce,
-        default_fee,
-        &user_addr,
-        config.burnchain.contract_identifier.name.as_str(),
-        "setup-allowed-contracts",
-        &[],
-    );
-    l1_nonce += 1;
     submit_tx(&l2_rpc_origin, &subnet_stx_publish);
-    submit_tx(l1_rpc_origin, &subnet_setup_tx);
 
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
@@ -1494,6 +1349,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
         account.balance,
         (l2_starting_account_balance - default_fee * l2_nonce) as u128
     );
+
     // Check the user's balance on the L1
     let account = get_account(&l1_rpc_origin, &user_addr);
     assert_eq!(
@@ -1547,8 +1403,9 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     // withdraw stx from L2
     submit_tx(&l2_rpc_origin, &l2_withdraw_stx_tx_unauth);
 
-    // Sleep to give the run loop time to mine a block
-    thread::sleep(Duration::from_secs(25));
+    // Wait to give the run loop time to mine a block
+    wait_for_next_stacks_block(&sortition_db);
+
     // Check that the user still owns STX on the subnet now (withdraw attempt should fail)
     let account = get_account(&l2_rpc_origin, &user_addr);
     assert_eq!(
@@ -1568,6 +1425,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
         &[Value::UInt(1), Value::Principal(user_addr.into())],
     );
     l2_nonce += 1;
+
     // withdraw stx from L2
     submit_tx(&l2_rpc_origin, &l2_withdraw_stx_tx);
 
@@ -1904,7 +1762,6 @@ fn nft_deposit_and_withdraw_integration_test() {
     // Start Stacks L1.
     let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
     let l1_rpc_origin = "http://127.0.0.1:20443";
-    let trait_standards_contract_name = "subnet-traits";
 
     // Start the L2 run loop.
     let mut config = super::new_test_conf();
@@ -1958,18 +1815,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     thread::sleep(Duration::from_millis(10_000));
     wait_for_target_l1_block(&sortition_db, MOCKNET_EPOCH_2_1);
 
-    // Publish the NFT/FT/mint-from-subnet traits onto L1
-    let trait_content =
-        include_str!("../../../../core-contracts/contracts/helper/subnet-traits.clar");
-    let trait_publish = make_contract_publish(
-        &MOCKNET_PRIVATE_KEY_1,
-        LAYER_1_CHAIN_ID_TESTNET,
-        l1_nonce,
-        1_000_000,
-        &trait_standards_contract_name,
-        &trait_content,
-    );
-    l1_nonce += 1;
+    l1_nonce = publish_subnet_contracts_to_l1(l1_nonce, &config, miner_account.clone().into());
 
     // Publish a simple NFT onto L1
     let nft_content = include_str!("../../../../core-contracts/contracts/helper/simple-nft.clar");
@@ -1985,36 +1831,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     let nft_contract_name = ContractName::from("simple-nft");
     let nft_contract_id = QualifiedContractIdentifier::new(user_addr.into(), nft_contract_name);
 
-    // Publish the default subnet contract on the L1 chain
-    let contract_content = include_str!("../../../../core-contracts/contracts/subnet.clar")
-        .replace(
-            "(define-data-var miner (optional principal) none)",
-            &format!(
-                "(define-data-var miner (optional principal) (some '{}))",
-                &miner_account
-            ),
-        );
-
-    let subnet_contract_publish = make_contract_publish(
-        &MOCKNET_PRIVATE_KEY_1,
-        LAYER_1_CHAIN_ID_TESTNET,
-        l1_nonce,
-        1_000_000,
-        config.burnchain.contract_identifier.name.as_str(),
-        &format!(
-            "{}\n (as-contract (setup-allowed-contracts))",
-            contract_content
-        ),
-    );
-    l1_nonce += 1;
-
-    submit_tx(l1_rpc_origin, &trait_publish);
     submit_tx(l1_rpc_origin, &nft_publish);
-    // Because the nonce ensures that the trait contracts
-    // are published before the subnet contract, we can broadcast them
-    // all at once, even though the subnet contract depends on those
-    // contracts.
-    submit_tx(l1_rpc_origin, &subnet_contract_publish);
 
     println!("Submitted NFT and Subnet contracts onto L1!");
 
@@ -2039,78 +1856,21 @@ fn nft_deposit_and_withdraw_integration_test() {
         "Miner should have produced at least 2 coinbase transactions"
     );
 
-    // Publish the traits onto the subnet
-    let l2_trait_publish = make_contract_publish(
-        &MOCKNET_PRIVATE_KEY_1,
-        config.node.chain_id,
-        l2_nonce,
-        1_000_000,
-        &trait_standards_contract_name,
-        &trait_content,
-    );
-    l2_nonce += 1;
-
     // Publish subnet contract for nft-token
-    let subnet_simple_nft = "
-    (impl-trait .subnet-traits.nft-trait)
-
-    (define-constant ERR_NOT_AUTHORIZED (err u1001))
-
-    (define-non-fungible-token nft-token uint)
-    (define-data-var lastId uint u0)
-
-    ;; NFT trait implementation
-    (define-read-only (get-last-token-id)
-      (ok (var-get lastId))
-    )
-
-    (define-read-only (get-owner (id uint))
-      (ok (nft-get-owner? nft-token id))
-    )
-
-    (define-read-only (get-token-uri (id uint))
-      (ok none)
-    )
-
-    (define-public (transfer (id uint) (sender principal) (recipient principal))
-      (begin
-        (asserts! (is-eq tx-sender sender) ERR_NOT_AUTHORIZED)
-        (nft-transfer? nft-token id sender recipient)
-      )
-    )
-
-    ;; Other methods
-    (define-public (mint-on-subnet (id uint) (recipient principal))
-        (begin
-            (var-set lastId id)
-            (nft-mint? nft-token id recipient)
-        )
-    )
-
-    (define-public (subnet-deposit-nft-token (id uint) (recipient principal))
-      (begin
-          (var-set lastId id)
-          (nft-mint? nft-token id recipient)
-      )
-    )
-
-    (define-read-only (get-token-owner (id uint))
-        (nft-get-owner? nft-token id)
-    )
-    ";
+    let subnet_nft_content =
+        include_str!("../../../../core-contracts/contracts/helper/simple-nft-l2.clar");
     let subnet_nft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,
         l2_nonce,
         1_000_000,
         "simple-nft",
-        subnet_simple_nft,
+        subnet_nft_content,
     );
     l2_nonce += 1;
     let subnet_nft_contract_id =
         QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-nft"));
 
-    submit_tx(&l2_rpc_origin, &l2_trait_publish);
     submit_tx(&l2_rpc_origin, &subnet_nft_publish);
 
     // Sleep to give the run loop time to mine a block
@@ -2138,7 +1898,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         1_000_000,
         &user_addr,
         "simple-nft",
-        "mint-on-subnet",
+        "gift-nft",
         &[Value::UInt(5), Value::Principal(user_addr.into())],
     );
     l2_nonce += 1;
@@ -2181,10 +1941,9 @@ fn nft_deposit_and_withdraw_integration_test() {
         config.burnchain.contract_identifier.name.as_str(),
         "deposit-nft-asset",
         &[
+            Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
             Value::UInt(1),
             Value::Principal(user_addr.into()),
-            Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
-            Value::Principal(PrincipalData::Contract(subnet_nft_contract_id.clone())),
         ],
     );
     l1_nonce += 1;
@@ -2291,10 +2050,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         "subnet",
         "nft-withdraw?",
         &[
-            Value::Principal(PrincipalData::Contract(QualifiedContractIdentifier::new(
-                user_addr.into(),
-                ContractName::from("simple-nft"),
-            ))),
+            Value::Principal(PrincipalData::Contract(subnet_nft_contract_id.clone())),
             Value::UInt(1),
             Value::Principal(user_addr.into()),
         ],
@@ -2327,8 +2083,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
-    // Check that user no longer owns the l1 native NFT on L2 chain,
-    // instead, the subnet contract should own it.
+    // Check that user no longer owns the l1 native NFT on L2 chain.
     let res = call_read_only(
         &l2_rpc_origin,
         &user_addr,
@@ -2348,15 +2103,8 @@ fn nft_deposit_and_withdraw_integration_test() {
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
-    assert_eq!(
-        addr,
-        Value::some(Value::Principal(PrincipalData::Contract(
-            boot_code_id("subnet".into(), false).into()
-        )))
-        .unwrap()
-    );
-    // Check that user no longer owns the subnet native NFT on L2 chain,
-    // instead, the subnet contract should own it.
+    assert_eq!(addr, Value::none(),);
+    // Check that user no longer owns the subnet native NFT on L2 chain.
     let res = call_read_only(
         &l2_rpc_origin,
         &user_addr,
@@ -2376,13 +2124,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
-    assert_eq!(
-        addr,
-        Value::some(Value::Principal(PrincipalData::Contract(
-            boot_code_id("subnet".into(), false).into()
-        )))
-        .unwrap()
-    );
+    assert_eq!(addr, Value::none(),);
 
     // Check that the user does not *yet* own the L1 native NFT on the L1 (the contract should still own it)
     let res = call_read_only(
@@ -2479,7 +2221,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         withdrawal_height,
         &user_addr,
         0,
-        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-nft")),
+        subnet_nft_contract_id.clone(),
         1,
     );
     let subnet_native_nft_withdrawal_entry = get_nft_withdrawal_entry(
@@ -2487,7 +2229,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         withdrawal_height,
         &user_addr,
         1,
-        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-nft")),
+        subnet_nft_contract_id.clone(),
         5,
     );
 

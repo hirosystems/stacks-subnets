@@ -223,7 +223,7 @@
         ;; Emit a print event - the node consumes this
         (print {
             event: "deposit-nft",
-            l1-contract-id: nft-contract,
+            l1-contract-id: (as-contract nft-contract),
             nft-id: id,
             sender: sender,
             subnet-contract-id: subnet-contract-id,
@@ -322,7 +322,7 @@
         ;; Emit a print event
         (print {
             event: "withdraw-nft",
-            l1-contract-id: nft-contract,
+            l1-contract-id: (as-contract nft-contract),
             nft-id: id,
             recipient: recipient
         })
@@ -444,7 +444,7 @@
             ;; Emit a print event - the node consumes this
             (print {
                 event: "deposit-ft",
-                l1-contract-id: ft-contract,
+                l1-contract-id: (as-contract ft-contract),
                 ft-name: ft-name,
                 ft-amount: amount,
                 sender: sender,
@@ -551,7 +551,7 @@
             ;; Emit a print event
             (print {
                 event: "withdraw-ft",
-                l1-contract-id: ft-contract,
+                l1-contract-id: (as-contract ft-contract),
                 ft-name: ft-name,
                 ft-amount: amount,
                 recipient: recipient,

@@ -4715,6 +4715,8 @@ impl StacksChainState {
         clarity_tx: &mut ClarityTx,
         operations: Vec<DepositFtOp>,
     ) -> Vec<StacksTransactionReceipt> {
+        let mainnet = clarity_tx.config.mainnet;
+        let boot_addr: PrincipalData = boot_code_addr(mainnet).into();
         let cost_so_far = clarity_tx.cost_so_far();
         // return valid receipts
         operations
@@ -4731,7 +4733,7 @@ impl StacksChainState {
                 // call the corresponding deposit function in the subnet contract
                 let result = clarity_tx.connection().as_transaction(|tx| {
                     tx.run_contract_call(
-                        &sender.clone(),
+                        &boot_code_addr(mainnet).into(),
                         None,
                         &subnet_contract_id,
                         DEPOSIT_FUNCTION_NAME,
@@ -4774,6 +4776,8 @@ impl StacksChainState {
         clarity_tx: &mut ClarityTx,
         operations: Vec<DepositNftOp>,
     ) -> Vec<StacksTransactionReceipt> {
+        let mainnet = clarity_tx.config.mainnet;
+        let boot_addr: PrincipalData = boot_code_addr(mainnet).into();
         let cost_so_far = clarity_tx.cost_so_far();
         // return valid receipts
         operations
@@ -4789,7 +4793,7 @@ impl StacksChainState {
                 } = deposit_nft_op;
                 let result = clarity_tx.connection().as_transaction(|tx| {
                     tx.run_contract_call(
-                        &sender.clone(),
+                        &boot_code_addr(mainnet).into(),
                         None,
                         &subnet_contract_id,
                         DEPOSIT_FUNCTION_NAME,
