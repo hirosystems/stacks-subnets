@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::SoarError;
+
 use super::PutCommand;
 use stacks_common::types::chainstate::StacksBlockId;
 
@@ -7,6 +9,7 @@ pub struct BlockData {
     put_log: Vec<PutCommand>,
     parent: Option<StacksBlockId>,
     height: u64,
+    #[allow(dead_code)]
     id: StacksBlockId,
 }
 
@@ -29,8 +32,11 @@ impl MemoryBackingStore {
         self.blocks.contains_key(block)
     }
 
-    pub fn reapply_block(&mut self, block: &StacksBlockId) -> Result<(), String> {
-        let block_data = self.blocks.get(block).ok_or_else(|| "No such block")?;
+    pub fn reapply_block(&mut self, block: &StacksBlockId) -> Result<(), SoarError> {
+        let block_data = self
+            .blocks
+            .get(block)
+            .ok_or_else(|| SoarError::BlockNotFound(block.clone()))?;
 
         for command in block_data.put_log.clone().into_iter() {
             self.apply_put(command);
@@ -39,9 +45,9 @@ impl MemoryBackingStore {
         Ok(())
     }
 
-    pub fn undo_block(&mut self, expected_cur_block: &StacksBlockId) -> Result<(), String> {
+    pub fn undo_block(&mut self, expected_cur_block: &StacksBlockId) -> Result<(), SoarError> {
         if self.current_block.is_none() || self.current_block.as_ref() != Some(expected_cur_block) {
-            return Err("Expected current block does not match storage's view of current block during rollback".into());
+            return Err(SoarError::MismatchViewDuringRollback);
         }
 
         let block_data = self
@@ -61,20 +67,24 @@ impl MemoryBackingStore {
         Ok(())
     }
 
-    pub fn get_block_parent(&self, block: &StacksBlockId) -> Result<StacksBlockId, String> {
+    pub fn get_value(&self, key: &str) -> Result<Option<String>, SoarError> {
+        Ok(self.entries.get(key).cloned())
+    }
+
+    pub fn get_block_parent(&self, block: &StacksBlockId) -> Result<StacksBlockId, SoarError> {
         match self.blocks.get(&block) {
             Some(data) => match data.parent.as_ref() {
                 Some(parent) => Ok(parent.clone()),
-                None => Err("Block is zero-height and has no parent".into()),
+                None => Err(SoarError::NoParentBlock("No parent at zero-block")),
             },
-            None => Err(format!("{} not found in storage", block)),
+            None => Err(SoarError::BlockNotFound(block.clone())),
         }
     }
 
-    pub fn get_block_height(&self, block: &StacksBlockId) -> Result<u64, String> {
+    pub fn get_block_height(&self, block: &StacksBlockId) -> Result<u64, SoarError> {
         match self.blocks.get(&block) {
             Some(data) => Ok(data.height),
-            None => Err(format!("{} not found in storage", block)),
+            None => Err(SoarError::BlockNotFound(block.clone())),
         }
     }
 
@@ -86,17 +96,17 @@ impl MemoryBackingStore {
         self.current_block.as_ref()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.current_block.is_none() && self.blocks.is_empty() && self.entries.is_empty()
+    pub fn is_empty(&self) -> Result<bool, SoarError> {
+        Ok(self.current_block.is_none() && self.blocks.is_empty() && self.entries.is_empty())
     }
 
     pub fn store_genesis_block(
         &mut self,
         block: StacksBlockId,
         put_log: Vec<PutCommand>,
-    ) -> Result<(), String> {
+    ) -> Result<(), SoarError> {
         if self.current_block.is_some() {
-            return Err("Attempted to store genesis block in DB with existing data".into());
+            return Err(SoarError::GenesisRewriteAttempted);
         }
 
         let prior = self.blocks.insert(
@@ -120,10 +130,12 @@ impl MemoryBackingStore {
         block: StacksBlockId,
         parent: StacksBlockId,
         put_log: Vec<PutCommand>,
-    ) -> Result<(), String> {
+    ) -> Result<(), SoarError> {
         let parent_height = match self.blocks.get(&parent) {
             Some(parent_data) => Ok(parent_data.height),
-            None => Err("Parent block has not been processed yet"),
+            None => Err(SoarError::NoParentBlock(
+                "Parent block has not been processed yet",
+            )),
         }?;
 
         let prior = self.blocks.insert(
@@ -134,7 +146,7 @@ impl MemoryBackingStore {
                 put_log,
                 height: parent_height
                     .checked_add(1)
-                    .ok_or_else(|| "Block height overflowed u64")?,
+                    .ok_or_else(|| SoarError::BlockHeightOverflow)?,
             },
         );
         assert!(
