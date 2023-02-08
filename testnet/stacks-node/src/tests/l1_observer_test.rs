@@ -5,7 +5,7 @@ use std::thread::{self, JoinHandle};
 use crate::config::{EventKeyType, EventObserverConfig};
 use crate::tests::l1_multiparty::MOCKNET_EPOCH_2_1;
 use crate::tests::neon_integrations::{
-    filter_map_events, get_account, get_nft_withdrawal_entry, get_withdrawal_entry, submit_tx,
+    filter_map_events, get_account, get_ft_withdrawal_entry, get_nft_withdrawal_entry, get_withdrawal_entry, submit_tx,
     test_observer,
 };
 use crate::tests::{make_contract_call, make_contract_publish, to_addr};
@@ -1066,6 +1066,15 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         1,
     );
 
+    let ft_withdrawal_entry = get_ft_withdrawal_entry(
+        &l2_rpc_origin,
+        withdrawal_height,
+        &user_addr,
+        withdrawal_id,
+        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-nft")),
+        1,
+    );
+
     // Create the withdrawal merkle tree by mocking the ft & nft withdraw event (if the root hash of
     // this constructed merkle tree is not identical to the root hash published by the subnet node,
     // then the test will fail).
@@ -1206,6 +1215,19 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     );
     assert_eq!(
         &siblings_val, &nft_withdrawal_entry.siblings,
+        "Sibling hashes should match value returned via RPC"
+    );
+
+    assert_eq!(
+        &root_hash_val, &ft_withdrawal_entry.root_hash,
+        "Root hash should match value returned via RPC"
+    );
+    assert_eq!(
+        &leaf_hash_val, &ft_withdrawal_entry.leaf_hash,
+        "Leaf hash should match value returned via RPC"
+    );
+    assert_eq!(
+        &siblings_val, &ft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
 
@@ -2468,6 +2490,23 @@ fn nft_deposit_and_withdraw_integration_test() {
         5,
     );
 
+    let l1_native_ft_withdrawal_entry = get_ft_withdrawal_entry(
+        &l2_rpc_origin,
+        withdrawal_height,
+        &user_addr,
+        0,
+        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft")),
+        1,
+    );
+    let subnet_native_ft_withdrawal_entry = get_ft_withdrawal_entry(
+        &l2_rpc_origin,
+        withdrawal_height,
+        &user_addr,
+        1,
+        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft")),
+        5,
+    );
+
     // Create the withdrawal merkle tree by mocking both nft withdraw events (if the root hash of
     // this constructed merkle tree is not identical to the root hash published by the subnet node,
     // then the test will fail).
@@ -2597,6 +2636,18 @@ fn nft_deposit_and_withdraw_integration_test() {
         &l1_native_siblings_val, &l1_native_nft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
+    assert_eq!(
+        &l1_native_root_hash_val, &l1_native_ft_withdrawal_entry.root_hash,
+        "Root hash should match value returned via RPC"
+    );
+    assert_eq!(
+        &l1_native_leaf_hash_val, &l1_native_ft_withdrawal_entry.leaf_hash,
+        "Leaf hash should match value returned via RPC"
+    );
+    assert_eq!(
+        &l1_native_siblings_val, &l1_native_ft_withdrawal_entry.siblings,
+        "Sibling hashes should match value returned via RPC"
+    );
 
     let subnet_native_nft_withdrawal_key =
         generate_key_from_event(&mut subnet_native_nft_withdraw_event, 1, withdrawal_height)
@@ -2612,6 +2663,20 @@ fn nft_deposit_and_withdraw_integration_test() {
         .path(&subnet_native_nft_withdrawal_key_bytes)
         .unwrap();
 
+    let subnet_native_ft_withdrawal_key =
+        generate_key_from_event(&mut subnet_native_ft_withdraw_event, 1, withdrawal_height)
+            .unwrap();
+    let subnet_native_ft_withdrawal_key_bytes =
+        convert_withdrawal_key_to_bytes(&subnet_native_ft_withdrawal_key);
+    let subnet_native_ft_withdrawal_leaf_hash = MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(
+        subnet_native_ft_withdrawal_key_bytes.as_slice(),
+    )
+    .as_bytes()
+    .to_vec();
+    let subnet_native_ft_path = withdrawal_tree
+        .path(&subnet_native_ft_withdrawal_key_bytes)
+        .unwrap();
+
     let mut subnet_native_nft_sib_data = Vec::new();
     for (_i, sib) in subnet_native_nft_path.iter().enumerate() {
         let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
@@ -2623,6 +2688,18 @@ fn nft_deposit_and_withdraw_integration_test() {
         ];
         let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
         subnet_native_nft_sib_data.push(sib_tuple);
+    }
+    let mut subnet_native_ft_sib_data = Vec::new();
+    for (_i, sib) in subnet_native_ft_path.iter().enumerate() {
+        let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
+        // the sibling's side is the opposite of what PathOrder is set to
+        let sib_is_left = Value::Bool(sib.order == MerklePathOrder::Right);
+        let curr_sib_data = vec![
+            (ClarityName::from("hash"), sib_hash),
+            (ClarityName::from("is-left-side"), sib_is_left),
+        ];
+        let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
+        subnet_native_ft_sib_data.push(sib_tuple);
     }
 
     let subnet_native_root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
@@ -2640,6 +2717,36 @@ fn nft_deposit_and_withdraw_integration_test() {
     );
     assert_eq!(
         &subnet_native_siblings_val, &subnet_native_nft_withdrawal_entry.siblings,
+        "Sibling hashes should match value returned via RPC"
+    );
+     
+    let mut subnet_native_ft_sib_data = Vec::new();
+    for (_i, sib) in subnet_native_ft_path.iter().enumerate() {
+        let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
+        // the sibling's side is the opposite of what PathOrder is set to
+        let sib_is_left = Value::Bool(sib.order == MerklePathOrder::Right);
+        let curr_sib_data = vec![
+            (ClarityName::from("hash"), sib_hash),
+            (ClarityName::from("is-left-side"), sib_is_left),
+        ];
+        let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
+        subnet_native_ft_sib_data.push(sib_tuple);
+    }
+    
+    let subnet_native_leaf_hash_val =
+        Value::buff_from(subnet_native_ft_withdrawal_leaf_hash.clone()).unwrap();
+    let subnet_native_siblings_val = Value::list_from(subnet_native_ft_sib_data.clone()).unwrap();
+
+    assert_eq!(
+        &subnet_native_root_hash_val, &subnet_native_ft_withdrawal_entry.root_hash,
+        "Root hash should match value returned via RPC"
+    );
+    assert_eq!(
+        &subnet_native_leaf_hash_val, &subnet_native_ft_withdrawal_entry.leaf_hash,
+        "Leaf hash should match value returned via RPC"
+    );
+    assert_eq!(
+        &subnet_native_siblings_val, &subnet_native_ft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
 
