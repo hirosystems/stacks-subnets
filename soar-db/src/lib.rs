@@ -100,20 +100,17 @@ impl SoarDB {
         while ancestor_a != ancestor_b {
             (ancestor_a, ancestor_a_ht) = self.get_block_parent(&ancestor_a, ancestor_a_ht)?;
             (ancestor_b, ancestor_b_ht) = self.get_block_parent(&ancestor_b, ancestor_b_ht)?;
-            if ancestor_a != ancestor_b {
-                ancestors_b.push(ancestor_b.clone());
-            }
         }
 
         let fork_point = ancestor_a;
 
         // fix the ancestors_b list so that it contains all the blocks
         //  that need to be applied starting from `fork_point` to
-        //  reach `block`. To do this, we check if the head of the list is equal
+        //  reach `block`. To do this, we check if the tail of the list is equal
         //  to the `fork_point`, and if so, remove it. This could result in a zero-length
         //  list if `block` == `fork_point`.
-        if ancestors_b.get(0) == Some(&fork_point) {
-            ancestors_b.remove(0);
+        if ancestors_b.last() == Some(&fork_point) {
+            ancestors_b.pop();
         }
 
         // Now, we have the most recent common ancestor (ancestor_a == ancestor_b)
@@ -151,7 +148,7 @@ impl SoarDB {
             .clone();
         assert_eq!(
             &current_block, block,
-            "Failed while replaying operations: expected parent and current block to align"
+            "Failed while replaying operations: expected current block to align to block"
         );
 
         Ok(())

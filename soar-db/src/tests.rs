@@ -53,9 +53,8 @@ fn simple_storage_chain() {
     assert_eq!(db.get_value("D"), Ok(Some("3".into())));
 }
 
-#[test]
-fn fork_to_longer_chain() {}
-
+/// Test forking from a longer chain (1 -> 2 -> 3 -> 4)
+///  to a shorter chain (1 -> 2 -> 3) and then back again
 #[test]
 fn fork_to_shorter_chain() {
     let mut db = SoarDB::new_memory();
@@ -122,6 +121,9 @@ fn fork_to_shorter_chain() {
     assert_eq!(db.get_value("Z"), Ok(Some("3".into())));
     assert_eq!(db.get_value("E"), Ok(None));
 
+    // these ops will be applied when we fork back
+    let fork_back_ops = vec![make_put(&db, "C", "5")];
+
     db.add_block_ops(StacksBlockId([13; 32]), StacksBlockId([2; 32]), fork_ops)
         .unwrap();
 
@@ -131,4 +133,18 @@ fn fork_to_shorter_chain() {
     assert_eq!(db.get_value("C"), Ok(Some("2".into())));
     assert_eq!(db.get_value("D"), Ok(Some("2".into())));
     assert_eq!(db.get_value("Z"), Ok(None));
+
+    db.add_block_ops(
+        StacksBlockId([5; 32]),
+        StacksBlockId([4; 32]),
+        fork_back_ops,
+    )
+    .unwrap();
+
+    assert_eq!(db.get_value("A"), Ok(Some("1".into())));
+    assert_eq!(db.get_value("B"), Ok(Some("4".into())));
+    assert_eq!(db.get_value("C"), Ok(Some("5".into())));
+    assert_eq!(db.get_value("D"), Ok(Some("4".into())));
+    assert_eq!(db.get_value("Z"), Ok(Some("3".into())));
+    assert_eq!(db.get_value("E"), Ok(None));
 }

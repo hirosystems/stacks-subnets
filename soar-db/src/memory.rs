@@ -42,6 +42,8 @@ impl MemoryBackingStore {
             self.apply_put(command);
         }
 
+        self.set_current_block(block.clone());
+
         Ok(())
     }
 
