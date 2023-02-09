@@ -92,6 +92,7 @@ pub const MAX_TRANSACTION_LEN: u32 = MAX_BLOCK_LEN;
 pub enum Error {
     InvalidFee,
     InvalidStacksBlock(String),
+    InvalidStacksBlockProposal(String),
     InvalidStacksMicroblock(String, BlockHeaderHash),
     // The bool is true if the invalid transaction was quietly ignored.
     InvalidStacksTransaction(String, bool),
@@ -121,6 +122,8 @@ pub enum Error {
     PoxAlreadyLocked,
     PoxInsufficientBalance,
     PoxNoRewardCycle,
+    JSONError(serde_json::Error),
+    Secp256k1Error(String),
 }
 
 impl From<marf_error> for Error {
@@ -147,11 +150,18 @@ impl From<codec_error> for Error {
     }
 }
 
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Error {
+        Error::JSONError(e)
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::InvalidFee => write!(f, "Invalid fee"),
             Error::InvalidStacksBlock(ref s) => fmt::Display::fmt(s, f),
+            Error::InvalidStacksBlockProposal(ref s) => fmt::Display::fmt(s, f),
             Error::InvalidStacksMicroblock(ref s, _) => fmt::Display::fmt(s, f),
             Error::InvalidStacksTransaction(ref s, _) => fmt::Display::fmt(s, f),
             Error::PostConditionFailed(ref s) => fmt::Display::fmt(s, f),
@@ -191,6 +201,8 @@ impl fmt::Display for Error {
                     r
                 )
             }
+            Error::JSONError(ref e) => fmt::Display::fmt(e, f),
+            Error::Secp256k1Error(ref s) => fmt::Display::fmt(s, f),
         }
     }
 }
@@ -200,6 +212,7 @@ impl error::Error for Error {
         match *self {
             Error::InvalidFee => None,
             Error::InvalidStacksBlock(ref _s) => None,
+            Error::InvalidStacksBlockProposal(ref _s) => None,
             Error::InvalidStacksMicroblock(ref _s, ref _h) => None,
             Error::InvalidStacksTransaction(ref _s, _q) => None,
             Error::PostConditionFailed(ref _s) => None,
@@ -224,6 +237,8 @@ impl error::Error for Error {
             Error::PoxInsufficientBalance => None,
             Error::PoxNoRewardCycle => None,
             Error::StacksTransactionSkipped(ref _r) => None,
+            Error::JSONError(ref e) => Some(e),
+            Error::Secp256k1Error(ref _s) => None,
         }
     }
 }
@@ -233,6 +248,7 @@ impl Error {
         match self {
             Error::InvalidFee => "InvalidFee",
             Error::InvalidStacksBlock(ref _s) => "InvalidStacksBlock",
+            Error::InvalidStacksBlockProposal(ref _s) => "InvalidStacksBlockProposal",
             Error::InvalidStacksMicroblock(ref _s, ref _h) => "InvalidStacksMicroblock",
             Error::InvalidStacksTransaction(ref _s, _q) => "InvalidStacksTransaction",
             Error::PostConditionFailed(ref _s) => "PostConditionFailed",
@@ -257,6 +273,8 @@ impl Error {
             Error::PoxInsufficientBalance => "PoxInsufficientBalance",
             Error::PoxNoRewardCycle => "PoxNoRewardCycle",
             Error::StacksTransactionSkipped(ref _r) => "StacksTransactionSkipped",
+            Error::JSONError(ref _e) => "JSONError",
+            Error::Secp256k1Error(ref _s) => "Secp256k1Error",
         }
     }
 

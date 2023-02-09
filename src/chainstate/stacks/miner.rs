@@ -49,7 +49,7 @@ use stacks_common::util::get_epoch_time_ms;
 use stacks_common::util::hash::hex_bytes;
 use stacks_common::util::hash::MerkleTree;
 use stacks_common::util::hash::Sha512Trunc256Sum;
-use stacks_common::util::secp256k1::{MessageSignature, Secp256k1PrivateKey};
+use stacks_common::util::secp256k1::{MessageSignature, Secp256k1PrivateKey, Secp256k1PublicKey};
 use stacks_common::util::vrf::*;
 
 use crate::chainstate::stacks::address::StacksAddressExtensions;
@@ -168,6 +168,15 @@ pub struct Proposal {
     ///  Stacks header. In subnets, this is just an incrementing
     ///  value.
     pub total_burn: u64,
+}
+
+/// Wrapper around `struct Proposal` that adds a signature.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SignedProposal {
+    /// `Proposal` structure serialized to JSON using `serde_json::to_string()` and base58 encoded
+    pub message: String,
+    /// Hash of `json` encrypted with `Secp256k1PrivateKey`
+    pub signature: MessageSignature,
 }
 
 impl From<&UnconfirmedState> for MicroblockMinerRuntime {
@@ -2368,6 +2377,21 @@ impl Proposal {
         signature
     }
 
+    /// Sign the whole data structure so that RPC handlers can validate the proposal request was sent by the leader
+    pub fn sign_for_authentication(
+        &self,
+        signing_key: &Secp256k1PrivateKey,
+    ) -> Result<SignedProposal, Error> {
+        let json = serde_json::to_string(self)?;
+        let message = stacks_common::address::b58::encode_slice(&json.as_bytes());
+        let sha2 = Sha256Sum::from_data(&message.as_bytes());
+        let signature = signing_key
+            .sign(sha2.as_bytes())
+            .map_err(|e| Error::Secp256k1Error(e.to_string()))?;
+
+        Ok(SignedProposal { message, signature })
+    }
+
     /// Given access to the mempool, mine an anchored block with no more than the given execution cost.
     ///   returns the assembled block, and the consumed execution budget.
     pub fn validate(
@@ -2535,6 +2559,73 @@ impl Proposal {
         );
 
         Ok((block, consumed, size))
+    }
+
+    #[cfg(test)]
+    /// Create a fake block proposal for testing
+    fn mock() -> Proposal {
+        Proposal {
+            parent_block_hash: BlockHeaderHash::from_hex(
+                "0000000000000000000000000000000000000000000000000000000000000000",
+            )
+            .unwrap(),
+            parent_consensus_hash: ConsensusHash::from_hex(
+                "1111111111111111111111111111111111111111",
+            )
+            .unwrap(),
+            block: StacksBlock::genesis_block(),
+            microblocks_confirmed: Vec::default(),
+            burn_tip: BurnchainHeaderHash::from_hex(
+                "0000000000000000000000000000000000000000000000000000000000000000",
+            )
+            .unwrap(),
+            burn_tip_height: 0,
+            total_burn: 0,
+            is_mainnet: false,
+            microblock_pubkey_hash: Hash160::from_hex("1111111111111111111111111111111111111111")
+                .unwrap(),
+        }
+    }
+}
+
+impl SignedProposal {
+    /// Perform the secp256k1 signature validation, recovering the public key used to sign
+    pub fn recover_signer_pk(&self) -> Result<Secp256k1PublicKey, Error> {
+        let hash = Sha256Sum::from_data(&self.message.as_bytes());
+        Secp256k1PublicKey::recover_to_pubkey(hash.as_bytes(), &self.signature)
+            .map_err(|e| Error::Secp256k1Error(e.to_string()))
+    }
+
+    /// Check that `message` matches `signature`
+    pub fn verify(&self) -> Result<bool, Error> {
+        // Compute hash of message
+        let hash = Sha256Sum::from_data(self.message.as_bytes());
+
+        // Recover pubkey using message hash
+        let pubkey = self
+            .recover_signer_pk()
+            .map_err(|e| Error::Secp256k1Error(e.to_string()))?;
+
+        // Check that recomputed hash validates against signature with recovered pubkey
+        pubkey
+            .verify(hash.as_bytes(), &self.signature)
+            .map_err(|e| Error::Secp256k1Error(e.to_string()))
+    }
+
+    /// Decode `Proposal` message from base58 encoding used in `SignedProposal`
+    pub fn decode(&self) -> Result<Proposal, Error> {
+        // Decode message from base58
+        let bytes = stacks_common::address::b58::from(&self.message).map_err(|e| {
+            Error::InvalidStacksBlockProposal(format!("Failed to decode message from base58: {e}"))
+        })?;
+        let json = std::str::from_utf8(&bytes).map_err(|e| {
+            Error::InvalidStacksBlockProposal(format!("Failed to decode message from UTF8: {e}"))
+        })?;
+
+        // Deserialize JSON
+        let proposal = serde_json::from_str::<Proposal>(json)?;
+
+        Ok(proposal)
     }
 }
 
@@ -7148,6 +7239,58 @@ pub mod test {
             .into(),
             "scalable-call".into(),
         );
+    }
+
+    fn mock_signed_proposal_with_key() -> (Proposal, SignedProposal, Secp256k1PrivateKey) {
+        // Create a proposal and sign it
+        let privk = StacksPrivateKey::from_hex(
+            "6d430bb91222408e7706c9001cfaeb91b08c2be6d5ac95779ab52c6b431950e001",
+        )
+        .unwrap();
+        let proposal = Proposal::mock();
+        let signed_proposal = proposal.sign_for_authentication(&privk).unwrap();
+        (proposal, signed_proposal, privk)
+    }
+
+    #[test]
+    fn test_proposal_sign_for_authentication() {
+        let (_, signed_proposal, privk) = mock_signed_proposal_with_key();
+
+        // Now make sure signature matches proposal block
+        let pubk = Secp256k1PublicKey::from_private(&privk);
+        let hash = Sha256Sum::from_data(&signed_proposal.message.as_bytes());
+        let ok = pubk
+            .verify(hash.as_bytes(), &signed_proposal.signature)
+            .unwrap();
+
+        assert!(ok)
+    }
+
+    #[test]
+    fn test_signed_proposal_recover_signed_pk() {
+        let (_, signed_proposal, privk) = mock_signed_proposal_with_key();
+
+        // Make sure recovered public key is correct
+        let pubk = Secp256k1PublicKey::from_private(&privk);
+        let pubk_recovered = signed_proposal.recover_signer_pk().unwrap();
+
+        assert_eq!(pubk, pubk_recovered)
+    }
+
+    #[test]
+    fn test_signed_proposal_verify() {
+        let (_, signed_proposal, _) = mock_signed_proposal_with_key();
+
+        assert!(signed_proposal.verify().unwrap())
+    }
+
+    #[test]
+    fn test_signed_proposal_decode() {
+        let (proposal, signed_proposal, _) = mock_signed_proposal_with_key();
+
+        let recovered_proposal = signed_proposal.decode().unwrap();
+
+        assert_eq!(recovered_proposal, proposal);
     }
 
     // TODO: invalid block with duplicate microblock public key hash (okay between forks, but not

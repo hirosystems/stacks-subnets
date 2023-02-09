@@ -15,7 +15,7 @@ use stacks::burnchains::Txid;
 use stacks::chainstate::burn::db::sortdb::SortitionDB;
 use stacks::chainstate::burn::BlockSnapshot;
 use stacks::chainstate::stacks::index::ClarityMarfTrieId;
-use stacks::chainstate::stacks::miner::Proposal;
+use stacks::chainstate::stacks::miner::SignedProposal;
 use stacks::core::StacksEpoch;
 use stacks::types::chainstate::BlockHeaderHash;
 use stacks::types::chainstate::BurnchainHeaderHash;
@@ -107,7 +107,7 @@ pub trait BurnchainController {
     fn propose_block(
         &self,
         participant_index: u8,
-        proposal: &Proposal,
+        proposal: &SignedProposal,
     ) -> Result<ClaritySignature, Error>;
 
     fn sync(&mut self, target_block_height_opt: Option<u64>) -> Result<(BurnchainTip, u64), Error>;
@@ -218,7 +218,7 @@ impl BurnchainController for PanicController {
     fn propose_block(
         &self,
         _participant_index: u8,
-        _proposal: &Proposal,
+        _proposal: &SignedProposal,
     ) -> Result<ClaritySignature, Error> {
         panic!()
     }
