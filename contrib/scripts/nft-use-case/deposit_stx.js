@@ -15,7 +15,7 @@ async function main() {
 
   const txOptions = {
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet",
+    contractName: "subnet-alpha",
     functionName: "deposit-stx",
     functionArgs: [
       uintCV(500_000_000_000), // ID

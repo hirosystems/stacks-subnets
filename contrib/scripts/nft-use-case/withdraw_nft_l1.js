@@ -15,7 +15,7 @@ import { StacksTestnet, HIRO_MOCKNET_DEFAULT } from "@stacks/network";
 async function main() {
   const network = new StacksTestnet({ url: HIRO_MOCKNET_DEFAULT });
   const subnetUrl = process.env.SUBNET_URL;
-  const senderKey = process.env.AUTH_SUBNET_MINER_KEY;
+  const senderKey = process.env.ALT_USER_KEY;
   const addr = process.env.ALT_USER_ADDR;
   const contractAddr = process.env.USER_ADDR;
   const withdrawalBlockHeight = process.argv[2];
@@ -23,8 +23,9 @@ async function main() {
   const withdrawalId = 0;
 
   let json_merkle_entry = await fetch(
-    `${subnetUrl}/v2/withdrawal/nft/${withdrawalBlockHeight}/${addr}/${withdrawalId}/${contractAddr}/simple-nft-l2/nft-token/5`
+    `${subnetUrl}/v2/withdrawal/nft/${withdrawalBlockHeight}/${addr}/${withdrawalId}/${contractAddr}/simple-nft-l2/5`
   ).then((x) => x.json());
+  console.log(JSON.stringify(json_merkle_entry));
   let cv_merkle_entry = {
     withdrawal_leaf_hash: deserializeCV(json_merkle_entry.withdrawal_leaf_hash),
     withdrawal_root: deserializeCV(json_merkle_entry.withdrawal_root),
