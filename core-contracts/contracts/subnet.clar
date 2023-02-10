@@ -238,6 +238,7 @@
 ;; Returns response<bool, int>
 (define-public (inner-withdraw-nft-asset
         (nft-contract <nft-trait>)
+        (l2-contract principal)
         (id uint)
         (recipient principal)
         (withdrawal-id uint)
@@ -256,7 +257,7 @@
 
         ;; check that the withdrawal request data matches the supplied leaf hash
         (asserts! (is-eq withdrawal-leaf-hash
-                         (leaf-hash-withdraw-nft (contract-of nft-contract) id recipient withdrawal-id height))
+                         (leaf-hash-withdraw-nft l2-contract id recipient withdrawal-id height))
                   (err ERR_VALIDATION_LEAF_FAILED))
 
         (asserts!
@@ -300,13 +301,14 @@
             is-left-side: bool,
         }))
     )
-    (begin
-        ;; Check that the asset belongs to the allowed-contracts map
-        (unwrap! (map-get? allowed-contracts (contract-of nft-contract)) (err ERR_DISALLOWED_ASSET))
-
+    (let (
+            ;; Check that the asset belongs to the allowed-contracts map
+            (l2-contract (unwrap! (map-get? allowed-contracts (contract-of nft-contract)) (err ERR_DISALLOWED_ASSET)))
+        )
         (asserts!
             (try! (inner-withdraw-nft-asset
                 nft-contract
+                l2-contract
                 id
                 recipient
                 withdrawal-id
