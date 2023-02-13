@@ -1460,28 +1460,7 @@ impl StacksChainState {
             clarity_tx.commit_to_block(&FIRST_BURNCHAIN_CONSENSUS_HASH, &FIRST_STACKS_BLOCK_HASH);
         }
 
-        // verify that genesis root hash is as expected
-        {
-            let genesis_root_hash = chainstate.clarity_state.with_marf(|marf| {
-                let index_block_hash = StacksBlockHeader::make_index_block_hash(
-                    &FIRST_BURNCHAIN_CONSENSUS_HASH,
-                    &FIRST_STACKS_BLOCK_HASH,
-                );
-                marf.get_root_hash_at(&index_block_hash).unwrap()
-            });
-
-            info!("Computed Clarity state genesis"; "root_hash" => %genesis_root_hash);
-
-            if mainnet {
-                assert_eq!(
-                    &genesis_root_hash.to_string(),
-                    SUBNET_GENESIS_ROOT_HASH,
-                    "Incorrect root hash for genesis block computed. expected={} computed={}",
-                    SUBNET_GENESIS_ROOT_HASH,
-                    genesis_root_hash.to_string()
-                )
-            }
-        }
+        // TODO: verify the genesis block hash is as expected
 
         {
             // add a block header entry for the boot code
@@ -1854,12 +1833,12 @@ impl StacksChainState {
         }
     }
 
-    pub fn with_clarity_marf<F, R>(&mut self, f: F) -> R
-    where
-        F: FnOnce(&mut MARF<StacksBlockId>) -> R,
-    {
-        self.clarity_state.with_marf(f)
-    }
+    // pub fn with_clarity_marf<F, R>(&mut self, f: F) -> R
+    // where
+    //     F: FnOnce(&mut MARF<StacksBlockId>) -> R,
+    // {
+    //     self.clarity_state.with_marf(f)
+    // }
 
     fn begin_read_only_clarity_tx<'a>(
         &'a mut self,

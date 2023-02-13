@@ -73,6 +73,8 @@ pub extern crate prometheus;
 #[macro_use]
 extern crate stacks_common;
 
+extern crate soar_db;
+
 pub use stacks_common::address;
 pub use stacks_common::codec;
 pub use stacks_common::types;

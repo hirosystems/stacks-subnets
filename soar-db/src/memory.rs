@@ -15,8 +15,9 @@ pub struct BlockData {
 
 pub struct MemoryBackingStore {
     current_block: Option<StacksBlockId>,
-    entries: HashMap<String, String>,
+    pub entries: HashMap<String, String>,
     blocks: HashMap<StacksBlockId, BlockData>,
+    blocks_by_height: HashMap<u64, StacksBlockId>,
 }
 
 impl MemoryBackingStore {
@@ -25,6 +26,7 @@ impl MemoryBackingStore {
             current_block: None,
             entries: HashMap::new(),
             blocks: HashMap::new(),
+            blocks_by_height: HashMap::new(),
         }
     }
 
@@ -120,6 +122,7 @@ impl MemoryBackingStore {
                 height: 0,
             },
         );
+
         assert!(
             prior.is_none(),
             "Stored block data over an existing block entry"

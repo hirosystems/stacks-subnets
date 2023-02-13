@@ -2,7 +2,14 @@
 extern crate clarity;
 extern crate stacks_common;
 
+use std::collections::HashMap;
+
 use crate::memory::MemoryBackingStore;
+use clarity::vm::{
+    database::{BurnStateDB, ClarityBackingStore, ClarityDatabase, HeadersDB},
+    errors::InterpreterResult,
+    types::QualifiedContractIdentifier,
+};
 use stacks_common::types::chainstate::StacksBlockId;
 
 pub mod memory;
@@ -12,9 +19,35 @@ pub mod tests;
 
 pub trait SoarBackingStore {}
 
-/// Key-Value Store with edit log
+/// SoarDB is a key-value store where operations
+///  are applied in blocks. Each block (except the *sole*
+///  genesis block) has a parent block. The SoarDB views
+///  its data from the perspective of a `current_block` value.
+///
+/// SoarDB handles re-organizations of the database view through
+///  invocations of `set_block()`. When this method is invoked, the
+///  database applies any rollbacks or re-application of operations
+///  necessary to change the view.
 pub struct SoarDB {
     storage: MemoryBackingStore,
+}
+
+pub struct PendingSoarBlock<'a> {
+    db: &'a mut SoarDB,
+    parent_block: StacksBlockId,
+    id: StacksBlockId,
+    /// This vec *only* grows: once operations are applied to the
+    ///  pending block, the block either must be abandoned or
+    ///  committed with those operations.
+    ///
+    /// Individual transaction rollbacks are handled by the Clarity KV
+    /// wrapper.
+    pending_ops: Vec<PutCommand>,
+    pending_view: HashMap<String, String>,
+}
+
+pub struct ReadOnlySoarConn<'a> {
+    db: &'a SoarDB,
 }
 
 #[derive(Clone)]
@@ -29,14 +62,28 @@ pub struct PutCommand {
     value: String,
 }
 
+/// Error types for SoarDB
 #[derive(PartialEq, Debug)]
 pub enum SoarError {
+    /// The db cannot find the parent of a block in its storage. More
+    /// context is supplied in the error's string message.
     NoParentBlock(&'static str),
+    /// The given stacks block could not be found in storage.
     BlockNotFound(StacksBlockId),
+    /// The caller attempted an operation that would write a genesis block,
+    /// but this database already stored a genesis block.
     GenesisRewriteAttempted,
+    /// Adding the block would overflow the block height parameter
     BlockHeightOverflow,
+    /// The db failed to rollback successfully, reaching an unexpected DB state.
+    /// This error *should never* occur under normal operation.
     MismatchViewDuringRollback,
+    /// The db failed to rollback successfully, reaching the genesis block before
+    ///  finding a fork point.
+    /// This error *should never* occur under normal operation.
     RollbackBeyondGenesis,
+    /// The DB's fork view must be altered before the requested operation
+    ViewChangeRequired,
 }
 
 impl SoarDB {
@@ -52,8 +99,13 @@ impl SoarDB {
         self.storage.current_block()
     }
 
+    /// Get a value from the key-value store from the view of `current_block()`
     pub fn get_value(&self, key: &str) -> Result<Option<String>, SoarError> {
         self.storage.get_value(key)
+    }
+
+    pub fn get_block_height(&self, block: &StacksBlockId) -> Result<u64, SoarError> {
+        self.storage.get_block_height(block)
     }
 
     /// Retarget the db to `block`, performing any unrolls or replays required to do so
@@ -169,6 +221,7 @@ impl SoarDB {
         Ok((parent, parent_ht))
     }
 
+    /// Add a genesis block to the database.
     pub fn add_genesis(
         &mut self,
         block: StacksBlockId,
@@ -189,6 +242,8 @@ impl SoarDB {
         Ok(())
     }
 
+    /// Add a new block to the database, retargeting the database to
+    ///  to the new block's fork if necessary.
     pub fn add_block_ops(
         &mut self,
         block: StacksBlockId,
@@ -206,5 +261,290 @@ impl SoarDB {
         }
         self.storage.set_current_block(block);
         Ok(())
+    }
+
+    /// A lot of code in the stacks-blockchain codebase assumes
+    ///  that a "sentinel block hash" indicates a non-existent parent
+    ///  rather than using an Option<> type for the parent. This method inserts
+    ///  a sentinel genesis block to handle that behavior
+    pub fn stub_genesis(&mut self) {
+        self.add_genesis(StacksBlockId([255; 32]), vec![]).unwrap();
+    }
+
+    pub fn begin<'a>(
+        &'a mut self,
+        current: &StacksBlockId,
+        next: &StacksBlockId,
+    ) -> Result<PendingSoarBlock<'a>, SoarError> {
+        if self.current_block() != Some(current) {
+            Err(SoarError::ViewChangeRequired)
+        } else {
+            Ok(PendingSoarBlock {
+                db: self,
+                parent_block: current.clone(),
+                id: next.clone(),
+                pending_ops: vec![],
+                pending_view: HashMap::new(),
+            })
+        }
+    }
+
+    pub fn begin_read_only<'a>(
+        &'a self,
+        current: Option<&StacksBlockId>,
+    ) -> Result<ReadOnlySoarConn<'a>, SoarError> {
+        if let Some(current) = current {
+            if self.current_block() != Some(current) {
+                return Err(SoarError::ViewChangeRequired);
+            }
+        }
+        Ok(ReadOnlySoarConn { db: self })
+    }
+}
+
+impl<'a> PendingSoarBlock<'a> {
+    pub fn as_clarity_db<'b>(
+        &'b mut self,
+        headers_db: &'b dyn HeadersDB,
+        burn_state_db: &'b dyn BurnStateDB,
+    ) -> ClarityDatabase<'b> {
+        ClarityDatabase::new(self, headers_db, burn_state_db)
+    }
+
+    pub fn rollback_block(self) {
+        // nothing needs to be done, just destroy the struct
+    }
+
+    pub fn rollback_unconfirmed(self) {
+        // nothing needs to be done, just destroy the struct
+    }
+
+    pub fn commit_to(self, final_bhh: &StacksBlockId) {
+        self.db
+            .add_block_ops(final_bhh.clone(), self.parent_block, self.pending_ops)
+            .expect("FAIL: error committing block to SoarDB");
+    }
+
+    pub fn test_commit(self) {
+        let bhh = self.id.clone();
+        self.commit_to(&bhh);
+    }
+
+    pub fn commit_unconfirmed(self) {
+        panic!("SoarDB does not support 'unconfirmed' block data yet");
+    }
+
+    // This is used by miners
+    //   so that the block validation and processing logic doesn't
+    //   reprocess the same data as if it were already loaded
+    pub fn commit_mined_block(self, will_move_to: &StacksBlockId) {
+        // just destroy the struct and dropped the mined data
+    }
+}
+
+fn metadata_key(contract: &QualifiedContractIdentifier, key: &str) -> String {
+    format!("clr-soar-meta::{}::{}", contract, key)
+}
+
+impl<'a> ClarityBackingStore for ReadOnlySoarConn<'a> {
+    fn put_all(&mut self, items: Vec<(String, String)>) {
+        panic!("BUG: attempted commit to read-only connection");
+    }
+
+    fn get(&mut self, key: &str) -> Option<String> {
+        self.db
+            .get_value(key)
+            .expect("FAIL: Unhandled SoarDB error")
+    }
+
+    fn get_with_proof(&mut self, key: &str) -> Option<(String, Vec<u8>)> {
+        match self.get(key) {
+            Some(value) => Some((value, vec![])),
+            None => None,
+        }
+    }
+
+    fn set_block_hash(
+        &mut self,
+        bhh: StacksBlockId,
+    ) -> clarity::vm::errors::InterpreterResult<StacksBlockId> {
+        panic!("SoarDB does not support set_block_hash");
+    }
+
+    fn get_block_at_height(&mut self, height: u32) -> Option<StacksBlockId> {
+        panic!("SoarDB does not support get_block_at_height");
+    }
+
+    fn get_current_block_height(&mut self) -> u32 {
+        self.get_open_chain_tip_height()
+    }
+
+    fn get_open_chain_tip_height(&mut self) -> u32 {
+        self.db
+            .get_block_height(&self.get_open_chain_tip())
+            .expect("Failed to get block height of open chain tip")
+            .try_into()
+            .expect("Block height overflowed u32")
+    }
+
+    fn get_open_chain_tip(&mut self) -> StacksBlockId {
+        self.db
+            .current_block()
+            .cloned()
+            .expect("SoarDB connection opened on empty db. Should run stub_genesis()")
+    }
+
+    /// SoarDB does *not* use a side store. Data is stored directly in the KV storage
+    fn get_side_store(&mut self) -> &rusqlite::Connection {
+        panic!("SoarDB does not implement a side-store");
+    }
+
+    fn get_cc_special_cases_handler(&self) -> Option<clarity::vm::database::SpecialCaseHandler> {
+        None
+    }
+
+    fn insert_metadata(
+        &mut self,
+        _contract: &QualifiedContractIdentifier,
+        _key: &str,
+        _value: &str,
+    ) {
+        // NOOP
+    }
+
+    fn get_metadata(
+        &mut self,
+        contract: &QualifiedContractIdentifier,
+        key: &str,
+    ) -> InterpreterResult<Option<String>> {
+        let key = metadata_key(contract, key);
+        Ok(self.get(&key))
+    }
+
+    fn get_metadata_manual(
+        &mut self,
+        _at_height: u32,
+        contract: &QualifiedContractIdentifier,
+        key: &str,
+    ) -> InterpreterResult<Option<String>> {
+        self.get_metadata(contract, key)
+    }
+
+    /// This method doesn't need to be used in the SoarDB, because metadata is stored quite differently
+    ///  than in the MARF (which is what this method was used for). So, panic
+    fn get_contract_hash(
+        &mut self,
+        _contract: &QualifiedContractIdentifier,
+    ) -> InterpreterResult<(StacksBlockId, clarity::util::hash::Sha512Trunc256Sum)> {
+        panic!("get_contract_hash() is not implemented in the SoarDB");
+    }
+}
+
+impl<'a> ClarityBackingStore for PendingSoarBlock<'a> {
+    fn put_all(&mut self, items: Vec<(String, String)>) {
+        for (key, value) in items {
+            let prior_value = self.get(&key);
+            self.pending_view.insert(key.clone(), value.clone());
+            let op = PutCommand {
+                key,
+                prior_value,
+                value,
+            };
+            self.pending_ops.push(op);
+        }
+    }
+
+    fn get(&mut self, key: &str) -> Option<String> {
+        self.pending_view.get(key).cloned().or_else(|| {
+            self.db
+                .get_value(key)
+                .expect("FAIL: Unhandled SoarDB error")
+        })
+    }
+
+    fn get_with_proof(&mut self, key: &str) -> Option<(String, Vec<u8>)> {
+        match self.get(key) {
+            Some(value) => Some((value, vec![])),
+            None => None,
+        }
+    }
+
+    fn set_block_hash(
+        &mut self,
+        bhh: StacksBlockId,
+    ) -> clarity::vm::errors::InterpreterResult<StacksBlockId> {
+        panic!("SoarDB does not support set_block_hash");
+    }
+
+    fn get_block_at_height(&mut self, height: u32) -> Option<StacksBlockId> {
+        panic!("SoarDB does not support get_block_at_height");
+    }
+
+    fn get_current_block_height(&mut self) -> u32 {
+        self.get_open_chain_tip_height()
+    }
+
+    fn get_open_chain_tip_height(&mut self) -> u32 {
+        self.db
+            .get_block_height(&self.parent_block)
+            .expect("Failed to get block height of open parent")
+            .checked_add(1)
+            .expect("Overflowed u64 getting height")
+            .try_into()
+            .expect("Overflowed u32 getting height")
+    }
+
+    fn get_open_chain_tip(&mut self) -> StacksBlockId {
+        self.id.clone()
+    }
+
+    /// SoarDB does *not* use a side store. Data is stored directly in the KV storage
+    fn get_side_store(&mut self) -> &rusqlite::Connection {
+        panic!("SoarDB does not implement a side-store");
+    }
+
+    fn get_cc_special_cases_handler(&self) -> Option<clarity::vm::database::SpecialCaseHandler> {
+        None
+    }
+
+    /// Metadata in SoarDB is handled very differently than the MARF-KV. The metadata in the MARF-KV
+    ///  is kept intentionally separate from the MARF because the metadata shouldn't be included in the
+    ///  data hash. SoarDB, however, does not perform data hashes, so the metadata can be included like
+    ///  any other put operations.
+    fn insert_metadata(&mut self, contract: &QualifiedContractIdentifier, key: &str, value: &str) {
+        let key = metadata_key(contract, key);
+        self.put_all(vec![(key, value.to_string())]);
+    }
+
+    fn get_metadata(
+        &mut self,
+        contract: &QualifiedContractIdentifier,
+        key: &str,
+    ) -> InterpreterResult<Option<String>> {
+        eprintln!("PENDING: {:#?}", self.pending_view.keys());
+        eprintln!("STORAGE: {:#?}", self.db.storage.entries.keys());
+        let key = metadata_key(contract, key);
+        eprintln!("METAKEY: {:#?}", key);
+        let r = self.get(&key);
+        eprintln!("RESULT: {:#?}", r);
+        Ok(r)
+    }
+
+    fn get_metadata_manual(
+        &mut self,
+        _at_height: u32,
+        contract: &QualifiedContractIdentifier,
+        key: &str,
+    ) -> InterpreterResult<Option<String>> {
+        self.get_metadata(contract, key)
+    }
+
+    /// This method doesn't need to be used in the SoarDB, because metadata is stored quite differently
+    ///  than in the MARF (which is what this method was used for). So, panic
+    fn get_contract_hash(
+        &mut self,
+        _contract: &QualifiedContractIdentifier,
+    ) -> InterpreterResult<(StacksBlockId, clarity::util::hash::Sha512Trunc256Sum)> {
+        panic!("get_contract_hash() is not implemented in the SoarDB");
     }
 }

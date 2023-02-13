@@ -2753,6 +2753,7 @@ dependencies = [
  "slog",
  "slog-json",
  "slog-term",
+ "soar-db",
  "stacks-common",
  "time 0.2.27",
  "url",

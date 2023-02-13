@@ -13,6 +13,8 @@ fn make_put(db: &SoarDB, k: &str, v: &str) -> PutCommand {
     }
 }
 
+/// Test basic usage of the db: a single chain of blocks
+///  with k-v operations
 #[test]
 fn simple_storage_chain() {
     let mut db = SoarDB::new_memory();

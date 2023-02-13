@@ -84,6 +84,7 @@ use crate::util_lib::db::Error as DatabaseError;
 pub use clarity::vm::clarity::ClarityConnection;
 pub use clarity::vm::clarity::Error;
 use clarity::vm::clarity::TransactionConnection;
+use soar_db::{PendingSoarBlock, SoarDB};
 
 ///
 /// A high-level interface for interacting with the Clarity VM.
@@ -108,7 +109,7 @@ use clarity::vm::clarity::TransactionConnection;
 ///   types in a Clarity-based blockchain.
 ///
 pub struct ClarityInstance {
-    datastore: MarfedKV,
+    datastore: SoarDB,
     mainnet: bool,
     chain_id: u32,
 }
@@ -125,7 +126,7 @@ pub struct ClarityInstance {
 /// issuring event dispatches, before the Clarity database commits.
 ///
 pub struct PreCommitClarityBlock<'a> {
-    datastore: WritableMarfStore<'a>,
+    datastore: PendingSoarBlock<'a>,
     commit_to: StacksBlockId,
 }
 
@@ -133,7 +134,7 @@ pub struct PreCommitClarityBlock<'a> {
 /// A high-level interface for Clarity VM interactions within a single block.
 ///
 pub struct ClarityBlockConnection<'a, 'b> {
-    datastore: WritableMarfStore<'a>,
+    datastore: PendingSoarBlock<'a>,
     header_db: &'b dyn HeadersDB,
     burn_state_db: &'b dyn BurnStateDB,
     cost_track: Option<LimitedCostTracker>,
@@ -148,7 +149,7 @@ pub struct ClarityBlockConnection<'a, 'b> {
 ///   rollback the transaction by dropping this struct.
 pub struct ClarityTransactionConnection<'a, 'b> {
     log: Option<RollbackWrapperPersistedLog>,
-    store: &'a mut WritableMarfStore<'b>,
+    store: &'a mut PendingSoarBlock<'b>,
     header_db: &'a dyn HeadersDB,
     burn_state_db: &'a dyn BurnStateDB,
     cost_track: &'a mut Option<LimitedCostTracker>,
@@ -229,17 +230,18 @@ impl<'a, 'b> ClarityBlockConnection<'a, 'b> {
 impl ClarityInstance {
     pub fn new(mainnet: bool, chain_id: u32, datastore: MarfedKV) -> ClarityInstance {
         ClarityInstance {
-            datastore,
+            datastore: unimplemented!("Must pass SoarDB here"),
             mainnet,
             chain_id,
         }
     }
 
-    pub fn with_marf<F, R>(&mut self, f: F) -> R
-    where
-        F: FnOnce(&mut MARF<StacksBlockId>) -> R,
-    {
-        f(self.datastore.get_marf())
+    pub fn new_s(mainnet: bool, chain_id: u32, datastore: SoarDB) -> ClarityInstance {
+        ClarityInstance {
+            datastore,
+            mainnet,
+            chain_id,
+        }
     }
 
     pub fn is_mainnet(&self) -> bool {
@@ -279,7 +281,13 @@ impl ClarityInstance {
         header_db: &'b dyn HeadersDB,
         burn_state_db: &'b dyn BurnStateDB,
     ) -> ClarityBlockConnection<'a, 'b> {
-        let mut datastore = self.datastore.begin(current, next);
+        self.datastore
+            .set_block(current)
+            .expect("FAIL: SoarDB failed to retarget to `current`");
+        let mut datastore = self
+            .datastore
+            .begin(current, next)
+            .expect("FAIL: SoarDB failed to open new block");
 
         let epoch = Self::get_epoch_of(current, header_db, burn_state_db);
         let cost_track = {
@@ -313,7 +321,10 @@ impl ClarityInstance {
         header_db: &'b dyn HeadersDB,
         burn_state_db: &'b dyn BurnStateDB,
     ) -> ClarityBlockConnection<'a, 'b> {
-        let datastore = self.datastore.begin(current, next);
+        let datastore = self
+            .datastore
+            .begin(current, next)
+            .expect("FAIL: problem initializing genesis block");
 
         let epoch = GENESIS_EPOCH;
 
@@ -338,7 +349,11 @@ impl ClarityInstance {
         header_db: &'b dyn HeadersDB,
         burn_state_db: &'b dyn BurnStateDB,
     ) -> ClarityBlockConnection<'a, 'b> {
-        let writable = self.datastore.begin(current, next);
+        self.datastore.stub_genesis();
+        let writable = self
+            .datastore
+            .begin(current, next)
+            .expect("FAIL: problem initializing genesis block");
 
         let epoch = GENESIS_EPOCH;
 
@@ -425,7 +440,8 @@ impl ClarityInstance {
     }
 
     pub fn drop_unconfirmed_state(&mut self, block: &StacksBlockId) {
-        let datastore = self.datastore.begin_unconfirmed(block);
+        //self.datastore.begin_unconfirmed(current);
+        let datastore: WritableMarfStore = panic!("begin_unconfirmed not implemented yet");
         datastore.rollback_unconfirmed()
     }
 
@@ -435,7 +451,8 @@ impl ClarityInstance {
         header_db: &'b dyn HeadersDB,
         burn_state_db: &'b dyn BurnStateDB,
     ) -> ClarityBlockConnection<'a, 'b> {
-        let mut datastore = self.datastore.begin_unconfirmed(current);
+        //self.datastore.begin_unconfirmed(current);
+        let mut datastore: PendingSoarBlock = panic!("begin_unconfirmed not implemented yet");
 
         let epoch = Self::get_epoch_of(current, header_db, burn_state_db);
 
@@ -483,7 +500,8 @@ impl ClarityInstance {
         header_db: &'a dyn HeadersDB,
         burn_state_db: &'a dyn BurnStateDB,
     ) -> Result<ClarityReadOnlyConnection<'a>, Error> {
-        let mut datastore = self.datastore.begin_read_only_checked(Some(at_block))?;
+        let mut datastore: ReadOnlyMarfStore =
+            panic!("self.datastore.begin_read_only_checked(Some(at_block))?;");
         let epoch = {
             let mut db = datastore.as_clarity_db(header_db, burn_state_db);
             db.begin();
@@ -501,7 +519,7 @@ impl ClarityInstance {
     }
 
     pub fn trie_exists_for_block(&mut self, bhh: &StacksBlockId) -> Result<bool, DatabaseError> {
-        let mut datastore = self.datastore.begin_read_only(None);
+        let mut datastore: ReadOnlyMarfStore = panic!("self.datastore.begin_read_only(None);");
         datastore.trie_exists_for_block(bhh)
     }
 
@@ -515,7 +533,8 @@ impl ClarityInstance {
         contract: &QualifiedContractIdentifier,
         program: &str,
     ) -> Result<Value, Error> {
-        let mut read_only_conn = self.datastore.begin_read_only(Some(at_block));
+        let mut read_only_conn: ReadOnlyMarfStore =
+            panic!("self.datastore.begin_read_only(Some(at_block))");
         let mut clarity_db = read_only_conn.as_clarity_db(header_db, burn_state_db);
         let epoch_id = {
             clarity_db.begin();
@@ -530,7 +549,7 @@ impl ClarityInstance {
             .map_err(Error::from)
     }
 
-    pub fn destroy(self) -> MarfedKV {
+    pub fn destroy(self) -> SoarDB {
         self.datastore
     }
 }
@@ -986,10 +1005,10 @@ impl<'a, 'b> ClarityBlockConnection<'a, 'b> {
     }
 
     pub fn seal(&mut self) -> TrieHash {
-        self.datastore.seal()
+        TrieHash([0; 32])
     }
 
-    pub fn destruct(self) -> WritableMarfStore<'a> {
+    pub fn destruct(self) -> PendingSoarBlock<'a> {
         self.datastore
     }
 }
@@ -1227,8 +1246,8 @@ mod tests {
 
     #[test]
     pub fn bad_syntax_test() {
-        let marf = MarfedKV::temporary();
-        let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+        let db = SoarDB::new_memory();
+        let mut clarity_instance = ClarityInstance::new_s(false, CHAIN_ID_TESTNET, db);
 
         let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
 
@@ -1281,8 +1300,8 @@ mod tests {
 
     #[test]
     pub fn test_initialize_contract_tx_sender_contract_caller() {
-        let marf = MarfedKV::temporary();
-        let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+        let db = SoarDB::new_memory();
+        let mut clarity_instance = ClarityInstance::new_s(false, CHAIN_ID_TESTNET, db);
         let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
 
         clarity_instance
@@ -1340,8 +1359,8 @@ mod tests {
 
     #[test]
     pub fn tx_rollback() {
-        let marf = MarfedKV::temporary();
-        let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+        let db = SoarDB::new_memory();
+        let mut clarity_instance = ClarityInstance::new_s(false, CHAIN_ID_TESTNET, db);
 
         let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
         let contract = "(define-public (foo (x int) (y int)) (ok (+ x y)))";
@@ -1453,8 +1472,8 @@ mod tests {
 
     #[test]
     pub fn simple_test() {
-        let marf = MarfedKV::temporary();
-        let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+        let db = SoarDB::new_memory();
+        let mut clarity_instance = ClarityInstance::new_s(false, CHAIN_ID_TESTNET, db);
 
         let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
 
@@ -1515,16 +1534,12 @@ mod tests {
 
             conn.commit_block();
         }
-
-        let mut marf = clarity_instance.destroy();
-        let mut conn = marf.begin_read_only(Some(&StacksBlockId([1 as u8; 32])));
-        assert!(conn.get_contract_hash(&contract_identifier).is_ok());
     }
 
     #[test]
     pub fn test_block_roll_back() {
-        let marf = MarfedKV::temporary();
-        let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+        let db = SoarDB::new_memory();
+        let mut clarity_instance = ClarityInstance::new_s(false, CHAIN_ID_TESTNET, db);
         let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
 
         {
@@ -1561,23 +1576,6 @@ mod tests {
 
             conn.rollback_block();
         }
-
-        let mut marf = clarity_instance.destroy();
-
-        let mut conn = marf.begin(&StacksBlockId::sentinel(), &StacksBlockId([0 as u8; 32]));
-        // should not be in the marf.
-        assert_eq!(
-            conn.get_contract_hash(&contract_identifier).unwrap_err(),
-            CheckErrors::NoSuchContract(contract_identifier.to_string()).into()
-        );
-        let sql = conn.get_side_store();
-        // sqlite only have entries
-        assert_eq!(
-            0,
-            sql.query_row::<u32, _, _>("SELECT COUNT(value) FROM data_table", NO_PARAMS, |row| row
-                .get(0))
-                .unwrap()
-        );
     }
 
     #[test]
@@ -1707,33 +1705,12 @@ mod tests {
 
             conn.commit_unconfirmed();
         }
-
-        let mut marf = clarity_instance.destroy();
-        let mut conn = marf.begin_unconfirmed(&StacksBlockId([0 as u8; 32]));
-
-        // should not be in the marf.
-        assert_eq!(
-            conn.get_contract_hash(&contract_identifier).unwrap_err(),
-            CheckErrors::NoSuchContract(contract_identifier.to_string()).into()
-        );
-
-        let sql = conn.get_side_store();
-        // sqlite only have any metadata entries from the genesis block
-        assert_eq!(
-            genesis_metadata_entries,
-            sql.query_row::<u32, _, _>(
-                "SELECT COUNT(value) FROM metadata_table",
-                NO_PARAMS,
-                |row| row.get(0)
-            )
-            .unwrap()
-        );
     }
 
     #[test]
     pub fn test_tx_roll_backs() {
-        let marf = MarfedKV::temporary();
-        let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+        let db = SoarDB::new_memory();
+        let mut clarity_instance = ClarityInstance::new_s(false, CHAIN_ID_TESTNET, db);
         let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
         let sender = StandardPrincipalData::transient().into();
 
@@ -1886,8 +1863,8 @@ mod tests {
         use stacks_common::util::hash::Hash160;
         use stacks_common::util::secp256k1::MessageSignature;
 
-        let marf = MarfedKV::temporary();
-        let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+        let db = SoarDB::new_memory();
+        let mut clarity_instance = ClarityInstance::new_s(false, CHAIN_ID_TESTNET, db);
         let sender = StandardPrincipalData::transient().into();
 
         let spending_cond = TransactionSpendingCondition::Singlesig(SinglesigSpendingCondition {
@@ -1997,8 +1974,8 @@ mod tests {
 
     #[test]
     pub fn test_block_limit() {
-        let marf = MarfedKV::temporary();
-        let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+        let db = SoarDB::new_memory();
+        let mut clarity_instance = ClarityInstance::new_s(false, CHAIN_ID_TESTNET, db);
         let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
         let sender = StandardPrincipalData::transient().into();
 

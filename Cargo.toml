@@ -86,6 +86,7 @@ chrono = "0.4.19"
 libc = "0.2.82"
 clarity = { git = "https://github.com/stacks-network/stacks-blockchain.git", rev = "580e811223a389d38071dcb9fde79ab55cd6f685" }
 stacks-common = { git = "https://github.com/stacks-network/stacks-blockchain.git", rev = "580e811223a389d38071dcb9fde79ab55cd6f685" }
+soar-db = { package = "soar-db", path = "./soar-db" }
 # clarity = { package = "clarity", path = "../stacks-blockchain-develop/clarity" }
 # stacks-common = { package = "stacks-common", path = "../stacks-blockchain-develop/stacks-common" }
 siphasher = "0.3.7"
