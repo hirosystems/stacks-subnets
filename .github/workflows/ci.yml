@@ -238,8 +238,8 @@ jobs:
           tag_with_ref: false
           add_git_labels: true
           build_args: STACKS_NODE_VERSION=${{ github.event.inputs.tag || env.GITHUB_SHA_SHORT }},GIT_BRANCH=${{ env.GITHUB_REF_SHORT }},GIT_COMMIT=${{ env.GITHUB_SHA_SHORT }}
-          # Only push if (a tag was passed in) or (we're building a non-master branch)
-          push: ${{ github.event.inputs.tag != '' || (github.ref != 'refs/heads/master') }}
+          # Only push if a tag was passed in
+          push: ${{ github.event.inputs.tag != '' }}
 
   # Build docker image, tag it with the git tag and `latest` if running on master branch, and publish under the following conditions
   # Will publish if:
@@ -282,5 +282,5 @@ jobs:
           tag_with_ref: false
           add_git_labels: true
           build_args: STACKS_NODE_VERSION=${{ github.event.inputs.tag || env.GITHUB_SHA_SHORT }},GIT_BRANCH=${{ env.GITHUB_REF_SHORT }},GIT_COMMIT=${{ env.GITHUB_SHA_SHORT }}
-          # Only push if (a tag was passed in) or (we're building a non-master branch)
-          push: ${{ github.event.inputs.tag != '' || (github.ref != 'refs/heads/master') }}
+          # Only push if a tag was passed in
+          push: ${{ github.event.inputs.tag != '' }}
