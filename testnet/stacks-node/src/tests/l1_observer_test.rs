@@ -279,8 +279,6 @@ pub fn publish_subnet_contracts_to_l1(
 
     // Publish the SIP traits contract
     let sip_traits_contract_name = "sip-traits";
-    let l1_rpc_origin = config.burnchain.get_rpc_url();
-    // Publish the trait contract
     let sip_traits_content =
         include_str!("../../../../core-contracts/contracts/helper/sip-traits.clar");
     let sip_traits_publish = make_contract_publish(
@@ -604,8 +602,8 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     );
     l1_nonce += 1;
 
-    // Setup subnet contract (submitted by miner)
-    let account = get_account(&l2_rpc_origin, &miner_account);
+    // Register the contract (submitted by miner)
+    let account = get_account(&l1_rpc_origin, &miner_account);
     let subnet_setup_ft_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_2,
         LAYER_1_CHAIN_ID_TESTNET,
