@@ -9,12 +9,13 @@
 
 ;; SIP-018 Constants
 (define-constant sip18-prefix 0x534950303138)
-(define-constant sip18-domain-hash
-    (sha256 (unwrap-panic (to-consensus-buff? {
-        name: "subnet-multi-miner",
-        version: "1.0.0",
-        chain-id: u1
-    }))))
+;; (define-constant sip18-domain-hash
+;;     (sha256 (unwrap-panic (to-consensus-buff? {
+;;         name: "subnet-multi-miner",
+;;         version: "1.0.0",
+;;         chain-id: u1
+;;     }))))
+(define-constant sip18-domain-hash 0x81c24181e24119f609a28023c4943d3a41592656eb90560c15ee02b8e1ce19b8)
 (define-constant sip18-data-prefix (concat sip18-prefix sip18-domain-hash))
 
 ;; Use trait declarations
