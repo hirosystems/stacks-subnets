@@ -19,7 +19,7 @@ use stacks::burnchains;
 use stacks::chainstate::burn::db::sortdb::SortitionDB;
 use stacks::chainstate::coordinator::comm::CoordinatorChannels;
 use stacks::chainstate::stacks::index::ClarityMarfTrieId;
-use stacks::chainstate::stacks::miner::Proposal;
+use stacks::chainstate::stacks::miner::SignedProposal;
 use stacks::core::StacksEpoch;
 use stacks::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksBlockId};
 use stacks::util::sleep_ms;
@@ -533,7 +533,7 @@ impl BurnchainController for MockController {
     fn propose_block(
         &self,
         _participant_index: u8,
-        _proposal: &Proposal,
+        _proposal: &SignedProposal,
     ) -> Result<ClaritySignature, Error> {
         panic!()
     }

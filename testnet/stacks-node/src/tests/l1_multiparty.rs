@@ -19,6 +19,7 @@ use stacks::core::LAYER_1_CHAIN_ID_TESTNET;
 
 use stacks::burnchains::Burnchain;
 
+use stacks::util::secp256k1::Secp256k1PublicKey;
 use stacks::vm::types::PrincipalData;
 use stacks::vm::types::QualifiedContractIdentifier;
 use stacks::vm::types::StandardPrincipalData;
@@ -217,6 +218,8 @@ fn l1_multiparty_2_of_2_integration_test() {
     };
 
     follower_config.connection_options.subnet_signing_contract = Some(multi_party_contract.clone());
+    follower_config.connection_options.allowed_block_proposers =
+        vec![Secp256k1PublicKey::from_private(&MOCKNET_PRIVATE_KEY_2)];
 
     follower_config.add_bootstrap_node(
         "024d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766@127.0.0.1:30444",
