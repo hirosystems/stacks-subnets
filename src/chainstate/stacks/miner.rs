@@ -173,7 +173,7 @@ pub struct Proposal {
 /// Wrapper around `struct Proposal` that adds a signature.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SignedProposal {
-    /// `Proposal` structure serialized to JSON using `serde_json::to_string()` and base58 encoded
+    /// `Proposal` structure serialized to JSON using `serde_json::to_string()` and hex encoded
     pub message: String,
     /// Hash of `json` encrypted with `Secp256k1PrivateKey`
     pub signature: MessageSignature,
@@ -2383,7 +2383,7 @@ impl Proposal {
         signing_key: &Secp256k1PrivateKey,
     ) -> Result<SignedProposal, Error> {
         let json = serde_json::to_string(self)?;
-        let message = stacks_common::address::b58::encode_slice(&json.as_bytes());
+        let message = stacks_common::util::hash::to_hex(&json.as_bytes());
         let sha2 = Sha256Sum::from_data(&message.as_bytes());
         let signature = signing_key
             .sign(sha2.as_bytes())
@@ -2612,11 +2612,11 @@ impl SignedProposal {
             .map_err(|e| Error::Secp256k1Error(e.to_string()))
     }
 
-    /// Decode `Proposal` message from base58 encoding used in `SignedProposal`
+    /// Decode `Proposal` message from hex encoding used in `SignedProposal`
     pub fn decode(&self) -> Result<Proposal, Error> {
-        // Decode message from base58
-        let bytes = stacks_common::address::b58::from(&self.message).map_err(|e| {
-            Error::InvalidStacksBlockProposal(format!("Failed to decode message from base58: {e}"))
+        // Decode message from hex encoding
+        let bytes = stacks_common::util::hash::hex_bytes(&self.message).map_err(|e| {
+            Error::InvalidStacksBlockProposal(format!("Failed to decode message from hex: {e}"))
         })?;
         let json = std::str::from_utf8(&bytes).map_err(|e| {
             Error::InvalidStacksBlockProposal(format!("Failed to decode message from UTF8: {e}"))
