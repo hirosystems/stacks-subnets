@@ -5,8 +5,8 @@ use std::thread::{self, JoinHandle};
 use crate::config::{EventKeyType, EventObserverConfig};
 use crate::tests::l1_multiparty::MOCKNET_EPOCH_2_1;
 use crate::tests::neon_integrations::{
-    filter_map_events, get_account, get_ft_withdrawal_entry, get_nft_withdrawal_entry, get_withdrawal_entry, submit_tx,
-    test_observer,
+    filter_map_events, get_account, get_ft_withdrawal_entry, get_nft_withdrawal_entry,
+    get_withdrawal_entry, submit_tx, test_observer,
 };
 use crate::tests::{make_contract_call, make_contract_publish, to_addr};
 use crate::{neon, Config};
@@ -2689,8 +2689,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     let l1_native_ft_withdrawal_leaf_hash = MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(
         l1_native_ft_withdrawal_key_bytes.as_slice(),
     )
-        .as_bytes()
-        .to_vec();
+    .as_bytes()
+    .to_vec();
     let l1_native_ft_path = withdrawal_tree
         .path(&l1_native_ft_withdrawal_key_bytes)
         .unwrap();
@@ -2756,7 +2756,6 @@ fn nft_deposit_and_withdraw_integration_test() {
         &l1_native_siblings_val, &l1_native_ft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
-
 
     let subnet_native_nft_withdrawal_key =
         generate_key_from_event(&mut subnet_native_nft_withdraw_event, 1, withdrawal_height)
@@ -2828,7 +2827,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &subnet_native_siblings_val, &subnet_native_nft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
-     
+
     let mut subnet_native_ft_sib_data = Vec::new();
     for (_i, sib) in subnet_native_ft_path.iter().enumerate() {
         let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
