@@ -31,8 +31,7 @@ use std::time::Duration;
 /// This is the height to wait for the L1 mocknet node to reach the 2.1 epoch
 pub const MOCKNET_EPOCH_2_1: u64 = 4;
 
-/// Uses MOCKNET_PRIVATE_KEY_1 to publish the subnet contract and supporting
-///  trait contracts
+/// Uses MOCKNET_PRIVATE_KEY_1 to publish the multi-miner contract
 pub fn publish_multiparty_contract_to_l1(
     mut l1_nonce: u64,
     config: &Config,
@@ -62,6 +61,12 @@ pub fn publish_multiparty_contract_to_l1(
                 "(define-data-var miners (optional (list 10 principal)) (some {}))",
                 miners_list_str
             ),
+        ).replace(
+            "(use-trait nft-trait 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)",
+            "(use-trait nft-trait .sip-traits.nft-trait)"
+        ).replace(
+            "(use-trait ft-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)",
+            "(use-trait ft-trait .sip-traits.ft-trait)"
         );
     let l1_rpc_origin = config.burnchain.get_rpc_url();
 
