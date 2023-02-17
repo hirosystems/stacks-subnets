@@ -4523,142 +4523,6 @@ impl StacksChainState {
         Ok((applied, receipts))
     }
 
-    /// Process any Stacking-related bitcoin operations
-    ///  that haven't been processed in this Stacks fork yet.
-    pub fn process_stacking_ops(
-        clarity_tx: &mut ClarityTx,
-        operations: Vec<StackStxOp>,
-    ) -> Vec<StacksTransactionReceipt> {
-        let mut all_receipts = vec![];
-        let mainnet = clarity_tx.config.mainnet;
-        let mut cost_so_far = clarity_tx.cost_so_far();
-        for stack_stx_op in operations.into_iter() {
-            let StackStxOp {
-                sender,
-                reward_addr,
-                stacked_ustx,
-                num_cycles,
-                block_height,
-                txid,
-                burn_header_hash,
-                ..
-            } = stack_stx_op;
-            let result = clarity_tx.connection().as_transaction(|tx| {
-                tx.run_contract_call(
-                    &sender.into(),
-                    None,
-                    &boot_code_id("pox", mainnet),
-                    "stack-stx",
-                    &[
-                        Value::UInt(stacked_ustx),
-                        reward_addr.as_clarity_tuple().into(),
-                        Value::UInt(u128::from(block_height)),
-                        Value::UInt(u128::from(num_cycles)),
-                    ],
-                    |_, _| false,
-                )
-            });
-            match result {
-                Ok((value, _, events)) => {
-                    if let Value::Response(ref resp) = value {
-                        if !resp.committed {
-                            debug!("StackStx burn op rejected by PoX contract.";
-                                   "txid" => %txid,
-                                   "burn_block" => %burn_header_hash,
-                                   "contract_call_ecode" => %resp.data);
-                        }
-                        let mut execution_cost = clarity_tx.cost_so_far();
-                        execution_cost
-                            .sub(&cost_so_far)
-                            .expect("BUG: cost declined between executions");
-                        cost_so_far = clarity_tx.cost_so_far();
-
-                        let receipt = StacksTransactionReceipt {
-                            transaction: TransactionOrigin::Burn(txid),
-                            events,
-                            result: value,
-                            post_condition_aborted: false,
-                            stx_burned: 0,
-                            contract_analysis: None,
-                            execution_cost,
-                            microblock_header: None,
-                            tx_index: 0,
-                        };
-
-                        all_receipts.push(receipt);
-                    } else {
-                        unreachable!(
-                            "BUG: Non-response value returned by Stacking STX burnchain op"
-                        )
-                    }
-                }
-                Err(e) => {
-                    info!("StackStx burn op processing error.";
-                           "error" => %format!("{:?}", e),
-                           "txid" => %txid,
-                           "burn_block" => %burn_header_hash);
-                }
-            };
-        }
-
-        all_receipts
-    }
-
-    /// Process any STX transfer bitcoin operations
-    ///  that haven't been processed in this Stacks fork yet.
-    pub fn process_transfer_ops(
-        clarity_tx: &mut ClarityTx,
-        mut operations: Vec<TransferStxOp>,
-    ) -> Vec<StacksTransactionReceipt> {
-        operations.sort_by_key(|op| op.vtxindex);
-        let (all_receipts, _) =
-            clarity_tx.with_temporary_cost_tracker(LimitedCostTracker::new_free(), |clarity_tx| {
-                operations
-                    .into_iter()
-                    .filter_map(|transfer_stx_op| {
-                        let TransferStxOp {
-                            sender,
-                            recipient,
-                            transfered_ustx,
-                            txid,
-                            burn_header_hash,
-                            ..
-                        } = transfer_stx_op;
-                        let result = clarity_tx.connection().as_transaction(|tx| {
-                            tx.run_stx_transfer(
-                                &sender.into(),
-                                &recipient.into(),
-                                transfered_ustx,
-                                &BuffData { data: vec![] },
-                            )
-                        });
-                        match result {
-                            Ok((value, _, events)) => Some(StacksTransactionReceipt {
-                                transaction: TransactionOrigin::Burn(txid),
-                                events,
-                                result: value,
-                                post_condition_aborted: false,
-                                stx_burned: 0,
-                                contract_analysis: None,
-                                execution_cost: ExecutionCost::zero(),
-                                microblock_header: None,
-                                tx_index: 0,
-                            }),
-                            Err(e) => {
-                                info!("TransferStx burn op processing error.";
-                              "error" => ?e,
-                              "txid" => %txid,
-                              "burn_block" => %burn_header_hash);
-                                None
-                            }
-                        }
-                    })
-                    .collect()
-            });
-
-        all_receipts
-    }
-
     /// Process any deposit STX operations that haven't been processed in this
     /// subnet fork yet.
     pub fn process_deposit_stx_ops(
@@ -4675,7 +4539,7 @@ impl StacksChainState {
                             amount,
                             sender,
                             ..
-                        } = deposit_stx_op;
+                        } = deposit_stx_op.clone();
                         // call the corresponding deposit function in the subnet contract
                         let result = clarity_tx.connection().as_transaction(|tx| {
                             StacksChainState::account_credit(tx, &sender, amount as u64);
@@ -4690,7 +4554,7 @@ impl StacksChainState {
                         clarity_tx.increment_ustx_liquid_supply(amount);
 
                         Some(StacksTransactionReceipt {
-                            transaction: TransactionOrigin::Burn(txid),
+                            transaction: TransactionOrigin::Burn(deposit_stx_op.into()),
                             events: vec![result],
                             result: Value::okay_true(),
                             post_condition_aborted: false,
@@ -4726,7 +4590,7 @@ impl StacksChainState {
                     amount,
                     sender,
                     ..
-                } = deposit_ft_op;
+                } = deposit_ft_op.clone();
                 // call the corresponding deposit function in the subnet contract
                 let result = clarity_tx.connection().as_transaction(|tx| {
                     tx.run_contract_call(
@@ -4745,7 +4609,7 @@ impl StacksChainState {
 
                 match result {
                     Ok((value, _, events)) => Some(StacksTransactionReceipt {
-                        transaction: TransactionOrigin::Burn(txid),
+                        transaction: TransactionOrigin::Burn(deposit_ft_op.into()),
                         events,
                         result: value,
                         post_condition_aborted: false,
@@ -4786,7 +4650,7 @@ impl StacksChainState {
                     id,
                     sender,
                     ..
-                } = deposit_nft_op;
+                } = deposit_nft_op.clone();
                 let result = clarity_tx.connection().as_transaction(|tx| {
                     tx.run_contract_call(
                         &sender.clone(),
@@ -4804,7 +4668,7 @@ impl StacksChainState {
 
                 match result {
                     Ok((value, _, events)) => Some(StacksTransactionReceipt {
-                        transaction: TransactionOrigin::Burn(txid),
+                        transaction: TransactionOrigin::Burn(deposit_nft_op.into()),
                         events,
                         result: value,
                         post_condition_aborted: false,
