@@ -454,7 +454,6 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     // Start Stacks L1.
     let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
     let l1_rpc_origin = "http://127.0.0.1:20443";
-    let trait_standard_contract_name = "subnet-traits";
 
     // Start the L2 run loop.
     let mut config = super::new_l1_test_conf(&*MOCKNET_PRIVATE_KEY_2, &*MOCKNET_PRIVATE_KEY_1);
@@ -602,6 +601,11 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     );
     l1_nonce += 1;
 
+    submit_tx(&l2_rpc_origin, &subnet_ft_publish);
+    submit_tx(&l2_rpc_origin, &subnet_nft_publish);
+    submit_tx(l1_rpc_origin, &l1_mint_ft_tx);
+    submit_tx(l1_rpc_origin, &l1_mint_nft_tx);
+
     // Register the contract (submitted by miner)
     let account = get_account(&l1_rpc_origin, &miner_account);
     let subnet_setup_ft_tx = make_contract_call(
@@ -617,6 +621,8 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
             Value::Principal(PrincipalData::Contract(subnet_ft_contract_id.clone())),
         ],
     );
+    submit_tx(l1_rpc_origin, &subnet_setup_ft_tx);
+
     let subnet_setup_nft_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_2,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -630,12 +636,6 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
             Value::Principal(PrincipalData::Contract(subnet_nft_contract_id.clone())),
         ],
     );
-
-    submit_tx(&l2_rpc_origin, &subnet_ft_publish);
-    submit_tx(&l2_rpc_origin, &subnet_nft_publish);
-    submit_tx(l1_rpc_origin, &l1_mint_ft_tx);
-    submit_tx(l1_rpc_origin, &l1_mint_nft_tx);
-    submit_tx(l1_rpc_origin, &subnet_setup_ft_tx);
     submit_tx(l1_rpc_origin, &subnet_setup_nft_tx);
 
     wait_for_next_stacks_block(&sortition_db);
