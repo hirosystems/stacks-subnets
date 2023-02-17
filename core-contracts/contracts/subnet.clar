@@ -31,8 +31,10 @@
 ;; Map recording processed withdrawal leaves
 (define-map processed-withdrawal-leaves-map { withdrawal-leaf-hash: (buff 32), withdrawal-root-hash: (buff 32) } bool)
 
-;; List of miners
+;; principal that can commit blocks
 (define-data-var miner principal tx-sender)
+;; principal that can register contracts
+(define-data-var admin principal tx-sender)
 
 ;; Map of allowed contracts for asset transfers - maps L1 contract principal to L2 contract principal
 (define-map allowed-contracts principal principal)
@@ -53,8 +55,8 @@
 ;; Register a new FT contract to be supported by this subnet.
 (define-public (register-new-ft-contract (ft-contract <ft-trait>) (l2-contract principal))
     (begin
-        ;; Verify that tx-sender is an authorized miner
-        (asserts! (is-miner tx-sender) (err ERR_INVALID_MINER))
+        ;; Verify that tx-sender is an authorized admin
+        (asserts! (is-admin tx-sender) (err ERR_INVALID_MINER))
 
         ;; Set up the assets that the contract is allowed to transfer
         (asserts! (map-insert allowed-contracts (contract-of ft-contract) l2-contract)
@@ -67,8 +69,8 @@
 ;; Register a new NFT contract to be supported by this subnet.
 (define-public (register-new-nft-contract (nft-contract <nft-trait>) (l2-contract principal))
     (begin
-        ;; Verify that tx-sender is an authorized miner
-        (asserts! (is-miner tx-sender) (err ERR_INVALID_MINER))
+        ;; Verify that tx-sender is an authorized admin
+        (asserts! (is-admin tx-sender) (err ERR_INVALID_MINER))
 
         ;; Set up the assets that the contract is allowed to transfer
         (asserts! (map-insert allowed-contracts (contract-of nft-contract) l2-contract)
@@ -82,6 +84,12 @@
 ;; Returns bool
 (define-private (is-miner (miner-to-check principal))
     (is-eq miner-to-check (var-get miner))
+)
+
+;; Helper function: returns a boolean indicating whether the given principal is an admin
+;; Returns bool
+(define-private (is-admin (addr-to-check principal))
+    (is-eq addr-to-check (var-get admin))
 )
 
 ;; Helper function: determines whether the commit-block operation satisfies pre-conditions

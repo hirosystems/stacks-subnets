@@ -249,7 +249,7 @@ Clarinet.test({
     // should return (err ERR_INVALID_MINER)
     block.receipts[0].result.expectErr().expectInt(2);
 
-    // Miner can set up allowed assets
+    // Deployer can set up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -258,7 +258,7 @@ Clarinet.test({
           types.principal(simple_ft_contract.contract_id),
           types.principal(simple_ft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
       Tx.contractCall(
         "subnet",
@@ -267,7 +267,7 @@ Clarinet.test({
           types.principal(simple_nft_contract.contract_id),
           types.principal(simple_nft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
       Tx.contractCall(
         "subnet",
@@ -276,14 +276,14 @@ Clarinet.test({
           types.principal(simple_nft_no_mint_contract.contract_id),
           types.principal(simple_nft_no_mint_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
     ]);
     for (let i = 0; i < block.receipts.length; i++) {
       block.receipts[i].result.expectOk().expectBool(true);
     }
 
-    // Miner should be able to register a new allowed NFT asset
+    // Deployer should be able to register a new allowed NFT asset
     block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -292,12 +292,12 @@ Clarinet.test({
           types.principal(second_nft_contract.contract_id),
           types.principal(second_nft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
 
-    // Miner should be not able to register a previously allowed NFT asset
+    // Deployer should be not able to register a previously allowed NFT asset
     block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -306,13 +306,13 @@ Clarinet.test({
           types.principal(second_nft_contract.contract_id),
           types.principal(second_nft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
     ]);
     // should return (err ERR_ASSET_ALREADY_ALLOWED)
     block.receipts[0].result.expectErr().expectInt(6);
 
-    // Miner should be able to register a new allowed FT asset
+    // Deployeer should be able to register a new allowed FT asset
     block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -321,12 +321,12 @@ Clarinet.test({
           types.principal(second_ft_contract.contract_id),
           types.principal(second_ft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
 
-    // Miner should be not able to register a previously allowed FT asset
+    // Deployer should be not able to register a previously allowed FT asset
     block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -335,7 +335,7 @@ Clarinet.test({
           types.principal(second_ft_contract.contract_id),
           types.principal(second_ft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
     ]);
     // should return (err ERR_ASSET_ALREADY_ALLOWED)
@@ -424,7 +424,7 @@ Clarinet.test({
     // should return (err ERR_INVALID_MINER)
     block.receipts[0].result.expectErr().expectInt(2);
 
-    // Miner sets up allowed assets
+    // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -433,7 +433,7 @@ Clarinet.test({
           types.principal(nft_contract.contract_id),
           types.principal(nft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
@@ -652,7 +652,7 @@ Clarinet.test({
     // should return (err ERR_INVALID_MINER)
     block.receipts[0].result.expectErr().expectInt(2);
 
-    // Miner sets up allowed assets
+    // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -661,7 +661,7 @@ Clarinet.test({
           types.principal(ft_contract.contract_id),
           types.principal(ft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
@@ -855,7 +855,7 @@ Clarinet.test({
     let ft_amount = assets[charlie.address];
     assertEquals(ft_amount, 1);
 
-    // Miner sets up allowed assets
+    // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -864,7 +864,7 @@ Clarinet.test({
           types.principal(ft_contract.contract_id),
           types.principal(ft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
@@ -1081,7 +1081,7 @@ Clarinet.test({
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
 
-    // Miner sets up allowed assets
+    // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -1090,7 +1090,7 @@ Clarinet.test({
           types.principal(ft_contract.contract_id),
           types.principal(ft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
       Tx.contractCall(
         "subnet",
@@ -1099,7 +1099,7 @@ Clarinet.test({
           types.principal(nft_contract.contract_id),
           types.principal(nft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
@@ -1447,7 +1447,7 @@ Clarinet.test({
       ),
     ]);
 
-    // Miner sets up allowed assets
+    // Deployer sets up allowed assets
     let block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -1456,7 +1456,7 @@ Clarinet.test({
           types.principal(nft_contract.contract_id),
           types.principal(nft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
@@ -1567,7 +1567,7 @@ Clarinet.test({
       ),
     ]);
 
-    // Miner sets up allowed assets
+    // Deployer sets up allowed assets
     let block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -1576,7 +1576,7 @@ Clarinet.test({
           types.principal(nft_contract.contract_id),
           types.principal(nft_contract.contract_id),
         ],
-        alice.address
+        deployer.address
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
@@ -1699,7 +1699,7 @@ Clarinet.test({
       ),
     ]);
 
-    // Miner sets up allowed assets
+    // Deployer sets up allowed assets
     let block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -1708,7 +1708,7 @@ Clarinet.test({
           types.principal(nft_contract.contract_id),
           types.principal(nft_contract.contract_id),
         ],
-        miner.address
+        deployer.address
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
@@ -1817,7 +1817,7 @@ Clarinet.test({
     let nft_amount = assets[user.address];
     assertEquals(nft_amount, 1);
 
-    // Miner sets up allowed assets
+    // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -1826,7 +1826,7 @@ Clarinet.test({
           types.principal(nft_contract.contract_id),
           types.principal(nft_contract.contract_id),
         ],
-        miner.address
+        deployer.address
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
@@ -1965,7 +1965,7 @@ Clarinet.test({
     nft_amount = assets[other_user.address];
     assertEquals(nft_amount, undefined);
 
-    // Miner sets up allowed assets
+    // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -1974,7 +1974,7 @@ Clarinet.test({
           types.principal(nft_contract.contract_id),
           types.principal(nft_contract.contract_id),
         ],
-        miner.address
+        deployer.address
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
