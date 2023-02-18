@@ -1868,7 +1868,7 @@ impl HttpRequestType {
     ) -> Result<HttpRequestType, net_error> {
         if preamble.get_content_length() != 0 {
             return Err(net_error::DeserializeError(
-                "Invalid Http request: expected 0-length body for GetAccount".to_string(),
+                "Invalid Http request: expected 0-length body for GetNFTWithdrawal".to_string(),
             ));
         }
 
