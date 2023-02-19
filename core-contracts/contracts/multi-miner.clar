@@ -58,9 +58,11 @@
 (define-read-only (make-block-commit-hash (block-data { block: (buff 32), withdrawal-root: (buff 32), target-tip: (buff 32) }))
     (let ((data-buff (unwrap-panic (to-consensus-buff? (merge block-data { multi-contract: CONTRACT_ADDRESS }))))
           (data-hash (sha256 data-buff))
-          ;; in 2.0, this is a constant: 0xe2f4d0b1eca5f1b4eb853cd7f1c843540cfb21de8bfdaa59c504a6775cd2cfe9
-          (structured-hash (sha256 (concat sip18-data-prefix data-hash))))
-          structured-hash))
+        ;; in 2.0, this is a constant: 0xe2f4d0b1eca5f1b4eb853cd7f1c843540cfb21de8bfdaa59c504a6775cd2cfe9
+        (structured-hash (sha256 (concat sip18-data-prefix data-hash))))
+        structured-hash
+    )
+)
 
 (define-private (verify-sign-helper (curr-signature (buff 65))
                                     (accum (response { block-hash: (buff 32), signers: (list 9 principal) } int)))
@@ -81,4 +83,6 @@
          ;; check that we have enough signatures
          (try! (check-miners (append (get signers signer-principals) tx-sender)))
          ;; execute the block commit
-         (as-contract (contract-call? .subnet commit-block (get block block-data) (get target-tip block-data) (get withdrawal-root block-data)))))
+         (as-contract (contract-call? .subnet commit-block (get block block-data) (get target-tip block-data) (get withdrawal-root block-data)))
+    )
+)

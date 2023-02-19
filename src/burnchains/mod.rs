@@ -208,7 +208,6 @@ pub enum StacksSubnetOpType {
     DepositFt {
         l1_contract_id: QualifiedContractIdentifier,
         subnet_contract_id: QualifiedContractIdentifier,
-        subnet_function_name: ClarityName,
         name: String,
         amount: u128,
         sender: PrincipalData,
@@ -216,7 +215,6 @@ pub enum StacksSubnetOpType {
     DepositNft {
         l1_contract_id: QualifiedContractIdentifier,
         subnet_contract_id: QualifiedContractIdentifier,
-        subnet_function_name: ClarityName,
         id: u128,
         sender: PrincipalData,
     },

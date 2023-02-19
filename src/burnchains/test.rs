@@ -1018,44 +1018,38 @@ fn create_stacks_events_failures_deposit_ft() {
     let inputs = [
         (
             r#"{ event: "deposit-ft", l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft",
-            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft"   }"#,
+            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H   }"#,
             "No 'ft-amount' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft"  }"#,
+            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,
             "No 'ft-name' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            ft-name: "simple-ft", subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, subnet-function-name: "subnet-deposit-simple-ft" }"#,
+            ft-name: "simple-ft", subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft }"#,
             "No 'sender' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, ft-name: "simple-ft",
-            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H,
-            subnet-function-name: "subnet-deposit-simple-ft"  }"#,
+            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,
             "No 'l1-contract-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H, ft-name: "simple-ft",
-            subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft"  }"#,
+            subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,
             "Expected 'l1-contract-id' to be a contract principal",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            ft-name: "simple-ft", sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft"  }"#,
+            ft-name: "simple-ft", sender: 'ST000000000000000000002AMW42H  }"#,
             "No 'subnet-contract-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            ft-name: "simple-ft", subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH, sender: 'ST000000000000000000002AMW42H,
-            subnet-function-name: "subnet-deposit-simple-ft"  }"#,
+            ft-name: "simple-ft", subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH, sender: 'ST000000000000000000002AMW42H  }"#,
             "Expected 'subnet-contract-id' to be a contract principal",
-        ),
-        (
-            r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,
-            "No 'subnet-function-name' field in Clarity tuple",
         ),
     ];
 
@@ -1078,40 +1072,33 @@ fn create_stacks_events_failures_deposit_nft() {
     let inputs = [
         (
             r#"{ event: "deposit-nft", l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H,
-            subnet-function-name: "subnet-deposit-simple-nft"  }"#,
+            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,
             "No 'nft-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, subnet-function-name: "subnet-deposit-simple-nft" }"#,
+            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft }"#,
             "No 'sender' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft,
-            sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-nft"  }"#,
+            sender: 'ST000000000000000000002AMW42H  }"#,
             "No 'l1-contract-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H,
-            subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H,
-            subnet-function-name: "subnet-deposit-simple-nft"  }"#,
+            subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,
             "Expected 'l1-contract-id' to be a contract principal",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-nft"  }"#,
+            sender: 'ST000000000000000000002AMW42H  }"#,
             "No 'subnet-contract-id' field in Clarity tuple",
         ),
         (
             r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH, sender: 'ST000000000000000000002AMW42H,
-            subnet-function-name: "subnet-deposit-simple-nft"  }"#,
+            subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH, sender: 'ST000000000000000000002AMW42H  }"#,
             "Expected 'subnet-contract-id' to be a contract principal",
-        ),
-        (
-            r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, subnet-contract-id: 'STTHM8422MZMP02R6KHPSCBAHKDTZZ6Y4FRH7CSH.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,
-            "No 'subnet-function-name' field in Clarity tuple",
         ),
     ];
 
@@ -1456,7 +1443,7 @@ fn create_stacks_event_block_for_deposit_ft() {
                     ContractEvent {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
-                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft" }"#,)
+                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1471,7 +1458,7 @@ fn create_stacks_event_block_for_deposit_ft() {
                     ContractEvent {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
-                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft"  }"#,)
+                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1486,7 +1473,7 @@ fn create_stacks_event_block_for_deposit_ft() {
                     ContractEvent {
                         contract_identifier: ignored_contract.clone(),
                         topic: "print".into(),
-                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-ft" }"#)
+                        value: execute(r#"{ event: "deposit-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft, ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H }"#)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1552,7 +1539,7 @@ fn create_stacks_event_block_for_deposit_nft() {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
                         value: execute(r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-                                subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-nft"  }"#,)
+                                subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1568,7 +1555,7 @@ fn create_stacks_event_block_for_deposit_nft() {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
                         value: execute(r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-                                subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-nft"  }"#,)
+                                subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#,)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1584,7 +1571,7 @@ fn create_stacks_event_block_for_deposit_nft() {
                         contract_identifier: ignored_contract.clone(),
                         topic: "print".into(),
                         value: execute(r#"{ event: "deposit-nft", nft-id: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-                                subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-deposit-simple-nft"  }"#)
+                                subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, sender: 'ST000000000000000000002AMW42H  }"#)
                             .unwrap().unwrap(),
                     }
                 )
@@ -1746,7 +1733,7 @@ fn create_stacks_event_block_for_withdraw_ft() {
                         contract_identifier: watched_contract.clone(),
                         topic: "print".into(),
                         value: execute(r#"{ event: "withdraw-ft", ft-amount: u100, l1-contract-id: 'ST000000000000000000002AMW42H.simple-ft,
-                                ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, recipient: 'ST000000000000000000002AMW42H, subnet-function-name: "subnet-withdraw-simple-ft"  }"#,)
+                                ft-name: "simple-ft", subnet-contract-id: 'ST000000000000000000002AMW42H.simple-ft, recipient: 'ST000000000000000000002AMW42H  }"#,)
                             .unwrap().unwrap(),
                     }
                 )

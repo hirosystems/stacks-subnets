@@ -136,7 +136,12 @@ fn l1_multiparty_1_of_n_integration_test() {
 
     wait_for_target_l1_block(&sortition_db, MOCKNET_EPOCH_2_1);
 
-    let l1_nonce = publish_subnet_contracts_to_l1(0, &config, multi_party_contract.clone().into());
+    let l1_nonce = publish_subnet_contracts_to_l1(
+        0,
+        &config,
+        multi_party_contract.clone().into(),
+        multi_party_contract.clone().into(),
+    );
     publish_multiparty_contract_to_l1(l1_nonce, &config, &[miner_account.clone().into()]);
 
     // Wait for exactly two stacks blocks.
@@ -264,8 +269,12 @@ fn l1_multiparty_2_of_2_integration_test() {
     thread::sleep(Duration::from_millis(10_000));
     wait_for_target_l1_block(&sortition_db, MOCKNET_EPOCH_2_1);
 
-    let l1_nonce =
-        publish_subnet_contracts_to_l1(0, &leader_config, multi_party_contract.clone().into());
+    let l1_nonce = publish_subnet_contracts_to_l1(
+        0,
+        &leader_config,
+        multi_party_contract.clone().into(),
+        multi_party_contract.clone().into(),
+    );
     publish_multiparty_contract_to_l1(
         l1_nonce,
         &leader_config,
