@@ -319,7 +319,7 @@ struct ConnectionOutbox<P: ProtocolFamily> {
     inflight: VecDeque<ReceiverNotify<P>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct ConnectionOptions {
     pub inbox_maxlen: usize,
     pub outbox_maxlen: usize,
@@ -404,6 +404,10 @@ pub struct ConnectionOptions {
     pub subnet_validator: Option<Secp256k1PrivateKey>,
     /// the contract used to submit multiparty commits (if a validator)
     pub subnet_signing_contract: Option<QualifiedContractIdentifier>,
+    // Set of participants allowed to propose blocks when using `MultiMiner`
+    // TODO: This should be `HashSet` or `BTreeSet` for more efficient lookup
+    //       Using these types requires deriving `Hash` or `Ord` on `Secp256k1PublicKey`
+    pub allowed_block_proposers: Vec<Secp256k1PublicKey>,
 }
 
 impl std::default::Default for ConnectionOptions {
@@ -492,6 +496,7 @@ impl std::default::Default for ConnectionOptions {
             force_disconnect_interval: None,
             subnet_validator: None,
             subnet_signing_contract: None,
+            allowed_block_proposers: Vec::default(),
         }
     }
 }

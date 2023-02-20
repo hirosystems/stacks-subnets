@@ -42,14 +42,29 @@
   )
 )
 
-(define-trait mint-from-subnet-trait
+(define-trait subnet-asset
   (
-    ;; Transfer from the sender to a new principal
-    (mint-from-subnet (uint principal principal) (response bool uint))
+    ;; Process a deposit from the burnchain.
+    (deposit-from-burnchain
+      (
+        uint       ;; asset-id (NFT) or amount (FT)
+        principal  ;; recipient
+      )
+      (response bool uint)
+    )
+
+    ;; Burn the asset for withdrawal from the subnet.
+    (burn-for-withdrawal
+      (
+        uint       ;; asset-id (NFT) or amount (FT)
+        principal  ;; owner
+      )
+      (response bool uint)
+    )
   )
 )
 
-(define-public (ft-withdraw? (asset <ft-trait>) (amount uint) (sender principal))
+(define-public (ft-withdraw? (asset <subnet-asset>) (amount uint) (sender principal))
     (begin
         (print {
             type: "ft",
@@ -57,11 +72,11 @@
             amount: amount,
             asset-contract: (contract-of asset),
         })
-        (contract-call? asset transfer amount sender (as-contract tx-sender) none)
+        (contract-call? asset burn-for-withdrawal amount sender)
     )
 )
 
-(define-public (nft-withdraw? (asset <nft-trait>) (id uint) (sender principal))
+(define-public (nft-withdraw? (asset <subnet-asset>) (id uint) (sender principal))
     (begin
         (print {
             type: "nft",
@@ -69,7 +84,7 @@
             id: id,
             asset-contract: (contract-of asset),
         })
-        (contract-call? asset transfer id sender (as-contract tx-sender))
+        (contract-call? asset burn-for-withdrawal id sender)
     )
 )
 
