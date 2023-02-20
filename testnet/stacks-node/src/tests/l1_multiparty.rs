@@ -413,7 +413,8 @@ fn l1_multiparty_1_of_n_deposit_and_withdraw_asset_integration_test() {
         multi_party_contract.clone().into(),
         multi_party_contract.clone().into(),
     );
-    l1_nonce = publish_multiparty_contract_to_l1(l1_nonce, &config, &[miner_account.clone().into()]);
+    l1_nonce =
+        publish_multiparty_contract_to_l1(l1_nonce, &config, &[miner_account.clone().into()]);
 
     // Wait for exactly two stacks blocks.
     wait_for_next_stacks_block(&sortition_db);
