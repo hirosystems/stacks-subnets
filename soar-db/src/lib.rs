@@ -1,4 +1,13 @@
-// (S)ubnets (O)ptimistic (A)daptive (R)eplay DB
+//! (S)ubnets (O)ptimistic (A)daptive (R)eplay DB
+//!
+//! The SoarDB is an optimistic fork-aware data store (a replacement
+//! for the MARF used in stacks-blockchain).
+//!
+//! The general idea with the datastore is to store the current data
+//! view as a normal key-value store and track the history of
+//! operations on the storage. When a fork occurs, the data state is
+//! unwound and then replayed.
+
 extern crate clarity;
 extern crate stacks_common;
 

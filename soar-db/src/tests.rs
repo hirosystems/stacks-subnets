@@ -1,3 +1,5 @@
+//! Unit tests for the SoarDB implementation
+
 use clarity::types::chainstate::StacksBlockId;
 
 use crate::{PutCommand, SoarDB};
