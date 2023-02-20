@@ -34,7 +34,7 @@ jobs:
         with:
           files: ./coverage-output/lcov.info
           name: unit_tests
-          fail_ci_if_error: true
+          fail_ci_if_error: false
   # Build Stacks 2.1 for tests that require stacks-node
   build-stacks-2_1:
     runs-on: ubuntu-latest
@@ -120,7 +120,7 @@ jobs:
         with:
           files: ./coverage-output/lcov.info
           name: ${{ matrix.test-name }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
   # Run integration tests
   integration-tests:
     runs-on: ubuntu-latest
@@ -137,7 +137,7 @@ jobs:
         with:
           files: ./coverage-output/lcov.info
           name: integration_tests
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
 
   open-api-validation:
@@ -196,6 +196,7 @@ jobs:
         uses: codecov/codecov-action@v1
         with:
           files: ./coverage.lcov
+          fail_ci_if_error: false
           verbose: true
 
   # Build docker image, tag it with the git tag and `latest` if running on master branch, and publish under the following conditions
