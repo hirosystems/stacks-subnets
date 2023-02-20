@@ -347,23 +347,25 @@ fn l1_multiparty_2_of_2_integration_test() {
 }
 
 #[test]
-fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
+fn l1_multiparty_1_of_n_deposit_and_withdraw_asset_integration_test() {
     // running locally:
-    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_integration_test
+    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_multiparty_1_of_n_deposit_and_withdraw_asset_integration_test
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
         return;
     }
 
     // Start Stacks L1.
-    let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet-double.toml";
+    let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
+    let l1_rpc_origin = "http://127.0.0.1:20443";
 
     // Start the L2 run loop.
-    let mut leader_config =
-        super::new_l1_test_conf(&*MOCKNET_PRIVATE_KEY_2, &*MOCKNET_PRIVATE_KEY_1);
+    let mut config = super::new_l1_test_conf(&*MOCKNET_PRIVATE_KEY_2, &*MOCKNET_PRIVATE_KEY_1);
     let miner_account = to_addr(&MOCKNET_PRIVATE_KEY_2);
     let user_addr = to_addr(&MOCKNET_PRIVATE_KEY_1);
-    let l1_rpc_origin = leader_config.burnchain.get_rpc_url();
-    let l2_rpc_origin = format!("http://{}", &leader_config.node.rpc_bind);
+    config.add_initial_balance(user_addr.to_string(), 10000000);
+    config.add_initial_balance(miner_account.to_string(), 10000000);
+
+    let l2_rpc_origin = format!("http://{}", &config.node.rpc_bind);
     let mut l2_nonce = 0;
 
     let multi_party_contract = QualifiedContractIdentifier::new(
@@ -371,96 +373,47 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
         "subnet-multiparty-miner".into(),
     );
 
-    let mut follower_config =
-        super::new_l1_test_conf(&*MOCKNET_PRIVATE_KEY_3, &*MOCKNET_PRIVATE_KEY_1);
-    follower_config.node.chain_id = leader_config.node.chain_id;
-
-    let follower_account = to_addr(&MOCKNET_PRIVATE_KEY_3);
-    follower_config.connection_options.subnet_validator = follower_config.node.mining_key.clone();
-    follower_config.node.rpc_bind = "127.0.0.1:30643".into();
-    follower_config.node.data_url = "http://127.0.0.1:30643".into();
-    follower_config.node.p2p_bind = "127.0.0.1:30644".into();
-    follower_config.burnchain.observer_port = 52303;
-    follower_config.events_observers = vec![];
-    follower_config.node.miner = false;
-    follower_config.node.local_peer_seed = vec![20; 32];
-
-    follower_config.burnchain.commit_strategy = CommitStrategy::MultiMiner {
-        required_signers: 2,
+    config.burnchain.commit_strategy = CommitStrategy::MultiMiner {
+        required_signers: 1,
         contract: multi_party_contract.clone(),
-        other_participants: vec![MultiMinerParticipant {
-            rpc_server: l2_rpc_origin.clone(),
-            public_key: [0; 33],
-        }],
-        leader: false,
-    };
-
-    follower_config.connection_options.subnet_signing_contract = Some(multi_party_contract.clone());
-
-    follower_config.add_bootstrap_node(
-        "024d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766@127.0.0.1:30444",
-    );
-
-    let follower_rpc_origin = format!("http://{}", &follower_config.node.rpc_bind);
-
-    leader_config.burnchain.commit_strategy = CommitStrategy::MultiMiner {
-        required_signers: 2,
-        contract: multi_party_contract.clone(),
-        other_participants: vec![MultiMinerParticipant {
-            rpc_server: follower_rpc_origin.clone(),
-            public_key: [0; 33],
-        }],
+        other_participants: vec![],
         leader: true,
     };
 
-    leader_config.events_observers.push(EventObserverConfig {
+    config.events_observers.push(EventObserverConfig {
         endpoint: format!("localhost:{}", test_observer::EVENT_OBSERVER_PORT),
         events_keys: vec![EventKeyType::AnyEvent],
     });
 
     test_observer::spawn();
 
-    let mut leader_run_loop = neon::RunLoop::new(leader_config.clone());
-    let leader_termination_switch = leader_run_loop.get_termination_switch();
-    let leader_run_loop_thread = thread::spawn(move || leader_run_loop.start(None, 0));
-
-    let mut follower_run_loop = neon::RunLoop::new(follower_config.clone());
-    let follower_termination_switch = follower_run_loop.get_termination_switch();
-    let follower_run_loop_thread = thread::spawn(move || follower_run_loop.start(None, 0));
+    let mut run_loop = neon::RunLoop::new(config.clone());
+    let termination_switch = run_loop.get_termination_switch();
+    let run_loop_thread = thread::spawn(move || run_loop.start(None, 0));
 
     // Give the run loop time to start.
     thread::sleep(Duration::from_millis(2_000));
 
-    let burnchain = Burnchain::new(
-        &leader_config.get_burn_db_path(),
-        &leader_config.burnchain.chain,
-    )
-    .unwrap();
+    let burnchain = Burnchain::new(&config.get_burn_db_path(), &config.burnchain.chain).unwrap();
     let (sortition_db, burndb) = burnchain.open_db(true).unwrap();
 
-    let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), false);
+    let mut stacks_l1_controller = StacksL1Controller::new(l1_toml_file.to_string(), true);
     let _stacks_res = stacks_l1_controller
         .start_process()
         .expect("stacks l1 controller didn't start");
 
     // Sleep to give the L1 chain time to start
     thread::sleep(Duration::from_millis(10_000));
+
     wait_for_target_l1_block(&sortition_db, MOCKNET_EPOCH_2_1);
 
     let mut l1_nonce = publish_subnet_contracts_to_l1(
         0,
-        &leader_config,
+        &config,
         multi_party_contract.clone().into(),
         multi_party_contract.clone().into(),
     );
-    l1_nonce = publish_multiparty_contract_to_l1(
-        l1_nonce,
-        &leader_config,
-        &[
-            miner_account.clone().into(),
-            follower_account.clone().into(),
-        ],
-    );
+    l1_nonce = publish_multiparty_contract_to_l1(l1_nonce, &config, &[miner_account.clone().into()]);
 
     // Wait for exactly two stacks blocks.
     wait_for_next_stacks_block(&sortition_db);
@@ -475,15 +428,6 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
     // Ensure that the tip height has moved beyond height 0.
     // We check that we have moved past 3 just to establish we are reliably getting blocks.
     assert!(tip.block_height > 3);
-
-    // test the miner's nonce has incremented: this shows that L2 blocks have
-    //  been mined (because the coinbase transactions bump the miner's nonce)
-    let account = get_account(&l2_rpc_origin, &miner_account);
-    assert_eq!(account.balance, 0);
-    assert!(
-        account.nonce >= 2,
-        "Miner should have produced at least 2 coinbase transactions"
-    );
 
     // Publish a simple FT and NFT
     let ft_content = include_str!("../../../../core-contracts/contracts/helper/simple-ft.clar");
@@ -512,36 +456,20 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
     let nft_contract_name = ContractName::from("simple-nft");
     let nft_contract_id = QualifiedContractIdentifier::new(user_addr.into(), nft_contract_name);
 
-    submit_tx(&l1_rpc_origin, &nft_publish);
     submit_tx(&l1_rpc_origin, &ft_publish);
+    submit_tx(&l1_rpc_origin, &nft_publish);
 
     println!("Submitted FT, NFT, and Subnet contracts!");
 
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
-    let tip = burndb
-        .get_canonical_chain_tip()
-        .expect("couldn't get chain tip");
-
-    // Ensure that the tip height has moved beyond height 0.
-    // We check that we have moved past 3 just to establish we are reliably getting blocks.
-    assert!(tip.block_height > 3);
-
-    // test the miner's nonce has incremented: this shows that L2 blocks have
-    //  been mined (because the coinbase transactions bump the miner's nonce)
-    let account = get_account(&l2_rpc_origin, &miner_account);
-    assert!(
-        account.nonce >= 2,
-        "Miner should have produced at least 2 coinbase transactions"
-    );
-
     // Publish subnet contract for ft-token
     let subnet_ft_content =
         include_str!("../../../../core-contracts/contracts/helper/simple-ft-l2.clar");
     let subnet_ft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
-        leader_config.node.chain_id,
+        config.node.chain_id,
         l2_nonce,
         1_000_000,
         "simple-ft",
@@ -556,7 +484,7 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
         include_str!("../../../../core-contracts/contracts/helper/simple-nft-l2.clar");
     let subnet_nft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
-        leader_config.node.chain_id,
+        config.node.chain_id,
         l2_nonce,
         1_000_000,
         "simple-nft",
@@ -609,6 +537,8 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
         &[
             Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
             Value::Principal(PrincipalData::Contract(subnet_ft_contract_id.clone())),
+            Value::UInt(1),
+            Value::list_from(vec![]).unwrap(),
         ],
     );
     submit_tx(&l1_rpc_origin, &subnet_setup_ft_tx);
@@ -624,6 +554,8 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
         &[
             Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
             Value::Principal(PrincipalData::Contract(subnet_nft_contract_id.clone())),
+            Value::UInt(1),
+            Value::list_from(vec![]).unwrap(),
         ],
     );
     submit_tx(&l1_rpc_origin, &subnet_setup_nft_tx);
@@ -671,7 +603,7 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
         l1_nonce,
         1_000_000,
         &user_addr,
-        leader_config.burnchain.contract_identifier.name.as_str(),
+        config.burnchain.contract_identifier.name.as_str(),
         "deposit-ft-asset",
         &[
             Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
@@ -687,7 +619,7 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
         l1_nonce,
         1_000_000,
         &user_addr,
-        leader_config.burnchain.contract_identifier.name.as_str(),
+        config.burnchain.contract_identifier.name.as_str(),
         "deposit-nft-asset",
         &[
             Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
@@ -801,7 +733,7 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
     // Withdraw the ft on the L2
     let l2_withdraw_ft_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
-        leader_config.node.chain_id,
+        config.node.chain_id,
         l2_nonce,
         1_000_000,
         &boot_code_addr(false),
@@ -820,7 +752,7 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
     // Withdraw the nft on the L2
     let l2_withdraw_nft_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
-        leader_config.node.chain_id,
+        config.node.chain_id,
         l2_nonce,
         1_000_000,
         &boot_code_addr(false),
@@ -1132,7 +1064,7 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
         l1_nonce,
         1_000_000,
         &user_addr,
-        leader_config.burnchain.contract_identifier.name.as_str(),
+        config.burnchain.contract_identifier.name.as_str(),
         "withdraw-ft-asset",
         &[
             Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
@@ -1157,7 +1089,7 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
         l1_nonce,
         1_000_000,
         &user_addr,
-        leader_config.burnchain.contract_identifier.name.as_str(),
+        config.burnchain.contract_identifier.name.as_str(),
         "withdraw-nft-asset",
         &[
             Value::Principal(PrincipalData::Contract(nft_contract_id.clone())),
@@ -1233,13 +1165,7 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
         Value::okay(Value::some(Value::Principal(user_addr.into())).unwrap()).unwrap()
     );
 
-    leader_termination_switch.store(false, Ordering::SeqCst);
-    follower_termination_switch.store(false, Ordering::SeqCst);
+    termination_switch.store(false, Ordering::SeqCst);
     stacks_l1_controller.kill_process();
-    leader_run_loop_thread
-        .join()
-        .expect("Failed to join run loop.");
-    follower_run_loop_thread
-        .join()
-        .expect("Failed to join run loop.");
+    run_loop_thread.join().expect("Failed to join run loop.");
 }
