@@ -447,8 +447,12 @@ fn l1_multiparty_deposit_and_withdraw_asset_integration_test() {
     thread::sleep(Duration::from_millis(10_000));
     wait_for_target_l1_block(&sortition_db, MOCKNET_EPOCH_2_1);
 
-    let mut l1_nonce =
-        publish_subnet_contracts_to_l1(0, &leader_config, multi_party_contract.clone().into());
+    let mut l1_nonce = publish_subnet_contracts_to_l1(
+        0,
+        &leader_config,
+        multi_party_contract.clone().into(),
+        multi_party_contract.clone().into(),
+    );
     l1_nonce = publish_multiparty_contract_to_l1(
         l1_nonce,
         &leader_config,
