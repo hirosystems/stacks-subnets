@@ -628,9 +628,20 @@ impl Config {
                     subnet_validator: node.mining_key.clone(),
                     ..ConnectionOptions::default()
                 };
-                if let CommitStrategy::MultiMiner { ref contract, .. } = &burnchain.commit_strategy
+                if let CommitStrategy::MultiMiner {
+                    ref contract,
+                    ref other_participants,
+                    ..
+                } = &burnchain.commit_strategy
                 {
                     result_opts.subnet_signing_contract = Some(contract.clone());
+                    result_opts.allowed_block_proposers = other_participants
+                        .iter()
+                        .map(|p| {
+                            Secp256k1PublicKey::from_slice(&p.public_key)
+                                .expect("Failed to load public key")
+                        })
+                        .collect();
                 }
 
                 result_opts

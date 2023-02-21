@@ -302,7 +302,6 @@ impl FromRow<DepositFtOp> for DepositFtOp {
         let l1_contract_id = QualifiedContractIdentifier::from_column(row, "l1_contract_id")?;
         let subnet_contract_id =
             QualifiedContractIdentifier::from_column(row, "subnet_contract_id")?;
-        let subnet_function_name = ClarityName::from_column(row, "subnet_function_name")?;
         let name: String = row.get_unwrap("name");
         let amount_str: String = row.get_unwrap("amount");
         let amount =
@@ -314,7 +313,6 @@ impl FromRow<DepositFtOp> for DepositFtOp {
             burn_header_hash,
             l1_contract_id,
             subnet_contract_id,
-            subnet_function_name,
             name,
             amount,
             sender: PrincipalData::from(sender),
@@ -330,7 +328,6 @@ impl FromRow<DepositNftOp> for DepositNftOp {
         let l1_contract_id = QualifiedContractIdentifier::from_column(row, "l1_contract_id")?;
         let subnet_contract_id =
             QualifiedContractIdentifier::from_column(row, "subnet_contract_id")?;
-        let subnet_function_name = ClarityName::from_column(row, "subnet_function_name")?;
         let id_str: String = row.get_unwrap("id");
         let id = u128::from_str_radix(&id_str, 10).expect("CORRUPTION: bad u128 written to sortdb");
         let sender = StacksAddress::from_column(row, "sender")?;
@@ -340,7 +337,6 @@ impl FromRow<DepositNftOp> for DepositNftOp {
             burn_header_hash,
             l1_contract_id,
             subnet_contract_id,
-            subnet_function_name,
             id,
             sender: PrincipalData::from(sender),
         })
@@ -439,7 +435,6 @@ const SORTITION_DB_INITIAL_SCHEMA: &'static [&'static str] = &[
          l1_block_id TEXT NOT NULL,
          l1_contract_id TEXT NOT NULL,
          subnet_contract_id TEXT NOT NULL,
-         subnet_function_name TEXT NOT NULL,
          name TEXT NOT NULL,
          amount TEXT NOT NULL,
          sender TEXT NOT NULL,
@@ -454,7 +449,6 @@ const SORTITION_DB_INITIAL_SCHEMA: &'static [&'static str] = &[
          l1_block_id TEXT NOT NULL,
          l1_contract_id TEXT NOT NULL,
          subnet_contract_id TEXT NOT NULL,
-         subnet_function_name TEXT NOT NULL,
          id TEXT NOT NULL,
          sender TEXT NOT NULL,
          sortition_id TEXT NOT NULL,
@@ -3085,7 +3079,6 @@ impl<'a> SortitionHandleTx<'a> {
                     "txid" => %op.txid,
                     "l1_contract_id" => %op.l1_contract_id,
                     "subnet_contract_id" => %op.subnet_contract_id,
-                    "subnet_function_name" => %op.subnet_function_name,
                     "name" => %op.name,
                     "amount" => %op.amount,
                     "sender" => %op.sender,
@@ -3101,7 +3094,6 @@ impl<'a> SortitionHandleTx<'a> {
                     "txid" => %op.txid,
                     "l1_contract_id" => %op.l1_contract_id,
                     "subnet_contract_id" => %op.subnet_contract_id,
-                    "subnet_function_name" => %op.subnet_function_name,
                     "id" => %op.id,
                     "sender" => %op.sender,
                 );
@@ -3208,14 +3200,13 @@ impl<'a> SortitionHandleTx<'a> {
             &op.burn_header_hash,
             &op.l1_contract_id.to_string(),
             &op.subnet_contract_id.to_string(),
-            &op.subnet_function_name.to_string(),
             &op.name,
             &op.amount.to_string(),
             &op.sender.to_string(),
             sort_id,
         ];
 
-        self.execute("REPLACE INTO deposit_ft (txid, l1_block_id, l1_contract_id, subnet_contract_id, subnet_function_name, name, amount, sender, sortition_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)", args)?;
+        self.execute("REPLACE INTO deposit_ft (txid, l1_block_id, l1_contract_id, subnet_contract_id, name, amount, sender, sortition_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)", args)?;
 
         Ok(())
     }
@@ -3231,13 +3222,12 @@ impl<'a> SortitionHandleTx<'a> {
             &op.burn_header_hash,
             &op.l1_contract_id.to_string(),
             &op.subnet_contract_id.to_string(),
-            &op.subnet_function_name.to_string(),
             &op.id.to_string(),
             &op.sender.to_string(),
             sort_id,
         ];
 
-        self.execute("REPLACE INTO deposit_nft (txid, l1_block_id, l1_contract_id, subnet_contract_id, subnet_function_name, id, sender, sortition_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)", args)?;
+        self.execute("REPLACE INTO deposit_nft (txid, l1_block_id, l1_contract_id, subnet_contract_id, id, sender, sortition_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)", args)?;
 
         Ok(())
     }

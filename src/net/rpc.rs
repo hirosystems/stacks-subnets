@@ -934,9 +934,10 @@ impl ConversationHttp {
         req: &HttpRequestType,
         chainstate: &mut StacksChainState,
         sortdb: &SortitionDB,
-        proposal: &miner::Proposal,
+        signed_proposal: &miner::SignedProposal,
         validator_key: Option<&Secp256k1PrivateKey>,
         signing_contract: Option<&QualifiedContractIdentifier>,
+        options: &ConnectionOptions,
         canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
         let response_metadata =
@@ -947,7 +948,7 @@ impl ConversationHttp {
                 let response = HttpResponseType::BlockProposalInvalid {
                     metadata: response_metadata,
                     error_message:
-                        "Cannot validate block proposal: not configured with validation key".into(),
+                        "Cannot validate block proposal: Not configured with validation key".into(),
                 };
                 return response.send(http, fd);
             }
@@ -959,8 +960,40 @@ impl ConversationHttp {
                 let response = HttpResponseType::BlockProposalInvalid {
                     metadata: response_metadata,
                     error_message:
-                        "Cannot validate block proposal: not configured with a multiparty contract"
+                        "Cannot validate block proposal: Not configured with a multiparty contract"
                             .into(),
+                };
+                return response.send(http, fd);
+            }
+        };
+
+        let pubk_recovered = match signed_proposal.recover_signer_pk() {
+            Ok(key) => key,
+            Err(e) => {
+                let response = HttpResponseType::BlockProposalInvalid {
+                    metadata: response_metadata,
+                    error_message: format!("Cannot validate block proposal: {e}"),
+                };
+                return response.send(http, fd);
+            }
+        };
+
+        // TODO: Replace with lookup in `HashSet`
+        if !options.allowed_block_proposers.contains(&pubk_recovered) {
+            let response = HttpResponseType::BlockProposalInvalid {
+                metadata: response_metadata,
+                error_message:
+                    "Cannot validate block proposal: Not signed by approved block proposer".into(),
+            };
+            return response.send(http, fd);
+        }
+
+        let proposal = match signed_proposal.decode() {
+            Ok(p) => p,
+            Err(e) => {
+                let response = HttpResponseType::BlockProposalInvalid {
+                    metadata: response_metadata,
+                    error_message: format!("Cannot validate block proposal: {e}"),
                 };
                 return response.send(http, fd);
             }
@@ -2849,6 +2882,7 @@ impl ConversationHttp {
                     &proposal,
                     validator_key,
                     signing_contract,
+                    &self.connection.options,
                     network.burnchain_tip.canonical_stacks_tip_height,
                 )?;
                 None

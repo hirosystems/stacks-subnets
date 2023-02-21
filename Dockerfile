@@ -10,7 +10,7 @@ COPY . .
 
 RUN apk add --no-cache musl-dev openssl-dev
 
-RUN mkdir /out
+RUN mkdir /out /contracts
 
 RUN cd testnet/stacks-node && cargo build --features monitoring_prom,slog_json --release
 
@@ -21,5 +21,8 @@ FROM alpine:latest
 RUN apk add --no-cache openssl musl
 
 COPY --from=build /out/ /bin/
+# Add the core contracts to the image, so that clarinet can retrieve them.
+COPY --from=build /src/core-contracts/contracts/subnet.clar /contracts/subnet.clar
+COPY --from=build /src/core-contracts/contracts/helper/subnet-traits.clar /contracts/subnet-traits.clar
 
 CMD ["subnet-node", "start"]

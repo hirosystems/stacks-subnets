@@ -38,7 +38,7 @@ use url::{form_urlencoded, Url};
 
 use crate::burnchains::{Address, Txid};
 use crate::chainstate::burn::ConsensusHash;
-use crate::chainstate::stacks::miner::Proposal;
+use crate::chainstate::stacks::miner::SignedProposal;
 use crate::chainstate::stacks::{
     StacksBlock, StacksMicroblock, StacksPublicKey, StacksTransaction,
 };
@@ -2110,7 +2110,7 @@ impl HttpRequestType {
             ));
         }
 
-        let block_proposal: Proposal = serde_json::from_reader(fd).map_err(|_e| {
+        let block_proposal: SignedProposal = serde_json::from_reader(fd).map_err(|_e| {
             net_error::DeserializeError("Failed to parse block proposal JSON body".into())
         })?;
 
