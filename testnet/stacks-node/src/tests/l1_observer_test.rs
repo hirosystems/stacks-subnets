@@ -5,8 +5,8 @@ use std::thread::{self, JoinHandle};
 use crate::config::{EventKeyType, EventObserverConfig};
 use crate::tests::l1_multiparty::MOCKNET_EPOCH_2_1;
 use crate::tests::neon_integrations::{
-    filter_map_events, get_account, get_ft_withdrawal_entry, get_nft_withdrawal_entry,
-    get_withdrawal_entry, submit_tx, test_observer,
+    filter_map_events, get_account, get_ft_withdrawal_entry, get_nft_withdrawal_entry, get_withdrawal_entry, submit_tx,
+    test_observer,
 };
 use crate::tests::{make_contract_call, make_contract_publish, to_addr};
 use crate::{neon, Config};
@@ -2589,85 +2589,9 @@ fn nft_deposit_and_withdraw_integration_test() {
         microblock_header: None,
         tx_index: 0,
     };
-    let mut l1_native_ft_withdraw_event =
-        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-            key: (boot_code_id("subnet".into(), false), "print".into()),
-            value: Value::Tuple(
-                TupleData::from_data(vec![
-                    (
-                        "type".into(),
-                        Value::string_ascii_from_bytes("nft".to_string().into_bytes()).unwrap(),
-                    ),
-                    (
-                        "asset-contract".into(),
-                        Value::Principal(PrincipalData::Contract(
-                            QualifiedContractIdentifier::new(
-                                user_addr.into(),
-                                ContractName::from("simple-ft"),
-                            ),
-                        )),
-                    ),
-                    (
-                        "sender".into(),
-                        Value::Principal(PrincipalData::Standard(user_addr.into())),
-                    ),
-                    ("id".into(), Value::UInt(11)),
-                ])
-                .expect("Failed to create tuple data."),
-            ),
-        });
-    let mut subnet_native_ft_withdraw_event =
-        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-            key: (boot_code_id("subnet".into(), false), "print".into()),
-            value: Value::Tuple(
-                TupleData::from_data(vec![
-                    (
-                        "type".into(),
-                        Value::string_ascii_from_bytes("nft".to_string().into_bytes()).unwrap(),
-                    ),
-                    (
-                        "asset-contract".into(),
-                        Value::Principal(PrincipalData::Contract(
-                            QualifiedContractIdentifier::new(
-                                user_addr.into(),
-                                ContractName::from("simple-ft"),
-                            ),
-                        )),
-                    ),
-                    (
-                        "sender".into(),
-                        Value::Principal(PrincipalData::Standard(user_addr.into())),
-                    ),
-                    ("id".into(), Value::UInt(15)),
-                ])
-                .expect("Failed to create tuple data."),
-            ),
-        });
-    let withdrawal_receipt_ft = StacksTransactionReceipt {
-        transaction: TransactionOrigin::Stacks(StacksTransaction::new(
-            TransactionVersion::Testnet,
-            auth.clone(),
-            TransactionPayload::Coinbase(CoinbasePayload([0u8; 32])),
-        )),
-        events: vec![
-            l1_native_ft_withdraw_event.clone(),
-            subnet_native_ft_withdraw_event.clone(),
-        ],
-        post_condition_aborted: false,
-        result: Value::err_none(),
-        stx_burned: 0,
-        contract_analysis: None,
-        execution_cost: ExecutionCost::zero(),
-        microblock_header: None,
-        tx_index: 0,
-    };
     let withdrawal_tree =
         create_withdrawal_merkle_tree(&mut vec![withdrawal_receipt], withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
-
-    let withdrawal_tree_ft =
-        create_withdrawal_merkle_tree(&mut vec![withdrawal_receipt_ft], withdrawal_height);
-    let root_hash_ft = withdrawal_tree_ft.root().as_bytes().to_vec();
 
     let l1_native_nft_withdrawal_key =
         generate_key_from_event(&mut l1_native_nft_withdraw_event, 0, withdrawal_height).unwrap();
@@ -2680,19 +2604,6 @@ fn nft_deposit_and_withdraw_integration_test() {
     .to_vec();
     let l1_native_nft_path = withdrawal_tree
         .path(&l1_native_nft_withdrawal_key_bytes)
-        .unwrap();
-
-    let l1_native_ft_withdrawal_key =
-        generate_key_from_event(&mut l1_native_ft_withdraw_event, 0, withdrawal_height).unwrap();
-    let l1_native_ft_withdrawal_key_bytes =
-        convert_withdrawal_key_to_bytes(&l1_native_ft_withdrawal_key);
-    let l1_native_ft_withdrawal_leaf_hash = MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(
-        l1_native_ft_withdrawal_key_bytes.as_slice(),
-    )
-    .as_bytes()
-    .to_vec();
-    let l1_native_ft_path = withdrawal_tree
-        .path(&l1_native_ft_withdrawal_key_bytes)
         .unwrap();
 
     let mut l1_native_nft_sib_data = Vec::new();
@@ -2725,25 +2636,6 @@ fn nft_deposit_and_withdraw_integration_test() {
         &l1_native_siblings_val, &l1_native_nft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
-
-    let mut l1_native_ft_sib_data = Vec::new();
-    for (_i, sib) in l1_native_ft_path.iter().enumerate() {
-        let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
-        // the sibling's side is the opposite of what PathOrder is set to
-        let sib_is_left = Value::Bool(sib.order == MerklePathOrder::Right);
-        let curr_sib_data = vec![
-            (ClarityName::from("hash"), sib_hash),
-            (ClarityName::from("is-left-side"), sib_is_left),
-        ];
-        let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
-        l1_native_ft_sib_data.push(sib_tuple);
-    }
-
-    let l1_native_root_hash_val = Value::buff_from(root_hash_ft.clone()).unwrap();
-    let l1_native_leaf_hash_val =
-        Value::buff_from(l1_native_ft_withdrawal_leaf_hash.clone()).unwrap();
-    let l1_native_siblings_val = Value::list_from(l1_native_ft_sib_data.clone()).unwrap();
-
     assert_eq!(
         &l1_native_root_hash_val, &l1_native_ft_withdrawal_entry.root_hash,
         "Root hash should match value returned via RPC"
@@ -2827,7 +2719,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &subnet_native_siblings_val, &subnet_native_nft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
-
+     
     let mut subnet_native_ft_sib_data = Vec::new();
     for (_i, sib) in subnet_native_ft_path.iter().enumerate() {
         let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
@@ -2840,7 +2732,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
         subnet_native_ft_sib_data.push(sib_tuple);
     }
-
+    
     let subnet_native_leaf_hash_val =
         Value::buff_from(subnet_native_ft_withdrawal_leaf_hash.clone()).unwrap();
     let subnet_native_siblings_val = Value::list_from(subnet_native_ft_sib_data.clone()).unwrap();
