@@ -62,6 +62,13 @@
         (asserts! (map-insert allowed-contracts (contract-of ft-contract) l2-contract)
                   (err ERR_ASSET_ALREADY_ALLOWED))
 
+        (print {
+            event: "register-contract",
+            asset-type: "ft",
+            l1-contract: (contract-of ft-contract),
+            l2-contract: l2-contract
+        })
+
         (ok true)
     )
 )
@@ -75,6 +82,13 @@
         ;; Set up the assets that the contract is allowed to transfer
         (asserts! (map-insert allowed-contracts (contract-of nft-contract) l2-contract)
                   (err ERR_ASSET_ALREADY_ALLOWED))
+
+        (print {
+            event: "register-contract",
+            asset-type: "nft",
+            l1-contract: (contract-of nft-contract),
+            l2-contract: l2-contract
+        })
 
         (ok true)
     )
