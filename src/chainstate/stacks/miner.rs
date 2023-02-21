@@ -249,12 +249,12 @@ pub struct TransactionSkippedEvent {
     pub error: String,
 }
 
-fn hex_serialize<S: serde::Serializer>(txid: &Txid, s: S) -> Result<S::Ok, S::Error> {
+pub fn hex_serialize<S: serde::Serializer>(txid: &Txid, s: S) -> Result<S::Ok, S::Error> {
     let inst = txid.to_hex();
     s.serialize_str(inst.as_str())
 }
 
-fn hex_deserialize<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Txid, D::Error> {
+pub fn hex_deserialize<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Txid, D::Error> {
     let inst_str = String::deserialize(d)?;
     Txid::from_hex(&inst_str).map_err(serde::de::Error::custom)
 }

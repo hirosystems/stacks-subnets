@@ -42,6 +42,8 @@ use crate::chainstate::burn::Opcodes;
 use crate::util_lib::db::DBConn;
 use crate::util_lib::db::DBTx;
 use crate::util_lib::db::Error as db_error;
+use clarity::util::HexError;
+use serde::Deserialize;
 use stacks_common::util::hash::Hash160;
 use stacks_common::util::hash::Sha512Trunc256Sum;
 use stacks_common::util::secp256k1::MessageSignature;
@@ -60,7 +62,6 @@ pub mod withdraw_nft;
 pub mod withdraw_stx;
 
 /// This module contains all burn-chain operations
-
 #[derive(Debug)]
 pub enum Error {
     /// Failed to parse the operation from the burnchain transaction
@@ -169,6 +170,70 @@ impl From<db_error> for Error {
     }
 }
 
+trait HexSerialization<T, E: fmt::Display> {
+    fn ser_to_hex(&self) -> String;
+    fn deser_from_hex(s: &str) -> Result<T, E>;
+}
+
+/// Implement HexSerialization for byte_array macro
+///  defined types (i.e., types with to_hex and from_hex)
+macro_rules! impl_hex_serialization {
+    ($thing:ident) => {
+        impl HexSerialization<$thing, HexError> for $thing {
+            fn ser_to_hex(&self) -> String {
+                self.to_hex()
+            }
+            fn deser_from_hex(s: &str) -> Result<Self, HexError> {
+                Self::from_hex(s)
+            }
+        }
+    };
+}
+
+impl_hex_serialization!(BurnchainHeaderHash);
+impl_hex_serialization!(Txid);
+impl_hex_serialization!(Sha512Trunc256Sum);
+
+fn hex_serialize<S: serde::Serializer, T: HexSerialization<T, E>, E: fmt::Display>(
+    bhh: &T,
+    s: S,
+) -> Result<S::Ok, S::Error> {
+    let inst = bhh.ser_to_hex();
+    s.serialize_str(inst.as_str())
+}
+
+fn hex_deserialize<'de, D: serde::Deserializer<'de>, T: HexSerialization<T, E>, E: fmt::Display>(
+    d: D,
+) -> Result<T, D::Error> {
+    let inst_str = String::deserialize(d)?;
+    T::deser_from_hex(&inst_str).map_err(serde::de::Error::custom)
+}
+
+fn qc_serialize<S: serde::Serializer>(
+    qc: &QualifiedContractIdentifier,
+    s: S,
+) -> Result<S::Ok, S::Error> {
+    let inst = qc.to_string();
+    s.serialize_str(inst.as_str())
+}
+
+fn qc_deserialize<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<QualifiedContractIdentifier, D::Error> {
+    let inst_str = String::deserialize(d)?;
+    QualifiedContractIdentifier::parse(&inst_str).map_err(serde::de::Error::custom)
+}
+
+fn pd_serialize<S: serde::Serializer>(pd: &PrincipalData, s: S) -> Result<S::Ok, S::Error> {
+    let inst = pd.to_string();
+    s.serialize_str(inst.as_str())
+}
+
+fn pd_deserialize<'de, D: serde::Deserializer<'de>>(d: D) -> Result<PrincipalData, D::Error> {
+    let inst_str = String::deserialize(d)?;
+    PrincipalData::parse(&inst_str).map_err(serde::de::Error::custom)
+}
+
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct TransferStxOp {
     pub sender: StacksAddress,
@@ -177,9 +242,10 @@ pub struct TransferStxOp {
     pub memo: Vec<u8>,
 
     // common to all transactions
-    pub txid: Txid,                            // transaction ID
-    pub vtxindex: u32,                         // index in the block where this tx occurs
-    pub block_height: u64,                     // block height at which this tx occurs
+    pub txid: Txid,        // transaction ID
+    pub vtxindex: u32,     // index in the block where this tx occurs
+    pub block_height: u64, // block height at which this tx occurs
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub burn_header_hash: BurnchainHeaderHash, // hash of the burn chain block header
 }
 
@@ -216,104 +282,131 @@ pub struct LeaderBlockCommitOp {
     /// Hash of the committed block (anchor block hash)
     pub block_header_hash: BlockHeaderHash,
     /// Merkle root of the withdrawal events
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub withdrawal_merkle_root: Sha512Trunc256Sum,
     /// Transaction ID of this commit op
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub txid: Txid,
     /// Hash of the base chain block that produced this commit op.
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub burn_header_hash: BurnchainHeaderHash,
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct DepositStxOp {
     /// Transaction ID of this commit op
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub txid: Txid,
     /// Hash of the base chain block that produced this commit op.
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub burn_header_hash: BurnchainHeaderHash,
 
-    // Amount of STX that was deposited
+    /// Amount of STX that was deposited
     pub amount: u128,
-    // The principal that performed the deposit
+    /// The principal that performed the deposit
+    #[serde(serialize_with = "pd_serialize", deserialize_with = "pd_deserialize")]
     pub sender: PrincipalData,
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct DepositFtOp {
     /// Transaction ID of this commit op
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub txid: Txid,
     /// Hash of the base chain block that produced this commit op.
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub burn_header_hash: BurnchainHeaderHash,
 
-    // Contract ID on L1 chain for this fungible token
+    /// Contract ID on L1 chain for this fungible token
+    #[serde(serialize_with = "qc_serialize", deserialize_with = "qc_deserialize")]
     pub l1_contract_id: QualifiedContractIdentifier,
-    // Contract ID on subnet for this fungible token
+    /// Contract ID on subnet for this fungible token
+    #[serde(serialize_with = "qc_serialize", deserialize_with = "qc_deserialize")]
     pub subnet_contract_id: QualifiedContractIdentifier,
-    // Name of fungible token
+    /// Name of fungible token
     pub name: String,
-    // Amount of the fungible token that was deposited
+    /// Amount of the fungible token that was deposited
     pub amount: u128,
-    // The principal that performed the deposit
+    /// The principal that performed the deposit
+    #[serde(serialize_with = "pd_serialize", deserialize_with = "pd_deserialize")]
     pub sender: PrincipalData,
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct DepositNftOp {
     /// Transaction ID of this commit op
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub txid: Txid,
     /// Hash of the base chain block that produced this commit op.
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub burn_header_hash: BurnchainHeaderHash,
 
-    // Contract ID on L1 chain for this NFT
+    /// Contract ID on L1 chain for this NFT
+    #[serde(serialize_with = "qc_serialize", deserialize_with = "qc_deserialize")]
     pub l1_contract_id: QualifiedContractIdentifier,
-    // Contract ID on subnet for this NFT
+    /// Contract ID on subnet for this NFT
+    #[serde(serialize_with = "qc_serialize", deserialize_with = "qc_deserialize")]
     pub subnet_contract_id: QualifiedContractIdentifier,
-    // The ID of the NFT transferred
+    /// The ID of the NFT transferred
     pub id: u128,
-    // The principal that performed the deposit
+    /// The principal that performed the deposit
+    #[serde(serialize_with = "pd_serialize", deserialize_with = "pd_deserialize")]
     pub sender: PrincipalData,
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct WithdrawStxOp {
     /// Transaction ID of this commit op
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub txid: Txid,
     /// Hash of the base chain block that produced this commit op.
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub burn_header_hash: BurnchainHeaderHash,
 
-    // Amount of STX that was withdrawn
+    /// Amount of STX that was withdrawn
     pub amount: u128,
-    // The principal that is the recipient of this withdrawal
+    /// The principal that is the recipient of this withdrawal
+    #[serde(serialize_with = "pd_serialize", deserialize_with = "pd_deserialize")]
     pub recipient: PrincipalData,
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct WithdrawFtOp {
     /// Transaction ID of this commit op
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub txid: Txid,
     /// Hash of the base chain block that produced this commit op.
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub burn_header_hash: BurnchainHeaderHash,
 
     // Contract ID on L1 chain for this fungible token
+    #[serde(serialize_with = "qc_serialize", deserialize_with = "qc_deserialize")]
     pub l1_contract_id: QualifiedContractIdentifier,
-    // The name of the fungible token
+    /// The name of the fungible token
     pub name: String,
-    // Amount of the fungible token that was withdrawn
+    /// Amount of the fungible token that was withdrawn
     pub amount: u128,
-    // The principal the contract is sending the fungible token to
+    /// The principal the contract is sending the fungible token to
+    #[serde(serialize_with = "pd_serialize", deserialize_with = "pd_deserialize")]
     pub recipient: PrincipalData,
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct WithdrawNftOp {
     /// Transaction ID of this commit op
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub txid: Txid,
     /// Hash of the base chain block that produced this commit op.
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
     pub burn_header_hash: BurnchainHeaderHash,
 
-    // Contract ID on L1 chain for this NFT
+    /// Contract ID on L1 chain for this NFT
+    #[serde(serialize_with = "qc_serialize", deserialize_with = "qc_deserialize")]
     pub l1_contract_id: QualifiedContractIdentifier,
-    // The ID of the NFT being withdrawn
+    /// The ID of the NFT being withdrawn
     pub id: u128,
-    // The principal the contract is sending the NFT to
+    /// The principal the contract is sending the NFT to
+    #[serde(serialize_with = "pd_serialize", deserialize_with = "pd_deserialize")]
     pub recipient: PrincipalData,
 }
 
@@ -349,7 +442,8 @@ pub struct UserBurnSupportOp {
     pub burn_header_hash: BurnchainHeaderHash, // hash of burnchain block with this tx
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BlockstackOperationType {
     LeaderBlockCommit(LeaderBlockCommitOp),
     DepositStx(DepositStxOp),
@@ -468,6 +562,11 @@ impl BlockstackOperationType {
             BlockstackOperationType::WithdrawNft(ref mut data) => data.burn_header_hash = hash,
         };
     }
+
+    /// Explicit JSON serialization function for burnchain ops.
+    pub fn blockstack_op_to_json(&self) -> serde_json::Value {
+        serde_json::to_value(self).unwrap()
+    }
 }
 
 impl fmt::Display for BlockstackOperationType {
@@ -495,4 +594,209 @@ pub fn parse_u32_from_be(bytes: &[u8]) -> Option<u32> {
 
 pub fn parse_u16_from_be(bytes: &[u8]) -> Option<u16> {
     bytes.try_into().ok().map(u16::from_be_bytes)
+}
+
+#[cfg(test)]
+mod json_tests {
+    use super::*;
+
+    #[test]
+    fn deposit_ft() {
+        let deposit_ft = DepositFtOp {
+            txid: Txid([0x11; 32]),
+            burn_header_hash: BurnchainHeaderHash([0xaa; 32]),
+            l1_contract_id: QualifiedContractIdentifier::parse("SP000000000000000000002Q6VF78.bns")
+                .unwrap(),
+            subnet_contract_id: QualifiedContractIdentifier::parse(
+                "SP000000000000000000002Q6VF78.bns",
+            )
+            .unwrap(),
+            name: "ft-name".into(),
+            amount: 7381273163198273,
+            sender: PrincipalData::parse("SP000000000000000000002Q6VF78.bns").unwrap(),
+        }
+        .into();
+
+        let expected = r#"
+        {
+          "deposit_ft": {
+            "amount": 7381273163198273,
+            "burn_header_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "l1_contract_id": "SP000000000000000000002Q6VF78.bns",
+            "name": "ft-name",
+            "sender": "SP000000000000000000002Q6VF78.bns",
+            "subnet_contract_id": "SP000000000000000000002Q6VF78.bns",
+            "txid": "1111111111111111111111111111111111111111111111111111111111111111"
+          }
+        }"#;
+
+        assert_eq!(
+            BlockstackOperationType::blockstack_op_to_json(&deposit_ft),
+            serde_json::from_str::<serde_json::Value>(expected).unwrap()
+        );
+    }
+
+    #[test]
+    fn deposit_nft() {
+        let deposit_nft = DepositNftOp {
+            txid: Txid([0xf1; 32]),
+            burn_header_hash: BurnchainHeaderHash([0xcc; 32]),
+            l1_contract_id: QualifiedContractIdentifier::parse("SP000000000000000000002Q6VF78.bns")
+                .unwrap(),
+            subnet_contract_id: QualifiedContractIdentifier::parse(
+                "SP000000000000000000002Q6VF78.bns",
+            )
+            .unwrap(),
+            sender: PrincipalData::parse("SP000000000000000000002Q6VF78.bns").unwrap(),
+            id: 123123,
+        }
+        .into();
+
+        let expected = r#"
+        {
+          "deposit_nft": {
+            "burn_header_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "id": 123123,
+            "l1_contract_id": "SP000000000000000000002Q6VF78.bns",
+            "sender": "SP000000000000000000002Q6VF78.bns",
+            "subnet_contract_id": "SP000000000000000000002Q6VF78.bns",
+            "txid": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"
+          }
+        }"#;
+
+        assert_eq!(
+            BlockstackOperationType::blockstack_op_to_json(&deposit_nft),
+            serde_json::from_str::<serde_json::Value>(expected).unwrap()
+        );
+    }
+
+    #[test]
+    fn deposit_stx() {
+        let deposit_stx = DepositStxOp {
+            txid: Txid([0x33; 32]),
+            burn_header_hash: BurnchainHeaderHash([0xaa; 32]),
+            amount: 7381273163198273,
+            sender: PrincipalData::parse("SP000000000000000000002Q6VF78").unwrap(),
+        }
+        .into();
+        let expected = r#"
+        {
+          "deposit_stx": {
+            "amount": 7381273163198273,
+            "burn_header_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "sender": "SP000000000000000000002Q6VF78",
+            "txid": "3333333333333333333333333333333333333333333333333333333333333333"
+          }
+        }"#;
+        assert_eq!(
+            BlockstackOperationType::blockstack_op_to_json(&deposit_stx),
+            serde_json::from_str::<serde_json::Value>(expected).unwrap()
+        );
+    }
+
+    #[test]
+    fn withdraw_ft() {
+        let withdraw_ft = WithdrawFtOp {
+            txid: Txid([0x11; 32]),
+            burn_header_hash: BurnchainHeaderHash([0xaa; 32]),
+            l1_contract_id: QualifiedContractIdentifier::parse("SP000000000000000000002Q6VF78.bns")
+                .unwrap(),
+            name: "ft-name".into(),
+            amount: 7381273163198273,
+            recipient: PrincipalData::parse("SP000000000000000000002Q6VF78.bns").unwrap(),
+        }
+        .into();
+        let expected = r#"
+        {
+          "withdraw_ft": {
+            "amount": 7381273163198273,
+            "burn_header_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "l1_contract_id": "SP000000000000000000002Q6VF78.bns",
+            "name": "ft-name",
+            "recipient": "SP000000000000000000002Q6VF78.bns",
+            "txid": "1111111111111111111111111111111111111111111111111111111111111111"
+          }
+        }"#;
+        assert_eq!(
+            BlockstackOperationType::blockstack_op_to_json(&withdraw_ft),
+            serde_json::from_str::<serde_json::Value>(expected).unwrap()
+        );
+    }
+
+    #[test]
+    fn withdraw_nft() {
+        let withdraw_nft = WithdrawNftOp {
+            txid: Txid([0xf1; 32]),
+            burn_header_hash: BurnchainHeaderHash([0xcc; 32]),
+            l1_contract_id: QualifiedContractIdentifier::parse("SP000000000000000000002Q6VF78.bns")
+                .unwrap(),
+            recipient: PrincipalData::parse("SP000000000000000000002Q6VF78.bns").unwrap(),
+            id: 123123,
+        }
+        .into();
+        let expected = r#"
+        {
+          "withdraw_nft": {
+            "burn_header_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "id": 123123,
+            "l1_contract_id": "SP000000000000000000002Q6VF78.bns",
+            "recipient": "SP000000000000000000002Q6VF78.bns",
+            "txid": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"
+          }
+        }"#;
+        assert_eq!(
+            BlockstackOperationType::blockstack_op_to_json(&withdraw_nft),
+            serde_json::from_str::<serde_json::Value>(expected).unwrap()
+        );
+    }
+
+    #[test]
+    fn withdraw_stx() {
+        let withdraw_stx = WithdrawStxOp {
+            txid: Txid([0x3b; 32]),
+            burn_header_hash: BurnchainHeaderHash([0xba; 32]),
+            amount: 7381273163198273,
+            recipient: PrincipalData::parse("SP000000000000000000002Q6VF78").unwrap(),
+        }
+        .into();
+        let expected = r#"
+        {
+          "withdraw_stx": {
+            "amount": 7381273163198273,
+            "burn_header_hash": "babababababababababababababababababababababababababababababababa",
+            "recipient": "SP000000000000000000002Q6VF78",
+            "txid": "3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b"
+          }
+        }"#;
+        assert_eq!(
+            BlockstackOperationType::blockstack_op_to_json(&withdraw_stx),
+            serde_json::from_str::<serde_json::Value>(expected).unwrap()
+        );
+    }
+
+    #[test]
+    fn commit_op() {
+        let commit_op = LeaderBlockCommitOp {
+            txid: Txid([0xa1; 32]),
+            burn_header_hash: BurnchainHeaderHash([0xaa; 32]),
+            block_header_hash: BlockHeaderHash([0x12; 32]),
+            withdrawal_merkle_root: Sha512Trunc256Sum([0x31; 32]),
+        }
+        .into();
+
+        let expected = r#"
+        {
+          "leader_block_commit": {
+            "block_header_hash": "1212121212121212121212121212121212121212121212121212121212121212",
+            "burn_header_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "txid": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+            "withdrawal_merkle_root": "3131313131313131313131313131313131313131313131313131313131313131"
+          }
+        }
+        "#;
+        assert_eq!(
+            BlockstackOperationType::blockstack_op_to_json(&commit_op),
+            serde_json::from_str::<serde_json::Value>(expected).unwrap()
+        );
+    }
 }
