@@ -130,6 +130,11 @@ lazy_static! {
     .unwrap();
     static ref PATH_POST_BLOCK_PROPOSAL: Regex = Regex::new(&format!("^{}$", PATH_STR_POST_BLOCK_PROPOSAL))
     .unwrap();
+    static ref PATH_GET_FT_WITHDRAWAL: Regex = Regex::new(&format!(
+         "^/v2/withdrawal/ft/(?P<block_height>[0-9]+)/(?P<sender>{})/(?P<withdrawal_id>[0-9]+)/(?P<contract_address>{})/(?P<contract_name>{})/(?P<amount>[0-9]+)$",
+         *PRINCIPAL_DATA_REGEX_STRING,  *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING
+     ))
+     .unwrap();
     static ref PATH_GET_NFT_WITHDRAWAL: Regex = Regex::new(&format!(
          "^/v2/withdrawal/nft/(?P<block_height>[0-9]+)/(?P<sender>{})/(?P<withdrawal_id>[0-9]+)/(?P<contract_address>{})/(?P<contract_name>{})/(?P<id>[0-9]+)$",
          *PRINCIPAL_DATA_REGEX_STRING,  *STANDARD_PRINCIPAL_REGEX_STRING, *CONTRACT_NAME_REGEX_STRING
@@ -1631,6 +1636,11 @@ impl HttpRequestType {
             ),
             (
                 "GET",
+                &PATH_GET_FT_WITHDRAWAL,
+                &HttpRequestType::parse_get_ft_withdrawal,
+            ),
+            (
+                "GET",
                 &PATH_GET_NFT_WITHDRAWAL,
                 &HttpRequestType::parse_get_nft_withdrawal,
             ),
@@ -1887,7 +1897,7 @@ impl HttpRequestType {
             })?;
         let contract_name = ContractName::try_from(captures["contract_name"].to_string())
             .map_err(|_e| net_error::DeserializeError("Failed to parse contract name".into()))?;
-        let id = u128::from_str(&captures["id"])
+        let amount = u128::from_str(&captures["amount"])
             .map_err(|_e| net_error::DeserializeError("Failed to parse amount".into()))?;
 
         Ok(HttpRequestType::GetWithdrawalFt {
@@ -1899,7 +1909,7 @@ impl HttpRequestType {
                 contract_addr.into(),
                 contract_name,
             ),
-            id,
+            amount,
         })
     }
 
@@ -3089,7 +3099,7 @@ impl HttpRequestType {
                 sender,
                 withdrawal_id,
                 contract_identifier,
-                id,
+                amount,
             } => format!(
                 "/v2/withdrawal/ft/{}/{}/{}/{}/{}/{}",
                 withdraw_block_height,
@@ -3097,7 +3107,7 @@ impl HttpRequestType {
                 withdrawal_id,
                 StacksAddress::from(contract_identifier.issuer.clone()),
                 contract_identifier.name.as_str(),
-                id
+                amount
             ),
             HttpRequestType::GetWithdrawalNft {
                 metadata: _,
@@ -3155,7 +3165,7 @@ impl HttpRequestType {
             }
             HttpRequestType::BlockProposal(..) => PATH_STR_POST_BLOCK_PROPOSAL,
             HttpRequestType::GetWithdrawalFt { .. } => {
-                "/v2/withdrawal/ft/:block-height/:sender/:withdrawal_id/:contract_address/:contract_name/:id"
+                "/v2/withdrawal/ft/:block-height/:sender/:withdrawal_id/:contract_address/:contract_name/:amount"
             }
             HttpRequestType::GetWithdrawalNft { .. } => {
                 "/v2/withdrawal/nft/:block-height/:sender/:withdrawal_id/:contract_address/:contract_name/:id"

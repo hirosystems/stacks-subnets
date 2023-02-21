@@ -685,7 +685,7 @@ pub fn get_withdrawal_entry<F: std::fmt::Display>(
     http_origin: &str,
     block_height: u64,
     sender: F,
-    withdrawal_id: u64,
+    withdrawal_id: u32,
     amount: u64,
 ) -> WithdrawalEntry {
     let client = reqwest::blocking::Client::new();
@@ -712,7 +712,7 @@ pub fn get_ft_withdrawal_entry<F: std::fmt::Display>(
     http_origin: &str,
     block_height: u64,
     sender: F,
-    withdrawal_id: u64,
+    withdrawal_id: u32,
     contract_identifier: QualifiedContractIdentifier,
     id: u64,
 ) -> WithdrawalEntry {
@@ -746,7 +746,7 @@ pub fn get_nft_withdrawal_entry<F: std::fmt::Display>(
     http_origin: &str,
     block_height: u64,
     sender: F,
-    withdrawal_id: u64,
+    withdrawal_id: u32,
     contract_identifier: QualifiedContractIdentifier,
     id: u64,
 ) -> WithdrawalEntry {

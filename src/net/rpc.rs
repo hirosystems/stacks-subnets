@@ -2892,7 +2892,7 @@ impl ConversationHttp {
                 withdraw_block_height,
                 ref sender,
                 withdrawal_id,
-                id,
+                amount,
                 ref contract_identifier,
                 ..
             } => {
@@ -2915,7 +2915,7 @@ impl ConversationHttp {
                         &sender.clone(),
                         withdrawal_id,
                         contract_identifier,
-                        id,
+                        amount,
                         network.burnchain_tip.canonical_stacks_tip_height,
                     )?;
                 }

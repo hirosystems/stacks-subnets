@@ -1447,7 +1447,7 @@ pub enum HttpRequestType {
         sender: PrincipalData,
         withdrawal_id: u32,
         contract_identifier: QualifiedContractIdentifier,
-        id: u128,
+        amount: u128,
     },
     GetWithdrawalNft {
         metadata: HttpRequestMetadata,
