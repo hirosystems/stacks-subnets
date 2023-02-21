@@ -3,7 +3,7 @@
 
 (define-constant ERR_NOT_AUTHORIZED (err u1001))
 
-(impl-trait .trait-standards.nft-trait)
+(impl-trait 'ST000000000000000000002AMW42H.subnet.nft-trait)
 
 (define-data-var lastId uint u0)
 
@@ -45,16 +45,24 @@
   )
 )
 
-;; deposit function
-(define-public (subnet-deposit-nft-token (id uint) (recipient principal))
-   (begin
-       (nft-mint? nft-token id recipient)
-   )
+(define-read-only (get-token-owner (id uint))
+  (nft-get-owner? nft-token id)
 )
 
-;; withdraw function
-(define-public (withdraw-nft-asset (id uint) (recipient principal))
-   (begin
-       (nft-withdraw? nft-token id recipient)
-   )
+(impl-trait 'ST000000000000000000002AMW42H.subnet.subnet-asset)
+
+;; Called for deposit from the burnchain to the subnet
+(define-public (deposit-from-burnchain (id uint) (recipient principal))
+  (begin
+    (asserts! (is-eq tx-sender 'ST000000000000000000002AMW42H) ERR_NOT_AUTHORIZED)
+    (nft-mint? nft-token id recipient)
+  )
+)
+
+;; Called for withdrawal from the subnet to the burnchain
+(define-public (burn-for-withdrawal (id uint) (owner principal))
+  (begin
+    (asserts! (is-eq tx-sender owner) ERR_NOT_AUTHORIZED)
+    (nft-burn? nft-token id owner)
+  )
 )

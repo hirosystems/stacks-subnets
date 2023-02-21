@@ -1,7 +1,7 @@
 use reqwest::StatusCode;
 use serde_json::json;
 use stacks::address::AddressHashMode;
-use stacks::chainstate::stacks::miner::Proposal;
+use stacks::chainstate::stacks::miner::SignedProposal;
 use stacks::chainstate::stacks::{
     StacksPrivateKey, StacksPublicKey, StacksTransaction, StacksTransactionSigner, TransactionAuth,
     TransactionContractCall, TransactionPostConditionMode, TransactionSpendingCondition,
@@ -35,7 +35,7 @@ pub trait Layer1Committer {
     fn propose_block_to(
         &self,
         participant_index: u8,
-        proposal: &Proposal,
+        proposal: &SignedProposal,
     ) -> Result<ClaritySignature, Error>;
     fn make_commit_tx(
         &self,
@@ -367,7 +367,7 @@ impl Layer1Committer for MultiPartyCommitter {
     fn propose_block_to(
         &self,
         participant_index: u8,
-        proposal: &Proposal,
+        proposal: &SignedProposal,
     ) -> Result<ClaritySignature, Error> {
         if self.required_signers == 0
             || participant_index >= self.required_signers - 1
@@ -470,7 +470,7 @@ impl Layer1Committer for DirectCommitter {
     fn propose_block_to(
         &self,
         _participant_index: u8,
-        _proposal: &Proposal,
+        _proposal: &SignedProposal,
     ) -> Result<ClaritySignature, Error> {
         Err(Error::NoSuchParticipant)
     }

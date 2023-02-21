@@ -323,8 +323,6 @@ pub struct DepositFtOp {
     /// Contract ID on subnet for this fungible token
     #[serde(serialize_with = "qc_serialize", deserialize_with = "qc_deserialize")]
     pub subnet_contract_id: QualifiedContractIdentifier,
-    /// Name of the function to call in the subnet contract to execute deposit
-    pub subnet_function_name: ClarityName,
     /// Name of fungible token
     pub name: String,
     /// Amount of the fungible token that was deposited
@@ -349,8 +347,6 @@ pub struct DepositNftOp {
     /// Contract ID on subnet for this NFT
     #[serde(serialize_with = "qc_serialize", deserialize_with = "qc_deserialize")]
     pub subnet_contract_id: QualifiedContractIdentifier,
-    /// Name of the function to call in the subnet contract to execute deposit
-    pub subnet_function_name: ClarityName,
     /// The ID of the NFT transferred
     pub id: u128,
     /// The principal that performed the deposit
@@ -615,7 +611,6 @@ mod json_tests {
                 "SP000000000000000000002Q6VF78.bns",
             )
             .unwrap(),
-            subnet_function_name: "deposit-mint".into(),
             name: "ft-name".into(),
             amount: 7381273163198273,
             sender: PrincipalData::parse("SP000000000000000000002Q6VF78.bns").unwrap(),
@@ -631,7 +626,6 @@ mod json_tests {
             "name": "ft-name",
             "sender": "SP000000000000000000002Q6VF78.bns",
             "subnet_contract_id": "SP000000000000000000002Q6VF78.bns",
-            "subnet_function_name": "deposit-mint",
             "txid": "1111111111111111111111111111111111111111111111111111111111111111"
           }
         }"#;
@@ -653,7 +647,6 @@ mod json_tests {
                 "SP000000000000000000002Q6VF78.bns",
             )
             .unwrap(),
-            subnet_function_name: "deposit-nft-mint".into(),
             sender: PrincipalData::parse("SP000000000000000000002Q6VF78.bns").unwrap(),
             id: 123123,
         }
@@ -667,7 +660,6 @@ mod json_tests {
             "l1_contract_id": "SP000000000000000000002Q6VF78.bns",
             "sender": "SP000000000000000000002Q6VF78.bns",
             "subnet_contract_id": "SP000000000000000000002Q6VF78.bns",
-            "subnet_function_name": "deposit-nft-mint",
             "txid": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"
           }
         }"#;

@@ -293,12 +293,7 @@ impl StacksSubnetOp {
                 })
             }
             "\"deposit-ft\"" => {
-                // Parse 5 fields: ft-amount, ft-name, l1-contract-id, subnet-contract-id, and sender
-                let amount = tuple
-                    .get("ft-amount")
-                    .map_err(|_| "No 'ft-amount' field in Clarity tuple")?
-                    .clone()
-                    .expect_u128();
+                // Parse 5 fields: l1-contract-id, ft-name, ft-amount, sender, and subnet-contract-id
                 let l1_contract_id = tuple
                     .get("l1-contract-id")
                     .map_err(|_| "No 'l1-contract-id' field in Clarity tuple")?
@@ -309,6 +304,21 @@ impl StacksSubnetOp {
                 } else {
                     Err("Expected 'l1-contract-id' to be a contract principal")
                 }?;
+                let name = tuple
+                    .get("ft-name")
+                    .map_err(|_| "No 'ft-name' field in Clarity tuple")?
+                    .clone()
+                    .expect_ascii();
+                let amount = tuple
+                    .get("ft-amount")
+                    .map_err(|_| "No 'ft-amount' field in Clarity tuple")?
+                    .clone()
+                    .expect_u128();
+                let sender = tuple
+                    .get("sender")
+                    .map_err(|_| "No 'sender' field in Clarity tuple")?
+                    .clone()
+                    .expect_principal();
                 let subnet_contract_id = tuple
                     .get("subnet-contract-id")
                     .map_err(|_| "No 'subnet-contract-id' field in Clarity tuple")?
@@ -319,23 +329,6 @@ impl StacksSubnetOp {
                 } else {
                     Err("Expected 'subnet-contract-id' to be a contract principal")
                 }?;
-                let name = tuple
-                    .get("ft-name")
-                    .map_err(|_| "No 'ft-name' field in Clarity tuple")?
-                    .clone()
-                    .expect_ascii();
-                let sender = tuple
-                    .get("sender")
-                    .map_err(|_| "No 'sender' field in Clarity tuple")?
-                    .clone()
-                    .expect_principal();
-                let subnet_function_name = tuple
-                    .get("subnet-function-name")
-                    .map_err(|_| "No 'subnet-function-name' field in Clarity tuple")?
-                    .clone()
-                    .expect_ascii();
-                let subnet_function_name = ClarityName::try_from(subnet_function_name)
-                    .map_err(|e| format!("Failed to parse Clarity name: {:?}", e))?;
 
                 Ok(Self {
                     txid,
@@ -345,7 +338,6 @@ impl StacksSubnetOp {
                     event: StacksSubnetOpType::DepositFt {
                         l1_contract_id,
                         subnet_contract_id,
-                        subnet_function_name,
                         name,
                         amount,
                         sender,
@@ -353,12 +345,7 @@ impl StacksSubnetOp {
                 })
             }
             "\"deposit-nft\"" => {
-                // Parse 4 fields: nft-id, l1-contract-id, subnet-contract-id, and sender
-                let id = tuple
-                    .get("nft-id")
-                    .map_err(|_| "No 'nft-id' field in Clarity tuple")?
-                    .clone()
-                    .expect_u128();
+                // Parse 4 fields: l1-contract-id, nft-id, sender, and subnet-contract-id
                 // check that this is a valid way of getting the ID of the L1 contract.
                 let l1_contract_id = tuple
                     .get("l1-contract-id")
@@ -370,6 +357,16 @@ impl StacksSubnetOp {
                 } else {
                     Err("Expected 'l1-contract-id' to be a contract principal")
                 }?;
+                let id = tuple
+                    .get("nft-id")
+                    .map_err(|_| "No 'nft-id' field in Clarity tuple")?
+                    .clone()
+                    .expect_u128();
+                let sender = tuple
+                    .get("sender")
+                    .map_err(|_| "No 'sender' field in Clarity tuple")?
+                    .clone()
+                    .expect_principal();
                 let subnet_contract_id = tuple
                     .get("subnet-contract-id")
                     .map_err(|_| "No 'subnet-contract-id' field in Clarity tuple")?
@@ -380,18 +377,6 @@ impl StacksSubnetOp {
                 } else {
                     Err("Expected 'subnet-contract-id' to be a contract principal")
                 }?;
-                let sender = tuple
-                    .get("sender")
-                    .map_err(|_| "No 'sender' field in Clarity tuple")?
-                    .clone()
-                    .expect_principal();
-                let subnet_function_name = tuple
-                    .get("subnet-function-name")
-                    .map_err(|_| "No 'subnet-function-name' field in Clarity tuple")?
-                    .clone()
-                    .expect_ascii();
-                let subnet_function_name = ClarityName::try_from(subnet_function_name)
-                    .map_err(|e| format!("Failed to parse Clarity name: {:?}", e))?;
 
                 Ok(Self {
                     txid,
@@ -401,7 +386,6 @@ impl StacksSubnetOp {
                     event: StacksSubnetOpType::DepositNft {
                         l1_contract_id,
                         subnet_contract_id,
-                        subnet_function_name,
                         id,
                         sender,
                     },

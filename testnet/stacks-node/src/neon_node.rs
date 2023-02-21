@@ -1900,6 +1900,7 @@ impl StacksNode {
         let target_burn_hash = burn_block.burn_header_hash.clone();
         let withdrawal_merkle_root = anchored_block.header.withdrawal_merkle_root;
 
+        let mut op_signer = keychain.generate_op_signer();
         let required_signatures = bitcoin_controller.commit_required_signatures();
         let signatures = if required_signatures > 0 {
             // if we need to collect signatures, assemble the proposal and send to other participants
@@ -1913,6 +1914,16 @@ impl StacksNode {
                 total_burn: parent_block_total_burn,
                 is_mainnet: config.is_mainnet(),
                 microblock_pubkey_hash: mblock_pubkey_hash.clone(),
+            };
+
+            // Sign the proposal. Proposals will only be considered if signed by leader
+            let privk = op_signer.get_sk();
+            let proposal = match proposal.sign_for_authentication(privk) {
+                Ok(p) => p,
+                Err(e) => {
+                    error!("Failure signing block: {e}");
+                    return None;
+                }
             };
 
             (0..required_signatures)
@@ -1975,7 +1986,6 @@ impl StacksNode {
             }
         }
 
-        let mut op_signer = keychain.generate_op_signer();
         info!(
             "Submit block-commit";
             "block_hash" => %anchored_block.block_hash(),
