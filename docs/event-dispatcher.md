@@ -64,7 +64,8 @@ Example:
       "txid": "0x3e04ada5426332bfef446ba0a06d124aace4ade5c11840f541bf88e2e919faf6",
       "microblock_sequence": "None",
       "microblock_hash": "None",
-      "microblock_parent_hash": "None"
+      "microblock_parent_hash": "None",
+      "burnchain_op": null,
     },
     {
       "contract_abi": null,
@@ -76,6 +77,7 @@ Example:
       "microblock_sequence": "3",
       "microblock_hash": "0x9304fcbcc6daf5ac3f264522e0df50eddb5be85df6ee8a9fc2384c54274daaac",
       "microblock_parent_hash": "0x4893ab44636023efa08374033428e44eca490582bd39a6e61f3b6cf749b474bd"
+      "burnchain_op": null,
     }
    ],
    "matured_miner_rewards": [
@@ -104,6 +106,226 @@ Example:
    }
 }
 ```
+
+#### Layer 1-triggered transactions
+
+Some subnet transactions are broadcasted via the layer-1 (just as some
+Stacks transactions are broadcasted via Bitcoin). These transactions
+use the `burnchain_op` field of the `transaction` object to convey information
+from the layer-1 operation. The following block payload contains an example of this:
+
+```json
+  {
+    "anchored_cost": {
+      "read_count": 9,
+      "read_length": 3621,
+      "runtime": 4325000,
+      "write_count": 3,
+      "write_length": 2
+    },
+    "block_hash": "0x6951c0d3cf1ce9169685c897fdb7eee594fc232e805560117859d71b08f9c8e3",
+    "block_height": 6,
+    "burn_block_hash": "0x1c712cfaf83f8f9bc5990b611a18317e44497028e4d4440331dac0313802b01a",
+    "burn_block_height": 18,
+    "burn_block_time": 0,
+    "confirmed_microblocks_cost": {
+      "read_count": 0,
+      "read_length": 0,
+      "runtime": 0,
+      "write_count": 0,
+      "write_length": 0
+    },
+    "events": [
+      {
+        "committed": true,
+        "event_index": 1,
+        "nft_mint_event": {
+          "asset_identifier": "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8.simple-nft::nft-token",
+          "raw_value": "0x0100000000000000000000000000000001",
+          "recipient": "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8",
+          "value": {
+            "UInt": 1
+          }
+        },
+        "txid": "0x7c558d682960d87f0af8f2904a5b561cdfb1732c878a048fc280454282e9eeb2",
+        "type": "nft_mint_event"
+      },
+      {
+        "committed": true,
+        "event_index": 0,
+        "ft_mint_event": {
+          "amount": "1",
+          "asset_identifier": "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8.simple-ft::ft-token",
+          "recipient": "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8"
+        },
+        "txid": "0x37eeac70800f4d6b6f18948d8987c26410a288afdbf6b0a30daeb17daaf300bc",
+        "type": "ft_mint_event"
+      }
+    ],
+    "index_block_hash": "0xdb379f4c3e43d3ee986ceff9e63c8fb222d855a640fe230ce33d080169315eee",
+    "matured_miner_rewards": [],
+    "miner_txid": "0x5af873ac3ded0e8041c539a66ecec3e85ec467a63fdda2526c6eeab6ad4fc416",
+    "parent_block_hash": "0x2bb521ae1d336e23a2e750d2dbbb2abfebc8f0295a9d4391cd72c40f0060a3fd",
+    "parent_burn_block_hash": "0x44e53851d23867abaf86abf0ad4013c9cfffbccb36afbb5c319b2d58743db4ce",
+    "parent_burn_block_height": 16,
+    "parent_burn_block_timestamp": 0,
+    "parent_index_block_hash": "0x4237bf67c1f20126ea67bc8b8beea1f80d44248e2d10290e6c2de97f6ed4a64d",
+    "parent_microblock": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "parent_microblock_sequence": 0,
+    "transactions": [
+      {
+        "burnchain_op": {
+          "deposit_ft": {
+            "amount": 1,
+            "burn_header_hash": "44e53851d23867abaf86abf0ad4013c9cfffbccb36afbb5c319b2d58743db4ce",
+            "l1_contract_id": "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8.simple-ft",
+            "name": "ft-token",
+            "sender": "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8",
+            "subnet_contract_id": "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8.simple-ft",
+            "txid": "37eeac70800f4d6b6f18948d8987c26410a288afdbf6b0a30daeb17daaf300bc"
+          }
+        },
+        "contract_abi": null,
+        "execution_cost": {
+          "read_count": 5,
+          "read_length": 1622,
+          "runtime": 1966000,
+          "write_count": 2,
+          "write_length": 1
+        },
+        "microblock_hash": null,
+        "microblock_parent_hash": null,
+        "microblock_sequence": null,
+        "raw_result": "0x0703",
+        "raw_tx": "0x00",
+        "status": "success",
+        "tx_index": 0,
+        "txid": "0x37eeac70800f4d6b6f18948d8987c26410a288afdbf6b0a30daeb17daaf300bc"
+      },
+      {
+        "burnchain_op": {
+          "deposit_nft": {
+            "burn_header_hash": "44e53851d23867abaf86abf0ad4013c9cfffbccb36afbb5c319b2d58743db4ce",
+            "id": 1,
+            "l1_contract_id": "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8.simple-nft",
+            "sender": "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8",
+            "subnet_contract_id": "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8.simple-nft",
+            "txid": "7c558d682960d87f0af8f2904a5b561cdfb1732c878a048fc280454282e9eeb2"
+          }
+        },
+        "contract_abi": null,
+        "execution_cost": {
+          "read_count": 4,
+          "read_length": 1999,
+          "runtime": 2359000,
+          "write_count": 1,
+          "write_length": 1
+        },
+        "microblock_hash": null,
+        "microblock_parent_hash": null,
+        "microblock_sequence": null,
+        "raw_result": "0x0703",
+        "raw_tx": "0x00",
+        "status": "success",
+        "tx_index": 1,
+        "txid": "0x7c558d682960d87f0af8f2904a5b561cdfb1732c878a048fc280454282e9eeb2"
+      },
+      {
+        "burnchain_op": null,
+        "contract_abi": null,
+        "execution_cost": {
+          "read_count": 0,
+          "read_length": 0,
+          "runtime": 0,
+          "write_count": 0,
+          "write_length": 0
+        },
+        "microblock_hash": null,
+        "microblock_parent_hash": null,
+        "microblock_sequence": null,
+        "raw_result": "0x0703",
+        "raw_tx": "0x800cf475620400a0e3473dd203d4f46ad5c24e5b444f5212e11d3b000000000000000500000000000000000001584c0b3805734fb438d2f2034c0503250effa85bf6a84e0a8d70122b86c5eb0b4fcf946276d515a5318576dc5b05234ab38d687046851e85deb72fb606da89cc010200000000040000000000000000000000000000000000000000000000000000000000000000",
+        "status": "success",
+        "tx_index": 2,
+        "txid": "0x427628fb9dc3a2848c551c4e1f6188138e030a091425574985f7af257757ee58"
+      }
+    ]
+  }
+```
+
+The `burnchain_op` field contains an "externally tagged" object. These example burnchain ops cover the whole of the
+subnet burnchain_op enum:
+
+```json
+{
+  "deposit_stx": {
+    "amount": 7381273163198273,
+    "burn_header_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sender": "SP000000000000000000002Q6VF78",
+    "txid": "3333333333333333333333333333333333333333333333333333333333333333"
+  }
+}
+{
+  "deposit_ft": {
+    "amount": 7381273163198273,
+    "burn_header_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "l1_contract_id": "SP000000000000000000002Q6VF78.bns",
+    "name": "ft-name",
+    "sender": "SP000000000000000000002Q6VF78.bns",
+    "subnet_contract_id": "SP000000000000000000002Q6VF78.bns",
+    "txid": "1111111111111111111111111111111111111111111111111111111111111111"
+  }
+}
+{
+  "deposit_nft": {
+    "burn_header_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "id": 123123,
+    "l1_contract_id": "SP000000000000000000002Q6VF78.bns",
+    "sender": "SP000000000000000000002Q6VF78.bns",
+    "subnet_contract_id": "SP000000000000000000002Q6VF78.bns",
+    "txid": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"
+  }
+}
+{
+  "leader_block_commit": {
+    "block_header_hash": "1212121212121212121212121212121212121212121212121212121212121212",
+    "burn_header_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "txid": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+    "withdrawal_merkle_root": "3131313131313131313131313131313131313131313131313131313131313131"
+  }
+}
+{
+  "withdraw_stx": {
+    "amount": 7381273163198273,
+    "burn_header_hash": "babababababababababababababababababababababababababababababababa",
+    "recipient": "SP000000000000000000002Q6VF78",
+    "txid": "3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b"
+  }
+}
+{
+  "withdraw_nft": {
+    "burn_header_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "id": 123123,
+    "l1_contract_id": "SP000000000000000000002Q6VF78.bns",
+    "recipient": "SP000000000000000000002Q6VF78.bns",
+    "txid": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"
+  }
+}
+{
+  "withdraw_ft": {
+    "amount": 7381273163198273,
+    "burn_header_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "l1_contract_id": "SP000000000000000000002Q6VF78.bns",
+    "name": "ft-name",
+    "recipient": "SP000000000000000000002Q6VF78.bns",
+    "txid": "1111111111111111111111111111111111111111111111111111111111111111"
+  }
+}
+```
+
+**Note** that withdraw operations and block commit operations on the
+layer-1 do not impact the subnet's transaction state, so these
+burnchain ops will not appear in transaction receipts.
 
 ### `POST /new_burn_block`
 
