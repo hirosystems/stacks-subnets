@@ -665,7 +665,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &l2_rpc_origin,
         &user_addr,
         "simple-ft",
-        "get-token-balance",
+        "get-balance",
         vec![Value::Principal(user_addr.into()).serialize()],
     );
     assert!(res.get("cause").is_none());
@@ -750,17 +750,11 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &l2_rpc_origin,
         &user_addr,
         "simple-ft",
-        "get-token-balance",
+        "get-balance",
         vec![Value::Principal(user_addr.into()).serialize()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
-    let result = res["result"]
-        .as_str()
-        .unwrap()
-        .strip_prefix("0x")
-        .unwrap()
-        .to_string();
     let result = res["result"]
         .as_str()
         .unwrap()
@@ -2351,23 +2345,6 @@ fn nft_deposit_and_withdraw_integration_test() {
         5,
     );
 
-    let l1_native_ft_withdrawal_entry = get_ft_withdrawal_entry(
-        &l2_rpc_origin,
-        withdrawal_height,
-        &user_addr,
-        0,
-        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft")),
-        1,
-    );
-    let subnet_native_ft_withdrawal_entry = get_ft_withdrawal_entry(
-        &l2_rpc_origin,
-        withdrawal_height,
-        &user_addr,
-        1,
-        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft")),
-        5,
-    );
-
     // Create the withdrawal merkle tree by mocking both nft withdraw events (if the root hash of
     // this constructed merkle tree is not identical to the root hash published by the subnet node,
     // then the test will fail).
@@ -2495,18 +2472,6 @@ fn nft_deposit_and_withdraw_integration_test() {
     );
     assert_eq!(
         &l1_native_siblings_val, &l1_native_nft_withdrawal_entry.siblings,
-        "Sibling hashes should match value returned via RPC"
-    );
-    assert_eq!(
-        &l1_native_root_hash_val, &l1_native_ft_withdrawal_entry.root_hash,
-        "Root hash should match value returned via RPC"
-    );
-    assert_eq!(
-        &l1_native_leaf_hash_val, &l1_native_ft_withdrawal_entry.leaf_hash,
-        "Leaf hash should match value returned via RPC"
-    );
-    assert_eq!(
-        &l1_native_siblings_val, &l1_native_ft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
 
