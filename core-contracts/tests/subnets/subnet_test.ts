@@ -604,7 +604,7 @@ Clarinet.test({
       Tx.contractCall(
         "simple-ft",
         "gift-tokens",
-        [types.principal(charlie.address)],
+        [types.uint(1), types.principal(charlie.address)],
         charlie.address
       ),
     ]);
@@ -614,7 +614,7 @@ Clarinet.test({
       Tx.contractCall(
         "simple-ft",
         "gift-tokens",
-        [types.principal(charlie.address)],
+        [types.uint(1), types.principal(charlie.address)],
         charlie.address
       ),
     ]);
@@ -844,7 +844,7 @@ Clarinet.test({
       Tx.contractCall(
         "simple-ft",
         "gift-tokens",
-        [types.principal(charlie.address)],
+        [types.uint(1), types.principal(charlie.address)],
         charlie.address
       ),
     ]);
@@ -1055,7 +1055,7 @@ Clarinet.test({
       Tx.contractCall(
         "simple-ft",
         "gift-tokens",
-        [types.principal(charlie.address)],
+        [types.uint(1), types.principal(charlie.address)],
         charlie.address
       ),
     ]);
@@ -1065,7 +1065,7 @@ Clarinet.test({
       Tx.contractCall(
         "simple-ft",
         "gift-tokens",
-        [types.principal(charlie.address)],
+        [types.uint(1), types.principal(charlie.address)],
         charlie.address
       ),
     ]);
