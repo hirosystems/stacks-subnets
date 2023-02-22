@@ -602,7 +602,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-ft",
         "gift-tokens",
-        &[Value::Principal(user_addr.into())],
+        &[Value::UInt(1), Value::Principal(user_addr.into())],
     );
     l1_nonce += 1;
     // Mint a nft-token for user on L1 chain (ID = 1)
@@ -670,7 +670,17 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
-    assert_eq!(res["result"], "0x0100000000000000000000000000000000");
+    let result = res["result"]
+        .as_str()
+        .unwrap()
+        .strip_prefix("0x")
+        .unwrap()
+        .to_string();
+    let amount = Value::deserialize(
+        &result,
+        &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
+    );
+    assert_eq!(amount, Value::okay(Value::UInt(0)).unwrap());
 
     // Check that the user does not own the NFT on the subnet now
     let res = call_read_only(
@@ -751,8 +761,18 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(&result, &TypeSignature::UIntType);
-    assert_eq!(amount, Value::UInt(1));
+    let result = res["result"]
+        .as_str()
+        .unwrap()
+        .strip_prefix("0x")
+        .unwrap()
+        .to_string();
+    let amount = Value::deserialize(
+        &result,
+        &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
+    );
+    assert_eq!(amount, Value::okay(Value::UInt(1)).unwrap());
+
     // Check that the user owns the NFT on the subnet now
     let res = call_read_only(
         &l2_rpc_origin,
@@ -799,6 +819,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
     assert_eq!(amount, Value::okay(Value::UInt(0)).unwrap());
+
     // Check that the user does not own the NFT on the L1 (the contract should own it)
     let res = call_read_only(
         &l1_rpc_origin,
@@ -846,6 +867,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         ],
     );
     l2_nonce += 1;
+
     // Withdraw the nft on the L2
     let l2_withdraw_nft_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
@@ -865,6 +887,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         ],
     );
     l2_nonce += 1;
+
     // Withdraw ft-token from subnet contract on L2
     submit_tx(&l2_rpc_origin, &l2_withdraw_ft_tx);
     // Withdraw nft-token from subnet contract on L2
@@ -894,6 +917,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
     assert_eq!(amount, Value::okay(Value::UInt(0)).unwrap());
+
     // Check that user no longer owns the nft on L2 chain.
     let res = call_read_only(
         &l2_rpc_origin,
@@ -915,6 +939,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
     assert_eq!(addr, Value::none(),);
+
     // Check that the user does not *yet* own the FT on the L1
     let res = call_read_only(
         &l1_rpc_origin,
@@ -936,6 +961,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
     assert_eq!(amount, Value::okay(Value::UInt(0)).unwrap());
+
     // Check that the user does not *yet* own the NFT on the L1 (the contract should own it)
     let res = call_read_only(
         &l1_rpc_origin,
@@ -965,7 +991,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     );
 
     let block_data = test_observer::get_blocks();
-    let mut withdraw_events = filter_map_events(&block_data, |height, event| {
+    let withdraw_events = filter_map_events(&block_data, |height, event| {
         let ev_type = event.get("type").unwrap().as_str().unwrap();
         if ev_type == "contract_event" {
             let contract_event = event.get("contract_event").unwrap();
@@ -981,10 +1007,16 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
                         serde_json::from_value(contract_event.get("value").unwrap().clone())
                             .unwrap();
                     let data_map = value.expect_tuple();
-                    if data_map.get("type").unwrap().clone().expect_ascii() != "nft" {
-                        return None;
+                    match data_map
+                        .get("type")
+                        .unwrap()
+                        .clone()
+                        .expect_ascii()
+                        .as_str()
+                    {
+                        "ft" | "nft" => Some((height, data_map.clone())),
+                        _ => None,
                     }
-                    Some((height, data_map.clone()))
                 }
                 _ => None,
             }
@@ -992,20 +1024,26 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
             None
         }
     });
-    assert_eq!(withdraw_events.len(), 1);
-    let (withdrawal_height, withdrawal) = withdraw_events.pop().unwrap();
+    assert_eq!(withdraw_events.len(), 2);
 
-    let withdrawal_id = withdrawal
-        .get("withdrawal_id")
-        .unwrap()
-        .clone()
-        .expect_u128() as u64;
+    let mut ft_withdrawal_id = 0;
+    let mut nft_withdrawal_id = 0;
+    let mut withdrawal_height = 0;
+    for (height, event) in withdraw_events {
+        withdrawal_height = height;
+        let withdrawal_id = event.get("withdrawal_id").unwrap().clone().expect_u128() as u32;
+        match event.get("type").unwrap().clone().expect_ascii().as_str() {
+            "ft" => ft_withdrawal_id = withdrawal_id,
+            "nft" => nft_withdrawal_id = withdrawal_id,
+            _ => panic!("Unexpected withdrawal event type"),
+        }
+    }
 
     let nft_withdrawal_entry = get_nft_withdrawal_entry(
         &l2_rpc_origin,
         withdrawal_height,
         &user_addr,
-        withdrawal_id,
+        nft_withdrawal_id,
         QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-nft")),
         1,
     );
@@ -1014,8 +1052,8 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &l2_rpc_origin,
         withdrawal_height,
         &user_addr,
-        withdrawal_id,
-        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-nft")),
+        ft_withdrawal_id,
+        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft")),
         1,
     );
 
@@ -1103,7 +1141,8 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     let ft_withdrawal_key =
-        generate_key_from_event(&mut ft_withdraw_event, 0, withdrawal_height).unwrap();
+        generate_key_from_event(&mut ft_withdraw_event, ft_withdrawal_id, withdrawal_height)
+            .unwrap();
     let ft_withdrawal_key_bytes = convert_withdrawal_key_to_bytes(&ft_withdrawal_key);
     let ft_withdrawal_leaf_hash =
         MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(ft_withdrawal_key_bytes.as_slice())
@@ -1111,8 +1150,12 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
             .to_vec();
     let ft_path = withdrawal_tree.path(&ft_withdrawal_key_bytes).unwrap();
 
-    let nft_withdrawal_key =
-        generate_key_from_event(&mut nft_withdraw_event, 1, withdrawal_height).unwrap();
+    let nft_withdrawal_key = generate_key_from_event(
+        &mut nft_withdraw_event,
+        nft_withdrawal_id,
+        withdrawal_height,
+    )
+    .unwrap();
     let nft_withdrawal_key_bytes = convert_withdrawal_key_to_bytes(&nft_withdrawal_key);
     let nft_withdrawal_leaf_hash =
         MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(nft_withdrawal_key_bytes.as_slice())
@@ -1146,19 +1189,21 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     }
 
     let root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
-    let leaf_hash_val = Value::buff_from(nft_withdrawal_leaf_hash.clone()).unwrap();
-    let siblings_val = Value::list_from(nft_sib_data.clone()).unwrap();
+    let nft_leaf_hash_val = Value::buff_from(nft_withdrawal_leaf_hash.clone()).unwrap();
+    let ft_leaf_hash_val = Value::buff_from(ft_withdrawal_leaf_hash.clone()).unwrap();
+    let nft_siblings_val = Value::list_from(nft_sib_data.clone()).unwrap();
+    let ft_siblings_val = Value::list_from(ft_sib_data.clone()).unwrap();
 
     assert_eq!(
         &root_hash_val, &nft_withdrawal_entry.root_hash,
         "Root hash should match value returned via RPC"
     );
     assert_eq!(
-        &leaf_hash_val, &nft_withdrawal_entry.leaf_hash,
+        &nft_leaf_hash_val, &nft_withdrawal_entry.leaf_hash,
         "Leaf hash should match value returned via RPC"
     );
     assert_eq!(
-        &siblings_val, &nft_withdrawal_entry.siblings,
+        &nft_siblings_val, &nft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
 
@@ -1167,11 +1212,11 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         "Root hash should match value returned via RPC"
     );
     assert_eq!(
-        &leaf_hash_val, &ft_withdrawal_entry.leaf_hash,
+        &ft_leaf_hash_val, &ft_withdrawal_entry.leaf_hash,
         "Leaf hash should match value returned via RPC"
     );
     assert_eq!(
-        &siblings_val, &ft_withdrawal_entry.siblings,
+        &ft_siblings_val, &ft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
 
@@ -1256,6 +1301,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
     assert_eq!(amount, Value::okay(Value::UInt(1)).unwrap());
+
     // Check that the user owns the NFT on the L1 chain now
     let res = call_read_only(
         &l1_rpc_origin,
@@ -1516,7 +1562,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
         .get("withdrawal_id")
         .unwrap()
         .clone()
-        .expect_u128() as u64;
+        .expect_u128() as u32;
     let withdrawal_amount: u64 = withdrawal.get("amount").unwrap().clone().expect_u128() as u64;
     let withdrawal_sender = withdrawal
         .get("sender")
@@ -2478,20 +2524,6 @@ fn nft_deposit_and_withdraw_integration_test() {
         .path(&subnet_native_nft_withdrawal_key_bytes)
         .unwrap();
 
-    let subnet_native_ft_withdrawal_key =
-        generate_key_from_event(&mut subnet_native_ft_withdraw_event, 1, withdrawal_height)
-            .unwrap();
-    let subnet_native_ft_withdrawal_key_bytes =
-        convert_withdrawal_key_to_bytes(&subnet_native_ft_withdrawal_key);
-    let subnet_native_ft_withdrawal_leaf_hash = MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(
-        subnet_native_ft_withdrawal_key_bytes.as_slice(),
-    )
-    .as_bytes()
-    .to_vec();
-    let subnet_native_ft_path = withdrawal_tree
-        .path(&subnet_native_ft_withdrawal_key_bytes)
-        .unwrap();
-
     let mut subnet_native_nft_sib_data = Vec::new();
     for (_i, sib) in subnet_native_nft_path.iter().enumerate() {
         let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
@@ -2503,18 +2535,6 @@ fn nft_deposit_and_withdraw_integration_test() {
         ];
         let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
         subnet_native_nft_sib_data.push(sib_tuple);
-    }
-    let mut subnet_native_ft_sib_data = Vec::new();
-    for (_i, sib) in subnet_native_ft_path.iter().enumerate() {
-        let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
-        // the sibling's side is the opposite of what PathOrder is set to
-        let sib_is_left = Value::Bool(sib.order == MerklePathOrder::Right);
-        let curr_sib_data = vec![
-            (ClarityName::from("hash"), sib_hash),
-            (ClarityName::from("is-left-side"), sib_is_left),
-        ];
-        let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
-        subnet_native_ft_sib_data.push(sib_tuple);
     }
 
     let subnet_native_root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
@@ -2532,36 +2552,6 @@ fn nft_deposit_and_withdraw_integration_test() {
     );
     assert_eq!(
         &subnet_native_siblings_val, &subnet_native_nft_withdrawal_entry.siblings,
-        "Sibling hashes should match value returned via RPC"
-    );
-
-    let mut subnet_native_ft_sib_data = Vec::new();
-    for (_i, sib) in subnet_native_ft_path.iter().enumerate() {
-        let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
-        // the sibling's side is the opposite of what PathOrder is set to
-        let sib_is_left = Value::Bool(sib.order == MerklePathOrder::Right);
-        let curr_sib_data = vec![
-            (ClarityName::from("hash"), sib_hash),
-            (ClarityName::from("is-left-side"), sib_is_left),
-        ];
-        let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
-        subnet_native_ft_sib_data.push(sib_tuple);
-    }
-
-    let subnet_native_leaf_hash_val =
-        Value::buff_from(subnet_native_ft_withdrawal_leaf_hash.clone()).unwrap();
-    let subnet_native_siblings_val = Value::list_from(subnet_native_ft_sib_data.clone()).unwrap();
-
-    assert_eq!(
-        &subnet_native_root_hash_val, &subnet_native_ft_withdrawal_entry.root_hash,
-        "Root hash should match value returned via RPC"
-    );
-    assert_eq!(
-        &subnet_native_leaf_hash_val, &subnet_native_ft_withdrawal_entry.leaf_hash,
-        "Leaf hash should match value returned via RPC"
-    );
-    assert_eq!(
-        &subnet_native_siblings_val, &subnet_native_ft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
 
@@ -2752,18 +2742,12 @@ fn ft_deposit_and_withdraw_integration_test() {
     thread::sleep(Duration::from_millis(10_000));
     wait_for_target_l1_block(&sortition_db, MOCKNET_EPOCH_2_1);
 
-    // Publish the ft/FT/mint-from-subnet traits onto L1
-    let trait_content =
-        include_str!("../../../../core-contracts/contracts/helper/trait-standards.clar");
-    let trait_publish = make_contract_publish(
-        &MOCKNET_PRIVATE_KEY_1,
-        LAYER_1_CHAIN_ID_TESTNET,
+    l1_nonce = publish_subnet_contracts_to_l1(
         l1_nonce,
-        1_000_000,
-        &trait_standards_contract_name,
-        &trait_content,
+        &config,
+        miner_account.clone().into(),
+        user_addr.clone().into(),
     );
-    l1_nonce += 1;
 
     // Publish a simple ft onto L1
     let ft_content = include_str!("../../../../core-contracts/contracts/helper/simple-ft.clar");
@@ -2779,36 +2763,7 @@ fn ft_deposit_and_withdraw_integration_test() {
     let ft_contract_name = ContractName::from("simple-ft");
     let ft_contract_id = QualifiedContractIdentifier::new(user_addr.into(), ft_contract_name);
 
-    // Publish the default subnet contract on the L1 chain
-    let contract_content = include_str!("../../../../core-contracts/contracts/subnet.clar")
-        .replace(
-            "(define-data-var miner (optional principal) none)",
-            &format!(
-                "(define-data-var miner (optional principal) (some '{}))",
-                &miner_account
-            ),
-        );
-
-    let subnet_contract_publish = make_contract_publish(
-        &MOCKNET_PRIVATE_KEY_1,
-        LAYER_1_CHAIN_ID_TESTNET,
-        l1_nonce,
-        1_000_000,
-        config.burnchain.contract_identifier.name.as_str(),
-        &format!(
-            "{}\n (as-contract (setup-allowed-contracts))",
-            contract_content
-        ),
-    );
-    l1_nonce += 1;
-
-    submit_tx(l1_rpc_origin, &trait_publish);
     submit_tx(l1_rpc_origin, &ft_publish);
-    // Because the nonce ensures that the trait contracts
-    // are published before the subnet contract, we can broadcast them
-    // all at once, even though the subnet contract depends on those
-    // contracts.
-    submit_tx(l1_rpc_origin, &subnet_contract_publish);
 
     println!("Submitted ft and Subnet contracts onto L1!");
 
@@ -2833,65 +2788,9 @@ fn ft_deposit_and_withdraw_integration_test() {
         "Miner should have produced at least 2 coinbase transactions"
     );
 
-    // Publish the traits onto the subnet
-    let l2_trait_publish = make_contract_publish(
-        &MOCKNET_PRIVATE_KEY_1,
-        config.node.chain_id,
-        l2_nonce,
-        1_000_000,
-        &trait_standards_contract_name,
-        &trait_content,
-    );
-    l2_nonce += 1;
-
     // Publish subnet contract for ft-token
-    let subnet_simple_ft = "
-    (impl-trait .trait-standards.ft-trait)
-
-    (define-constant ERR_NOT_AUTHORIZED (err u1001))
-
-    (define-non-fungible-token ft-token uint)
-    (define-data-var lastId uint u0)
-
-    ;; ft trait implementation
-    (define-read-only (get-last-token-id)
-      (ok (var-get lastId))
-    )
-
-    (define-read-only (get-owner (id uint))
-      (ok (ft-get-owner? ft-token id))
-    )
-
-    (define-read-only (get-token-uri (id uint))
-      (ok none)
-    )
-
-    (define-public (transfer (id uint) (sender principal) (recipient principal))
-      (begin
-        (asserts! (is-eq tx-sender sender) ERR_NOT_AUTHORIZED)
-        (ft-transfer? ft-token id sender recipient)
-      )
-    )
-
-    ;; Other methods
-    (define-public (mint-on-subnet (id uint) (recipient principal))
-        (begin
-            (var-set lastId id)
-            (ft-mint? ft-token id recipient)
-        )
-    )
-
-    (define-public (subnet-deposit-ft-token (id uint) (recipient principal))
-      (begin
-          (var-set lastId id)
-          (ft-mint? ft-token id recipient)
-      )
-    )
-
-    (define-read-only (get-token-owner (id uint))
-        (ft-get-owner? ft-token id)
-    )
-    ";
+    let subnet_simple_ft =
+        include_str!("../../../../core-contracts/contracts/helper/simple-ft-l2.clar");
     let subnet_ft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,
@@ -2904,14 +2803,31 @@ fn ft_deposit_and_withdraw_integration_test() {
     let subnet_ft_contract_id =
         QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft"));
 
-    submit_tx(&l2_rpc_origin, &l2_trait_publish);
     submit_tx(&l2_rpc_origin, &subnet_ft_publish);
 
     // Sleep to give the run loop time to mine a block
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
-    // Mint a ft-token for user on L1 chain (ID = 1)
+    // Register the contract with the subnet
+    let subnet_setup_ft_tx = make_contract_call(
+        &MOCKNET_PRIVATE_KEY_1,
+        LAYER_1_CHAIN_ID_TESTNET,
+        l1_nonce,
+        1_000_000,
+        &user_addr,
+        config.burnchain.contract_identifier.name.as_str(),
+        "register-new-ft-contract",
+        &[
+            Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
+            Value::Principal(PrincipalData::Contract(subnet_ft_contract_id.clone())),
+        ],
+    );
+    l1_nonce += 1;
+
+    submit_tx(l1_rpc_origin, &subnet_setup_ft_tx);
+
+    // Mint 2 ft-tokens for user on L1 chain
     let l1_mint_ft_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -2919,12 +2835,12 @@ fn ft_deposit_and_withdraw_integration_test() {
         1_000_000,
         &user_addr,
         "simple-ft",
-        "test-mint",
-        &[Value::Principal(user_addr.into())],
+        "gift-tokens",
+        &[Value::UInt(2), Value::Principal(user_addr.into())],
     );
     l1_nonce += 1;
 
-    // Mint a ft-token for user on subnet (ID = 5)
+    // Mint 5 ft-tokens for user on subnet
     let l2_mint_ft_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,
@@ -2932,7 +2848,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         1_000_000,
         &user_addr,
         "simple-ft",
-        "mint-on-subnet",
+        "gift-tokens",
         &[Value::UInt(5), Value::Principal(user_addr.into())],
     );
     l2_nonce += 1;
@@ -2949,8 +2865,8 @@ fn ft_deposit_and_withdraw_integration_test() {
         &l2_rpc_origin,
         &user_addr,
         "simple-ft",
-        "get-token-owner",
-        vec![Value::UInt(1).serialize()],
+        "get-balance",
+        vec![Value::Principal(user_addr.into()).serialize()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2960,11 +2876,11 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let addr = Value::deserialize(
+    let amount = Value::deserialize(
         &result,
-        &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
+        &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
-    assert_eq!(addr, Value::none());
+    assert_eq!(amount, Value::okay(Value::UInt(5)).unwrap());
 
     let l1_deposit_ft_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
@@ -2975,16 +2891,16 @@ fn ft_deposit_and_withdraw_integration_test() {
         config.burnchain.contract_identifier.name.as_str(),
         "deposit-ft-asset",
         &[
+            Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
             Value::UInt(1),
             Value::Principal(user_addr.into()),
-            Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
-            Value::Principal(PrincipalData::Contract(subnet_ft_contract_id.clone())),
+            Value::none(),
         ],
     );
     l1_nonce += 1;
 
-    // deposit ft-token into subnet contract on L1
-    submit_tx(&l1_rpc_origin, &l1_deposit_ft_tx);
+    // deposit 1 ft-token into subnet contract on L1
+    let tx_res = submit_tx(&l1_rpc_origin, &l1_deposit_ft_tx);
 
     // Sleep to give the run loop time to mine a block
     wait_for_next_stacks_block(&sortition_db);
@@ -2995,8 +2911,8 @@ fn ft_deposit_and_withdraw_integration_test() {
         &l2_rpc_origin,
         &user_addr,
         "simple-ft",
-        "get-token-owner",
-        vec![Value::UInt(1).serialize()],
+        "get-balance",
+        vec![Value::Principal(user_addr.into()).serialize()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3006,22 +2922,19 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let addr = Value::deserialize(
+    let amount = Value::deserialize(
         &result,
-        &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
+        &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
-    assert_eq!(
-        addr,
-        Value::some(Value::Principal(user_addr.into())).unwrap()
-    );
+    assert_eq!(amount, Value::okay(Value::UInt(6)).unwrap());
 
-    // Check that the user does not own the L1 native ft on the L1 anymore (the contract should own it)
+    // Check that the user now only owns 1 ft on the L1
     let res = call_read_only(
         &l1_rpc_origin,
         &user_addr,
         "simple-ft",
-        "get-owner",
-        vec![Value::UInt(1).serialize()],
+        "get-balance",
+        vec![Value::Principal(user_addr.into()).serialize()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3031,32 +2944,22 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let amount = Value::deserialize(
         &result,
-        &TypeSignature::ResponseType(Box::new((
-            TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
-            TypeSignature::UIntType,
-        ))),
+        &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
-    let subnet_contract_principal = Value::okay(
-        Value::some(Value::Principal(PrincipalData::Contract(
-            QualifiedContractIdentifier::new(
-                user_addr.into(),
-                ContractName::from("subnet-controller"),
-            ),
-        )))
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(owner, subnet_contract_principal);
+    assert_eq!(amount, Value::okay(Value::UInt(1)).unwrap());
 
-    // Check that the no one owns the subnet native ft on the L1
+    // Check that the subnet contract owns 1 ft on the L1
+    let subnet_contract_principal = Value::Principal(PrincipalData::Contract(
+        config.burnchain.contract_identifier.clone(),
+    ));
     let res = call_read_only(
         &l1_rpc_origin,
         &user_addr,
         "simple-ft",
-        "get-owner",
-        vec![Value::UInt(5).serialize()],
+        "get-balance",
+        vec![subnet_contract_principal.serialize()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3066,16 +2969,13 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let amount = Value::deserialize(
         &result,
-        &TypeSignature::ResponseType(Box::new((
-            TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
-            TypeSignature::UIntType,
-        ))),
+        &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
-    assert_eq!(owner, Value::okay(Value::none()).unwrap());
+    assert_eq!(amount, Value::okay(Value::UInt(1)).unwrap());
 
-    // Withdraw the L1 native ft from the L2 (with `ft-withdraw?`)
+    // Withdraw the 4 (out of 6) of the ft-tokens from the L2 (with `ft-withdraw?`)
     let l2_withdraw_ft_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,
@@ -3089,46 +2989,26 @@ fn ft_deposit_and_withdraw_integration_test() {
                 user_addr.into(),
                 ContractName::from("simple-ft"),
             ))),
-            Value::UInt(1),
+            Value::UInt(4),
             Value::Principal(user_addr.into()),
         ],
     );
     l2_nonce += 1;
-    // Withdraw the subnet native ft from the L2 (with `ft-withdraw?`)
-    let l2_withdraw_native_ft_tx = make_contract_call(
-        &MOCKNET_PRIVATE_KEY_1,
-        config.node.chain_id,
-        l2_nonce,
-        1_000_000,
-        &boot_code_addr(false),
-        "subnet",
-        "ft-withdraw?",
-        &[
-            Value::Principal(PrincipalData::Contract(QualifiedContractIdentifier::new(
-                user_addr.into(),
-                ContractName::from("simple-ft"),
-            ))),
-            Value::UInt(5),
-            Value::Principal(user_addr.into()),
-        ],
-    );
-    l2_nonce += 1;
-    // Submit withdrawal function calls
+
+    // Submit withdrawal function call
     submit_tx(&l2_rpc_origin, &l2_withdraw_ft_tx);
-    submit_tx(&l2_rpc_origin, &l2_withdraw_native_ft_tx);
 
     // Sleep to give the run loop time to mine a block
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
-    // Check that user no longer owns the l1 native ft on L2 chain,
-    // instead, the subnet contract should own it.
+    // Check that user owns the remainder of the tokens on the subnet
     let res = call_read_only(
         &l2_rpc_origin,
         &user_addr,
         "simple-ft",
-        "get-token-owner",
-        vec![Value::UInt(1).serialize()],
+        "get-balance",
+        vec![Value::Principal(user_addr.into()).serialize()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3138,53 +3018,19 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let addr = Value::deserialize(
+    let amount = Value::deserialize(
         &result,
-        &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
+        &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
-    assert_eq!(
-        addr,
-        Value::some(Value::Principal(PrincipalData::Contract(
-            boot_code_id("subnet".into(), false).into()
-        )))
-        .unwrap()
-    );
-    // Check that user no longer owns the subnet native ft on L2 chain,
-    // instead, the subnet contract should own it.
-    let res = call_read_only(
-        &l2_rpc_origin,
-        &user_addr,
-        "simple-ft",
-        "get-token-owner",
-        vec![Value::UInt(5).serialize()],
-    );
-    assert!(res.get("cause").is_none());
-    assert!(res["okay"].as_bool().unwrap());
-    let result = res["result"]
-        .as_str()
-        .unwrap()
-        .strip_prefix("0x")
-        .unwrap()
-        .to_string();
-    let addr = Value::deserialize(
-        &result,
-        &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
-    );
-    assert_eq!(
-        addr,
-        Value::some(Value::Principal(PrincipalData::Contract(
-            boot_code_id("subnet".into(), false).into()
-        )))
-        .unwrap()
-    );
+    assert_eq!(amount, Value::okay(Value::UInt(2)).unwrap());
 
-    // Check that the user does not *yet* own the L1 native ft on the L1 (the contract should still own it)
+    // Check that the user does not *yet* own the additional ft tokens on the L1
     let res = call_read_only(
         &l1_rpc_origin,
         &user_addr,
         "simple-ft",
-        "get-owner",
-        vec![Value::UInt(1).serialize()],
+        "get-balance",
+        vec![Value::Principal(user_addr.into()).serialize()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3194,48 +3040,11 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let amount = Value::deserialize(
         &result,
-        &TypeSignature::ResponseType(Box::new((
-            TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
-            TypeSignature::UIntType,
-        ))),
+        &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
-    let subnet_contract_principal = Value::okay(
-        Value::some(Value::Principal(PrincipalData::Contract(
-            QualifiedContractIdentifier::new(
-                user_addr.into(),
-                ContractName::from("subnet-controller"),
-            ),
-        )))
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(owner, subnet_contract_principal);
-    // Check that the user does not *yet* own the subnet native ft on the L1 (no one should own it)
-    let res = call_read_only(
-        &l1_rpc_origin,
-        &user_addr,
-        "simple-ft",
-        "get-owner",
-        vec![Value::UInt(5).serialize()],
-    );
-    assert!(res.get("cause").is_none());
-    assert!(res["okay"].as_bool().unwrap());
-    let result = res["result"]
-        .as_str()
-        .unwrap()
-        .strip_prefix("0x")
-        .unwrap()
-        .to_string();
-    let owner = Value::deserialize(
-        &result,
-        &TypeSignature::ResponseType(Box::new((
-            TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
-            TypeSignature::UIntType,
-        ))),
-    );
-    assert_eq!(owner, Value::okay(Value::none()).unwrap());
+    assert_eq!(amount, Value::okay(Value::UInt(1)).unwrap());
 
     let block_data = test_observer::get_blocks();
     let mut withdraw_events = filter_map_events(&block_data, |height, event| {
@@ -3265,44 +3074,19 @@ fn ft_deposit_and_withdraw_integration_test() {
             None
         }
     });
-    assert_eq!(withdraw_events.len(), 2);
+    assert_eq!(withdraw_events.len(), 1);
     let (withdrawal_height, _withdrawal) = withdraw_events.pop().unwrap();
 
-    let l1_native_ft_withdrawal_entry = get_ft_withdrawal_entry(
+    let ft_withdrawal_entry = get_ft_withdrawal_entry(
         &l2_rpc_origin,
         withdrawal_height,
         &user_addr,
         0,
         QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft")),
-        1,
-    );
-    let subnet_native_ft_withdrawal_entry = get_ft_withdrawal_entry(
-        &l2_rpc_origin,
-        withdrawal_height,
-        &user_addr,
-        1,
-        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft")),
-        5,
+        4,
     );
 
-    let l1_native_ft_withdrawal_entry = get_ft_withdrawal_entry(
-        &l2_rpc_origin,
-        withdrawal_height,
-        &user_addr,
-        0,
-        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft")),
-        1,
-    );
-    let subnet_native_ft_withdrawal_entry = get_ft_withdrawal_entry(
-        &l2_rpc_origin,
-        withdrawal_height,
-        &user_addr,
-        1,
-        QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft")),
-        5,
-    );
-
-    // Create the withdrawal merkle tree by mocking both ft withdraw events (if the root hash of
+    // Create the withdrawal merkle tree by mocking the ft withdraw event (if the root hash of
     // this constructed merkle tree is not identical to the root hash published by the subnet node,
     // then the test will fail).
     let mut spending_condition = TransactionSpendingCondition::new_singlesig_p2pkh(
@@ -3312,7 +3096,7 @@ fn ft_deposit_and_withdraw_integration_test() {
     spending_condition.set_nonce(l2_nonce - 1);
     spending_condition.set_tx_fee(1000);
     let auth = TransactionAuth::Standard(spending_condition);
-    let mut l1_native_ft_withdraw_event =
+    let mut ft_withdraw_event =
         StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
             key: (boot_code_id("subnet".into(), false), "print".into()),
             value: Value::Tuple(
@@ -3334,34 +3118,7 @@ fn ft_deposit_and_withdraw_integration_test() {
                         "sender".into(),
                         Value::Principal(PrincipalData::Standard(user_addr.into())),
                     ),
-                    ("id".into(), Value::UInt(1)),
-                ])
-                .expect("Failed to create tuple data."),
-            ),
-        });
-    let mut subnet_native_ft_withdraw_event =
-        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-            key: (boot_code_id("subnet".into(), false), "print".into()),
-            value: Value::Tuple(
-                TupleData::from_data(vec![
-                    (
-                        "type".into(),
-                        Value::string_ascii_from_bytes("ft".to_string().into_bytes()).unwrap(),
-                    ),
-                    (
-                        "asset-contract".into(),
-                        Value::Principal(PrincipalData::Contract(
-                            QualifiedContractIdentifier::new(
-                                user_addr.into(),
-                                ContractName::from("simple-ft"),
-                            ),
-                        )),
-                    ),
-                    (
-                        "sender".into(),
-                        Value::Principal(PrincipalData::Standard(user_addr.into())),
-                    ),
-                    ("id".into(), Value::UInt(5)),
+                    ("amount".into(), Value::UInt(4)),
                 ])
                 .expect("Failed to create tuple data."),
             ),
@@ -3372,10 +3129,7 @@ fn ft_deposit_and_withdraw_integration_test() {
             auth.clone(),
             TransactionPayload::Coinbase(CoinbasePayload([0u8; 32])),
         )),
-        events: vec![
-            l1_native_ft_withdraw_event.clone(),
-            subnet_native_ft_withdraw_event.clone(),
-        ],
+        events: vec![ft_withdraw_event.clone()],
         post_condition_aborted: false,
         result: Value::err_none(),
         stx_burned: 0,
@@ -3388,21 +3142,17 @@ fn ft_deposit_and_withdraw_integration_test() {
         create_withdrawal_merkle_tree(&mut vec![withdrawal_receipt], withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
-    let l1_native_ft_withdrawal_key =
-        generate_key_from_event(&mut l1_native_ft_withdraw_event, 0, withdrawal_height).unwrap();
-    let l1_native_ft_withdrawal_key_bytes =
-        convert_withdrawal_key_to_bytes(&l1_native_ft_withdrawal_key);
-    let l1_native_ft_withdrawal_leaf_hash = MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(
-        l1_native_ft_withdrawal_key_bytes.as_slice(),
-    )
-    .as_bytes()
-    .to_vec();
-    let l1_native_ft_path = withdrawal_tree
-        .path(&l1_native_ft_withdrawal_key_bytes)
-        .unwrap();
+    let ft_withdrawal_key =
+        generate_key_from_event(&mut ft_withdraw_event, 0, withdrawal_height).unwrap();
+    let ft_withdrawal_key_bytes = convert_withdrawal_key_to_bytes(&ft_withdrawal_key);
+    let ft_withdrawal_leaf_hash =
+        MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(ft_withdrawal_key_bytes.as_slice())
+            .as_bytes()
+            .to_vec();
+    let ft_path = withdrawal_tree.path(&ft_withdrawal_key_bytes).unwrap();
 
-    let mut l1_native_ft_sib_data = Vec::new();
-    for (_i, sib) in l1_native_ft_path.iter().enumerate() {
+    let mut ft_sib_data = Vec::new();
+    for (_i, sib) in ft_path.iter().enumerate() {
         let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
         // the sibling's side is the opposite of what PathOrder is set to
         let sib_is_left = Value::Bool(sib.order == MerklePathOrder::Right);
@@ -3411,143 +3161,41 @@ fn ft_deposit_and_withdraw_integration_test() {
             (ClarityName::from("is-left-side"), sib_is_left),
         ];
         let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
-        l1_native_ft_sib_data.push(sib_tuple);
+        ft_sib_data.push(sib_tuple);
     }
 
-    let l1_native_root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
-    let l1_native_leaf_hash_val =
-        Value::buff_from(l1_native_ft_withdrawal_leaf_hash.clone()).unwrap();
-    let l1_native_siblings_val = Value::list_from(l1_native_ft_sib_data.clone()).unwrap();
+    let root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
+    let leaf_hash_val = Value::buff_from(ft_withdrawal_leaf_hash.clone()).unwrap();
+    let siblings_val = Value::list_from(ft_sib_data.clone()).unwrap();
 
     assert_eq!(
-        &l1_native_root_hash_val, &l1_native_ft_withdrawal_entry.root_hash,
+        &root_hash_val, &ft_withdrawal_entry.root_hash,
         "Root hash should match value returned via RPC"
     );
     assert_eq!(
-        &l1_native_leaf_hash_val, &l1_native_ft_withdrawal_entry.leaf_hash,
+        &leaf_hash_val, &ft_withdrawal_entry.leaf_hash,
         "Leaf hash should match value returned via RPC"
     );
     assert_eq!(
-        &l1_native_siblings_val, &l1_native_ft_withdrawal_entry.siblings,
+        &siblings_val, &ft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
     assert_eq!(
-        &l1_native_root_hash_val, &l1_native_ft_withdrawal_entry.root_hash,
+        &root_hash_val, &ft_withdrawal_entry.root_hash,
         "Root hash should match value returned via RPC"
     );
     assert_eq!(
-        &l1_native_leaf_hash_val, &l1_native_ft_withdrawal_entry.leaf_hash,
+        &leaf_hash_val, &ft_withdrawal_entry.leaf_hash,
         "Leaf hash should match value returned via RPC"
     );
     assert_eq!(
-        &l1_native_siblings_val, &l1_native_ft_withdrawal_entry.siblings,
-        "Sibling hashes should match value returned via RPC"
-    );
-
-    let subnet_native_ft_withdrawal_key =
-        generate_key_from_event(&mut subnet_native_ft_withdraw_event, 1, withdrawal_height)
-            .unwrap();
-    let subnet_native_ft_withdrawal_key_bytes =
-        convert_withdrawal_key_to_bytes(&subnet_native_ft_withdrawal_key);
-    let subnet_native_ft_withdrawal_leaf_hash = MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(
-        subnet_native_ft_withdrawal_key_bytes.as_slice(),
-    )
-    .as_bytes()
-    .to_vec();
-    let subnet_native_ft_path = withdrawal_tree
-        .path(&subnet_native_ft_withdrawal_key_bytes)
-        .unwrap();
-
-    let subnet_native_ft_withdrawal_key =
-        generate_key_from_event(&mut subnet_native_ft_withdraw_event, 1, withdrawal_height)
-            .unwrap();
-    let subnet_native_ft_withdrawal_key_bytes =
-        convert_withdrawal_key_to_bytes(&subnet_native_ft_withdrawal_key);
-    let subnet_native_ft_withdrawal_leaf_hash = MerkleTree::<Sha512Trunc256Sum>::get_leaf_hash(
-        subnet_native_ft_withdrawal_key_bytes.as_slice(),
-    )
-    .as_bytes()
-    .to_vec();
-    let subnet_native_ft_path = withdrawal_tree
-        .path(&subnet_native_ft_withdrawal_key_bytes)
-        .unwrap();
-
-    let mut subnet_native_ft_sib_data = Vec::new();
-    for (_i, sib) in subnet_native_ft_path.iter().enumerate() {
-        let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
-        // the sibling's side is the opposite of what PathOrder is set to
-        let sib_is_left = Value::Bool(sib.order == MerklePathOrder::Right);
-        let curr_sib_data = vec![
-            (ClarityName::from("hash"), sib_hash),
-            (ClarityName::from("is-left-side"), sib_is_left),
-        ];
-        let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
-        subnet_native_ft_sib_data.push(sib_tuple);
-    }
-    let mut subnet_native_ft_sib_data = Vec::new();
-    for (_i, sib) in subnet_native_ft_path.iter().enumerate() {
-        let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
-        // the sibling's side is the opposite of what PathOrder is set to
-        let sib_is_left = Value::Bool(sib.order == MerklePathOrder::Right);
-        let curr_sib_data = vec![
-            (ClarityName::from("hash"), sib_hash),
-            (ClarityName::from("is-left-side"), sib_is_left),
-        ];
-        let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
-        subnet_native_ft_sib_data.push(sib_tuple);
-    }
-
-    let subnet_native_root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
-    let subnet_native_leaf_hash_val =
-        Value::buff_from(subnet_native_ft_withdrawal_leaf_hash.clone()).unwrap();
-    let subnet_native_siblings_val = Value::list_from(subnet_native_ft_sib_data.clone()).unwrap();
-
-    assert_eq!(
-        &subnet_native_root_hash_val, &subnet_native_ft_withdrawal_entry.root_hash,
-        "Root hash should match value returned via RPC"
-    );
-    assert_eq!(
-        &subnet_native_leaf_hash_val, &subnet_native_ft_withdrawal_entry.leaf_hash,
-        "Leaf hash should match value returned via RPC"
-    );
-    assert_eq!(
-        &subnet_native_siblings_val, &subnet_native_ft_withdrawal_entry.siblings,
-        "Sibling hashes should match value returned via RPC"
-    );
-
-    let mut subnet_native_ft_sib_data = Vec::new();
-    for (_i, sib) in subnet_native_ft_path.iter().enumerate() {
-        let sib_hash = Value::buff_from(sib.hash.as_bytes().to_vec()).unwrap();
-        // the sibling's side is the opposite of what PathOrder is set to
-        let sib_is_left = Value::Bool(sib.order == MerklePathOrder::Right);
-        let curr_sib_data = vec![
-            (ClarityName::from("hash"), sib_hash),
-            (ClarityName::from("is-left-side"), sib_is_left),
-        ];
-        let sib_tuple = Value::Tuple(TupleData::from_data(curr_sib_data).unwrap());
-        subnet_native_ft_sib_data.push(sib_tuple);
-    }
-
-    let subnet_native_leaf_hash_val =
-        Value::buff_from(subnet_native_ft_withdrawal_leaf_hash.clone()).unwrap();
-    let subnet_native_siblings_val = Value::list_from(subnet_native_ft_sib_data.clone()).unwrap();
-
-    assert_eq!(
-        &subnet_native_root_hash_val, &subnet_native_ft_withdrawal_entry.root_hash,
-        "Root hash should match value returned via RPC"
-    );
-    assert_eq!(
-        &subnet_native_leaf_hash_val, &subnet_native_ft_withdrawal_entry.leaf_hash,
-        "Leaf hash should match value returned via RPC"
-    );
-    assert_eq!(
-        &subnet_native_siblings_val, &subnet_native_ft_withdrawal_entry.siblings,
+        &siblings_val, &ft_withdrawal_entry.siblings,
         "Sibling hashes should match value returned via RPC"
     );
 
     // TODO: call withdraw from unauthorized principal once leaf verification is added to the subnet contract
 
-    let l1_withdraw_l1_native_ft_tx = make_contract_call(
+    let l1_withdraw_ft_tx = make_contract_call(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
         l1_nonce,
@@ -3556,60 +3204,37 @@ fn ft_deposit_and_withdraw_integration_test() {
         config.burnchain.contract_identifier.name.as_str(),
         "withdraw-ft-asset",
         &[
-            Value::UInt(1),
+            Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
+            Value::UInt(4),
             Value::Principal(user_addr.into()),
             Value::UInt(0),
             Value::UInt(withdrawal_height.into()),
-            Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
+            Value::none(),
             Value::some(Value::Principal(PrincipalData::Contract(
                 ft_contract_id.clone(),
             )))
             .unwrap(),
             Value::buff_from(root_hash.clone()).unwrap(),
-            Value::buff_from(l1_native_ft_withdrawal_leaf_hash).unwrap(),
-            Value::list_from(l1_native_ft_sib_data).unwrap(),
+            Value::buff_from(ft_withdrawal_leaf_hash).unwrap(),
+            Value::list_from(ft_sib_data).unwrap(),
         ],
     );
     l1_nonce += 1;
-    let l1_withdraw_subnet_native_ft_tx = make_contract_call(
-        &MOCKNET_PRIVATE_KEY_1,
-        LAYER_1_CHAIN_ID_TESTNET,
-        l1_nonce,
-        1_000_000,
-        &user_addr,
-        config.burnchain.contract_identifier.name.as_str(),
-        "withdraw-ft-asset",
-        &[
-            Value::UInt(5),
-            Value::Principal(user_addr.into()),
-            Value::UInt(1),
-            Value::UInt(withdrawal_height.into()),
-            Value::Principal(PrincipalData::Contract(ft_contract_id.clone())),
-            Value::some(Value::Principal(PrincipalData::Contract(
-                ft_contract_id.clone(),
-            )))
-            .unwrap(),
-            Value::buff_from(root_hash).unwrap(),
-            Value::buff_from(subnet_native_ft_withdrawal_leaf_hash).unwrap(),
-            Value::list_from(subnet_native_ft_sib_data).unwrap(),
-        ],
-    );
-    l1_nonce += 1;
+
     // Withdraw ft-token from subnet contract on L1
-    submit_tx(&l1_rpc_origin, &l1_withdraw_l1_native_ft_tx);
-    submit_tx(&l1_rpc_origin, &l1_withdraw_subnet_native_ft_tx);
+    submit_tx(&l1_rpc_origin, &l1_withdraw_ft_tx);
 
     // Sleep to give the run loop time to mine a block
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
-    // Check that the user owns the L1 native ft on the L1 chain now
+    // Check that the user owns the tokens on the L1 chain now
     let res = call_read_only(
         &l1_rpc_origin,
         &user_addr,
         "simple-ft",
-        "get-owner",
-        vec![Value::UInt(1).serialize()],
+        "get-balance",
+        vec![Value::Principal(user_addr.into()).serialize()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3619,24 +3244,20 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let amount = Value::deserialize(
         &result,
-        &TypeSignature::ResponseType(Box::new((
-            TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
-            TypeSignature::UIntType,
-        ))),
+        &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
-    assert_eq!(
-        owner,
-        Value::okay(Value::some(Value::Principal(user_addr.into())).unwrap()).unwrap()
-    );
-    // Check that the user owns the subnet native ft on the L1 chain now
+    assert_eq!(amount, Value::okay(Value::UInt(5)).unwrap());
+
+    // Check that the subnet contract no longer owns any tokens. It should have
+    // transferred the 1 that it had, then minted the remaining 3.
     let res = call_read_only(
         &l1_rpc_origin,
         &user_addr,
         "simple-ft",
-        "get-owner",
-        vec![Value::UInt(5).serialize()],
+        "get-balance",
+        vec![subnet_contract_principal.serialize()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3646,17 +3267,11 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let amount = Value::deserialize(
         &result,
-        &TypeSignature::ResponseType(Box::new((
-            TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
-            TypeSignature::UIntType,
-        ))),
+        &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
-    assert_eq!(
-        owner,
-        Value::okay(Value::some(Value::Principal(user_addr.into())).unwrap()).unwrap()
-    );
+    assert_eq!(amount, Value::okay(Value::UInt(0)).unwrap());
 
     termination_switch.store(false, Ordering::SeqCst);
     stacks_l1_controller.kill_process();

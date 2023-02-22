@@ -714,7 +714,7 @@ pub fn get_ft_withdrawal_entry<F: std::fmt::Display>(
     sender: F,
     withdrawal_id: u32,
     contract_identifier: QualifiedContractIdentifier,
-    id: u64,
+    amount: u64,
 ) -> WithdrawalEntry {
     let client = reqwest::blocking::Client::new();
     let path = format!(
@@ -725,7 +725,7 @@ pub fn get_ft_withdrawal_entry<F: std::fmt::Display>(
         withdrawal_id,
         StacksAddress::from(contract_identifier.issuer),
         contract_identifier.name.as_str(),
-        id
+        amount
     );
 
     let res = client
