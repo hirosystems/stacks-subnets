@@ -1441,6 +1441,14 @@ pub enum HttpRequestType {
         withdrawal_id: u32,
         amount: u128,
     },
+    GetWithdrawalFt {
+        metadata: HttpRequestMetadata,
+        withdraw_block_height: u64,
+        sender: PrincipalData,
+        withdrawal_id: u32,
+        contract_identifier: QualifiedContractIdentifier,
+        amount: u128,
+    },
     GetWithdrawalNft {
         metadata: HttpRequestMetadata,
         withdraw_block_height: u64,
