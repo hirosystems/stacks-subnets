@@ -9,7 +9,7 @@ use stacks::burnchains::{Burnchain, Error as BurnchainError, Txid};
 use stacks::chainstate::burn::db::sortdb::SortitionDB;
 use stacks::chainstate::coordinator::comm::CoordinatorChannels;
 use stacks::chainstate::stacks::index::ClarityMarfTrieId;
-use stacks::chainstate::stacks::miner::Proposal;
+use stacks::chainstate::stacks::miner::SignedProposal;
 use stacks::chainstate::stacks::StacksTransaction;
 use stacks::codec::StacksMessageCodec;
 use stacks::core::StacksEpoch;
@@ -250,7 +250,7 @@ impl BurnchainController for L1Controller {
     fn propose_block(
         &self,
         participant_index: u8,
-        proposal: &Proposal,
+        proposal: &SignedProposal,
     ) -> Result<ClaritySignature, Error> {
         self.committer
             .propose_block_to(participant_index, proposal)

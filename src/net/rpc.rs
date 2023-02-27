@@ -934,9 +934,10 @@ impl ConversationHttp {
         req: &HttpRequestType,
         chainstate: &mut StacksChainState,
         sortdb: &SortitionDB,
-        proposal: &miner::Proposal,
+        signed_proposal: &miner::SignedProposal,
         validator_key: Option<&Secp256k1PrivateKey>,
         signing_contract: Option<&QualifiedContractIdentifier>,
+        options: &ConnectionOptions,
         canonical_stacks_tip_height: u64,
     ) -> Result<(), net_error> {
         let response_metadata =
@@ -947,7 +948,7 @@ impl ConversationHttp {
                 let response = HttpResponseType::BlockProposalInvalid {
                     metadata: response_metadata,
                     error_message:
-                        "Cannot validate block proposal: not configured with validation key".into(),
+                        "Cannot validate block proposal: Not configured with validation key".into(),
                 };
                 return response.send(http, fd);
             }
@@ -959,8 +960,40 @@ impl ConversationHttp {
                 let response = HttpResponseType::BlockProposalInvalid {
                     metadata: response_metadata,
                     error_message:
-                        "Cannot validate block proposal: not configured with a multiparty contract"
+                        "Cannot validate block proposal: Not configured with a multiparty contract"
                             .into(),
+                };
+                return response.send(http, fd);
+            }
+        };
+
+        let pubk_recovered = match signed_proposal.recover_signer_pk() {
+            Ok(key) => key,
+            Err(e) => {
+                let response = HttpResponseType::BlockProposalInvalid {
+                    metadata: response_metadata,
+                    error_message: format!("Cannot validate block proposal: {e}"),
+                };
+                return response.send(http, fd);
+            }
+        };
+
+        // TODO: Replace with lookup in `HashSet`
+        if !options.allowed_block_proposers.contains(&pubk_recovered) {
+            let response = HttpResponseType::BlockProposalInvalid {
+                metadata: response_metadata,
+                error_message:
+                    "Cannot validate block proposal: Not signed by approved block proposer".into(),
+            };
+            return response.send(http, fd);
+        }
+
+        let proposal = match signed_proposal.decode() {
+            Ok(p) => p,
+            Err(e) => {
+                let response = HttpResponseType::BlockProposalInvalid {
+                    metadata: response_metadata,
+                    error_message: format!("Cannot validate block proposal: {e}"),
                 };
                 return response.send(http, fd);
             }
@@ -998,6 +1031,38 @@ impl ConversationHttp {
             sender,
             withdrawal_id,
             amount,
+            requested_block_height,
+        );
+        Self::handle_get_generic_withdrawal_entry(
+            http,
+            fd,
+            req,
+            chainstate,
+            canonical_tip,
+            requested_block_height,
+            withdrawal_key,
+            canonical_stacks_tip_height,
+        )
+    }
+
+    fn handle_get_withdrawal_ft_entry<W: Write>(
+        http: &mut StacksHttp,
+        fd: &mut W,
+        req: &HttpRequestType,
+        chainstate: &mut StacksChainState,
+        canonical_tip: &StacksBlockId,
+        requested_block_height: u64,
+        sender: &PrincipalData,
+        withdrawal_id: u32,
+        contract_identifier: &QualifiedContractIdentifier,
+        id: u128,
+        canonical_stacks_tip_height: u64,
+    ) -> Result<(), net_error> {
+        let withdrawal_key = withdrawal::make_key_for_ft_withdrawal(
+            sender,
+            withdrawal_id,
+            contract_identifier,
+            id,
             requested_block_height,
         );
         Self::handle_get_generic_withdrawal_entry(
@@ -2817,10 +2882,46 @@ impl ConversationHttp {
                     &proposal,
                     validator_key,
                     signing_contract,
+                    &self.connection.options,
                     network.burnchain_tip.canonical_stacks_tip_height,
                 )?;
                 None
             }
+
+            HttpRequestType::GetWithdrawalFt {
+                withdraw_block_height,
+                ref sender,
+                withdrawal_id,
+                amount,
+                ref contract_identifier,
+                ..
+            } => {
+                if let Some(tip) = ConversationHttp::handle_load_stacks_chain_tip(
+                    &mut self.connection.protocol,
+                    &mut reply,
+                    &req,
+                    &TipRequest::UseLatestAnchoredTip,
+                    sortdb,
+                    chainstate,
+                    network.burnchain_tip.canonical_stacks_tip_height,
+                )? {
+                    ConversationHttp::handle_get_withdrawal_ft_entry(
+                        &mut self.connection.protocol,
+                        &mut reply,
+                        &req,
+                        chainstate,
+                        &tip,
+                        withdraw_block_height,
+                        &sender.clone(),
+                        withdrawal_id,
+                        contract_identifier,
+                        amount,
+                        network.burnchain_tip.canonical_stacks_tip_height,
+                    )?;
+                }
+                None
+            }
+
             HttpRequestType::GetWithdrawalNft {
                 withdraw_block_height,
                 ref sender,

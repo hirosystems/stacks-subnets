@@ -685,7 +685,7 @@ pub fn get_withdrawal_entry<F: std::fmt::Display>(
     http_origin: &str,
     block_height: u64,
     sender: F,
-    withdrawal_id: u64,
+    withdrawal_id: u32,
     amount: u64,
 ) -> WithdrawalEntry {
     let client = reqwest::blocking::Client::new();
@@ -708,11 +708,45 @@ pub fn get_withdrawal_entry<F: std::fmt::Display>(
     }
 }
 
+pub fn get_ft_withdrawal_entry<F: std::fmt::Display>(
+    http_origin: &str,
+    block_height: u64,
+    sender: F,
+    withdrawal_id: u32,
+    contract_identifier: QualifiedContractIdentifier,
+    amount: u64,
+) -> WithdrawalEntry {
+    let client = reqwest::blocking::Client::new();
+    let path = format!(
+        "{}/v2/withdrawal/ft/{}/{}/{}/{}/{}/{}",
+        http_origin,
+        block_height,
+        sender,
+        withdrawal_id,
+        StacksAddress::from(contract_identifier.issuer),
+        contract_identifier.name.as_str(),
+        amount
+    );
+
+    let res = client
+        .get(&path)
+        .send()
+        .unwrap()
+        .json::<WithdrawalResponse>()
+        .unwrap();
+    info!("Withdrawal response: {:#?}", res);
+    WithdrawalEntry {
+        leaf_hash: ClarityValue::try_deserialize_hex_untyped(&res.withdrawal_leaf_hash).unwrap(),
+        root_hash: ClarityValue::try_deserialize_hex_untyped(&res.withdrawal_root).unwrap(),
+        siblings: ClarityValue::try_deserialize_hex_untyped(&res.sibling_hashes).unwrap(),
+    }
+}
+
 pub fn get_nft_withdrawal_entry<F: std::fmt::Display>(
     http_origin: &str,
     block_height: u64,
     sender: F,
-    withdrawal_id: u64,
+    withdrawal_id: u32,
     contract_identifier: QualifiedContractIdentifier,
     id: u64,
 ) -> WithdrawalEntry {

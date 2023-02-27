@@ -1,3 +1,7 @@
+//! In-memory backing storage option for SoarDB. This backing store
+//! is transient, so any data stored in this will be lost when the
+//! process exits.
+
 use std::collections::HashMap;
 
 use crate::SoarError;
