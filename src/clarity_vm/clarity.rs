@@ -440,9 +440,7 @@ impl ClarityInstance {
     }
 
     pub fn drop_unconfirmed_state(&mut self, block: &StacksBlockId) {
-        //self.datastore.begin_unconfirmed(current);
-        let datastore: WritableMarfStore = panic!("begin_unconfirmed not implemented yet");
-        datastore.rollback_unconfirmed()
+        self.datastore.drop_unconfirmed(block);
     }
 
     pub fn begin_unconfirmed<'a, 'b>(
@@ -451,8 +449,14 @@ impl ClarityInstance {
         header_db: &'b dyn HeadersDB,
         burn_state_db: &'b dyn BurnStateDB,
     ) -> ClarityBlockConnection<'a, 'b> {
-        //self.datastore.begin_unconfirmed(current);
-        let mut datastore: PendingSoarBlock = panic!("begin_unconfirmed not implemented yet");
+        self.datastore
+            .set_block(current)
+            .expect("FAIL: SoarDB failed to retarget to `current`");
+
+        let mut datastore = self
+            .datastore
+            .begin_unconfirmed(current)
+            .expect("FAIL: SoarDB failed to open new block");
 
         let epoch = Self::get_epoch_of(current, header_db, burn_state_db);
 
@@ -631,16 +635,6 @@ impl<'a, 'b> ClarityBlockConnection<'a, 'b> {
         //   ClarityDatabase or AnalysisDatabase -- this is done at the backing store level.
         debug!("Rollback Clarity datastore");
         self.datastore.rollback_block();
-    }
-
-    /// Rolls back all unconfirmed state in the current block by
-    /// (1) dropping all writes from the current MARF tip,
-    /// (2) rolling back side-storage
-    pub fn rollback_unconfirmed(self) {
-        // this is a "lower-level" rollback than the roll backs performed in
-        //   ClarityDatabase or AnalysisDatabase -- this is done at the backing store level.
-        debug!("Rollback unconfirmed Clarity datastore");
-        self.datastore.rollback_unconfirmed();
     }
 
     /// Commits all changes in the current block by
@@ -1585,9 +1579,8 @@ mod tests {
             fs::remove_dir_all(test_name).unwrap();
         }
 
-        let confirmed_marf = MarfedKV::open(test_name, None, None).unwrap();
-        let mut confirmed_clarity_instance =
-            ClarityInstance::new(false, CHAIN_ID_TESTNET, confirmed_marf);
+        let db = SoarDB::new_memory();
+        let mut clarity_instance = ClarityInstance::new_s(false, CHAIN_ID_TESTNET, db);
         let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
 
         let contract = "
@@ -1597,7 +1590,7 @@ mod tests {
           (begin (var-set bar (/ x y)) (ok (var-get bar))))";
 
         // make an empty but confirmed block
-        confirmed_clarity_instance
+        clarity_instance
             .begin_test_genesis_block(
                 &StacksBlockId::sentinel(),
                 &StacksBlockId([0 as u8; 32]),
@@ -1605,19 +1598,6 @@ mod tests {
                 &TEST_BURN_STATE_DB,
             )
             .commit_block();
-
-        let marf = MarfedKV::open_unconfirmed(test_name, None, None).unwrap();
-
-        let genesis_metadata_entries = marf
-            .sql_conn()
-            .query_row::<u32, _, _>(
-                "SELECT COUNT(value) FROM metadata_table",
-                NO_PARAMS,
-                |row| row.get(0),
-            )
-            .unwrap();
-
-        let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
 
         // make an unconfirmed block off of the confirmed block
         {
@@ -1686,8 +1666,10 @@ mod tests {
                 });
             });
 
-            conn.rollback_unconfirmed();
+            conn.rollback_block();
         }
+
+        clarity_instance.drop_unconfirmed_state(&StacksBlockId([0; 32]));
 
         // contract is now absent, now that we did a rollback of unconfirmed state
         {

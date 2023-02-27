@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use crate::SoarError;
 
 use super::PutCommand;
-use stacks_common::types::chainstate::StacksBlockId;
+use stacks_common::{info, types::chainstate::StacksBlockId};
 
 pub struct BlockData {
     put_log: Vec<PutCommand>,
@@ -17,11 +17,26 @@ pub struct BlockData {
     id: StacksBlockId,
 }
 
+pub struct UnconfirmedState {
+    put_log: Vec<PutCommand>,
+    parent: StacksBlockId,
+    height: u64,
+    #[allow(dead_code)]
+    id: StacksBlockId,
+    entries: HashMap<String, String>,
+}
+
+struct CurrentBlockMeta {
+    id: StacksBlockId,
+    unconfirmed: bool,
+}
+
 pub struct MemoryBackingStore {
     current_block: Option<StacksBlockId>,
     pub entries: HashMap<String, String>,
     blocks: HashMap<StacksBlockId, BlockData>,
     blocks_by_height: HashMap<u64, StacksBlockId>,
+    pub unconfirmed_blocks: HashMap<StacksBlockId, UnconfirmedState>,
 }
 
 impl MemoryBackingStore {
@@ -31,11 +46,24 @@ impl MemoryBackingStore {
             entries: HashMap::new(),
             blocks: HashMap::new(),
             blocks_by_height: HashMap::new(),
+            unconfirmed_blocks: HashMap::new(),
+        }
+    }
+
+    /// Destroy this block's unconfirmed state if it exists, otherwise panic!
+    pub fn drop_unconfirmed(&mut self, block: &StacksBlockId) {
+        if self.current_block.as_ref() == Some(block) {
+            self.undo_block(block)
+                .expect("FATAL: failed to undo current block");
+        }
+        info!("Rolled back unconfirmed block"; "stacks_block_id" => %block);
+        if self.unconfirmed_blocks.remove_entry(block).is_none() {
+            panic!("FATAL: attempted unconfirmed rollback on either unknown block or a confirmed block")
         }
     }
 
     pub fn has_block(&self, block: &StacksBlockId) -> bool {
-        self.blocks.contains_key(block)
+        self.blocks.contains_key(block) || self.unconfirmed_blocks.contains_key(block)
     }
 
     pub fn reapply_block(&mut self, block: &StacksBlockId) -> Result<(), SoarError> {
@@ -51,6 +79,16 @@ impl MemoryBackingStore {
         self.set_current_block(block.clone());
 
         Ok(())
+    }
+
+    pub fn get_unconfirmed_state(
+        &self,
+        block: &StacksBlockId,
+    ) -> Result<Option<(Vec<PutCommand>, HashMap<String, String>)>, SoarError> {
+        Ok(self
+            .unconfirmed_blocks
+            .get(block)
+            .map(|state| (state.put_log.clone(), state.entries.clone())))
     }
 
     pub fn undo_block(&mut self, expected_cur_block: &StacksBlockId) -> Result<(), SoarError> {
@@ -76,6 +114,11 @@ impl MemoryBackingStore {
     }
 
     pub fn get_value(&self, key: &str) -> Result<Option<String>, SoarError> {
+        let current_block = match self.current_block.as_ref() {
+            Some(x) => x,
+            None => return Ok(None),
+        };
+
         Ok(self.entries.get(key).cloned())
     }
 
@@ -134,6 +177,46 @@ impl MemoryBackingStore {
 
         Ok(())
     }
+
+    /// Store a new unconfirmed block, and apply all of its puts
+    ///  to the unconfirmed block data
+    pub fn store_unconfirmed_data(
+        &mut self,
+        block: StacksBlockId,
+        parent: StacksBlockId,
+        put_log: Vec<PutCommand>,
+    ) -> Result<(), SoarError> {
+        let parent_height = match self.blocks.get(&parent) {
+            Some(parent_data) => Ok(parent_data.height),
+            None => Err(SoarError::NoParentBlock(
+                "Parent block has not been processed yet",
+            )),
+        }?;
+
+        let entries = put_log
+            .iter()
+            .map(|PutCommand { key, value, .. }| (key.clone(), value.clone()))
+            .collect();
+
+        let prior = self.unconfirmed_blocks.insert(
+            block.clone(),
+            UnconfirmedState {
+                put_log,
+                parent,
+                height: parent_height,
+                id: block,
+                entries,
+            },
+        );
+
+        assert!(
+            prior.is_none(),
+            "Stored unconfirmed block data over an existing block entry"
+        );
+
+        Ok(())
+    }
+
     pub fn store_block_data(
         &mut self,
         block: StacksBlockId,

@@ -11,10 +11,17 @@ serde = "1"
 serde_derive = "1"
 serde_json = { version = "1.0", features = ["arbitrary_precision", "raw_value"] }
 slog = { version = "2.5.2", features = [ "max_level_trace" ] }
+slog-term = "2.6.0"
+slog-json = { version = "2.3.0" }
+
 clarity = { git = "https://github.com/stacks-network/stacks-blockchain.git", rev = "580e811223a389d38071dcb9fde79ab55cd6f685" }
 stacks-common = { git = "https://github.com/stacks-network/stacks-blockchain.git", rev = "580e811223a389d38071dcb9fde79ab55cd6f685" }
 # clarity = { package = "clarity", path = "../../../stacks-blockchain-develop/clarity" }
 # stacks-common = { package = "stacks-common", path = "../stacks-blockchain-develop/stacks-common" }
+
+[dependencies.rusqlite]
+version = "=0.24.2"
+features = ["blob", "serde_json", "i128_blob", "bundled", "trace"]
 
 [lib]
 name = "soar_db"

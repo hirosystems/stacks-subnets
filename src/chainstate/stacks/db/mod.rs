@@ -403,10 +403,6 @@ impl<'a, 'b> ClarityTx<'a, 'b> {
         self.block.rollback_block()
     }
 
-    pub fn rollback_unconfirmed(self) -> () {
-        self.block.rollback_unconfirmed()
-    }
-
     pub fn reset_cost(&mut self, cost: ExecutionCost) -> () {
         self.block.reset_block_cost(cost);
     }

@@ -60,10 +60,21 @@ impl StacksChainState {
         contract_id: &QualifiedContractIdentifier,
     ) -> Result<Option<Contract>, Error> {
         clarity_tx
-            .with_clarity_db_readonly(|ref mut db| match db.get_contract(contract_id) {
-                Ok(c) => Ok(Some(c)),
-                Err(clarity_vm_error::Unchecked(CheckErrors::NoSuchContract(_))) => Ok(None),
-                Err(e) => Err(clarity_error::Interpreter(e)),
+            .with_clarity_db_readonly(|ref mut db| {
+                if db.has_contract(contract_id) {
+                    match db.get_contract(contract_id) {
+                        Ok(c) => Ok(Some(c)),
+                        // this branch depends on specific metadata fetching behavior in the Clarity MARF connection,
+                        // this behavior _is not_ mimicked by the SoarDB (invoking db.get_contract() panics on a
+                        // non-existing contract with the SoarDB!)
+                        Err(clarity_vm_error::Unchecked(CheckErrors::NoSuchContract(_))) => {
+                            Ok(None)
+                        }
+                        Err(e) => Err(clarity_error::Interpreter(e)),
+                    }
+                } else {
+                    Ok(None)
+                }
             })
             .map_err(Error::ClarityError)
     }

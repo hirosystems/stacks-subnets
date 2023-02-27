@@ -10,14 +10,21 @@
 
 extern crate clarity;
 extern crate stacks_common;
+#[macro_use(o, slog_log, slog_trace, slog_debug, slog_info, slog_warn, slog_error)]
+extern crate slog;
+extern crate slog_json;
+extern crate slog_term;
 
 use std::collections::HashMap;
 
 use crate::memory::MemoryBackingStore;
-use clarity::vm::{
-    database::{BurnStateDB, ClarityBackingStore, ClarityDatabase, HeadersDB},
-    errors::InterpreterResult,
-    types::QualifiedContractIdentifier,
+use clarity::{
+    util::hash::Sha512Trunc256Sum,
+    vm::{
+        database::{BurnStateDB, ClarityBackingStore, ClarityDatabase, HeadersDB},
+        errors::InterpreterResult,
+        types::QualifiedContractIdentifier,
+    },
 };
 use stacks_common::types::chainstate::StacksBlockId;
 
@@ -53,6 +60,7 @@ pub struct PendingSoarBlock<'a> {
     /// wrapper.
     pending_ops: Vec<PutCommand>,
     pending_view: HashMap<String, String>,
+    is_unconfirmed: bool,
 }
 
 pub struct ReadOnlySoarConn<'a> {
@@ -272,12 +280,38 @@ impl SoarDB {
         Ok(())
     }
 
+    /// Add a new unconfirmed block to the database, retargeting the database to
+    ///  to the new block's fork if necessary.
+    pub fn add_unconfirmed_block_ops(
+        &mut self,
+        block: StacksBlockId,
+        parent: StacksBlockId,
+        put_list: Vec<PutCommand>,
+    ) -> Result<(), SoarError> {
+        // if needed, target the DB at the block's parent
+        self.set_block(&parent)?;
+
+        // then store and apply the block
+        self.storage
+            .store_unconfirmed_data(block, parent, put_list.clone())?;
+
+        // do not set the unconfirmed state as the current block
+
+        Ok(())
+    }
+
     /// A lot of code in the stacks-blockchain codebase assumes
     ///  that a "sentinel block hash" indicates a non-existent parent
     ///  rather than using an Option<> type for the parent. This method inserts
     ///  a sentinel genesis block to handle that behavior
     pub fn stub_genesis(&mut self) {
         self.add_genesis(StacksBlockId([255; 32]), vec![]).unwrap();
+    }
+
+    /// Drop unconfirmed block state built off of confirmed StacksBlockId `block`
+    pub fn drop_unconfirmed(&mut self, block: &StacksBlockId) {
+        let unconfirmed_id = make_unconfirmed_chain_tip(block);
+        self.storage.drop_unconfirmed(&unconfirmed_id)
     }
 
     pub fn begin<'a>(
@@ -294,6 +328,7 @@ impl SoarDB {
                 id: next.clone(),
                 pending_ops: vec![],
                 pending_view: HashMap::new(),
+                is_unconfirmed: false,
             })
         }
     }
@@ -309,6 +344,45 @@ impl SoarDB {
         }
         Ok(ReadOnlySoarConn { db: self })
     }
+
+    pub fn begin_unconfirmed<'a>(
+        &'a mut self,
+        current: &StacksBlockId,
+    ) -> Result<PendingSoarBlock<'a>, SoarError> {
+        if self.current_block() != Some(current) {
+            Err(SoarError::ViewChangeRequired)
+        } else {
+            let next = make_unconfirmed_chain_tip(current);
+            // is there existing unconfirmed state? if so, use it
+            let (pending_ops, pending_view) = match self.storage.get_unconfirmed_state(&next)? {
+                Some(x) => x,
+                None => (vec![], HashMap::new()),
+            };
+
+            Ok(PendingSoarBlock {
+                db: self,
+                parent_block: current.clone(),
+                id: next,
+                pending_ops,
+                pending_view,
+                is_unconfirmed: true,
+            })
+        }
+    }
+}
+
+/// Make an unconfirmed chain tip from an existing chain tip, so that it won't conflict with
+/// the "true" chain tip after the state it represents is later reprocessed and confirmed.
+fn make_unconfirmed_chain_tip(chain_tip: &StacksBlockId) -> StacksBlockId {
+    let mut bytes = [0u8; 64];
+    bytes[0..32].copy_from_slice(chain_tip.as_bytes());
+    bytes[32..64].copy_from_slice(chain_tip.as_bytes());
+
+    let h = Sha512Trunc256Sum::from_data(&bytes);
+    let mut res_bytes = [0u8; 32];
+    res_bytes[0..32].copy_from_slice(h.as_bytes());
+
+    StacksBlockId(res_bytes)
 }
 
 impl<'a> PendingSoarBlock<'a> {
@@ -324,10 +398,6 @@ impl<'a> PendingSoarBlock<'a> {
         // nothing needs to be done, just destroy the struct
     }
 
-    pub fn rollback_unconfirmed(self) {
-        // nothing needs to be done, just destroy the struct
-    }
-
     pub fn commit_to(self, final_bhh: &StacksBlockId) {
         self.db
             .add_block_ops(final_bhh.clone(), self.parent_block, self.pending_ops)
@@ -340,13 +410,15 @@ impl<'a> PendingSoarBlock<'a> {
     }
 
     pub fn commit_unconfirmed(self) {
-        panic!("SoarDB does not support 'unconfirmed' block data yet");
+        self.db
+            .add_unconfirmed_block_ops(self.id.clone(), self.parent_block, self.pending_ops)
+            .expect("FAIL: error committing block to SoarDB");
     }
 
     // This is used by miners
     //   so that the block validation and processing logic doesn't
     //   reprocess the same data as if it were already loaded
-    pub fn commit_mined_block(self, will_move_to: &StacksBlockId) {
+    pub fn commit_mined_block(self, _will_move_to: &StacksBlockId) {
         // just destroy the struct and dropped the mined data
     }
 }
@@ -356,7 +428,7 @@ fn metadata_key(contract: &QualifiedContractIdentifier, key: &str) -> String {
 }
 
 impl<'a> ClarityBackingStore for ReadOnlySoarConn<'a> {
-    fn put_all(&mut self, items: Vec<(String, String)>) {
+    fn put_all(&mut self, _items: Vec<(String, String)>) {
         panic!("BUG: attempted commit to read-only connection");
     }
 
@@ -375,12 +447,12 @@ impl<'a> ClarityBackingStore for ReadOnlySoarConn<'a> {
 
     fn set_block_hash(
         &mut self,
-        bhh: StacksBlockId,
+        _bhh: StacksBlockId,
     ) -> clarity::vm::errors::InterpreterResult<StacksBlockId> {
         panic!("SoarDB does not support set_block_hash");
     }
 
-    fn get_block_at_height(&mut self, height: u32) -> Option<StacksBlockId> {
+    fn get_block_at_height(&mut self, _height: u32) -> Option<StacksBlockId> {
         panic!("SoarDB does not support get_block_at_height");
     }
 
@@ -480,12 +552,12 @@ impl<'a> ClarityBackingStore for PendingSoarBlock<'a> {
 
     fn set_block_hash(
         &mut self,
-        bhh: StacksBlockId,
+        _bhh: StacksBlockId,
     ) -> clarity::vm::errors::InterpreterResult<StacksBlockId> {
         panic!("SoarDB does not support set_block_hash");
     }
 
-    fn get_block_at_height(&mut self, height: u32) -> Option<StacksBlockId> {
+    fn get_block_at_height(&mut self, _height: u32) -> Option<StacksBlockId> {
         panic!("SoarDB does not support get_block_at_height");
     }
 
@@ -530,12 +602,8 @@ impl<'a> ClarityBackingStore for PendingSoarBlock<'a> {
         contract: &QualifiedContractIdentifier,
         key: &str,
     ) -> InterpreterResult<Option<String>> {
-        eprintln!("PENDING: {:#?}", self.pending_view.keys());
-        eprintln!("STORAGE: {:#?}", self.db.storage.entries.keys());
         let key = metadata_key(contract, key);
-        eprintln!("METAKEY: {:#?}", key);
         let r = self.get(&key);
-        eprintln!("RESULT: {:#?}", r);
         Ok(r)
     }
 
