@@ -82,4 +82,5 @@ net-test/mnt/archive/*
 *.profraw
 *.profdata
 lcov.info
+coverage.lcov
 core-contracts/.cache
