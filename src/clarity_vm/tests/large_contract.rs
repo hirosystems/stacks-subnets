@@ -31,9 +31,9 @@ use clarity::vm::types::{
     OptionalData, PrincipalData, QualifiedContractIdentifier, ResponseData, StandardPrincipalData,
     TypeSignature, Value,
 };
+use soar_db::SoarDB;
 use stacks_common::util::hash::hex_bytes;
 
-use crate::clarity_vm::database::marf::MarfedKV;
 use clarity::vm::clarity::TransactionConnection;
 
 use clarity::vm::version::ClarityVersion;
@@ -76,7 +76,7 @@ const SIMPLE_TOKENS: &str = "(define-map tokens { account: principal } { balance
 
 #[test]
 fn test_simple_token_system() {
-    let mut clarity = ClarityInstance::new(false, CHAIN_ID_TESTNET, MarfedKV::temporary());
+    let mut clarity = ClarityInstance::new(false, CHAIN_ID_TESTNET, SoarDB::new_memory());
     let p1 = PrincipalData::from(
         PrincipalData::parse_standard_principal("SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR")
             .unwrap(),
@@ -333,8 +333,7 @@ fn test_simple_token_system() {
 #[test]
 #[ignore]
 pub fn rollback_log_memory_test() {
-    let marf = MarfedKV::temporary();
-    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, SoarDB::new_memory());
     let EXPLODE_N = 100;
 
     let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
@@ -404,8 +403,7 @@ pub fn rollback_log_memory_test() {
  */
 #[test]
 pub fn let_memory_test() {
-    let marf = MarfedKV::temporary();
-    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, SoarDB::new_memory());
     let EXPLODE_N = 100;
 
     let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
@@ -479,8 +477,7 @@ pub fn let_memory_test() {
 
 #[test]
 pub fn argument_memory_test() {
-    let marf = MarfedKV::temporary();
-    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, SoarDB::new_memory());
     let EXPLODE_N = 100;
 
     let contract_identifier = QualifiedContractIdentifier::local("foo").unwrap();
@@ -554,8 +551,7 @@ pub fn argument_memory_test() {
 
 #[test]
 pub fn fcall_memory_test() {
-    let marf = MarfedKV::temporary();
-    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, SoarDB::new_memory());
     let COUNT_PER_FUNC = 10;
     let FUNCS = 10;
 
@@ -675,8 +671,7 @@ pub fn fcall_memory_test() {
 #[test]
 #[ignore]
 pub fn ccall_memory_test() {
-    let marf = MarfedKV::temporary();
-    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, SoarDB::new_memory());
     let COUNT_PER_CONTRACT = 20;
     let CONTRACTS = 5;
 

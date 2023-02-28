@@ -48,6 +48,7 @@ use clarity::vm::representations::{ClarityName, ContractName};
 use clarity::vm::types::{
     PrincipalData, QualifiedContractIdentifier, StandardPrincipalData, Value,
 };
+use soar_db::SoarError;
 use stacks_common::address::AddressHashMode;
 use stacks_common::util::hash::Hash160;
 use stacks_common::util::hash::Sha512Trunc256Sum;
@@ -116,6 +117,7 @@ pub enum Error {
     NetError(net_error),
     CodecError(codec_error),
     MARFError(marf_error),
+    SoarError(SoarError),
     ReadError(io::Error),
     WriteError(io::Error),
     MemPoolError(String),
@@ -153,6 +155,12 @@ impl From<codec_error> for Error {
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Error {
         Error::JSONError(e)
+    }
+}
+
+impl From<SoarError> for Error {
+    fn from(e: SoarError) -> Self {
+        Error::SoarError(e)
     }
 }
 
@@ -203,6 +211,7 @@ impl fmt::Display for Error {
             }
             Error::JSONError(ref e) => fmt::Display::fmt(e, f),
             Error::Secp256k1Error(ref s) => fmt::Display::fmt(s, f),
+            Error::SoarError(ref e) => write!(f, "ChainstateError: {}", e),
         }
     }
 }
@@ -239,6 +248,7 @@ impl error::Error for Error {
             Error::StacksTransactionSkipped(ref _r) => None,
             Error::JSONError(ref e) => Some(e),
             Error::Secp256k1Error(ref _s) => None,
+            Error::SoarError(ref e) => Some(e),
         }
     }
 }
@@ -275,6 +285,7 @@ impl Error {
             Error::StacksTransactionSkipped(ref _r) => "StacksTransactionSkipped",
             Error::JSONError(ref _e) => "JSONError",
             Error::Secp256k1Error(ref _s) => "Secp256k1Error",
+            Error::SoarError(_) => "SoarError",
         }
     }
 

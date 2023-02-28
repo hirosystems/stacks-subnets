@@ -4,6 +4,7 @@ use clarity::vm::ast::build_ast_with_rules;
 use clarity::vm::test_util::{TEST_BURN_STATE_DB, TEST_HEADER_DB};
 use clarity::vm::types::QualifiedContractIdentifier;
 use clarity::vm::ClarityVersion;
+use soar_db::SoarDB;
 use stacks_common::types::chainstate::StacksBlockId;
 use stacks_common::types::StacksEpochId;
 
@@ -20,8 +21,7 @@ fn dependency_edge_counting_runtime(iters: usize) -> u64 {
         progn.push_str("))");
     }
 
-    let marf = MarfedKV::temporary();
-    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, marf);
+    let mut clarity_instance = ClarityInstance::new(false, CHAIN_ID_TESTNET, SoarDB::new_memory());
 
     clarity_instance
         .begin_test_genesis_block(

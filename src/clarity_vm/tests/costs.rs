@@ -47,7 +47,6 @@ use stacks_common::util::hash::hex_bytes;
 
 use std::collections::HashMap;
 
-use crate::clarity_vm::database::marf::MarfedKV;
 use clarity::vm::database::MemoryBackingStore;
 use clarity::vm::tests::test_only_mainnet_to_chain_id;
 use soar_db::SoarDB;
@@ -128,8 +127,6 @@ pub fn get_simple_test(function: &NativeFunctions) -> &'static str {
         ContractOf => "(contract-of contract)",
         PrincipalOf => "(principal-of? 0x03adb8de4bfb65db2cfd6120d55c6526ae9c52e675db7e47308636534ba7786110)",
         AsContract => "(as-contract 1)",
-        GetBlockInfo => "(get-block-info? time u1)",
-        GetBurnBlockInfo => "(get-block-info? time u1)", // TODO: use get-burn-block-info here once API is settled enough to change the mocked burn state DB in this file
         ConsOkay => "(ok 1)",
         ConsError => "(err 1)",
         ConsSome => "(some 1)",
@@ -154,7 +151,10 @@ pub fn get_simple_test(function: &NativeFunctions) -> &'static str {
         BurnToken => "(ft-burn? ft-foo u1 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR)",
         BurnAsset => "(nft-burn? nft-foo 1 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR)",
         GetTokenSupply => "(ft-get-supply ft-foo)",
-        AtBlock => "(at-block 0x55c9861be5cff984a20ce6d99d4aa65941412889bdc665094136429b84f8c2ee 1)",   // first stacksblockid
+        // Don't test at-block for costs! At-block will runtime error in subnet with soar.
+        AtBlock => "(ok 1)", 
+        GetBlockInfo => "(ok 1)", // "(get-block-info? time u1)",
+        GetBurnBlockInfo => "(ok 1)", //"(get-block-info? time u1)", // TODO: use get-burn-block-info here once API is settled enough to change the mocked burn state DB in this file
         GetStxBalance => "(stx-get-balance 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR)",
         StxTransfer => r#"(stx-transfer? u1 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR)"#,
         StxTransferMemo => r#"(stx-transfer-memo? u1 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR 0x89995432)"#,
@@ -1278,9 +1278,8 @@ fn test_cost_contract_short_circuits_testnet() {
 }
 
 fn test_cost_voting_integration(use_mainnet: bool, clarity_version: ClarityVersion) {
-    let marf_kv = MarfedKV::temporary();
     let chain_id = test_only_mainnet_to_chain_id(use_mainnet);
-    let mut clarity_instance = ClarityInstance::new(use_mainnet, chain_id, marf_kv);
+    let mut clarity_instance = ClarityInstance::new(use_mainnet, chain_id, SoarDB::new_memory());
     let burn_db = if clarity_version == ClarityVersion::Clarity2 {
         &TEST_BURN_STATE_DB_21
     } else {

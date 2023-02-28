@@ -228,9 +228,9 @@ impl<'a, 'b> ClarityBlockConnection<'a, 'b> {
 }
 
 impl ClarityInstance {
-    pub fn new(mainnet: bool, chain_id: u32, datastore: MarfedKV) -> ClarityInstance {
+    pub fn new(mainnet: bool, chain_id: u32, datastore: SoarDB) -> ClarityInstance {
         ClarityInstance {
-            datastore: unimplemented!("Must pass SoarDB here"),
+            datastore,
             mainnet,
             chain_id,
         }

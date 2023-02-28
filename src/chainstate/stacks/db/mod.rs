@@ -28,6 +28,7 @@ use rusqlite::OpenFlags;
 use rusqlite::Row;
 use rusqlite::Transaction;
 use rusqlite::NO_PARAMS;
+use soar_db::SoarDB;
 use util::hash::MerkleTree;
 
 use crate::burnchains::{Address, Burnchain, BurnchainParameters, PoxConstants};
@@ -1604,15 +1605,12 @@ impl StacksChainState {
 
         let state_index = StacksChainState::open_db(mainnet, chain_id, &header_index_root)?;
 
-        let vm_state = MarfedKV::open(
-            &clarity_state_index_root,
-            Some(&StacksBlockHeader::make_index_block_hash(
-                &MINER_BLOCK_CONSENSUS_HASH,
-                &MINER_BLOCK_HEADER_HASH,
-            )),
-            marf_opts.clone(),
-        )
-        .map_err(|e| Error::ClarityError(e.into()))?;
+        let vm_state = SoarDB::open(&clarity_state_index_root)?;
+
+        // Some(&StacksBlockHeader::make_index_block_hash(
+        //     &MINER_BLOCK_CONSENSUS_HASH,
+        //     &MINER_BLOCK_HEADER_HASH,
+        // )),
 
         let clarity_state = ClarityInstance::new(mainnet, chain_id, vm_state);
 

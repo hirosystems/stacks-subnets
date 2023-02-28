@@ -72,10 +72,12 @@ impl MemoryBackingStore {
             .get(block)
             .ok_or_else(|| SoarError::BlockNotFound(block.clone()))?;
 
+        let block_height = block_data.height;
         for command in block_data.put_log.clone().into_iter() {
             self.apply_put(command);
         }
 
+        self.blocks_by_height.insert(block_height, block.clone());
         self.set_current_block(block.clone());
 
         Ok(())
@@ -101,11 +103,15 @@ impl MemoryBackingStore {
             .get(expected_cur_block)
             .expect("Could not find block data for current block");
         let parent = block_data.parent.clone();
+        let block_height = block_data.height;
 
         // undo each operation in reverse order from the edit log
         for put_command in block_data.put_log.clone().into_iter().rev() {
             self.undo_put(put_command);
         }
+
+        let block_id = self.blocks_by_height.remove(&block_height);
+        assert_eq!(block_id.as_ref(), Some(expected_cur_block));
 
         // operations are undone, now set the current_block to the parent
         self.current_block = parent;
@@ -130,6 +136,10 @@ impl MemoryBackingStore {
             },
             None => Err(SoarError::BlockNotFound(block.clone())),
         }
+    }
+
+    pub fn get_block_at_height(&self, height: u64) -> Result<StacksBlockId, SoarError> {
+        unimplemented!("");
     }
 
     pub fn get_block_height(&self, block: &StacksBlockId) -> Result<u64, SoarError> {
@@ -159,6 +169,8 @@ impl MemoryBackingStore {
         if self.current_block.is_some() {
             return Err(SoarError::GenesisRewriteAttempted);
         }
+
+        self.blocks_by_height.insert(0, block.clone());
 
         let prior = self.blocks.insert(
             block.clone(),
@@ -230,15 +242,18 @@ impl MemoryBackingStore {
             )),
         }?;
 
+        let height = parent_height
+            .checked_add(1)
+            .ok_or_else(|| SoarError::BlockHeightOverflow)?;
+        self.blocks_by_height.insert(height, block.clone());
+
         let prior = self.blocks.insert(
             block.clone(),
             BlockData {
                 id: block,
                 parent: Some(parent),
                 put_log,
-                height: parent_height
-                    .checked_add(1)
-                    .ok_or_else(|| SoarError::BlockHeightOverflow)?,
+                height,
             },
         );
         assert!(

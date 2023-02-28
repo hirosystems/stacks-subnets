@@ -36,6 +36,7 @@ use clarity::vm::tests::{
 use clarity::vm::types::{
     AssetIdentifier, PrincipalData, QualifiedContractIdentifier, ResponseData, Value,
 };
+use soar_db::SoarDB;
 use stacks_common::util::hash::hex_bytes;
 
 use crate::chainstate::stacks::index::ClarityMarfTrieId;
@@ -52,9 +53,8 @@ pub fn test_tracked_costs(
     epoch: StacksEpochId,
     version: ClarityVersion,
 ) -> ExecutionCost {
-    let marf = MarfedKV::temporary();
     let chain_id = test_only_mainnet_to_chain_id(use_mainnet);
-    let mut clarity_instance = ClarityInstance::new(use_mainnet, chain_id, marf);
+    let mut clarity_instance = ClarityInstance::new(use_mainnet, chain_id, SoarDB::new_memory());
 
     let p1 = vm_execute("'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR")
         .unwrap()

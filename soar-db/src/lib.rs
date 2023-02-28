@@ -16,16 +16,14 @@ extern crate slog_json;
 extern crate slog_term;
 
 use std::collections::HashMap;
+use std::error::Error;
+use std::fmt;
 
 use crate::memory::MemoryBackingStore;
-use clarity::{
-    util::hash::Sha512Trunc256Sum,
-    vm::{
-        database::{BurnStateDB, ClarityBackingStore, ClarityDatabase, HeadersDB},
-        errors::InterpreterResult,
-        types::QualifiedContractIdentifier,
-    },
-};
+use clarity::util::hash::Sha512Trunc256Sum;
+use clarity::vm::database::{BurnStateDB, ClarityBackingStore, ClarityDatabase, HeadersDB};
+use clarity::vm::errors::{Error as ClarityError, InterpreterResult, RuntimeErrorType};
+use clarity::vm::types::QualifiedContractIdentifier;
 use stacks_common::types::chainstate::StacksBlockId;
 
 pub mod memory;
@@ -60,7 +58,6 @@ pub struct PendingSoarBlock<'a> {
     /// wrapper.
     pending_ops: Vec<PutCommand>,
     pending_view: HashMap<String, String>,
-    is_unconfirmed: bool,
 }
 
 pub struct ReadOnlySoarConn<'a> {
@@ -103,11 +100,42 @@ pub enum SoarError {
     ViewChangeRequired,
 }
 
+impl Error for SoarError {}
+
+impl fmt::Display for SoarError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "SoarError: ")?;
+        match self {
+            SoarError::NoParentBlock(e) => write!(f, "No parent block. {}", e),
+            SoarError::BlockNotFound(e) => write!(f, "Block not found. {}", e),
+            SoarError::GenesisRewriteAttempted => {
+                write!(f, "Attempted multiple writes of genesis block")
+            }
+            SoarError::BlockHeightOverflow => write!(f, "Reached overflow in block height"),
+            SoarError::MismatchViewDuringRollback => {
+                write!(f, "Unexpected block during a rollback")
+            }
+            SoarError::RollbackBeyondGenesis => write!(f, "Attempted to rollback genesis block"),
+            SoarError::ViewChangeRequired => {
+                write!(f, "Database view must be retargeted before invocation")
+            }
+        }
+    }
+}
+
 impl SoarDB {
     pub fn new_memory() -> SoarDB {
         SoarDB {
             storage: MemoryBackingStore::new(),
         }
+    }
+
+    // TODO: when a persisted SoarDB is implemented,
+    //  connect with open()
+    pub fn open(_path: &str) -> Result<SoarDB, SoarError> {
+        Ok(SoarDB {
+            storage: MemoryBackingStore::new(),
+        })
     }
 
     /// If the DB has a block, then the current block should be returned
@@ -328,7 +356,6 @@ impl SoarDB {
                 id: next.clone(),
                 pending_ops: vec![],
                 pending_view: HashMap::new(),
-                is_unconfirmed: false,
             })
         }
     }
@@ -365,7 +392,6 @@ impl SoarDB {
                 id: next,
                 pending_ops,
                 pending_view,
-                is_unconfirmed: true,
             })
         }
     }
@@ -445,11 +471,11 @@ impl<'a> ClarityBackingStore for ReadOnlySoarConn<'a> {
         }
     }
 
-    fn set_block_hash(
-        &mut self,
-        _bhh: StacksBlockId,
-    ) -> clarity::vm::errors::InterpreterResult<StacksBlockId> {
-        panic!("SoarDB does not support set_block_hash");
+    fn set_block_hash(&mut self, _bhh: StacksBlockId) -> InterpreterResult<StacksBlockId> {
+        Err(ClarityError::Runtime(
+            RuntimeErrorType::NotImplemented,
+            None,
+        ))
     }
 
     fn get_block_at_height(&mut self, _height: u32) -> Option<StacksBlockId> {
@@ -550,11 +576,11 @@ impl<'a> ClarityBackingStore for PendingSoarBlock<'a> {
         }
     }
 
-    fn set_block_hash(
-        &mut self,
-        _bhh: StacksBlockId,
-    ) -> clarity::vm::errors::InterpreterResult<StacksBlockId> {
-        panic!("SoarDB does not support set_block_hash");
+    fn set_block_hash(&mut self, _bhh: StacksBlockId) -> InterpreterResult<StacksBlockId> {
+        Err(ClarityError::Runtime(
+            RuntimeErrorType::NotImplemented,
+            None,
+        ))
     }
 
     fn get_block_at_height(&mut self, _height: u32) -> Option<StacksBlockId> {

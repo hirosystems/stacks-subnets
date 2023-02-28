@@ -35,6 +35,7 @@ use clarity::vm::database::BurnStateDB;
 use clarity::vm::database::HeadersDB;
 use clarity::vm::database::NULL_BURN_STATE_DB;
 use clarity::vm::database::NULL_HEADER_DB;
+use soar_db::SoarDB;
 
 use crate::chainstate::burn::db::sortdb::SortitionDB;
 use crate::clarity_vm::database::marf::MarfedKV;
@@ -93,13 +94,9 @@ impl UnconfirmedState {
     /// Make a new unconfirmed state, but don't do anything with it yet.  Caller should immediately
     /// call .refresh() to instatiate and store the underlying state trie.
     fn new(chainstate: &StacksChainState, tip: StacksBlockId) -> Result<UnconfirmedState, Error> {
-        let marf = MarfedKV::open_unconfirmed(
-            &chainstate.clarity_state_index_root,
-            None,
-            chainstate.marf_opts.clone(),
-        )?;
+        let db = SoarDB::open(&chainstate.clarity_state_index_root)?;
 
-        let clarity_instance = ClarityInstance::new(chainstate.mainnet, chainstate.chain_id, marf);
+        let clarity_instance = ClarityInstance::new(chainstate.mainnet, chainstate.chain_id, db);
         let unconfirmed_tip = MARF::make_unconfirmed_chain_tip(&tip);
         let cost_so_far = StacksChainState::get_stacks_block_anchored_cost(chainstate.db(), &tip)?
             .ok_or(Error::NoSuchBlockError)?;
@@ -130,13 +127,9 @@ impl UnconfirmedState {
         chainstate: &StacksChainState,
         tip: StacksBlockId,
     ) -> Result<UnconfirmedState, Error> {
-        let marf = MarfedKV::open_unconfirmed(
-            &chainstate.clarity_state_index_root,
-            None,
-            chainstate.marf_opts.clone(),
-        )?;
+        let db = SoarDB::open(&chainstate.clarity_state_index_root)?;
 
-        let clarity_instance = ClarityInstance::new(chainstate.mainnet, chainstate.chain_id, marf);
+        let clarity_instance = ClarityInstance::new(chainstate.mainnet, chainstate.chain_id, db);
         let unconfirmed_tip = MARF::make_unconfirmed_chain_tip(&tip);
         let cost_so_far = StacksChainState::get_stacks_block_anchored_cost(chainstate.db(), &tip)?
             .ok_or(Error::NoSuchBlockError)?;
