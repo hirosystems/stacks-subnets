@@ -1,4 +1,8 @@
 {
+    "deno.enablePaths": [
+        "./core-contracts/tests/subnets"
+    ],
+    "deno.lint": true,
     "lldb.adapterType": "native",
     "lldb.launch.sourceLanguages": ["rust"]
 }
