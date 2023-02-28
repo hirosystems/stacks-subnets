@@ -153,6 +153,10 @@ impl SoarDB {
         self.storage.get_block_height(block)
     }
 
+    pub fn get_block_at_height(&self, height: u64) -> Result<Option<StacksBlockId>, SoarError> {
+        self.storage.get_block_at_height(height)
+    }
+
     /// Retarget the db to `block`, performing any unrolls or replays required to do so
     pub fn set_block(&mut self, block: &StacksBlockId) -> Result<(), SoarError> {
         // already pointed at the block, just return
@@ -478,8 +482,15 @@ impl<'a> ClarityBackingStore for ReadOnlySoarConn<'a> {
         ))
     }
 
-    fn get_block_at_height(&mut self, _height: u32) -> Option<StacksBlockId> {
-        panic!("SoarDB does not support get_block_at_height");
+    fn get_block_at_height(&mut self, height: u32) -> Option<StacksBlockId> {
+        let my_height = self.get_open_chain_tip_height();
+        if height == my_height {
+            Some(self.get_open_chain_tip())
+        } else {
+            self.db
+                .get_block_at_height(height as u64)
+                .expect("FATAL: SoarDB error")
+        }
     }
 
     fn get_current_block_height(&mut self) -> u32 {
@@ -583,8 +594,15 @@ impl<'a> ClarityBackingStore for PendingSoarBlock<'a> {
         ))
     }
 
-    fn get_block_at_height(&mut self, _height: u32) -> Option<StacksBlockId> {
-        panic!("SoarDB does not support get_block_at_height");
+    fn get_block_at_height(&mut self, height: u32) -> Option<StacksBlockId> {
+        let my_height = self.get_open_chain_tip_height();
+        if height == my_height {
+            Some(self.id.clone())
+        } else {
+            self.db
+                .get_block_at_height(height as u64)
+                .expect("FATAL: SoarDB error")
+        }
     }
 
     fn get_current_block_height(&mut self) -> u32 {

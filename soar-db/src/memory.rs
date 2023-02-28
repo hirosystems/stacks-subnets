@@ -138,8 +138,8 @@ impl MemoryBackingStore {
         }
     }
 
-    pub fn get_block_at_height(&self, height: u64) -> Result<StacksBlockId, SoarError> {
-        unimplemented!("");
+    pub fn get_block_at_height(&self, height: u64) -> Result<Option<StacksBlockId>, SoarError> {
+        Ok(self.blocks_by_height.get(&height).cloned())
     }
 
     pub fn get_block_height(&self, block: &StacksBlockId) -> Result<u64, SoarError> {

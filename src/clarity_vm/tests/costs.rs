@@ -153,8 +153,8 @@ pub fn get_simple_test(function: &NativeFunctions) -> &'static str {
         GetTokenSupply => "(ft-get-supply ft-foo)",
         // Don't test at-block for costs! At-block will runtime error in subnet with soar.
         AtBlock => "(ok 1)", 
-        GetBlockInfo => "(ok 1)", // "(get-block-info? time u1)",
-        GetBurnBlockInfo => "(ok 1)", //"(get-block-info? time u1)", // TODO: use get-burn-block-info here once API is settled enough to change the mocked burn state DB in this file
+        GetBlockInfo => "(get-block-info? time u1)",
+        GetBurnBlockInfo => "(get-block-info? time u1)", // TODO: use get-burn-block-info here once API is settled enough to change the mocked burn state DB in this file
         GetStxBalance => "(stx-get-balance 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR)",
         StxTransfer => r#"(stx-transfer? u1 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR)"#,
         StxTransferMemo => r#"(stx-transfer-memo? u1 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR 'SZ2J6ZY48GV1EZ5V2V5RB9MP66SW86PYKKQ9H6DPR 0x89995432)"#,
