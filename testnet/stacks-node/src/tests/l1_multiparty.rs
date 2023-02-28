@@ -179,7 +179,7 @@ fn l1_multiparty_1_of_n_integration_test() {
 //  simple progress.
 fn l1_multiparty_2_of_2_integration_test() {
     // running locally:
-    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_integration_test
+    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_multiparty_2_of_2
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
         return;
     }

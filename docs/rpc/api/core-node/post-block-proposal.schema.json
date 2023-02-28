@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "POST request for block proposals",
+  "title": "Block proposal RPC request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["message", "signature"],
+  "properties": {
+    "message": {
+      "type": "string"
+    },
+    "signature": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "POST response for block proposal (hex encoded signature)",
+  "title": "Success response for block proposal",
+  "type": "string",
+}
