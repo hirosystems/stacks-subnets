@@ -103,10 +103,16 @@ Clarinet.test({
     const alice = accounts.get("wallet_1")!;
     // invalid miner
     const bob = accounts.get("wallet_2")!;
-    const charlie = accounts.get("wallet_3")!;
 
-    // set alice as a miner
-    let initialize = chain.mineBlock([
+    let block = chain.mineBlock([
+      // set alice as a miner
+      Tx.contractCall(
+        "subnet",
+        "update-miner",
+        [types.principal(alice.address)],
+        deployer.address
+      ),
+      // Try to set alice as a miner again, should fail
       Tx.contractCall(
         "subnet",
         "update-miner",
@@ -114,13 +120,16 @@ Clarinet.test({
         deployer.address
       ),
     ]);
+    block.receipts[0].result.expectOk();
+    // should return (err ERR_INVALID_MINER)
+    block.receipts[1].result.expectErr().expectInt(2);
 
     const id_header_hash1 = chain
       .callReadOnlyFn("test-helpers", "get-id-header-hash", [], alice.address)
       .result.expectOk()
       .toString();
 
-    let block = chain.mineBlock([
+    block = chain.mineBlock([
       // Successfully commit block at height 0 with alice.
       Tx.contractCall(
         "subnet",
@@ -150,12 +159,13 @@ Clarinet.test({
     // should return (err ERR_BLOCK_ALREADY_COMMITTED)
     block.receipts[1].result.expectErr().expectInt(1);
 
-    // Try and fail to commit a block at height 1 with an invalid miner.
     const id_header_hash2 = chain
       .callReadOnlyFn("test-helpers", "get-id-header-hash", [], alice.address)
       .result.expectOk()
       .toString();
+
     block = chain.mineBlock([
+      // Try and fail to commit a block at height 1 with an invalid miner.
       Tx.contractCall(
         "subnet",
         "commit-block",
@@ -166,9 +176,22 @@ Clarinet.test({
         ],
         bob.address
       ),
+      // Try and fail to commit a block to non-existent `target-chain-tip`
+      Tx.contractCall(
+        "subnet",
+        "commit-block",
+        [
+          types.buff(new Uint8Array([0, 2, 2, 2, 1])),
+          types.buff(new Uint8Array([0, 2, 2, 2, 2])),
+          types.buff(new Uint8Array([0, 2, 2, 2, 3])),
+        ],
+        alice.address
+      ),
     ]);
-    // should return (err ERR_BLOCK_ALREADY_COMMITTED)
+    // should return (err ERR_INVALID_MINER)
     block.receipts[0].result.expectErr().expectInt(2);
+    // should return (err ERR_INVALID_CHAIN_TIP)
+    block.receipts[1].result.expectErr().expectInt(11);
 
     // Successfully commit block at height 1 with valid miner.
     const id_header_hash3 = chain
