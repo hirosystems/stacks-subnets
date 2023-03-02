@@ -9,7 +9,7 @@ can be found in the [contrib/init](../contrib/init) folder.
 ## Service User
 
 All Linux startup configurations assume the existence of a "stacks" user
-and group. They must be created before attempting to use these scripts.
+and group. Users and groups must be created before attempting to use these scripts.
 The MacOS configuration assumes stacks-blockchain will be set up for the current user.
 
 ## Configuration
@@ -30,14 +30,16 @@ All three configurations assume several paths that might need to be adjusted.
     PID file:            /run/stacks-blockchain/stacks.pid
     Lock file:           /var/lock/subsys/stacks (SysVinit)
 
-The PID directory and data directory should both be owned by the
+The PID directory and data directory should be owned by both the
 stacks user and group. It is advised for security reasons to make the
 configuration file and data directory only readable by the stacks user and
 group.
 
-NOTE: When using the systemd .service file, the creation of the aforementioned
+ **_NOTE:_**
+
+When using the `systemd .service` file, the creation of the aforementioned
 directories and the setting of their permissions is automatically handled by
-systemd. Directories are given a permission of 710, giving the stacks group
+`systemd`. Directories are given a permission of 710, giving the stacks group
 access to files under it _if_ the files themselves give permission to the
 stacks group to do so. This does not allow for the listing of files under the directory.
 
@@ -60,14 +62,15 @@ The Config.toml file is presumed to have group ownership by the `wheel` group, w
 
 ### systemd
 
-Installing this .service file consists of just copying it to
-/usr/lib/systemd/system directory, followed by the command
+Installing this .service file consists of just copying it to /usr/lib/systemd/system directory, followed by the command
 `systemctl daemon-reload` in order to update running systemd configuration.
 
 To test, run `systemctl start stacks` and to enable for system startup run
 `systemctl enable stacks`
 
-NOTE: When installing for systemd in Debian/Ubuntu the .service file needs to be copied to the /lib/systemd/system directory instead.
+**_Note_**
+
+When installing for systemd in Debian/Ubuntu the .service file needs to be copied to the /lib/systemd/system directory instead.
 
 ### SysVinit
 

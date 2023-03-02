@@ -6,38 +6,53 @@ title: Getting Started
 # Getting Started
 
 Subnets can be built using any of the following methods:
+
 - Build with Clarinet
 - Build with Testnet
 - Test Locally
 
 > **_NOTE:_**
 >
-> Subnets was earlier referred as Hyperchains. While we are in the process of updating the content, you might still see subnets being referred as Hyperchains.
+> Subnets was earlier referred as Hyperchains. While the process of updating the content is ongoing, there may still be some references to hyperchains instead of subnets.
 
 ## Build with Clarinet
 
-Make sure you have `clarinet` installed locally, and that it is at version 0.33.0 or above.
-If you do not have clarinet, you can find installation instructions [here](https://github.com/hirosystems/clarinet).
+Make sure you have `clarinet` installed locally, and the clarinet version is at version 0.33.0 or above.
+If you do not already have clarinet installed, please refer to the clarinet installation instructions [here](https://github.com/hirosystems/clarinet) for installation procedures.
 
-Let's create a new clarinet project. This will create a new directory with a Clarinet project initialized.
+### Create a new clarinet project
+
+To create a new clarinet project, run the command shown below.
+
 ```
 clarinet new nft-use-case 
 ```
 
-Let us copy contract files and scripts over from the `stacks-hyperchains` repository into the `nft-use-case` directory. 
-If you don't already have the stacks-hyperchains repository, you can [clone it](https://github.com/hirosystems/stacks-hyperchains).
-Here's the command to clone the stacks-hyperchains repository:
+This command creates a new directory with a clarinet project already initialized.
+
+### Copy contract files and scripts
+
+Next, copy the contract files and scripts over from the `stacks-hyperchains` repository into the `nft-use-case` directory. If you do not already have the `stacks-hyperchains` repository, simply [clone the repository](https://github.com/hirosystems/stacks-hyperchains).
+
+To clone the `stacks-hyperchains` repository, use the following command:
+
 ```
 git clone https://github.com/hirosystems/stacks-hyperchains.git
 ```
-Set the environment variable `HYPERCHAIN_PATH` to the location of the stacks-hyperchains repository on your computer. 
+
+### Set HYPERCHAIN_PATH environment variable
+
+After copying contract files and scripts, set the environment variable `HYPERCHAIN_PATH` to the location of the `stacks-hyperchains` repository on your computer using the command below.
+
 ```
 export HYPERCHAIN_PATH=<YOUR_PATH_HERE>
 ```
 
-Now, we can copy files from the stacks-hyperchains repository. These files are contracts which will define the layer-1
-and layer-2 Clarity traits for NFTs and fungible tokens, implement an NFT in layer-1 and layer-2, and some NodeJS scripts for 
-helping to deploy the contracts.
+### Copy files from the `stacks-hyperchains` repository
+
+Now, copy files from the `stacks-hyperchains` repository. These files are contracts that define the layer-1
+and layer-2 Clarity traits for NFTs and fungible tokens, implement an NFT in layer-1 and layer-2, and some NodeJS scripts for helping to deploy the contracts. Enter the commands shown below.
+
 ```
 mkdir nft-use-case/contracts-l2
 mkdir nft-use-case/scripts
@@ -49,31 +64,35 @@ cp $HYPERCHAIN_PATH/contrib/scripts/nft-use-case/* nft-use-case/scripts/
 cd nft-use-case/scripts
 ```
 
-To use the scripts in this demo, we need to install some NodeJS libraries. 
-Before running the following instructions, make sure you have [node](https://nodejs.org/en/) installed. 
+### Install node and NodeJs libraries
+
+To use the scripts in this demo, you need to install some NodeJS libraries. Before running the following instructions, make sure you have installed [node](https://nodejs.org/en/).
+
 ```
 npm install
 ```
 
 The `Devnet.toml` file in the `nft-use-case` directory is responsible for configuring the `clarinet integrate` 
 local network. Make the following change in `settings/Devnet.toml` to enable the hyperchain:
+
 ```
 [devnet]
 ...
 enable_hyperchain_node = true
 ```
 
-Let's spin up a hyperchain node. Before you call this, make sure that you have a working installation of Docker running 
-locally.
+You can now spin up a hyperchain node; however, before calling the hyperchain, make sure you have a working Docker installation running locally by entering the command below.
 
 ```
 clarinet integrate
 ```
 
-Before we publish any transactions, you will need to set up some environment variables.
-These environment variables contain the address and private key of the hyperchain miner, two user addresses 
-and private keys, and the RPC URL which we can query for hyperchain state.
-Open a separate terminal window, navigate to the directory `nft-use-case/scripts`, and enter the following. 
+### Set environment variables
+
+Before publishing any transactions, you will need to set up some environment variables. These environment variables contain the address and private key of the hyperchain miner, two user addresses and private keys, and the RPC URL which we can query for hyperchain state.
+
+Open a separate terminal window, navigate to the directory `nft-use-case/scripts`, and enter the following command:
+
 ```
 export AUTH_HC_MINER_ADDR=ST3AM1A56AK2C1XAFJ4115ZSV26EB49BVQ10MGCS0
 export AUTH_HC_MINER_KEY=7036b29cb5e235e5fd9b09ae3e8eec4404e44906814d5d01cbca968a60ed4bfb01
@@ -89,7 +108,9 @@ export HYPERCHAIN_URL="http://localhost:30443"
 
 ## Build with Testnet
 
-#### 1. Getting Testnet STX
+### 1. Getting Testnet STX
+
+To get the testnet STX, enter the following command:
 
 ```bash
 ./target/debug/blockstack-cli generate-sk --testnet
@@ -103,8 +124,9 @@ export HYPERCHAIN_URL="http://localhost:30443"
 curl -X POST "https://stacks-node-api.testnet.stacks.co/extended/v1/faucets/stx?address=STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P&stacking=true"
 ```
 
-#### 2. Spin up testnet `stacks-node`
+### 2. Spin up testnet `stacks-node`
 
+To spin up the `stacks-node` testnet, enter the command below.
 
 ```toml
 [node]
@@ -150,14 +172,16 @@ amount = 10000000000000000
 ./target/release/stacks-node start --config=/var/devel/stacks-hyperchains/contrib/conf/stacks-l1-testnet.toml 2>&1 | tee -i /tmp/stacks-testnet-0426-1055.log
 ```
 
-Note: You can use an existing testnet chain state if you have one available.
-I used `cp /root/stacks-node/` on one of the Hiro deployed xenon followers.
-The first bootup did not work: I `CTRL-C`'d the execution, which triggered a panic,
-but on the next start, the node booted fine.
+**_NOTE:_**
 
-#### 3. Launch the contract
+You can use an existing testnet chain state if one is available.
 
-Collect the contracts:
+In this example, `cp /root/stacks-node/` was used on one of the Hiro deployed xenon followers. Although the first attempt
+failed, a subsequent attempt caused the node to boot correctly.
+
+### 3. Launch the contract
+
+Collect the contracts by using the command below:
 
 ```bash
 mkdir my-hyperchain/
@@ -166,13 +190,13 @@ cp stacks-hyperchains/core-contracts/contracts/hyperchains.clar my-hyperchain/co
 cp stacks-hyperchains/core-contracts/contracts/helper/trait-standards.clar my-hyperchain/contracts/
 ```
 
-Set the miners list to contain the address generated in Step 1:
+You then need to set the miners list to contain the address generated in Step 1 by entering the command:
 
 ```bash
 sed -ie "s#^(define-constant miners.*#(define-constant miners (list \'STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P))#" my-hyperchain/contracts/hyperchains.clar
 ```
 
-Make the transactions -- you will need to set the private key of the contract publisher as an env var:
+Next, make the transactions -- you will need to set the private key of the contract publisher as an env var by using this command:
 
 ```bash
 export CONTRACT_PUBLISH_KEY=<PRIVATEKEY>
@@ -205,10 +229,9 @@ $ node ./broadcast_tx.js ../transactions/hc-publish.hex
 }
 ```
 
-#### 4. Configure the HC miner
+### 4. Configure the HC miner
 
-Create a `toml` configuration for the hyperchains miner.  Importantly,
-you should set the `contract_identifier` to the contract published in
+Create a `toml` configuration for the hyperchains miner and set the `contract_identifier` to the contract published in
 Steps 3 (e.g., `STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P.hc-alpha`).
 
 ```toml
@@ -241,7 +264,8 @@ address = "STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P"
 amount = 10000000000000000
 ```
 
-Add to L1 node config:
+You should then add to L1 node configuration by using this command:
+
 ```
 [[events_observer]]
 endpoint = "localhost:50303"
@@ -249,9 +273,9 @@ retry_count = 255
 events_keys = ["*"]
 ```
 
-#### 5. Start the nodes
+### 5. Start the nodes
 
-The `hyperchain-node` must be started before the `stacks-node`:
+The `hyperchain-node` must be started before the `stacks-node`. To start `hyperchain-node`, enter the following command:
 
 ```bash
 ./target/release/hyperchain-node start --config=/var/my-hyperchain/configs/hc-miner.toml 2>&1 | tee /var/my-hyperchain/hc-miner.log
@@ -267,19 +291,21 @@ in the hyperchain node's TOML.
 
 ## Test Locally
 
-#### 1. Start the hyperchain miner
+To test subnets locally, follow the setps listed below.
+
+### 1. Start the hyperchain miner
 
 ```bash
 hyperchain-node start --config=$STACKS_HYPERCHAINS_PATH/contrib/conf/hyperchain-l2.toml 2>&1 | tee -i /tmp/stacks-hc.log
 ```
 
-#### 2. Start a local Stacks network
+### 2. Start a local Stacks network
 
 ```bash
 stacks-node start --config=$STACKS_HYPERCHAINS_PATH/contrib/conf/stacks-l1-mocknet-local.toml 2>&1 | tee -i /tmp/stacks-mocknet.log
 ```
 
-#### 3. Launch the contract
+### 3. Launch the contract
 
 Collect the contracts:
 
@@ -297,7 +323,7 @@ Set the miners list to contain the address generated in Step 1:
 sed -ie "s#^(define-data-var miner (optional principal) none)#(define-data-var miner (optional principal) (some \'ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP))#" my-hyperchain/contracts/hyperchains.clar
 ```
 
-Make the transactions -- you will need to set the private key of the contract publisher as an env var:
+Make the transactions -- you will need to set the private key of the contract publisher as an env variable using the following command:
 
 ```bash
 export CONTRACT_PUBLISH_KEY=0916e2eb04b5702e0e946081829cee67d3bb76e1792af506646843db9252ff4101
@@ -323,7 +349,7 @@ Submit the transactions:
 for I in `ls ../transactions/`; do node ./broadcast_tx.js "../transactions/$I" http://localhost:20443; done
 ```
 
-#### 4. Deposit some funds to L2
+### 4. Deposit some funds to L2
 
 ```js
 const network = require('@stacks/network');
@@ -347,7 +373,7 @@ const depositTransaction = await transactions.makeContractCall({
 const depositTxid = await transactions.broadcastTransaction(depositTransaction, layer1);
 ```
 
-Check that you received the funds in L2:
+Verify you received the funds in L2:
 
 ```js
 const layer2 = new network.StacksTestnet();
@@ -355,7 +381,7 @@ layer2.coreApiUrl = "http://localhost:19443";
 await fetch(layer2.getAccountApiUrl("ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8")).then(x => x.json()).then(x => parseInt(x.balance));
 ```
 
-#### 5. Submit an L2 transaction
+### 5. Submit an L2 transaction
 
 
 ```js
@@ -371,7 +397,7 @@ await transactions.broadcastTransaction(deployWithdrawal, layer2);
 ```
 
 
-#### 6. Withdraw
+### 6. Withdraw
 
 Perform the withdrawal on layer-2
 
@@ -390,13 +416,13 @@ const withdrawTransaction = await transactions.makeContractCall({
 await transactions.broadcastTransaction(withdrawTransaction, layer2);
 ```
 
-Find the withdrawal event in our log:
+Find the withdrawal event in the log:
 
 ```bash
 cat /tmp/stacks-hc.log | grep "Parsed L2"
 ```
 
-Perform the withdrawal on layer-1
+Perform the withdrawal on layer-1:
 
 ```js
 let withdrawUrl = "http://localhost:19443/v2/withdrawal/stx/14/ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8/0/50000";
