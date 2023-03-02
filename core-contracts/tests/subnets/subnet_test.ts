@@ -120,7 +120,7 @@ Clarinet.test({
         deployer.address
       ),
     ]);
-    block.receipts[0].result.expectOk();
+    block.receipts[0].result.expectOk().expectBool(true);
     // should return (err ERR_INVALID_MINER)
     block.receipts[1].result.expectErr().expectInt(2);
 
@@ -248,7 +248,7 @@ Clarinet.test({
     )!;
 
     // set alice as a miner
-    let initialize = chain.mineBlock([
+    let block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
         "update-miner",
@@ -256,9 +256,10 @@ Clarinet.test({
         deployer.address
       ),
     ]);
+    block.receipts[0].result.expectOk().expectBool(true);
 
     // Invalid miner can't register contracts
-    let block = chain.mineBlock([
+    block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
         "register-new-ft-contract",
@@ -335,7 +336,7 @@ Clarinet.test({
     // should return (err ERR_ASSET_ALREADY_ALLOWED)
     block.receipts[0].result.expectErr().expectInt(6);
 
-    // Deployeer should be able to register a new allowed FT asset
+    // Deployer should be able to register a new allowed FT asset
     block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
@@ -383,7 +384,7 @@ Clarinet.test({
     const charlie = accounts.get("wallet_3")!;
 
     // set alice as a miner
-    let initialize = chain.mineBlock([
+    let block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
         "update-miner",
@@ -391,6 +392,7 @@ Clarinet.test({
         deployer.address
       ),
     ]);
+    block.receipts[0].result.expectOk().expectBool(true);
 
     // nft contract id
     const nft_contract = contracts.get(
@@ -401,7 +403,7 @@ Clarinet.test({
     )!;
 
     // User should be able to mint an NFT
-    let block = chain.mineBlock([
+    block = chain.mineBlock([
       Tx.contractCall(
         "simple-nft",
         "test-mint",
@@ -449,6 +451,7 @@ Clarinet.test({
 
     // Deployer sets up allowed assets
     block = chain.mineBlock([
+      // Register contract
       Tx.contractCall(
         "subnet",
         "register-new-nft-contract",
@@ -498,14 +501,24 @@ Clarinet.test({
     // should return (err ERR_CONTRACT_CALL_FAILED)
     block.receipts[0].result.expectErr().expectInt(3);
 
-    let root_hash = fromHex(
+    const root_hash = fromHex(
       "fd5ece9024d526e1114ef41ce319a129053d739e0f81960483209d49aec29e62"
     );
-    let nft_sib_hash = fromHex(
+    const nft_sib_hash = fromHex(
       "0000000000000000000000000000000000000000000000000000000000000000"
     );
-    let nft_leaf_hash = fromHex(
+    const nft_leaf_hash = fromHex(
       "1964591d7db5eaad6d89e8556303ed932d1dffd0420b6d76476f8e8b84f11401"
+    );
+
+    const root_hash_invalid = fromHex(
+      "fd5ece9024d526e1114ef41ce319a129053d739e0f81960483209d49aec29e63"
+    );
+    const nft_sib_hash_invalid = fromHex(
+      "0101010101010101010101010101010101010101010101010101010101010101"
+    );
+    const nft_leaf_hash_invalid = fromHex(
+      "1964591d7db5eaad6d89e8556303ed932d1dffd0420b6d76476f8e8b84f11402"
     );
 
     // Miner should commit a block with the appropriate root hash (mocking a withdrawal Merkle tree)
@@ -530,6 +543,178 @@ Clarinet.test({
     block.receipts[0].result
       .expectOk()
       .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
+
+    // Try withdrawals using bad parameters, should fail
+    block = chain.mineBlock([
+      // Invalid root hash
+      Tx.contractCall(
+        "subnet",
+        "withdraw-nft-asset",
+        [
+          types.principal(nft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(0),
+          types.some(types.principal(nft_contract.contract_id)),
+          types.buff(root_hash_invalid),
+          types.buff(nft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(nft_sib_hash),
+              "is-left-side": types.bool(true),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+      // Invalid leaf hash
+      Tx.contractCall(
+        "subnet",
+        "withdraw-nft-asset",
+        [
+          types.principal(nft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(0),
+          types.some(types.principal(nft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(nft_leaf_hash_invalid),
+          types.list([
+            types.tuple({
+              hash: types.buff(nft_sib_hash),
+              "is-left-side": types.bool(true),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+      // Invalid sibling hashes
+      Tx.contractCall(
+        "subnet",
+        "withdraw-nft-asset",
+        [
+          types.principal(nft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(0),
+          types.some(types.principal(nft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(nft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(nft_sib_hash_invalid),
+              "is-left-side": types.bool(true),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+      // Invalid ID
+      Tx.contractCall(
+        "subnet",
+        "withdraw-nft-asset",
+        [
+          types.principal(nft_contract.contract_id),
+          types.uint(2),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(0),
+          types.some(types.principal(nft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(nft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(nft_sib_hash),
+              "is-left-side": types.bool(true),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+      // Invalid recipient
+      Tx.contractCall(
+        "subnet",
+        "withdraw-nft-asset",
+        [
+          types.principal(nft_contract.contract_id),
+          types.uint(1),
+          types.principal(bob.address),
+          types.uint(0),
+          types.uint(0),
+          types.some(types.principal(nft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(nft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(nft_sib_hash),
+              "is-left-side": types.bool(true),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+      // Invalid block height
+      Tx.contractCall(
+        "subnet",
+        "withdraw-nft-asset",
+        [
+          types.principal(nft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(100),
+          types.some(types.principal(nft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(nft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(nft_sib_hash),
+              "is-left-side": types.bool(true),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+      // Invalid withdrawal ID
+      Tx.contractCall(
+        "subnet",
+        "withdraw-nft-asset",
+        [
+          types.principal(nft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+          types.uint(100),
+          types.uint(0),
+          types.some(types.principal(nft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(nft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(nft_sib_hash),
+              "is-left-side": types.bool(true),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+    ]);
+    // should return (err ERR_INVALID_MERKLE_ROOT)
+    block.receipts[0].result.expectErr().expectInt(8);
+    // should return (err ERR_MERKLE_ROOT_DOES_NOT_MATCH)
+    block.receipts[1].result.expectErr().expectInt(7);
+    // should return (err ERR_MERKLE_ROOT_DOES_NOT_MATCH)
+    block.receipts[2].result.expectErr().expectInt(7);
+    // should return (err ERR_VALIDATION_LEAF_FAILED)
+    block.receipts[3].result.expectErr().expectInt(30);
+    // should return (err ERR_VALIDATION_LEAF_FAILED)
+    block.receipts[4].result.expectErr().expectInt(30);
+    // should return (err ERR_VALIDATION_LEAF_FAILED)
+    block.receipts[5].result.expectErr().expectInt(30);
+    // should return (err ERR_VALIDATION_LEAF_FAILED)
+    block.receipts[6].result.expectErr().expectInt(30);
 
     // Miner should be able to withdraw NFT asset for user
     block = chain.mineBlock([
