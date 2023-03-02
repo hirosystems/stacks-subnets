@@ -2,10 +2,11 @@
 title: Trust Models
 ---
 
+## Overview
 
 The current implementation of subnets uses a federated system of miners. This federation is fully-trusted, but future work on subnets will explore alternative trust models.
 
-In a fully - trusted model:
+In a fully federated trusted model:
 
 - Miners are responsible for issuing subnet blocks.
 - Users can validate, but subnet miners control withdrawals.
