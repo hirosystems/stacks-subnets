@@ -6,8 +6,7 @@
 
 ;; get the token balance of owner
 (define-read-only (get-balance (owner principal))
-  (begin
-    (ok (ft-get-balance ft-token owner))))
+    (ok (ft-get-balance ft-token owner)))
 
 ;; returns the total number of tokens
 (define-read-only (get-total-supply)
@@ -38,8 +37,11 @@
   (ok none)
 )
 
-(define-read-only (get-token-balance (user principal))
-  (ft-get-balance ft-token user)
+(define-public (gift-tokens (amount uint) (recipient principal))
+  (begin
+    (asserts! (is-eq tx-sender recipient) ERR_NOT_AUTHORIZED)
+    (ft-mint? ft-token amount recipient)
+  )
 )
 
 (impl-trait 'ST000000000000000000002AMW42H.subnet.subnet-asset)
