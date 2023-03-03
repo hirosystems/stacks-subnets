@@ -798,7 +798,7 @@ Clarinet.test({
     )!;
 
     // set alice as a miner
-    let initialize = chain.mineBlock([
+    let block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
         "update-miner",
@@ -806,9 +806,10 @@ Clarinet.test({
         deployer.address
       ),
     ]);
+    block.receipts[0].result.expectOk().expectBool(true);
 
     // User should be able to mint a fungible token
-    let block = chain.mineBlock([
+    block = chain.mineBlock([
       Tx.contractCall(
         "simple-ft",
         "gift-tokens",
@@ -817,6 +818,7 @@ Clarinet.test({
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
+
     // User should be able to mint another fungible token
     block = chain.mineBlock([
       Tx.contractCall(
@@ -924,16 +926,26 @@ Clarinet.test({
     // should return (err ERR_CONTRACT_CALL_FAILED)
     block.receipts[0].result.expectErr().expectInt(3);
 
-    let ft_leaf_hash = fromHex(
+    const ft_leaf_hash = fromHex(
       "0710ad82cb4fd77b664629f8079b9410b1fcbd6b2b057edd39f6397eb8f37c03"
     ); //new Uint8Array([33, 202, 115, 15, 237, 187, 156, 88, 59, 212, 42, 195, 30, 149, 130, 0, 37, 203, 93, 165, 189, 33, 107, 213, 116, 211, 170, 0, 89, 231, 154, 3]);
-    let root_hash = fromHex(
+    const root_hash = fromHex(
       "c075d6e19bbe76e23cff6256d97333941e1365feb7d16572f8eba8cbc39f6c64"
     ); // new Uint8Array([203, 225, 170, 121, 99, 143, 221, 118, 153, 59, 252, 68, 117, 30, 27, 33, 49, 100, 166, 167, 250, 154, 172, 149, 149, 79, 236, 105, 254, 184, 172, 103]);
-    let ft_sib_hash = new Uint8Array([
+    const ft_sib_hash = new Uint8Array([
       38, 72, 158, 13, 57, 120, 9, 95, 13, 62, 11, 118, 71, 237, 60, 173, 121,
       221, 127, 38, 163, 75, 203, 191, 227, 4, 195, 17, 239, 76, 42, 55,
     ]);
+
+    const ft_leaf_hash_invalid = fromHex(
+      "0710ad82cb4fd77b664629f8079b9410b1fcbd6b2b057edd39f6397eb8f37c04"
+    ); //new Uint8Array([33, 202, 115, 15, 237, 187, 156, 88, 59, 212, 42, 195, 30, 149, 130, 0, 37, 203, 93, 165, 189, 33, 107, 213, 116, 211, 170, 0, 89, 231, 154, 3]);
+    const root_hash_invalid = fromHex(
+      "c075d6e19bbe76e23cff6256d97333941e1365feb7d16572f8eba8cbc39f6c65"
+    ); // new Uint8Array([203, 225, 170, 121, 99, 143, 221, 118, 153, 59, 252, 68, 117, 30, 27, 33, 49, 100, 166, 167, 250, 154, 172, 149, 149, 79, 236, 105, 254, 184, 172, 103]);
+    const ft_sib_hash_invalid = fromHex(
+      "0101010101010101010101010101010101010101010101010101010101010101"
+    ); // new Uint8Array([203, 225, 170, 121, 99, 143, 221, 118, 153, 59, 252, 68, 117, 30, 27, 33, 49, 100, 166, 167, 250, 154, 172, 149, 149, 79, 236, 105, 254, 184, 172, 103]);
 
     // Miner should commit a block with the appropriate root hash
     const id_header_hash = chain
@@ -956,6 +968,185 @@ Clarinet.test({
     block.receipts[0].result
       .expectOk()
       .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
+
+    // Try withdrawals using bad parameters, should fail
+    block = chain.mineBlock([
+      // Invalid root hash
+      Tx.contractCall(
+        "subnet",
+        "withdraw-ft-asset",
+        [
+          types.principal(ft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(0),
+          types.none(),
+          types.some(types.principal(ft_contract.contract_id)),
+          types.buff(root_hash_invalid),
+          types.buff(ft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(ft_sib_hash),
+              "is-left-side": types.bool(false),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+      // Invalid leaf hash
+      Tx.contractCall(
+        "subnet",
+        "withdraw-ft-asset",
+        [
+          types.principal(ft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(0),
+          types.none(),
+          types.some(types.principal(ft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(ft_leaf_hash_invalid),
+          types.list([
+            types.tuple({
+              hash: types.buff(ft_sib_hash),
+              "is-left-side": types.bool(false),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+      // Invalid sibling hashes
+      Tx.contractCall(
+        "subnet",
+        "withdraw-ft-asset",
+        [
+          types.principal(ft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(0),
+          types.none(),
+          types.some(types.principal(ft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(ft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(ft_sib_hash_invalid),
+              "is-left-side": types.bool(false),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+      // Amount too large
+      Tx.contractCall(
+        "subnet",
+        "withdraw-ft-asset",
+        [
+          types.principal(ft_contract.contract_id),
+          types.uint(3),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(0),
+          types.none(),
+          types.some(types.principal(ft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(ft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(ft_sib_hash),
+              "is-left-side": types.bool(false),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+      // Invalid recipient
+      Tx.contractCall(
+        "subnet",
+        "withdraw-ft-asset",
+        [
+          types.principal(ft_contract.contract_id),
+          types.uint(1),
+          types.principal(bob.address),
+          types.uint(0),
+          types.uint(0),
+          types.none(),
+          types.some(types.principal(ft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(ft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(ft_sib_hash),
+              "is-left-side": types.bool(false),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+      // Invalid block height
+      Tx.contractCall(
+        "subnet",
+        "withdraw-ft-asset",
+        [
+          types.principal(ft_contract.contract_id),
+          types.uint(1),
+          types.principal(bob.address),
+          types.uint(0),
+          types.uint(100),
+          types.none(),
+          types.some(types.principal(ft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(ft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(ft_sib_hash),
+              "is-left-side": types.bool(false),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+      // Invalid withdrawal ID
+      Tx.contractCall(
+        "subnet",
+        "withdraw-ft-asset",
+        [
+          types.principal(ft_contract.contract_id),
+          types.uint(1),
+          types.principal(bob.address),
+          types.uint(100),
+          types.uint(0),
+          types.none(),
+          types.some(types.principal(ft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(ft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(ft_sib_hash),
+              "is-left-side": types.bool(false),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+    ]);
+    // should return (err ERR_INVALID_MERKLE_ROOT)
+    block.receipts[0].result.expectErr().expectInt(8);
+    // should return (err ERR_MERKLE_ROOT_DOES_NOT_MATCH)
+    block.receipts[1].result.expectErr().expectInt(7);
+    // should return (err ERR_MERKLE_ROOT_DOES_NOT_MATCH)
+    block.receipts[2].result.expectErr().expectInt(7);
+    // should return (err ERR_VALIDATION_LEAF_FAILED)
+    block.receipts[3].result.expectErr().expectInt(30);
+    // should return (err ERR_VALIDATION_LEAF_FAILED)
+    block.receipts[4].result.expectErr().expectInt(30);
+    // should return (err ERR_VALIDATION_LEAF_FAILED)
+    block.receipts[5].result.expectErr().expectInt(30);
+    // should return (err ERR_VALIDATION_LEAF_FAILED)
+    block.receipts[6].result.expectErr().expectInt(30);
 
     // Miner should be able to withdraw FT asset for user
     block = chain.mineBlock([
@@ -985,8 +1176,8 @@ Clarinet.test({
     block.receipts[0].result.expectOk().expectBool(true);
 
     // Check that user owns FT
-    let assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
-    let ft_amount = assets[charlie.address];
+    const assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
+    const ft_amount = assets[charlie.address];
     assertEquals(ft_amount, 1);
 
     // Miner should not be able to withdraw FT asset a second time
