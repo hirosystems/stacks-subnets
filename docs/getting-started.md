@@ -5,449 +5,819 @@ title: Getting Started
 
 # Getting Started
 
-Subnets can be built using any of the following methods:
+Developers can test their applications on a subnet either locally, or on Hiro's
+hosted testnet subnet.
 
-- Build with Clarinet
-- Build with Testnet
-- Test Locally
+- Run a local subnet
+- Use the testnet subnet
 
 > **_NOTE:_**
 >
-> Subnets was earlier referred as Hyperchains. While the process of updating the content is ongoing, there may still be some references to hyperchains instead of subnets.
+> Subnets were earlier referred to as Hyperchains. While the process of updating
+> the content is ongoing, there may still be some references to hyperchains
+> instead of subnets.
 
-## Build with Clarinet
+## Run a devnet subnet locally
 
-Make sure you have `clarinet` installed locally, and the clarinet version is at version 0.33.0 or above.
-If you do not already have clarinet installed, please refer to the clarinet installation instructions [here](https://github.com/hirosystems/clarinet) for installation procedures.
+Clarinet provides a tool to setup a complete local development environment,
+referred to as "devnet", which uses Docker to spin up a Bitcoin node, a Stacks
+node, a Stacks API node, a Stacks Explorer, and now, a subnet node and subnet
+API node. This allows developers to test locally on a system that matches the
+production environment.
 
-### Create a new clarinet project
+In this section, we will explain how to launch and interact with this devnet
+subnet environment using a simple NFT example project.
 
-To create a new clarinet project, run the command shown below.
+Make sure you have `clarinet` installed, and the clarinet version is at 1.5.0 or
+above. If you do not already have clarinet installed, please refer to the
+clarinet installation instructions
+[here](https://github.com/hirosystems/clarinet) for installation procedures.
 
-```
-clarinet new nft-use-case 
-```
+### Create a new project with Clarinet
 
-This command creates a new directory with a clarinet project already initialized.
+To create a new project, run:
 
-### Copy contract files and scripts
-
-Next, copy the contract files and scripts over from the `stacks-hyperchains` repository into the `nft-use-case` directory. If you do not already have the `stacks-hyperchains` repository, simply [clone the repository](https://github.com/hirosystems/stacks-hyperchains).
-
-To clone the `stacks-hyperchains` repository, use the following command:
-
-```
-git clone https://github.com/hirosystems/stacks-hyperchains.git
-```
-
-### Set HYPERCHAIN_PATH environment variable
-
-After copying contract files and scripts, set the environment variable `HYPERCHAIN_PATH` to the location of the `stacks-hyperchains` repository on your computer using the command below.
-
-```
-export HYPERCHAIN_PATH=<YOUR_PATH_HERE>
+```sh
+clarinet new subnet-nft-example
+cd subnet-nft-example
 ```
 
-### Copy files from the `stacks-hyperchains` repository
+This command creates a new directory with a clarinet project already
+initialized, and then switches into that directory.
 
-Now, copy files from the `stacks-hyperchains` repository. These files are contracts that define the layer-1
-and layer-2 Clarity traits for NFTs and fungible tokens, implement an NFT in layer-1 and layer-2, and some NodeJS scripts for helping to deploy the contracts. Enter the commands shown below.
+### Create the contracts
 
-```
-mkdir nft-use-case/contracts-l2
-mkdir nft-use-case/scripts
-cp $HYPERCHAIN_PATH/core-contracts/contracts/helper/simple-nft.clar nft-use-case/contracts/
-cp $HYPERCHAIN_PATH/core-contracts/contracts/helper/trait-standards.clar nft-use-case/contracts/
-cp $HYPERCHAIN_PATH/core-contracts/contracts/helper/simple-nft-l2.clar nft-use-case/contracts-l2/
-cp $HYPERCHAIN_PATH/core-contracts/contracts/helper/trait-standards.clar nft-use-case/contracts-l2/
-cp $HYPERCHAIN_PATH/contrib/scripts/nft-use-case/* nft-use-case/scripts/
-cd nft-use-case/scripts
-```
+Clarinet does not yet fully support development on subnets, so we will not be
+using it to manage our subnet contracts, but will instead do that manually for
+now.
 
-### Install node and NodeJs libraries
+#### Creating the Stacks (L1) contract
 
-To use the scripts in this demo, you need to install some NodeJS libraries. Before running the following instructions, make sure you have installed [node](https://nodejs.org/en/).
+Our L1 NFT contract is going to implement the
+[SIP-009 NFT trait](https://github.com/stacksgov/sips/blob/main/sips/sip-009/sip-009-nft-standard.md#trait).
+We can add this to our project as a requirement, so that Clarinet takes care of
+deploying it for us.
 
-```
-npm install
+```sh
+clarinet requirements add SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait
 ```
 
-The `Devnet.toml` file in the `nft-use-case` directory is responsible for configuring the `clarinet integrate` 
-local network. Make the following change in `settings/Devnet.toml` to enable the hyperchain:
+Now, let's use Clarinet to create our L1 contract:
 
-```
-[devnet]
-...
-enable_hyperchain_node = true
+```sh
+clarinet contract new simple-nft-l1
 ```
 
-You can now spin up a hyperchain node; however, before calling the hyperchain, make sure you have a working Docker installation running locally by entering the command below.
+This will create the file, _./contracts/simple-nft-l1.clar_, which we can fill
+in with the following clarity code:
 
+```clarity
+(define-constant CONTRACT_OWNER tx-sender)
+(define-constant CONTRACT_ADDRESS (as-contract tx-sender))
+
+(define-constant ERR_NOT_AUTHORIZED (err u1001))
+
+(impl-trait 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)
+(impl-trait 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet-traits.mint-from-subnet-trait)
+
+(define-data-var lastId uint u0)
+(define-map CFG_BASE_URI bool (string-ascii 256))
+
+(define-non-fungible-token nft-token uint)
+
+(define-read-only (get-last-token-id)
+  (ok (var-get lastId))
+)
+
+(define-read-only (get-owner (id uint))
+  (ok (nft-get-owner? nft-token id))
+)
+
+(define-read-only (get-token-uri (id uint))
+  (ok (map-get? CFG_BASE_URI true))
+)
+
+(define-public (transfer (id uint) (sender principal) (recipient principal))
+  (begin
+    (asserts! (is-eq tx-sender sender) ERR_NOT_AUTHORIZED)
+    (nft-transfer? nft-token id sender recipient)
+  )
+)
+
+;; test functions
+(define-public (test-mint (recipient principal))
+  (let
+    ((newId (+ (var-get lastId) u1)))
+    (var-set lastId newId)
+    (nft-mint? nft-token newId recipient)
+  )
+)
+
+(define-public (mint-from-subnet (id uint) (sender principal) (recipient principal))
+    (begin
+        ;; Check that the tx-sender is the provided sender
+        (asserts! (is-eq tx-sender sender) ERR_NOT_AUTHORIZED)
+
+        (nft-mint? nft-token id recipient)
+    )
+)
+
+(define-public (gift-nft (recipient principal) (id uint))
+  (begin
+    (nft-mint? nft-token id recipient)
+  )
+)
 ```
+
+Note that this contract implements the `mint-from-subnet-trait` in addition to
+the SIP-009 `nft-trait`. When `mint-from-subnet-trait` is implemented, it allows
+an NFT to be minted on the subnet, then later withdrawn to the L1.
+
+#### Creating the subnet (L2) contract
+
+Next, we'll create the subnet contract at _./contracts/simple-nft-l2.clar_. As
+mentioned earlier, Clarinet cannot properly handle subnet contracts yet, so
+we'll manually create this file, and add the following contents:
+
+```clarity
+(define-constant CONTRACT_OWNER tx-sender)
+(define-constant CONTRACT_ADDRESS (as-contract tx-sender))
+
+(define-constant ERR_NOT_AUTHORIZED (err u1001))
+
+(impl-trait 'ST000000000000000000002AMW42H.subnet.nft-trait)
+
+(define-data-var lastId uint u0)
+
+(define-non-fungible-token nft-token uint)
+
+
+;; NFT trait functions
+(define-read-only (get-last-token-id)
+  (ok (var-get lastId))
+)
+
+(define-read-only (get-owner (id uint))
+  (ok (nft-get-owner? nft-token id))
+)
+
+(define-read-only (get-token-uri (id uint))
+  (ok (some "unimplemented"))
+)
+
+(define-public (transfer (id uint) (sender principal) (recipient principal))
+  (begin
+    (asserts! (is-eq tx-sender sender) ERR_NOT_AUTHORIZED)
+    (nft-transfer? nft-token id sender recipient)
+  )
+)
+
+;; mint functions
+(define-public (mint-next (recipient principal))
+  (let
+    ((newId (+ (var-get lastId) u1)))
+    (var-set lastId newId)
+    (nft-mint? nft-token newId recipient)
+  )
+)
+
+(define-public (gift-nft (recipient principal) (id uint))
+  (begin
+    (nft-mint? nft-token id recipient)
+  )
+)
+
+(define-read-only (get-token-owner (id uint))
+  (nft-get-owner? nft-token id)
+)
+
+(impl-trait 'ST000000000000000000002AMW42H.subnet.subnet-asset)
+
+;; Called for deposit from the burnchain to the subnet
+(define-public (deposit-from-burnchain (id uint) (recipient principal))
+  (begin
+    (asserts! (is-eq tx-sender 'ST000000000000000000002AMW42H) ERR_NOT_AUTHORIZED)
+    (nft-mint? nft-token id recipient)
+  )
+)
+
+;; Called for withdrawal from the subnet to the burnchain
+(define-public (burn-for-withdrawal (id uint) (owner principal))
+  (begin
+    (asserts! (is-eq tx-sender owner) ERR_NOT_AUTHORIZED)
+    (nft-burn? nft-token id owner)
+  )
+)
+```
+
+Note that this contract implements the `nft-trait` and the `subnet-asset` trait.
+The `nft-trait` is the same as the SIP-009 trait on the Stacks network.
+`subnet-asset` defines the functions required for deposit and withdrawal. These
+will be called by the subnet miner.
+
+### Start the devnet
+
+The settings for the devnet are found in _./settings/Devnet.toml_. We want to
+enable a subnet node, and the corresponding API node, plus, we need to enable
+"next" features, so that we can get 2.1 support, since the subnet contract
+requires Clarity 2. Add (or uncomment) the following lines under `[devnet]`:
+
+```tomml
+enable_subnet_node = true
+disable_subnet_api = false
+enable_next_features = true
+```
+
+Run the following command to start the development environment -- launching a
+bitcoin node, Stacks node, Stacks API service, subnet node, subnet API service,
+and explorer service.
+
+```sh
 clarinet integrate
 ```
 
-### Set environment variables
+This will open a terminal UI that shows various data points about the state of
+the network. We'll know that all of the nodes/services are up and ready when we
+see:
 
-Before publishing any transactions, you will need to set up some environment variables. These environment variables contain the address and private key of the hyperchain miner, two user addresses and private keys, and the RPC URL which we can query for hyperchain state.
+![Clarinet integrate services](images/subnet-devnet.png)
 
-Open a separate terminal window, navigate to the directory `nft-use-case/scripts`, and enter the following command:
+Once this state is reached, we should see successful calls to `commit-block` in
+the transactions console. This is the subnet miner committing blocks to the L1.
+Leasve this running and perform the next steps in another terminal.
 
+### Setup Node.js scripts
+
+To submit transactions to our Stacks node and subnet node, we'll use
+[Stacks.js](https://stacks.js.org). Let's create a new directory, _./scripts/_
+for these scripts.
+
+```sh
+mkdir scripts
+cd scripts
 ```
-export AUTH_HC_MINER_ADDR=ST3AM1A56AK2C1XAFJ4115ZSV26EB49BVQ10MGCS0
-export AUTH_HC_MINER_KEY=7036b29cb5e235e5fd9b09ae3e8eec4404e44906814d5d01cbca968a60ed4bfb01
+
+Then we'll initialize a Node.js project and install the stacks.js dependencies:
+
+```sh
+npm init -y
+npm install @stacks/network @stacks/transactions
+```
+
+In the generated package.json file, add the following into the json to enable
+modules:
+
+```json
+  "type": "module",
+```
+
+To simplify our scripts, let's define some environment variables that we can
+reuse:
+
+```sh
+export DEPLOYER_ADDR=ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+export DEPLOYER_KEY=753b7cc01a1a2e86221266a154af739463fce51219d97e4f856cd7200c3bd2a601
 
 export USER_ADDR=ST2NEB84ASENDXKYGJPQW86YXQCEFEX2ZQPG87ND
 export USER_KEY=f9d7206a47f14d2870c163ebab4bf3e70d18f5d14ce1031f3902fbbc894fe4c701
 
 export ALT_USER_ADDR=ST2REHHS5J3CERCRBEPMGH7921Q6PYKAADT7JP2VB
 export ALT_USER_KEY=3eccc5dac8056590432db6a35d52b9896876a3d5cbdea53b72400bc9c2099fe801
-
-export HYPERCHAIN_URL="http://localhost:30443"
+export SUBNET_URL="http://localhost:30443"
 ```
 
-## Build with Testnet
+#### Publish contract script
 
-### 1. Getting Testnet STX
+First, let's define a script to publish a contract. We'll be deploying multiple
+contracts, so this script takes 4 arguments to make it reusable:
 
-To get the testnet STX, enter the following command:
+1. Contract name
+2. Path to contract
+3. Network layer (1 = Stacks, 2 = Subnet)
+4. Nonce
 
-```bash
-./target/debug/blockstack-cli generate-sk --testnet
-{ 
-  "publicKey": "02c3c7ab279c5637ea5f024f8036c5218b6d1e71518adba0693c3dcc7bead92305",
-  "stacksAddress": "STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P"
-}
-```
-
-```bash
-curl -X POST "https://stacks-node-api.testnet.stacks.co/extended/v1/faucets/stx?address=STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P&stacking=true"
-```
-
-### 2. Spin up testnet `stacks-node`
-
-To spin up the `stacks-node` testnet, enter the command below.
-
-```toml
-[node]
-working_dir = "/var/testnet-stacks-node"
-rpc_bind = "127.0.0.1:20443"
-p2p_bind = "0.0.0.0:20444"
-bootstrap_node = "047435c194e9b01b3d7f7a2802d6684a3af68d05bbf4ec8f17021980d777691f1d51651f7f1d566532c804da506c117bbf79ad62eea81213ba58f8808b4d9504ad@testnet.stacks.co:20444"
-
-[burnchain]
-chain = "bitcoin"
-mode = "xenon"
-peer_host = "bitcoind.testnet.stacks.co"
-username = "blockstack"
-password = "blockstacksystem"
-rpc_port = 18332
-peer_port = 18333
-
-# Used for sending events to a local stacks-blockchain-api service
-# [[events_observer]]
-# endpoint = "localhost:3700"
-# retry_count = 255
-# events_keys = ["*"]
-
-[[ustx_balance]]
-address = "ST2QKZ4FKHAH1NQKYKYAYZPY440FEPK7GZ1R5HBP2"
-amount = 10000000000000000
-
-[[ustx_balance]]
-address = "ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VPF"
-amount = 10000000000000000
-
-[[ustx_balance]]
-address = "ST221Z6TDTC5E0BYR2V624Q2ST6R0Q71T78WTAX6H"
-amount = 10000000000000000
-
-[[ustx_balance]]
-address = "ST2TFVBMRPS5SSNP98DQKQ5JNB2B6NZM91C4K3P7B"
-amount = 10000000000000000
-```
-
-
-```bash
-./target/release/stacks-node start --config=/var/devel/stacks-hyperchains/contrib/conf/stacks-l1-testnet.toml 2>&1 | tee -i /tmp/stacks-testnet-0426-1055.log
-```
-
-**_NOTE:_**
-
-You can use an existing testnet chain state if one is available.
-
-In this example, `cp /root/stacks-node/` was used on one of the Hiro deployed xenon followers. Although the first attempt
-failed, a subsequent attempt caused the node to boot correctly.
-
-### 3. Launch the contract
-
-Collect the contracts by using the command below:
-
-```bash
-mkdir my-hyperchain/
-mkdir my-hyperchain/contracts
-cp stacks-hyperchains/core-contracts/contracts/hyperchains.clar my-hyperchain/contracts/
-cp stacks-hyperchains/core-contracts/contracts/helper/trait-standards.clar my-hyperchain/contracts/
-```
-
-You then need to set the miners list to contain the address generated in Step 1 by entering the command:
-
-```bash
-sed -ie "s#^(define-constant miners.*#(define-constant miners (list \'STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P))#" my-hyperchain/contracts/hyperchains.clar
-```
-
-Next, make the transactions -- you will need to set the private key of the contract publisher as an env var by using this command:
-
-```bash
-export CONTRACT_PUBLISH_KEY=<PRIVATEKEY>
-```
-
-This is the private key from the first step.
-
-```bash
-mkdir my-hyperchain/scripts
-cp stacks-hyperchains/contrib/scripts/* my-hyperchain/scripts/
-cd my-hyperchain/scripts/
-npm i @stacks/network
-npm i @stacks/transactions
-mkdir ../transactions/
-node ./publish_tx.js trait-standards ../contracts/trait-standards.clar 0 > ../transactions/trait-publish.hex
-node ./publish_tx.js hc-alpha ../contracts/hyperchains.clar 1 > ../transactions/hc-publish.hex
-```
-
-Submit the transactions:
-
-```bash
-$ node ./broadcast_tx.js ../transactions/trait-publish.hex
-{
-  txid: '93cae889b9382c512e55715e5357b388734c0448643e2cc35d2a1aab90dcf61a'
-}
-
-$ node ./broadcast_tx.js ../transactions/hc-publish.hex
-{
-  txid: '8c457091916a7f57b487162e0692c2cd28e71dd0b2dc9a9dfad73f93babe1dfd'
-}
-```
-
-### 4. Configure the HC miner
-
-Create a `toml` configuration for the hyperchains miner and set the `contract_identifier` to the contract published in
-Steps 3 (e.g., `STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P.hc-alpha`).
-
-```toml
-[node]
-working_dir = "/var/my-hyperchain/hc-alpha"
-rpc_bind = "127.0.0.1:80443"
-p2p_bind = "127.0.0.1:80444"
-mining_key = "<FILL HERE>"
-miner = true
-wait_time_for_microblocks = 50_000
-
-[miner]
-first_attempt_time_ms = 60_000
-subsequent_attempt_time_ms = 60_000
-microblock_attempt_time_ms = 30_000
-
-[burnchain]
-chain = "stacks_layer_1"
-mode = "xenon"
-first_burn_header_height = 46_721
-first_burn_header_hash = "9ba2f357115308fb1c503715f3a1b0cb3e8fdbe6baea7e7634635affdf675501"
-contract_identifier = "<CONTRACT_NAME_HERE>"
-peer_host = "127.0.0.1"
-rpc_port = 20443
-peer_port = 20444
-rpc_ssl = false
-
-[[ustx_balance]]
-address = "STFTX3F4XCY7RS5VRHXP2SED0WC0YRKNWTNXD74P"
-amount = 10000000000000000
-```
-
-You should then add to L1 node configuration by using this command:
-
-```
-[[events_observer]]
-endpoint = "localhost:50303"
-retry_count = 255
-events_keys = ["*"]
-```
-
-### 5. Start the nodes
-
-The `hyperchain-node` must be started before the `stacks-node`. To start `hyperchain-node`, enter the following command:
-
-```bash
-./target/release/hyperchain-node start --config=/var/my-hyperchain/configs/hc-miner.toml 2>&1 | tee /var/my-hyperchain/hc-miner.log
-```
-
-The `stacks-node` must be started from a state _before_ the
-`first_burn_header_height` and `first_burn_header_hash` configured
-in the hyperchain node's TOML.
-
-```bash
-./target/release/stacks-node start --config=/var/stacks-hyperchains/contrib/conf/stacks-l1-testnet.toml 2>&1 | tee -i /tmp/stacks-testnet.log
-```
-
-## Test Locally
-
-To test subnets locally, follow the setps listed below.
-
-### 1. Start the hyperchain miner
-
-```bash
-hyperchain-node start --config=$STACKS_HYPERCHAINS_PATH/contrib/conf/hyperchain-l2.toml 2>&1 | tee -i /tmp/stacks-hc.log
-```
-
-### 2. Start a local Stacks network
-
-```bash
-stacks-node start --config=$STACKS_HYPERCHAINS_PATH/contrib/conf/stacks-l1-mocknet-local.toml 2>&1 | tee -i /tmp/stacks-mocknet.log
-```
-
-### 3. Launch the contract
-
-Collect the contracts:
-
-```bash
-mkdir my-hyperchain/
-mkdir my-hyperchain/contracts
-cp stacks-hyperchains/core-contracts/contracts/hyperchains.clar my-hyperchain/contracts/
-cp stacks-hyperchains/core-contracts/contracts/helper/ft-trait-standard.clar my-hyperchain/contracts/
-cp stacks-hyperchains/core-contracts/contracts/helper/nft-trait-standard.clar my-hyperchain/contracts/
-```
-
-Set the miners list to contain the address generated in Step 1:
-
-```bash
-sed -ie "s#^(define-data-var miner (optional principal) none)#(define-data-var miner (optional principal) (some \'ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP))#" my-hyperchain/contracts/hyperchains.clar
-```
-
-Make the transactions -- you will need to set the private key of the contract publisher as an env variable using the following command:
-
-```bash
-export CONTRACT_PUBLISH_KEY=0916e2eb04b5702e0e946081829cee67d3bb76e1792af506646843db9252ff4101
-```
-
-This is the private key from the first step.
-
-```bash
-mkdir my-hyperchain/scripts
-cp stacks-hyperchains/contrib/scripts/* my-hyperchain/scripts/
-cd my-hyperchain/scripts/
-npm i @stacks/network
-npm i @stacks/transactions
-mkdir ../transactions/
-node ./publish_tx.js ft-trait-standard ../contracts/ft-trait-standard.clar 0 > ../transactions/ft-publish.hex
-node ./publish_tx.js nft-trait-standard ../contracts/nft-trait-standard.clar 1 > ../transactions/nft-publish.hex
-node ./publish_tx.js hyperchain ../contracts/hyperchains.clar 2 > ../transactions/hc-publish.hex
-```
-
-Submit the transactions:
-
-```bash
-for I in `ls ../transactions/`; do node ./broadcast_tx.js "../transactions/$I" http://localhost:20443; done
-```
-
-### 4. Deposit some funds to L2
+_publish.js_:
 
 ```js
-const network = require('@stacks/network');
-const transactions = require('@stacks/transactions');
-const senderKey = "aaf57b4730f713cf942bc63f0801c4a62abe5a6ac8e3da10389f9ca3420b0dc701"
-const layer1 = new network.StacksTestnet();
-layer1.coreApiUrl = "http://localhost:20443";
+import {
+  AnchorMode,
+  makeContractDeploy,
+  broadcastTransaction,
+} from "@stacks/transactions";
+import { StacksTestnet, HIRO_MOCKNET_DEFAULT } from "@stacks/network";
+import { readFileSync } from "fs";
 
-const depositTransaction = await transactions.makeContractCall({
-   senderKey, network: layer1, anchorMode: transactions.AnchorMode.Any,
-   nonce: 0,
-   contractAddress: "ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP",
-   contractName: "hyperchain",
-   functionName: "deposit-stx",
-   functionArgs: [ transactions.uintCV(100000000000),
-                   transactions.standardPrincipalCV("ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8")],
-   fee: 10000,
-   postConditionMode: transactions.PostConditionMode.Allow,
-});
+async function main() {
+  const contractName = process.argv[2];
+  const contractFilename = process.argv[3];
+  const networkLayer = parseInt(process.argv[4]);
+  const nonce = parseInt(process.argv[5]);
+  const senderKey = process.env.USER_KEY;
+  const networkUrl =
+    networkLayer == 2 ? process.env.SUBNET_URL : HIRO_MOCKNET_DEFAULT;
 
-const depositTxid = await transactions.broadcastTransaction(depositTransaction, layer1);
-```
+  const codeBody = readFileSync(contractFilename, { encoding: "utf-8" });
 
-Verify you received the funds in L2:
-
-```js
-const layer2 = new network.StacksTestnet();
-layer2.coreApiUrl = "http://localhost:19443";
-await fetch(layer2.getAccountApiUrl("ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8")).then(x => x.json()).then(x => parseInt(x.balance));
-```
-
-### 5. Submit an L2 transaction
-
-
-```js
-const codeBody = "(define-public (stx-withdraw (amount uint)) (stx-withdraw? amount tx-sender))";
-const contractName = "withdraw-helper";
-const deployWithdrawal = await transactions.makeContractDeploy({
-    codeBody, contractName, senderKey, network: layer2,
-    anchorMode: transactions.AnchorMode.Any, nonce: 0,
+  const transaction = await makeContractDeploy({
+    codeBody,
+    contractName,
+    senderKey,
+    network: new StacksTestnet({ url: networkUrl }),
+    anchorMode: AnchorMode.Any,
     fee: 10000,
+    nonce,
   });
-  
-await transactions.broadcastTransaction(deployWithdrawal, layer2);
+
+  const txid = await broadcastTransaction(
+    transaction,
+    new StacksTestnet({ url: networkUrl })
+  );
+
+  console.log(txid);
+}
+
+main();
 ```
 
+#### Register NFT script
 
-### 6. Withdraw
+This script will register the NFT with the subnet, allowing it to be deposited
+into the subnet and later withdrawn. We only need to do this once, so all of the
+details have been hard-coded into this script. It calls
+`register-new-nft-contract` on the L1 subnet contract, passing the L1 and L2 NFT
+contracts we will publish.
 
-Perform the withdrawal on layer-2
+_register.js_:
 
 ```js
-const withdrawTransaction = await transactions.makeContractCall({
-   senderKey, network: layer2, anchorMode: transactions.AnchorMode.Any,
-   nonce: 1,
-   contractAddress: "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8",
-   contractName: "withdraw-helper",
-   functionName: "stx-withdraw",
-   functionArgs: [ transactions.uintCV(50000) ],
-   fee: 10000,
-   postConditionMode: transactions.PostConditionMode.Allow,
-});
+import {
+  makeContractCall,
+  AnchorMode,
+  contractPrincipalCV,
+  broadcastTransaction,
+  getNonce,
+} from "@stacks/transactions";
+import { StacksTestnet, HIRO_MOCKNET_DEFAULT } from "@stacks/network";
 
-await transactions.broadcastTransaction(withdrawTransaction, layer2);
+async function main() {
+  const network = new StacksTestnet({ url: HIRO_MOCKNET_DEFAULT });
+  const senderKey = process.env.DEPLOYER_KEY;
+  const deployerAddr = process.env.DEPLOYER_ADDR;
+  const userAddr = process.env.USER_ADDR;
+  const nonce = await getNonce(deployerAddr, network);
+
+  const txOptions = {
+    contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
+    contractName: "subnet",
+    functionName: "register-new-nft-contract",
+    functionArgs: [
+      contractPrincipalCV(deployerAddr, "simple-nft-l1"),
+      contractPrincipalCV(userAddr, "simple-nft-l2"),
+    ],
+    senderKey,
+    validateWithAbi: false,
+    network,
+    anchorMode: AnchorMode.Any,
+    fee: 10000,
+    nonce,
+  };
+
+  const transaction = await makeContractCall(txOptions);
+
+  const txid = await broadcastTransaction(transaction, network);
+
+  console.log(txid);
+}
+
+main();
 ```
 
-Find the withdrawal event in the log:
+#### Mint NFT script
 
-```bash
-cat /tmp/stacks-hc.log | grep "Parsed L2"
-```
+This script will mint an NFT on the Stacks network. It takes one argument, to
+specify the nonce.
 
-Perform the withdrawal on layer-1:
+_mint.js_:
 
 ```js
-let withdrawUrl = "http://localhost:19443/v2/withdrawal/stx/14/ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8/0/50000";
-let json_merkle_entry = await fetch(withdrawUrl).then(x => x.json())
-let cv_merkle_entry = {
-    withdrawal_leaf_hash: transactions.deserializeCV(json_merkle_entry.withdrawal_leaf_hash),
-    withdrawal_root: transactions.deserializeCV(json_merkle_entry.withdrawal_root),
-    sibling_hashes: transactions.deserializeCV(json_merkle_entry.sibling_hashes),
-};
+import {
+  makeContractCall,
+  AnchorMode,
+  standardPrincipalCV,
+  uintCV,
+  broadcastTransaction,
+} from "@stacks/transactions";
+import { StacksTestnet, HIRO_MOCKNET_DEFAULT } from "@stacks/network";
 
-const layer1WithdrawTransaction = await transactions.makeContractCall({
-   senderKey, network: layer1, anchorMode: transactions.AnchorMode.Any,
-   nonce: 1,
-   contractAddress: "ST2GE6HSXT81X9X3ATQ14WPT49X915R8X7FVERMBP",
-   contractName: "hyperchain",
-   functionName: "withdraw-stx",
-   functionArgs: [ transactions.uintCV(50000),
-                   transactions.standardPrincipalCV("ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8"),
-                   cv_merkle_entry.withdrawal_root,
-                   cv_merkle_entry.withdrawal_leaf_hash,
-                   cv_merkle_entry.sibling_hashes ],
-   fee: 5000,
-   postConditionMode: transactions.PostConditionMode.Allow,
-});
+async function main() {
+  const network = new StacksTestnet({ url: HIRO_MOCKNET_DEFAULT });
+  const senderKey = process.env.USER_KEY;
+  const deployerAddr = process.env.DEPLOYER_ADDR;
+  const addr = process.env.USER_ADDR;
+  const nonce = parseInt(process.argv[2]);
 
-await transactions.broadcastTransaction(layer1WithdrawTransaction, layer1)
-;
+  const txOptions = {
+    contractAddress: deployerAddr,
+    contractName: "simple-nft-l1",
+    functionName: "gift-nft",
+    functionArgs: [standardPrincipalCV(addr), uintCV(5)],
+    senderKey,
+    validateWithAbi: false,
+    network,
+    anchorMode: AnchorMode.Any,
+    fee: 10000,
+    nonce,
+  };
+
+  const transaction = await makeContractCall(txOptions);
+
+  const txid = await broadcastTransaction(transaction, network);
+
+  console.log(txid);
+}
+
+main();
+```
+
+#### Deposit NFT script
+
+The next script calls the `deposit-nft-asset` function on the L1 subnet contract
+to deposit an NFT into the subnet.
+
+_deposit.js_
+
+```js
+import {
+  makeContractCall,
+  AnchorMode,
+  standardPrincipalCV,
+  uintCV,
+  contractPrincipalCV,
+  PostConditionMode,
+  broadcastTransaction,
+} from "@stacks/transactions";
+import { StacksTestnet, HIRO_MOCKNET_DEFAULT } from "@stacks/network";
+
+async function main() {
+  const network = new StacksTestnet({ url: HIRO_MOCKNET_DEFAULT });
+  const senderKey = process.env.USER_KEY;
+  const addr = process.env.USER_ADDR;
+  const deployerAddr = process.env.DEPLOYER_ADDR;
+  const nonce = parseInt(process.argv[2]);
+
+  const txOptions = {
+    contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
+    contractName: "subnet",
+    functionName: "deposit-nft-asset",
+    functionArgs: [
+      contractPrincipalCV(deployerAddr, "simple-nft-l1"), // contract ID of nft contract on L1
+      uintCV(5), // ID
+      standardPrincipalCV(addr), // sender
+    ],
+    senderKey,
+    validateWithAbi: false,
+    network,
+    anchorMode: AnchorMode.Any,
+    fee: 10000,
+    postConditionMode: PostConditionMode.Allow,
+    nonce,
+  };
+
+  const transaction = await makeContractCall(txOptions);
+
+  const txid = await broadcastTransaction(transaction, network);
+
+  console.log(txid);
+}
+
+main();
+```
+
+#### Transfer NFT script
+
+This script calls the NFT's `transfer` function in the subnet to move it from
+one principal to another. It takes one argument, to specify the nonce.
+
+_transfer.js_
+
+```js
+import {
+  makeContractCall,
+  AnchorMode,
+  standardPrincipalCV,
+  uintCV,
+  PostConditionMode,
+  broadcastTransaction,
+} from "@stacks/transactions";
+import { StacksTestnet } from "@stacks/network";
+
+async function main() {
+  const network = new StacksTestnet({ url: process.env.SUBNET_URL });
+  const senderKey = process.env.USER_KEY;
+  const addr = process.env.USER_ADDR;
+  const alt_addr = process.env.ALT_USER_ADDR;
+  const nonce = parseInt(process.argv[2]);
+
+  const txOptions = {
+    contractAddress: addr,
+    contractName: "simple-nft-l2",
+    functionName: "transfer",
+    functionArgs: [
+      uintCV(5), // ID
+      standardPrincipalCV(addr), // sender
+      standardPrincipalCV(alt_addr), // recipient
+    ],
+    senderKey,
+    validateWithAbi: false,
+    network,
+    anchorMode: AnchorMode.Any,
+    fee: 10000,
+    nonce,
+    postConditionMode: PostConditionMode.Allow,
+  };
+
+  const transaction = await makeContractCall(txOptions);
+
+  const txid = await broadcastTransaction(transaction, network);
+
+  console.log(txid);
+}
+
+main();
+```
+
+#### L2 withdraw script
+
+This script handles the first-part of a withdrawal, calling the `nft-withdraw?`
+function on the L2 subnet contract, to initiate the withdrawal. The script takes
+a single argument, to specify the nonce.
+
+_withdraw-l2.js_
+
+```js
+import {
+  makeContractCall,
+  AnchorMode,
+  standardPrincipalCV,
+  contractPrincipalCV,
+  uintCV,
+  broadcastTransaction,
+  PostConditionMode,
+} from "@stacks/transactions";
+import { StacksTestnet } from "@stacks/network";
+
+async function main() {
+  const network = new StacksTestnet({ url: process.env.SUBNET_URL });
+  const senderKey = process.env.ALT_USER_KEY;
+  const contractAddr = process.env.USER_ADDR;
+  const addr = process.env.ALT_USER_ADDR;
+  const nonce = parseInt(process.argv[2]);
+
+  const txOptions = {
+    contractAddress: "ST000000000000000000002AMW42H",
+    contractName: "subnet",
+    functionName: "nft-withdraw?",
+    functionArgs: [
+      contractPrincipalCV(contractAddr, "simple-nft-l2"),
+      uintCV(5), // ID
+      standardPrincipalCV(addr), // recipient
+    ],
+    senderKey,
+    validateWithAbi: false,
+    network,
+    anchorMode: AnchorMode.Any,
+    fee: 10000,
+    nonce,
+    postConditionMode: PostConditionMode.Allow,
+  };
+
+  const transaction = await makeContractCall(txOptions);
+
+  const txid = await broadcastTransaction(transaction, network);
+
+  console.log(txid);
+}
+
+main();
+```
+
+#### L1 withdraw script
+
+This script handles the second part of the withdrawal, calling
+`withdraw-nft-asset` on the L1 subnet contract. It takes in the withdrawal
+height (from the L2 withdrawal transaction) and then fetches from the API to get
+the details required to verify the withdrawal in the subnet's withdrawal tree.
+
+It takes two arguments:
+
+1. Withdrawal block height: this comes from the L2 withdrawal
+2. Nonce
+
+_withdraw-l1.js_
+
+```js
+import {
+  makeContractCall,
+  deserializeCV,
+  AnchorMode,
+  standardPrincipalCV,
+  uintCV,
+  someCV,
+  PostConditionMode,
+  contractPrincipalCV,
+  broadcastTransaction,
+} from "@stacks/transactions";
+import { StacksTestnet, HIRO_MOCKNET_DEFAULT } from "@stacks/network";
+
+async function main() {
+  const network = new StacksTestnet({ url: HIRO_MOCKNET_DEFAULT });
+  const subnetUrl = process.env.SUBNET_URL;
+  const senderKey = process.env.ALT_USER_KEY;
+  const addr = process.env.ALT_USER_ADDR;
+  const contractAddr = process.env.AUTH_SUBNET_ADMIN_ADDR;
+  const withdrawalBlockHeight = process.argv[2];
+  const nonce = parseInt(process.argv[3]);
+  const withdrawalId = 0;
+
+  let json_merkle_entry = await fetch(
+    `${subnetUrl}/v2/withdrawal/nft/${withdrawalBlockHeight}/${addr}/${withdrawalId}/${contractAddr}/simple-nft-l2/5`
+  ).then((x) => x.json());
+  console.log(JSON.stringify(json_merkle_entry));
+  let cv_merkle_entry = {
+    withdrawal_leaf_hash: deserializeCV(json_merkle_entry.withdrawal_leaf_hash),
+    withdrawal_root: deserializeCV(json_merkle_entry.withdrawal_root),
+    sibling_hashes: deserializeCV(json_merkle_entry.sibling_hashes),
+  };
+
+  const txOptions = {
+    senderKey,
+    network,
+    anchorMode: AnchorMode.Any,
+    contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
+    contractName: "subnet",
+    functionName: "withdraw-nft-asset",
+    functionArgs: [
+      contractPrincipalCV(contractAddr, "simple-nft-l1"), // nft-contract
+      uintCV(5), // ID
+      standardPrincipalCV(addr), // recipient
+      uintCV(withdrawalId), // withdrawal ID
+      uintCV(withdrawalBlockHeight), // withdrawal block height
+      someCV(contractPrincipalCV(contractAddr, "simple-nft-l1")), // nft-mint-contract
+      cv_merkle_entry.withdrawal_root, // withdrawal root
+      cv_merkle_entry.withdrawal_leaf_hash, // withdrawal leaf hash
+      cv_merkle_entry.sibling_hashes,
+    ], // sibling hashes
+    fee: 10000,
+    postConditionMode: PostConditionMode.Allow,
+    nonce,
+  };
+
+  const transaction = await makeContractCall(txOptions);
+
+  const txid = await broadcastTransaction(transaction, network);
+
+  console.log(txid);
+}
+
+main();
+```
+
+#### Verify script
+
+This final script queries the `get-owner` function to check the owner of an
+asset.
+
+_verify.js_
+
+```js
+import {
+  uintCV,
+  callReadOnlyFunction,
+  cvToString,
+  cvToHex,
+  hexToCV,
+} from "@stacks/transactions";
+import { StacksTestnet, HIRO_MOCKNET_DEFAULT } from "@stacks/network";
+
+async function main() {
+  const networkLayer = parseInt(process.argv[2]);
+  const senderAddress = process.env.ALT_USER_ADDR;
+  const contractAddress =
+    networkLayer == 2 ? process.env.USER_ADDR : process.env.DEPLOYER_ADDR;
+  const networkUrl =
+    networkLayer == 2 ? process.env.SUBNET_URL : HIRO_MOCKNET_DEFAULT;
+  const network = new StacksTestnet({ url: networkUrl });
+  const contractName = networkLayer == 2 ? "simple-nft-l2" : "simple-nft-l1";
+
+  const txOptions = {
+    contractAddress,
+    contractName,
+    functionName: "get-owner",
+    functionArgs: [uintCV(5)],
+    network,
+    senderAddress,
+  };
+
+  const result = await callReadOnlyFunction(txOptions);
+
+  console.log(cvToString(result.value));
+}
+
+main();
+```
+
+### Interacting with the subnet
+
+We'll now use that set of scripts to demonstrate the subnet functionality.
+
+First, we'll publish the L2 NFT contract to the subnet:
+
+```sh
+node ./publish.js simple-nft-l2 ../contracts/simple-nft-l2.clar 2 0
+```
+
+Clarinet's interface doesn't show the transactions on the subnet, but, we can
+instead open the explorer, and see this transaction there. In a web browser,
+visit http://localhost:8000. By default, it will open the explorer for the
+devnet L1. To switch to the subnet, click on "Network" in the top right, then
+"Add a network". In the popup, choose a name, e.g. "Devnet Subnet", then for the
+URL, use "http://localhost:13999". You will know this contract deployment
+succeedeed when you see the contract deploy transaction for "simple-nft-l2" in
+the list of confirmed transactions.
+
+![contract deploy confirmed](images/confirmed.png)
+
+Now that the NFT contracts are deployed to both the L1 and the L2, we can
+register the NFT with the subnet.
+
+```sh
+node ./register.js
+```
+
+This is an L1 transaction, so you can watch for it in the Clarinet interface or
+in the Devnet network on the explorer.
+
+Now, we need an asset to work with, so we'll mint an NFT on the L1:
+
+```js
+node ./mint.js 0
+```
+
+Once the mint has been processed, we can deposit it into the subnet:
+
+```js
+node ./deposit.js 1
+```
+
+We can verify that the NFT is now owned by the subnet contract
+(`ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet`) on the L1 using:
+
+```js
+node ./verify.js 1
+```
+
+Similarly, we can verify that the NFT is owned by the expected address
+(`ST2NEB84ASENDXKYGJPQW86YXQCEFEX2ZQPG87ND`) on the L2:
+
+```js
+node ./verify.js 2
+```
+
+Now that the NFT is inside the subnet, we can transfer it from one address to
+another:
+
+```js
+node ./transfer.js 1
+```
+
+If we call the `verify.js` script again, we should now see that the NFT is owned
+by `ST2REHHS5J3CERCRBEPMGH7921Q6PYKAADT7JP2VB`.
+
+Now, we will initiate a withdrawal from the subnet, by calling the
+`nft-withdraw?` function on the L2 subnet contract.
+
+```js
+node ./withdraw-l2.js 0
+```
+
+We can confirm that this transaction is successful in the L2 explorer.
+
+@@@@ TODO: Get the block height from somewhere easy and set the variable
+`height`. @@@@
+
+For the second part of the withdraw, we call `withdraw-nft-asset` on the L1
+subnet contract:
+
+```sh
+node ./withdraw_nft_l1.js $height 0
+```
+
+This is an L1 transaction, so it can be confirmed in the L1 explorer or in the
+Clarinet terminal UI.
+
+If everything went well, now the NFT should be owned by the correct user on the
+L1 (`ST2REHHS5J3CERCRBEPMGH7921Q6PYKAADT7JP2VB`):
+
+```sh
+node ./verify.js 1
 ```

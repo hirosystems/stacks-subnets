@@ -1,41 +1,68 @@
 ---
 title: Overview
 ---
+
 # Overview
 
-Subnets are a layer-2 scaling solution in the Stacks blockchain that offers low latency and high throughput workloads, in addition to enabling developers to build fast and reliable experiences on Stacks.
+Subnets are a layer-2 scaling solution in the Stacks blockchain that offers low
+latency and high throughput workloads, enabling developers to build fast and
+reliable experiences on Stacks.
 
 ## Background
 
-Subnets are a network separate from the Stacks chain. Subnets can be thought of as a layer-2 (L2), and the Stacks chain can be thought of as a layer-1 (L1). Subnets interface with the Stacks chain via a smart contract specific to the subnet. Different subnets use distinct Stacks contracts as an interface. 
+A subnet is a network separate from the Stacks chain. A subnet can be thought of
+as a layer-2 (L2), and the Stacks chain can be thought of as a layer-1 (L1). A
+subnet interfaces with the Stacks chain via a smart contract specific to the
+subnet. Different subnets use distinct contracts on the Stacks chain as an
+interface.
 
-This interface contract has several functions that allow it to act as an intermediary between the Stacks chain and some particular subnet. These functions include, but are not limited to, the following functions:
+This interface contract has several functions that allow it to act as an
+intermediary between the Stacks chain and some particular subnet. These
+functions include, but are not limited to, the following functions:
 
-- `commit-block`: Called by subnet miners to record block hashes and withdrawal states on the Stacks chain.
-- `deposit-ft-asset` / `deposit-stx` / `deposit-nft-asset`: Called by users to deposit assets into the subnets 
-  contract. The subnet "listens" for calls to these functions, and performs a mint on the subnets to 
-  replicate this state. Meanwhile, on the L1, the assets live in the contract.
-- `withdraw-ft-asset` / `withdraw-stx` / `withdraw-nft-asset`: Called by miners to withdraw assets from the subnets. 
-  In an upcoming update to the subnets repo, this function will be called by users directly. 
+- `commit-block`: Called by subnet miners to record block hashes and withdrawal
+  states on the Stacks chain.
+- `deposit-ft-asset` / `deposit-stx` / `deposit-nft-asset`: Called by users to
+  deposit assets into the subnet. The subnet miners "listens" for calls to these
+  functions, and performs a mint on the subnets to replicate this state.
+  Meanwhile, on the L1, the assets live in the subnet contract.
+- `withdraw-ft-asset` / `withdraw-stx` / `withdraw-nft-asset`: Called by users
+  to withdrawal assets from the subnet. Withdrawal is a two step process, where
+  the user first initiates a withdrawal within the subnet, then calls these
+  functions on the Stacks chain to complete the withdrawal.
 
-In order to register new allowed assets, a valid miner may call `setup-allowed-contracts`, `register-ft-contract`, or `register-nft-contract`. 
-The transaction sender must be part of the miners list defined in the subnets contract.
+In order to register new allowed assets, a subnet admin may call
+`register-new-ft-contract`, or `register-new-nft-contract`. Only assets that
+have been registered can be deposited into the subnet.
 
 ## Features
 
-Subnets are designed to transact on Stacks assets, meaning users can move assets in and out of subnets. While a user’s assets are in a subnet, they trust that subnet’s consensus rules. This subnet interacts with the Stacks chain using a smart contract specific to that subnet.
+Subnets are designed to transact on Stacks assets, meaning users can move assets
+from the Stacks chain in and out of subnets. While a user’s assets are in a
+subnet, the asset is locked in the subnet contract on the Stacks chain.
 
 > **_NOTE:_**
-> 
-> The current implementation of subnets uses a 2-phase commit protocol amongst a fully-trusted pool of miners.
+>
+> The current implementation of subnets uses a single miner or a 2-phase commit
+> protocol amongst a fully-trusted pool of miners. Users of a subnet should be
+> aware that they are sacrificing decentralization and security for the speed
+> provided in the subnet, and therefore should only deposit assets into trusted
+> subnets.
 
 Listed below are some of the features of subnets:
 
-- Each subnet may define its throughput settings. The default implementation should support at least 4x high throughput for transactions and may reduce confirmation time from 10 minutes to 1 minute.
-- Interacting with a subnet is similar to interacting with a different Stacks network (for example: testnet vs. mainnet).
+- Each subnet may define its throughput settings. The default implementation
+  should support at least 4x higher throughput for transactions and reduce
+  confirmation time from 10 minutes to 1 minute.
+- Interacting with a subnet is similar to interacting with a different Stacks
+  network (for example: testnet vs. mainnet).
 - The Stacks blockchain can support many different subnets.
 - Each subnet may use the same or different consensus rules.
-- This repository implements a consensus mechanism that uses a two-phase commit among a federated pool of miners.
-- FTs, NFTs, and STX deposits and withdrawals are supported via user-submitted L1 transactions.
-- To deposit into a subnet, users submit a layer-1 transaction to invoke the deposit method on that subnet's smart contract.
-- For withdrawals, users commit the withdrawal on the subnet and then submit a layer-1 transaction to invoke the subnet's smart contract's withdraw method.
+- This repository implements a consensus mechanism that uses a two-phase commit
+  among a federated pool of miners.
+- FTs, NFTs, and STX deposits and withdrawals are supported via user-submitted
+  L1 transactions.
+- To deposit into a subnet, users submit a layer-1 transaction to invoke the
+  deposit method on that subnet's smart contract.
+- For withdrawals, users commit the withdrawal on the subnet and then submit a
+  layer-1 transaction to invoke the subnet's smart contract's withdraw method.
