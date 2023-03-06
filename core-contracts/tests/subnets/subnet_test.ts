@@ -830,6 +830,24 @@ Clarinet.test({
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
 
+    // Try to overflow amount of fungible tokens
+    // This will cause a runtime error in `clarinet` but should not affect token balance
+    const u128_max = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+
+    block = chain.mineBlock([
+      Tx.contractCall(
+        "simple-ft",
+        "gift-tokens",
+        [types.uint(u128_max), types.principal(charlie.address)],
+        charlie.address
+      ),
+    ]);
+
+    // Check that user right amount of fungible tokens
+    let assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
+    let ft_amount = assets[charlie.address];
+    assertEquals(ft_amount, 2);
+
     // User should not be able to deposit FT assets if they are not allowed
     block = chain.mineBlock([
       Tx.contractCall(
@@ -1093,7 +1111,7 @@ Clarinet.test({
         [
           types.principal(ft_contract.contract_id),
           types.uint(1),
-          types.principal(bob.address),
+          types.principal(charlie.address),
           types.uint(0),
           types.uint(100),
           types.none(),
@@ -1176,8 +1194,8 @@ Clarinet.test({
     block.receipts[0].result.expectOk().expectBool(true);
 
     // Check that user owns FT
-    const assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
-    const ft_amount = assets[charlie.address];
+    assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
+    ft_amount = assets[charlie.address];
     assertEquals(ft_amount, 1);
 
     // Miner should not be able to withdraw FT asset a second time
