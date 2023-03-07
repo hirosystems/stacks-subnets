@@ -4,11 +4,14 @@ title: Trust Models
 
 ## Overview
 
-The current implementation of subnets uses a federated system of miners. This federation is fully-trusted, but future work on subnets will explore alternative trust models.
+The current subnet implementation uses a federated system of miners. This
+federation is fully-trusted, but future work on subnets will explore alternative
+trust models.
 
-In a fully federated trusted model:
+In this fully-trusted federation model:
 
-- Miners are responsible for issuing subnet blocks.
-- Users can validate, but subnet miners control withdrawals.
-- Trust can be federated with a 2-phase commit and BFT protocol for miner block issuance.
-- Federation requires a majority of miners to approve withdrawals.
+- The federation is responsible for issuing subnet blocks.
+- Users can validate these blocks, but the subnet's federation still controls
+  the blocks.
+- Each block must be signed by a majority of the federation
+- Federation signatures are validated on the L1 chain

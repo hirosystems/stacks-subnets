@@ -30,7 +30,7 @@ All three configurations assume several paths that might need to be adjusted.
     PID file:            /run/stacks-blockchain/stacks.pid
     Lock file:           /var/lock/subsys/stacks (SysVinit)
 
-The PID directory and data directory should be owned by both the
+The PID directory and data directory should both be owned by the
 stacks user and group. It is advised for security reasons to make the
 configuration file and data directory only readable by the stacks user and
 group.

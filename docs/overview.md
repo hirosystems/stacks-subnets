@@ -4,9 +4,9 @@ title: Overview
 
 # Overview
 
-Subnets are a layer-2 scaling solution in the Stacks blockchain that offers low
-latency and high throughput workloads, enabling developers to build fast and
-reliable experiences on Stacks.
+Subnets are a layer-2 scaling solution in the Stacks blockchain offering low
+latency and high throughput and enable developers to build fast and reliable
+experiences on Stacks.
 
 ## Background
 
@@ -31,7 +31,7 @@ functions include, but are not limited to, the following functions:
   the user first initiates a withdrawal within the subnet, then calls these
   functions on the Stacks chain to complete the withdrawal.
 
-In order to register new allowed assets, a subnet admin may call
+In order to register new allowed assets, the subnet's administrator must call
 `register-new-ft-contract`, or `register-new-nft-contract`. Only assets that
 have been registered can be deposited into the subnet.
 
@@ -43,8 +43,8 @@ subnet, the asset is locked in the subnet contract on the Stacks chain.
 
 > **_NOTE:_**
 >
-> The current implementation of subnets uses a single miner or a 2-phase commit
-> protocol amongst a fully-trusted pool of miners. Users of a subnet should be
+> The current subnet implementation relies on either a single block producer or
+> a fully-trusted federation of block producers. Users of a subnet should be
 > aware that they are sacrificing decentralization and security for the speed
 > provided in the subnet, and therefore should only deposit assets into trusted
 > subnets.
