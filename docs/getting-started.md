@@ -634,15 +634,15 @@ async function main() {
   const subnetUrl = process.env.SUBNET_URL;
   const senderKey = process.env.ALT_USER_KEY;
   const addr = process.env.ALT_USER_ADDR;
-  const contractAddr = process.env.AUTH_SUBNET_ADMIN_ADDR;
+  const l1ContractAddr = process.env.DEPLOYER_ADDR;
+  const l2ContractAddr = process.env.USER_ADDR;
   const withdrawalBlockHeight = process.argv[2];
   const nonce = parseInt(process.argv[3]);
   const withdrawalId = 0;
 
   let json_merkle_entry = await fetch(
-    `${subnetUrl}/v2/withdrawal/nft/${withdrawalBlockHeight}/${addr}/${withdrawalId}/${contractAddr}/simple-nft-l2/5`
+    `${subnetUrl}/v2/withdrawal/nft/${withdrawalBlockHeight}/${addr}/${withdrawalId}/${l2ContractAddr}/simple-nft-l2/5`
   ).then((x) => x.json());
-  console.log(JSON.stringify(json_merkle_entry));
   let cv_merkle_entry = {
     withdrawal_leaf_hash: deserializeCV(json_merkle_entry.withdrawal_leaf_hash),
     withdrawal_root: deserializeCV(json_merkle_entry.withdrawal_root),
@@ -657,12 +657,12 @@ async function main() {
     contractName: "subnet",
     functionName: "withdraw-nft-asset",
     functionArgs: [
-      contractPrincipalCV(contractAddr, "simple-nft-l1"), // nft-contract
+      contractPrincipalCV(l1ContractAddr, "simple-nft-l1"), // nft-contract
       uintCV(5), // ID
       standardPrincipalCV(addr), // recipient
       uintCV(withdrawalId), // withdrawal ID
       uintCV(withdrawalBlockHeight), // withdrawal block height
-      someCV(contractPrincipalCV(contractAddr, "simple-nft-l1")), // nft-mint-contract
+      someCV(contractPrincipalCV(l1ContractAddr, "simple-nft-l1")), // nft-mint-contract
       cv_merkle_entry.withdrawal_root, // withdrawal root
       cv_merkle_entry.withdrawal_leaf_hash, // withdrawal leaf hash
       cv_merkle_entry.sibling_hashes,
@@ -800,16 +800,13 @@ Now, we will initiate a withdrawal from the subnet, by calling the
 node ./withdraw-l2.js 0
 ```
 
-We can confirm that this transaction is successful in the L2 explorer.
-
-@@@@ TODO: Get the block height from somewhere easy and set the variable
-`height`. @@@@
+We can confirm that this transaction is successful in the L2 explorer. In the explorer, note the block height that this withdrawal transaction is included in. Fill in this block height for `$height` in the next step.
 
 For the second part of the withdraw, we call `withdraw-nft-asset` on the L1
 subnet contract:
 
 ```sh
-node ./withdraw_nft_l1.js $height 0
+node ./withdraw-l1.js $height 0
 ```
 
 This is an L1 transaction, so it can be confirmed in the L1 explorer or in the
@@ -820,4 +817,10 @@ L1 (`ST2REHHS5J3CERCRBEPMGH7921Q6PYKAADT7JP2VB`):
 
 ```sh
 node ./verify.js 1
+```
+
+In the subnet, this asset should not be owned by anyone (`none`):
+
+```sh
+node ./verify.js 2
 ```
