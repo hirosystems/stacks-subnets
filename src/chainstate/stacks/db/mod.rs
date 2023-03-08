@@ -1426,27 +1426,6 @@ impl StacksChainState {
                 callback(&mut clarity_tx);
             }
 
-            // Setup burnchain parameters for pox contract
-            let contract = boot_code_id("pox", mainnet);
-            let sender = PrincipalData::from(contract.clone());
-            let params = vec![
-                Value::UInt(boot_data.first_burnchain_block_height as u128),
-                Value::UInt(0u128),
-                Value::UInt(0u128),
-                Value::UInt(0u128),
-            ];
-            clarity_tx.connection().as_transaction(|conn| {
-                conn.run_contract_call(
-                    &sender,
-                    None,
-                    &contract,
-                    "set-burnchain-parameters",
-                    &params,
-                    |_, _| false,
-                )
-                .expect("Failed to set burnchain parameters in PoX contract");
-            });
-
             clarity_tx
                 .connection()
                 .as_transaction(|tx| {

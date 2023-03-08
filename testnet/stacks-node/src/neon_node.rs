@@ -1588,7 +1588,7 @@ impl StacksNode {
             )
             .ok()?
         } else {
-            info!("No Stacks chain tip known, will return a genesis block");
+            info!("No subnet chain tip known, will return a genesis block");
             let burnchain_params =
                 // TODO(subnets): set burnchain parameters with subnet configuration
                 BurnchainParameters::from_params(&config.burnchain.chain, "mainnet")

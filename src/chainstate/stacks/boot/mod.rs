@@ -51,54 +51,32 @@ use crate::util_lib::boot;
 use crate::vm::{costs::LimitedCostTracker, SymbolicExpression};
 use clarity::vm::ClarityVersion;
 
-const BOOT_CODE_POX_BODY: &'static str = std::include_str!("pox.clar");
-const BOOT_CODE_POX_TESTNET_CONSTS: &'static str = std::include_str!("pox-testnet.clar");
-const BOOT_CODE_POX_MAINNET_CONSTS: &'static str = std::include_str!("pox-mainnet.clar");
-pub const BOOT_CODE_LOCKUP: &'static str = std::include_str!("lockup.clar");
 pub const BOOT_CODE_COSTS: &'static str = std::include_str!("costs.clar");
 pub const BOOT_CODE_COSTS_2: &'static str = std::include_str!("costs-2.clar");
 pub const BOOT_CODE_COSTS_3: &'static str = std::include_str!("costs-3.clar");
 pub const BOOT_CODE_COSTS_2_TESTNET: &'static str = std::include_str!("costs-2-testnet.clar");
 pub const BOOT_CODE_COST_VOTING_MAINNET: &'static str = std::include_str!("cost-voting.clar");
 pub const BOOT_CODE_BNS: &'static str = std::include_str!("bns.clar");
-pub const BOOT_CODE_GENESIS: &'static str = std::include_str!("genesis.clar");
-pub const POX_1_NAME: &'static str = "pox";
-pub const POX_2_NAME: &'static str = "pox-2";
 pub const COSTS_1_NAME: &'static str = "costs";
 pub const COSTS_2_NAME: &'static str = "costs-2";
 pub const COSTS_3_NAME: &'static str = "costs-3";
-const POX_2_BODY: &'static str = std::include_str!("pox-2.clar");
 pub const BOOT_CODE_SUBNET: &'static str = std::include_str!("subnet.clar");
 
 pub mod docs;
 
 lazy_static! {
-    pub static ref BOOT_CODE_POX_MAINNET: String =
-        format!("{}\n{}", BOOT_CODE_POX_MAINNET_CONSTS, BOOT_CODE_POX_BODY);
-    pub static ref BOOT_CODE_POX_TESTNET: String =
-        format!("{}\n{}", BOOT_CODE_POX_TESTNET_CONSTS, BOOT_CODE_POX_BODY);
-    pub static ref POX_2_MAINNET_CODE: String =
-        format!("{}\n{}", BOOT_CODE_POX_MAINNET_CONSTS, POX_2_BODY);
-    pub static ref POX_2_TESTNET_CODE: String =
-        format!("{}\n{}", BOOT_CODE_POX_TESTNET_CONSTS, POX_2_BODY);
     pub static ref BOOT_CODE_COST_VOTING_TESTNET: String = make_testnet_cost_voting();
-    pub static ref STACKS_BOOT_CODE_MAINNET: [(&'static str, &'static str); 7] = [
+    pub static ref STACKS_BOOT_CODE_MAINNET: [(&'static str, &'static str); 4] = [
         ("subnet", &BOOT_CODE_SUBNET),
-        ("pox", &BOOT_CODE_POX_MAINNET),
-        ("lockup", BOOT_CODE_LOCKUP),
         ("costs", BOOT_CODE_COSTS),
         ("cost-voting", BOOT_CODE_COST_VOTING_MAINNET),
         ("bns", &BOOT_CODE_BNS),
-        ("genesis", &BOOT_CODE_GENESIS),
     ];
-    pub static ref STACKS_BOOT_CODE_TESTNET: [(&'static str, &'static str); 7] = [
+    pub static ref STACKS_BOOT_CODE_TESTNET: [(&'static str, &'static str); 4] = [
         ("subnet", &BOOT_CODE_SUBNET),
-        ("pox", &BOOT_CODE_POX_TESTNET),
-        ("lockup", BOOT_CODE_LOCKUP),
         ("costs", BOOT_CODE_COSTS),
         ("cost-voting", &BOOT_CODE_COST_VOTING_TESTNET),
         ("bns", &BOOT_CODE_BNS),
-        ("genesis", &BOOT_CODE_GENESIS),
     ];
 }
 

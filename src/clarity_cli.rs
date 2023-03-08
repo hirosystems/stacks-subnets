@@ -68,8 +68,7 @@ use stacks_common::types::chainstate::*;
 
 use crate::chainstate::stacks::boot::{
     BOOT_CODE_COSTS, BOOT_CODE_COSTS_2, BOOT_CODE_COSTS_2_TESTNET, BOOT_CODE_COSTS_3,
-    BOOT_CODE_COST_VOTING_MAINNET, BOOT_CODE_COST_VOTING_TESTNET, BOOT_CODE_GENESIS,
-    BOOT_CODE_SUBNET,
+    BOOT_CODE_COST_VOTING_MAINNET, BOOT_CODE_COST_VOTING_TESTNET, BOOT_CODE_SUBNET,
 };
 
 use crate::util_lib::boot::{boot_code_addr, boot_code_id};
@@ -102,19 +101,17 @@ use stacks_common::types::chainstate::VRFSeed;
 use std::str::FromStr;
 
 lazy_static! {
-    pub static ref STACKS_BOOT_CODE_MAINNET_2_1: [(&'static str, &'static str); 6] = [
+    pub static ref STACKS_BOOT_CODE_MAINNET_2_1: [(&'static str, &'static str); 5] = [
         ("subnet", &BOOT_CODE_SUBNET),
         ("costs", BOOT_CODE_COSTS),
         ("cost-voting", BOOT_CODE_COST_VOTING_MAINNET),
-        ("genesis", &BOOT_CODE_GENESIS),
         ("costs-2", BOOT_CODE_COSTS_2),
         ("costs-3", BOOT_CODE_COSTS_3),
     ];
-    pub static ref STACKS_BOOT_CODE_TESTNET_2_1: [(&'static str, &'static str); 6] = [
+    pub static ref STACKS_BOOT_CODE_TESTNET_2_1: [(&'static str, &'static str); 5] = [
         ("subnet", &BOOT_CODE_SUBNET),
         ("costs", BOOT_CODE_COSTS),
         ("cost-voting", &BOOT_CODE_COST_VOTING_TESTNET),
-        ("genesis", &BOOT_CODE_GENESIS),
         ("costs-2", BOOT_CODE_COSTS_2_TESTNET),
         ("costs-3", BOOT_CODE_COSTS_3),
     ];

@@ -4490,7 +4490,7 @@ impl StacksChainState {
             // the parent stacks block has a different epoch than what the Sortition DB
             //  thinks should be in place.
             if stacks_parent_epoch != sortition_epoch.epoch_id {
-                info!("Applying epoch transition"; "new_epoch_id" => %sortition_epoch.epoch_id, "old_epoch_id" => %stacks_parent_epoch);
+                info!("Applying epoch transition"; "new_epoch_id" => %sortition_epoch.epoch_id, "old_epoch_id" => %stacks_parent_epoch, "chain_tip_burn_height" => chain_tip_burn_header_height);
                 // this assertion failing means that the _parent_ block was invalid: this is bad and should panic.
                 assert!(stacks_parent_epoch < sortition_epoch.epoch_id, "The SortitionDB believes the epoch is earlier than this Stacks block's parent: sortition db epoch = {}, parent epoch = {}", sortition_epoch.epoch_id, stacks_parent_epoch);
                 // time for special cases:
@@ -4499,19 +4499,23 @@ impl StacksChainState {
                         panic!("Clarity VM believes it was running in 1.0: pre-Clarity.")
                     }
                     StacksEpochId::Epoch20 => {
-                        assert_eq!(
-                            sortition_epoch.epoch_id,
-                            StacksEpochId::Epoch2_05,
-                            "Should only transition from Epoch20 to Epoch2_05"
+                        assert!(
+                            sortition_epoch.epoch_id >= StacksEpochId::Epoch2_05,
+                            "Should only transition to a higher epoch"
                         );
-                        receipts.push(clarity_tx.block.initialize_epoch_2_05()?);
-                        applied = true;
+                        if sortition_epoch.epoch_id >= StacksEpochId::Epoch2_05 {
+                            receipts.push(clarity_tx.block.initialize_epoch_2_05()?);
+                            applied = true;
+                        }
+                        if sortition_epoch.epoch_id >= StacksEpochId::Epoch21 {
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
+                            applied = true;
+                        }
                     }
                     StacksEpochId::Epoch2_05 => {
-                        assert_eq!(
-                            sortition_epoch.epoch_id,
-                            StacksEpochId::Epoch21,
-                            "Should only transition from Epoch2_05 to Epoch21"
+                        assert!(
+                            sortition_epoch.epoch_id >= StacksEpochId::Epoch21,
+                            "Should only transition to a higher epoch"
                         );
                         receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
                         applied = true;
@@ -4768,58 +4772,6 @@ impl StacksChainState {
         assert_eq!(parent_share.total(), parent_share.tx_fees_streamed_produced);
         StacksChainState::process_matured_miner_reward(clarity_tx, parent_share)?;
         Ok(coinbase_reward)
-    }
-
-    /// Process all STX that unlock at this block height.
-    /// Return the total number of uSTX unlocked in this block
-    pub fn process_stx_unlocks<'a, 'b>(
-        clarity_tx: &mut ClarityTx<'a, 'b>,
-    ) -> Result<(u128, Vec<StacksTransactionEvent>), Error> {
-        let mainnet = clarity_tx.config.mainnet;
-        let lockup_contract_id = boot_code_id("lockup", mainnet);
-        clarity_tx
-            .connection()
-            .as_transaction(|tx_connection| {
-                let result = tx_connection.with_clarity_db(|db| {
-                    let block_height = Value::UInt(db.get_current_block_height().into());
-                    let res = db.fetch_entry_unknown_descriptor(
-                        &lockup_contract_id,
-                        "lockups",
-                        &block_height,
-                    )?;
-                    Ok(res)
-                })?;
-
-                let entries = match result {
-                    Value::Optional(_) => match result.expect_optional() {
-                        Some(Value::Sequence(SequenceData::List(entries))) => entries.data,
-                        _ => return Ok((0, vec![])),
-                    },
-                    _ => return Ok((0, vec![])),
-                };
-
-                let mut total_minted = 0;
-                let mut events = vec![];
-                for entry in entries.into_iter() {
-                    let schedule: TupleData = entry.expect_tuple();
-                    let amount = schedule
-                        .get("amount")
-                        .expect("Lockup malformed")
-                        .to_owned()
-                        .expect_u128();
-                    let recipient = schedule
-                        .get("recipient")
-                        .expect("Lockup malformed")
-                        .to_owned()
-                        .expect_principal();
-                    total_minted += amount;
-                    StacksChainState::account_credit(tx_connection, &recipient, amount as u64);
-                    let event = STXEventType::STXMintEvent(STXMintEventData { recipient, amount });
-                    events.push(StacksTransactionEvent::STXEvent(event));
-                }
-                Ok((total_minted, events))
-            })
-            .map_err(Error::ClarityError)
     }
 
     /// Given the list of matured miners, find the miner reward schedule that produced the parent
@@ -5089,11 +5041,6 @@ impl StacksChainState {
             clarity_tx.increment_ustx_liquid_supply(matured_ustx);
         }
 
-        // process unlocks
-        let (new_unlocked_ustx, lockup_events) = StacksChainState::process_stx_unlocks(clarity_tx)?;
-
-        clarity_tx.increment_ustx_liquid_supply(new_unlocked_ustx);
-
         // mark microblock public key as used
         match StacksChainState::insert_microblock_pubkey_hash(
             clarity_tx,
@@ -5117,7 +5064,7 @@ impl StacksChainState {
             }
         }
 
-        Ok(lockup_events)
+        Ok(vec![])
     }
 
     /// Process the next pre-processed staging block.
