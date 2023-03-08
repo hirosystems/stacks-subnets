@@ -507,7 +507,7 @@ pub mod test {
     }
 
     fn get_liquid_ustx(peer: &mut TestPeer) -> u128 {
-        let value = eval_at_tip(peer, "pox", "stx-liquid-supply");
+        let value = eval_at_tip(peer, "subnet", "stx-liquid-supply");
         if let Value::UInt(inner_uint) = value {
             return inner_uint;
         } else {
@@ -518,7 +518,7 @@ pub mod test {
     fn get_balance(peer: &mut TestPeer, addr: &PrincipalData) -> u128 {
         let value = eval_at_tip(
             peer,
-            "pox",
+            "subnet",
             &format!("(stx-get-balance '{})", addr.to_string()),
         );
         if let Value::UInt(balance) = value {
@@ -526,34 +526,6 @@ pub mod test {
         } else {
             panic!("stx-get-balance isn't a uint");
         }
-    }
-
-    fn get_stacker_info(
-        peer: &mut TestPeer,
-        addr: &PrincipalData,
-    ) -> Option<(u128, (AddressHashMode, Hash160), u128, u128)> {
-        let value_opt = eval_at_tip(
-            peer,
-            "pox",
-            &format!("(get-stacker-info '{})", addr.to_string()),
-        );
-        let data = if let Some(d) = value_opt.expect_optional() {
-            d
-        } else {
-            return None;
-        };
-
-        let data = data.expect_tuple();
-
-        let amount_ustx = data.get("amount-ustx").unwrap().to_owned().expect_u128();
-        let pox_addr = tuple_to_pox_addr(data.get("pox-addr").unwrap().to_owned().expect_tuple());
-        let lock_period = data.get("lock-period").unwrap().to_owned().expect_u128();
-        let first_reward_cycle = data
-            .get("first-reward-cycle")
-            .unwrap()
-            .to_owned()
-            .expect_u128();
-        Some((amount_ustx, pox_addr, lock_period, first_reward_cycle))
     }
 
     fn with_sortdb<F, R>(peer: &mut TestPeer, todo: F) -> R
@@ -960,117 +932,6 @@ pub mod test {
                 // add mature coinbases
                 expected_liquid_ustx += block_reward + expected_bonus;
             }
-        }
-    }
-
-    #[test]
-    fn test_lockups() {
-        let mut peer_config = TestPeerConfig::new("test_lockups", 2000, 2001);
-        let alice = StacksAddress::from_string("STVK1K405H6SK9NKJAP32GHYHDJ98MMNP8Y6Z9N0").unwrap();
-        let bob = StacksAddress::from_string("ST76D2FMXZ7D2719PNE4N71KPSX84XCCNCMYC940").unwrap();
-        peer_config.initial_lockups = vec![
-            ChainstateAccountLockup::new(alice.into(), 1000, 1),
-            ChainstateAccountLockup::new(bob, 1000, 1),
-            ChainstateAccountLockup::new(alice, 1000, 2),
-            ChainstateAccountLockup::new(bob, 1000, 3),
-            ChainstateAccountLockup::new(alice, 1000, 4),
-            ChainstateAccountLockup::new(bob, 1000, 4),
-            ChainstateAccountLockup::new(bob, 1000, 5),
-            ChainstateAccountLockup::new(alice, 1000, 6),
-            ChainstateAccountLockup::new(alice, 1000, 7),
-        ];
-        let mut peer = TestPeer::new(peer_config);
-
-        let num_blocks = 8;
-        let mut missed_initial_blocks = 0;
-
-        for tenure_id in 0..num_blocks {
-            let alice_balance = get_balance(&mut peer, &alice.to_account_principal());
-            let bob_balance = get_balance(&mut peer, &bob.to_account_principal());
-            match tenure_id {
-                0 => {
-                    assert_eq!(alice_balance, 0);
-                    assert_eq!(bob_balance, 0);
-                }
-                1 => {
-                    assert_eq!(alice_balance, 1000);
-                    assert_eq!(bob_balance, 1000);
-                }
-                2 => {
-                    assert_eq!(alice_balance, 2000);
-                    assert_eq!(bob_balance, 1000);
-                }
-                3 => {
-                    assert_eq!(alice_balance, 2000);
-                    assert_eq!(bob_balance, 2000);
-                }
-                4 => {
-                    assert_eq!(alice_balance, 3000);
-                    assert_eq!(bob_balance, 3000);
-                }
-                5 => {
-                    assert_eq!(alice_balance, 3000);
-                    assert_eq!(bob_balance, 4000);
-                }
-                6 => {
-                    assert_eq!(alice_balance, 4000);
-                    assert_eq!(bob_balance, 4000);
-                }
-                7 => {
-                    assert_eq!(alice_balance, 5000);
-                    assert_eq!(bob_balance, 4000);
-                }
-                _ => {
-                    assert_eq!(alice_balance, 5000);
-                    assert_eq!(bob_balance, 4000);
-                }
-            }
-            let microblock_privkey = StacksPrivateKey::new();
-            let microblock_pubkeyhash =
-                Hash160::from_node_public_key(&StacksPublicKey::from_private(&microblock_privkey));
-            let tip =
-                SortitionDB::get_canonical_burn_chain_tip(&peer.sortdb.as_ref().unwrap().conn())
-                    .unwrap();
-
-            let (burn_ops, stacks_block, microblocks) = peer.make_tenure(
-                |ref mut miner,
-                 ref mut sortdb,
-                 ref mut chainstate,
-                 vrf_proof,
-                 ref parent_opt,
-                 ref parent_microblock_header_opt| {
-                    let parent_tip = get_parent_tip(parent_opt, chainstate, sortdb);
-
-                    if tip.total_burn > 0 && missed_initial_blocks == 0 {
-                        eprintln!("Missed initial blocks: {}", missed_initial_blocks);
-                        missed_initial_blocks = tip.block_height;
-                    }
-
-                    let coinbase_tx = make_coinbase(miner, tenure_id);
-
-                    let block_txs = vec![coinbase_tx];
-
-                    let block_builder = StacksBlockBuilder::make_regtest_block_builder(
-                        &parent_tip,
-                        vrf_proof,
-                        tip.total_burn,
-                        microblock_pubkeyhash,
-                    )
-                    .unwrap();
-                    let (anchored_block, _size, _cost) =
-                        StacksBlockBuilder::make_anchored_block_from_txs(
-                            block_builder,
-                            chainstate,
-                            &sortdb.index_conn(),
-                            block_txs,
-                        )
-                        .unwrap();
-                    (anchored_block, vec![])
-                },
-            );
-
-            let (burn_ht, _, _) = peer.next_burnchain_block(burn_ops.clone());
-            peer.process_stacks_epoch_at_tip(&stacks_block, &microblocks);
         }
     }
 
