@@ -56,7 +56,6 @@ pub const BOOT_CODE_COSTS_2: &'static str = std::include_str!("costs-2.clar");
 pub const BOOT_CODE_COSTS_3: &'static str = std::include_str!("costs-3.clar");
 pub const BOOT_CODE_COSTS_2_TESTNET: &'static str = std::include_str!("costs-2-testnet.clar");
 pub const BOOT_CODE_COST_VOTING_MAINNET: &'static str = std::include_str!("cost-voting.clar");
-pub const BOOT_CODE_BNS: &'static str = std::include_str!("bns.clar");
 pub const COSTS_1_NAME: &'static str = "costs";
 pub const COSTS_2_NAME: &'static str = "costs-2";
 pub const COSTS_3_NAME: &'static str = "costs-3";
@@ -66,17 +65,15 @@ pub mod docs;
 
 lazy_static! {
     pub static ref BOOT_CODE_COST_VOTING_TESTNET: String = make_testnet_cost_voting();
-    pub static ref STACKS_BOOT_CODE_MAINNET: [(&'static str, &'static str); 4] = [
+    pub static ref STACKS_BOOT_CODE_MAINNET: [(&'static str, &'static str); 3] = [
         ("subnet", &BOOT_CODE_SUBNET),
         ("costs", BOOT_CODE_COSTS),
         ("cost-voting", BOOT_CODE_COST_VOTING_MAINNET),
-        ("bns", &BOOT_CODE_BNS),
     ];
-    pub static ref STACKS_BOOT_CODE_TESTNET: [(&'static str, &'static str); 4] = [
+    pub static ref STACKS_BOOT_CODE_TESTNET: [(&'static str, &'static str); 3] = [
         ("subnet", &BOOT_CODE_SUBNET),
         ("costs", BOOT_CODE_COSTS),
         ("cost-voting", &BOOT_CODE_COST_VOTING_TESTNET),
-        ("bns", &BOOT_CODE_BNS),
     ];
 }
 
