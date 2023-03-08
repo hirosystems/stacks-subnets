@@ -71,6 +71,7 @@
             sender: sender,
             amount: amount,
             asset-contract: (contract-of asset),
+            withdrawal-height: block-height,
         })
         (try! (contract-call? asset burn-for-withdrawal amount sender))
         (ok block-height)
@@ -84,6 +85,7 @@
             sender: sender,
             id: id,
             asset-contract: (contract-of asset),
+            withdrawal-height: block-height,
         })
         (try! (contract-call? asset burn-for-withdrawal id sender))
         (ok block-height)
@@ -96,6 +98,7 @@
             type: "stx",
             sender: sender,
             amount: amount,
+            withdrawal-height: block-height,
         })
         (try! (stx-transfer? amount sender (as-contract tx-sender)))
         (ok block-height)
