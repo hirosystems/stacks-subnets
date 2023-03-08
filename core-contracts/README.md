@@ -1,6 +1,9 @@
 # Subnets Core Contracts
 
-Essential Clarity contracts for using Stacks Subnets
+This directory contains the contracts published to the Stacks L1 to implement a subnet.
+* _subnet.clar_: interface between the subnet and the L1
+* _multi-miner.clar_: implements a multi-miner for the subnet
+* _helper/*_: used for testing
 
 ## Running Tests
 
