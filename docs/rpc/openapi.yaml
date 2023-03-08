@@ -9,6 +9,36 @@ info:
     This is the documentation for the `stacks-node` RPC interface.
 
 paths:
+  /v2/block_proposal:
+    post:
+      summary: Propose a block to a subnet validator
+      tags:
+        - Subnet Mining
+      description: Subnet mining occurs through federation participation. In order for a block to be mined, it must be signed by a quorum of validators. This endpoint allows the quorum leader to propose a block to the validators. The validators check that the block is legal, and return a signature if so.
+      operationId: post_block_proposal
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: ./api/core-node/post-block-proposal.schema.json
+            example:
+              $ref: ./api/core-node/post-block-proposal.example.json
+      responses:
+        200:
+          description: The block proposal was accepted, and the validator returns their signature as a hex string
+          content:
+            application/json:
+              schema:
+                $ref: ./api/core-node/post-block-proposal.okay.schema.json
+              example:
+                $ref: ./api/core-node/post-block-proposal.okay.example.json
+        406:
+          description: The block proposal was rejected
+          content:
+            application/json:
+              schema:
+                $ref: ./api/core-node/post-block-proposal.error.schema.json
+
   /v2/transactions:
     post:
       summary: Broadcast raw transaction
@@ -386,7 +416,21 @@ paths:
                 $ref: ./api/core-node/get-fee-transfer.schema.json
               example:
                 $ref: ./api/core-node/get-fee-transfer.example.json
-  /v2/withdrawal/nft/{block_height}/{sender}/{withdrawal_id}/{contract_address}/{contract_name}/{asset_name}/{id}:
+
+  /v2/withdrawal/ft/{block_height}/{sender}/{withdrawal_id}/{contract_address}/{contract_name}/{amount}:
+    get:
+      summary: Get merkle tree data associated with a processed FT withdrawal.
+      responses:
+        200:
+          description: The merkle leaf hash, root hash, and merkle proof path for the requested withdrawal entry. These are used as parameters to the `ft-withdraw` method of a layer-1 subnet contract, and returned as hex-encoded Clarity serialized values.
+          content:
+            application/json:
+              schema:
+                $ref: ./api/core-node/get-ft-withdrawal.schema.json
+              example:
+                $ref: ./api/core-node/get-ft-withdrawal.example.json
+
+  /v2/withdrawal/nft/{block_height}/{sender}/{withdrawal_id}/{contract_address}/{contract_name}/{id}:
     get:
       summary: Get merkle tree data associated with a processed NFT withdrawal.
       responses:
