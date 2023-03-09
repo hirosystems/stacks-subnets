@@ -1063,7 +1063,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     let auth = TransactionAuth::Standard(spending_condition);
     let mut ft_withdraw_event =
         StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-            key: (boot_code_id("subnet".into(), false), "print".into()),
+            key: (boot_code_id("subnet", false), "print".into()),
             value: Value::Tuple(
                 TupleData::from_data(vec![
                     (
@@ -1090,7 +1090,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         });
     let mut nft_withdraw_event =
         StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-            key: (boot_code_id("subnet".into(), false), "print".into()),
+            key: (boot_code_id("subnet", false), "print".into()),
             value: Value::Tuple(
                 TupleData::from_data(vec![
                     (
@@ -1602,7 +1602,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     let auth = TransactionAuth::Standard(spending_condition);
     let mut stx_withdraw_event =
         StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-            key: (boot_code_id("subnet".into(), false), "print".into()),
+            key: (boot_code_id("subnet", false), "print".into()),
             value: Value::Tuple(
                 TupleData::from_data(vec![
                     (
@@ -2357,7 +2357,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     let auth = TransactionAuth::Standard(spending_condition);
     let mut l1_native_nft_withdraw_event =
         StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-            key: (boot_code_id("subnet".into(), false), "print".into()),
+            key: (boot_code_id("subnet", false), "print".into()),
             value: Value::Tuple(
                 TupleData::from_data(vec![
                     (
@@ -2384,7 +2384,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         });
     let mut subnet_native_nft_withdraw_event =
         StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-            key: (boot_code_id("subnet".into(), false), "print".into()),
+            key: (boot_code_id("subnet", false), "print".into()),
             value: Value::Tuple(
                 TupleData::from_data(vec![
                     (
@@ -3063,7 +3063,7 @@ fn ft_deposit_and_withdraw_integration_test() {
     let auth = TransactionAuth::Standard(spending_condition);
     let mut ft_withdraw_event =
         StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-            key: (boot_code_id("subnet".into(), false), "print".into()),
+            key: (boot_code_id("subnet", false), "print".into()),
             value: Value::Tuple(
                 TupleData::from_data(vec![
                     (
