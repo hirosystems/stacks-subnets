@@ -6,20 +6,20 @@ title: Getting Started
 # Getting Started
 
 Developers can test their applications on a subnet either locally, or on Hiro's
-hosted testnet subnet.
+hosted testnet subnet. This page describes two different walkthroughs that illustrate how to use a subnet.
 
 - Run a local subnet
 - Use Hiro's subnet on testnet
 
 > **_NOTE:_**
 >
-> Subnets were earlier referred to as Hyperchains. While the process of updating
-> the content is ongoing, there may still be some references to hyperchains
-> instead of subnets.
+> A subnet was previously referred to as a hyperchain. While the process of updating
+> the content is ongoing, there may still be some references to a hyperchain
+> instead of a subnet.
 
-## Run a devnet subnet locally
+## Run a local subnet
 
-Clarinet provides a tool to setup a complete local development environment,
+Clarinet provides a tool to set up a complete local development environment,
 referred to as "devnet", which uses Docker to spin up a Bitcoin node, a Stacks
 node, a Stacks API node, a Stacks Explorer, and now, a subnet node and subnet
 API node. This allows developers to test locally on a system that matches the
@@ -56,6 +56,7 @@ deploy our subnet contracts for now.
 
 Our L1 NFT contract is going to implement the
 [SIP-009 NFT trait](https://github.com/stacksgov/sips/blob/main/sips/sip-009/sip-009-nft-standard.md#trait).
+
 We will add this to our project as a requirement so that Clarinet will deploy it
 for us.
 
@@ -63,14 +64,13 @@ for us.
 clarinet requirements add SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait
 ```
 
-Now, let's use Clarinet to create our L1 contract:
+Now, we will use Clarinet to create our L1 contract:
 
 ```sh
 clarinet contract new simple-nft-l1
 ```
 
-This will create the file, _./contracts/simple-nft-l1.clar_, which we will fill
-in with the following clarity code:
+This creates the file, _./contracts/simple-nft-l1.clar_, which will include the following clarity code:
 
 ```clarity
 (define-constant CONTRACT_OWNER tx-sender)
@@ -130,15 +130,15 @@ in with the following clarity code:
 )
 ```
 
-Note that this contract implements the `mint-from-subnet-trait` in addition to
+Note that this contract implements the `mint-from-subnet-trait`, in addition to
 the SIP-009 `nft-trait`. When `mint-from-subnet-trait` is implemented, it allows
 an NFT to be minted on the subnet, then later withdrawn to the L1.
 
 #### Creating the subnet (L2) contract
 
-Next, we'll create the subnet contract at _./contracts/simple-nft-l2.clar_. As
+Next, we will create the subnet contract at _./contracts/simple-nft-l2.clar_. As
 mentioned earlier, Clarinet does not support deploying subnet contracts yet, so
-we'll manually create this file, and add the following contents:
+we will manually create this file, and add the following contents:
 
 ```clarity
 (define-constant CONTRACT_OWNER tx-sender)
@@ -243,7 +243,7 @@ clarinet integrate
 
 This will launch docker containers for a bitcoin node, a Stacks node, the Stacks
 API service, a subnet node, the subnet API service, and an explorer service.
-While running, `clarinet integrate` will open a terminal UI that shows various
+While running, `clarinet integrate` opens a terminal UI that shows various
 data points about the state of the network.
 
 All of the nodes and services are running and ready when we see:
@@ -256,8 +256,8 @@ Leave this running and perform the next steps in another terminal.
 
 ### Setup Node.js scripts
 
-To submit transactions to our Stacks node and subnet node, we'll use
-[Stacks.js](https://stacks.js.org) and some simple scripts. We'll start by
+To submit transactions to Hiro's Stacks node and subnet node, we will use
+[Stacks.js](https://stacks.js.org) and some simple scripts. We will start by
 creating a new directory, _./scripts/_ for these scripts.
 
 ```sh
@@ -265,21 +265,21 @@ mkdir scripts
 cd scripts
 ```
 
-Then we'll initialize a Node.js project and install the stacks.js dependencies:
+Then we will initialize a Node.js project and install the stacks.js dependencies:
 
 ```sh
 npm init -y
 npm install @stacks/network @stacks/transactions
 ```
 
-In the generated package.json file, add the following into the json to enable
+In the generated `package.json` file, add the following into the `json` to enable
 modules:
 
 ```json
   "type": "module",
 ```
 
-To simplify our scripts, we'll define some environment variables that will be
+To simplify our scripts, we will define some environment variables that will be
 used to hold the signing keys for various subnet transactions.
 
 ```sh
@@ -296,7 +296,7 @@ export SUBNET_URL="http://localhost:30443"
 
 #### Publish contract script
 
-We'll start with a script to publish a contract. To make it reusable, we'll
+We will start with a script to publish a contract. To make it reusable, we will
 allow this script to handle some command line arguments:
 
 1. Contract name
@@ -349,9 +349,7 @@ main();
 
 #### Register NFT script
 
-We will also need to register our NFT with our subnet, allowing it to be
-deposited into the subnet. To do this, we'll write another script, but because
-we only need to do this once, we'll hardcode our details into the script.
+We also need to register our NFT with our subnet, allowing it to be deposited into the subnet. To do this, we'll write another script, but because we only need to do this once, we will hardcode our details into the script.
 
 This script calls `register-new-nft-contract` on the L1 subnet contract, passing
 the L1 and L2 NFT contracts we will publish.
@@ -403,10 +401,10 @@ main();
 
 #### Mint NFT script
 
-In order to move NFTs to and from the subnet, we'll need to actually have some
-NFTs on our devnet. To do this, we'll need to mint, so we also write a script
-for submitting NFT mint transactions to the layer-1 network. This script will
-take just one argument: the user's current account nonce.
+In order to move NFTs to and from the subnet, we will need to have some
+NFTs on our devnet. To do this, we need to mint, so we also write a script
+for submitting NFT mint transactions to the layer-1 network. This script
+takes just one argument: the user's current account nonce.
 
 _mint.js_:
 
@@ -454,7 +452,7 @@ main();
 
 We also want to be able to deposit an asset into the subnet. To do this, we will
 write another script to call the `deposit-nft-asset` function on the layer-1
-subnet contract. Like the NFT minting script, this script will take just one
+subnet contract. Like the NFT minting script, this script takes just one
 argument: the user's current account nonce.
 
 _deposit.js_
@@ -508,8 +506,8 @@ main();
 
 #### Transfer NFT script
 
-To demonstrate some subnet transactions, we'll want to transfer an NFT from one
-user to another. We'll write another script to invoke the NFT's `transfer`
+To demonstrate some subnet transactions, we will want to transfer an NFT from one
+user to another. We will write another script to invoke the NFT's `transfer`
 function in the subnet. Again, this script takes just one argument: the user's
 current account nonce.
 
@@ -564,7 +562,7 @@ main();
 #### L2 withdraw script
 
 In order to withdraw an asset from a subnet, users must first submit a withdraw
-transaction on that subnet. To support this, we'll write a script that invokes
+transaction on that subnet. To support this, we will write a script that invokes
 the `nft-withdraw?` method on the layer-2 subnet contract. This script takes
 just a single argument: the user's current account nonce.
 
@@ -621,7 +619,7 @@ main();
 
 The second step of a withdrawal is to call the `withdraw-nft-asset` method on
 the layer-1 subnet contract. This method requires information from the subnet to
-verify that the withdrawal is valid. We'll write a script that queries our
+verify that the withdrawal is valid. We will write a script that queries our
 subnet node's RPC interface for this information and then issues the layer-1
 withdrawal transaction.
 
@@ -745,8 +743,7 @@ main();
 
 ### Interacting with the subnet
 
-We'll now use this set of scripts to demonstrate some our subnet's
-functionality. We will:
+We will now use this set of scripts to demonstrate a subnet's functionality. We will:
 
 1. Publish our NFT contract on the subnet
 2. Mint a new NFT in the stacks network
@@ -754,7 +751,7 @@ functionality. We will:
 4. Transfer the NFT from one user to another in the subnet
 5. Withdraw the NFT from the subnet
 
-First, we'll publish the L2 NFT contract to the subnet:
+First, we will publish the L2 NFT contract to the subnet:
 
 ```sh
 node ./publish.js simple-nft-l2 ../contracts/simple-nft-l2.clar 2 0
@@ -781,7 +778,7 @@ node ./register.js
 This is an L1 transaction, so you can watch for it in the Clarinet interface or
 in the Devnet network on the explorer.
 
-Now, we need an asset to work with, so we'll mint an NFT on the L1:
+Now, we need an asset to work with, so we will mint an NFT on the L1:
 
 ```js
 node ./mint.js 0

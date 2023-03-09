@@ -4,8 +4,8 @@ title: Overview
 
 # Overview
 
-Subnets are a layer-2 scaling solution in the Stacks blockchain offering low
-latency and high throughput and enable developers to build fast and reliable
+A subnet is a layer-2 scaling solution in the Stacks blockchain offering low
+latency and high throughput, while also enabling developers to build fast and reliable
 experiences on Stacks.
 
 ## Background
@@ -37,8 +37,8 @@ have been registered can be deposited into the subnet.
 
 ## Features
 
-Subnets are designed to transact on Stacks assets, meaning users can move assets
-from the Stacks chain in and out of subnets. While a user’s assets are in a
+A subnets is designed to transact on Stacks assets, meaning users can move assets
+from the Stacks chain in and out of a subnet. While a user’s assets are in a
 subnet, the asset is locked in the subnet contract on the Stacks chain.
 
 > **_NOTE:_**
@@ -49,14 +49,14 @@ subnet, the asset is locked in the subnet contract on the Stacks chain.
 > provided in the subnet, and therefore should only deposit assets into trusted
 > subnets.
 
-Listed below are some of the features of subnets:
+Listed below are some of the features of a subnet:
 
 - Each subnet may define its throughput settings. The default implementation
   should support at least 4x higher throughput for transactions and reduce
   confirmation time from 10 minutes to 1 minute.
 - Interacting with a subnet is similar to interacting with a different Stacks
   network (for example: testnet vs. mainnet).
-- The Stacks blockchain can support many different subnets.
+- The Stacks blockchain may support many different subnets.
 - Each subnet may use the same or different consensus rules.
 - This repository implements a consensus mechanism that uses a two-phase commit
   among a federated pool of miners.

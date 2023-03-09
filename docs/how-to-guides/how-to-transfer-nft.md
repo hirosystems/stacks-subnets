@@ -5,8 +5,8 @@ title: How to Transfer NFT
 ## Transfer an NFT
 
 On the hyperchains, the NFT should belong to the principal that sent the deposit transaction, `USER_ADDR`. 
-This principal can now transfer the NFT within the hyperchain. The principal `USER_ADDR` will now make a 
-transaction to transfer the NFT to `ALT_USER_ADDR` using the command shown below.
+
+This principal can now transfer the NFT within the hyperchain. The principal `USER_ADDR` will now make a transaction to transfer the NFT to `ALT_USER_ADDR` using the command shown below.
 
 ```
 node ./transfer_nft.js 2
@@ -23,5 +23,4 @@ Jul 19 13:04:43.177993 INFO Tx successfully processed. (ThreadId(9), src/chainst
 ```
 ## Mint an NFT on the hyperchain
 
-As an added step, you may try minting an NFT on the hyperchain. This requires calling the `gift-nft` function in the 
-contract `simple-nft-l2`. You can tweak the `transfer_nft.js` file to make this call. 
+As an added step, you may try minting an NFT on the hyperchain. This requires calling the `gift-nft` function in the contract `simple-nft-l2`. You can tweak the `transfer_nft.js` file to make this call.
