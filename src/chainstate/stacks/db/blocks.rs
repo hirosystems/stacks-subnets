@@ -4641,12 +4641,12 @@ impl StacksChainState {
         operations: Vec<DepositNftOp>,
     ) -> Vec<StacksTransactionReceipt> {
         let mainnet = clarity_tx.config.mainnet;
-        let boot_addr: PrincipalData = boot_code_addr(mainnet).into();
+        let boot_addr = PrincipalData::from(boot_code_addr(mainnet));
         let cost_so_far = clarity_tx.cost_so_far();
         // return valid receipts
         operations
             .into_iter()
-            .filter_map(|deposit_nft_op| {
+            .map(|deposit_nft_op| {
                 let DepositNftOp {
                     txid,
                     burn_header_hash,
@@ -4657,11 +4657,11 @@ impl StacksChainState {
                 } = deposit_nft_op.clone();
                 let result = clarity_tx.connection().as_transaction(|tx| {
                     tx.run_contract_call(
-                        &boot_code_addr(mainnet).into(),
+                        &boot_addr,
                         None,
                         &subnet_contract_id,
                         DEPOSIT_FUNCTION_NAME,
-                        &[Value::UInt(id), Value::Principal(sender)],
+                        &[Value::UInt(id), Value::Principal(sender.clone())],
                         |_, _| false,
                     )
                 });
@@ -4671,7 +4671,7 @@ impl StacksChainState {
                     .expect("BUG: cost declined between executions");
 
                 match result {
-                    Ok((value, _, events)) => Some(StacksTransactionReceipt {
+                    Ok((value, _, events)) => StacksTransactionReceipt {
                         transaction: TransactionOrigin::Burn(deposit_nft_op.into()),
                         events,
                         result: value,
@@ -4681,13 +4681,47 @@ impl StacksChainState {
                         execution_cost,
                         microblock_header: None,
                         tx_index: 0,
-                    }),
+                    },
                     Err(e) => {
                         info!("DepositNft op processing error.";
                               "error" => ?e,
                               "txid" => %txid,
                               "burn_block" => %burn_header_hash);
-                        None
+
+                        // If deposit fails, create a withdrawal event to send NFT back to user
+                        let nft_withdraw_event =
+                            StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+                                key: (boot_code_id("subnet", true), "print".into()),
+                                value: TupleData::from_data(vec![
+                                    (
+                                        "type".into(),
+                                        Value::string_ascii_from_bytes("nft".as_bytes().to_vec())
+                                            .expect("Supplied string was not ASCII"),
+                                    ),
+                                    ("recipient".into(), Value::Principal(sender)),
+                                    ("id".into(), Value::UInt(id)),
+                                    (
+                                        "asset-contract".into(),
+                                        Value::Principal(PrincipalData::Contract(
+                                            subnet_contract_id,
+                                        )),
+                                    ),
+                                ])
+                                .expect("Failed to create tuple data.")
+                                .into(),
+                            });
+
+                        StacksTransactionReceipt {
+                            transaction: TransactionOrigin::Burn(deposit_nft_op.into()),
+                            events: vec![nft_withdraw_event],
+                            result: Value::err_none(),
+                            post_condition_aborted: false,
+                            stx_burned: 0,
+                            contract_analysis: None,
+                            execution_cost,
+                            microblock_header: None,
+                            tx_index: 0,
+                        }
                     }
                 }
             })
