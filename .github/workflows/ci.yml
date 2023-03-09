@@ -238,7 +238,7 @@ jobs:
           tags: ${{ env.STRETCH_TAG }}
           tag_with_ref: false
           add_git_labels: true
-          build_args: STACKS_NODE_VERSION=${{ github.event.inputs.tag || env.GITHUB_SHA_SHORT }},GIT_BRANCH=${{ env.GITHUB_REF_SHORT }},GIT_COMMIT=${{ env.GITHUB_SHA_SHORT }}
+          build_args: SUBNET_NODE_VERSION=${{ github.event.inputs.tag || env.GITHUB_SHA_SHORT }},GIT_BRANCH=${{ env.GITHUB_REF_SHORT }},GIT_COMMIT=${{ env.GITHUB_SHA_SHORT }}
           # Only push if a tag was passed in
           push: ${{ github.event.inputs.tag != '' }}
 
@@ -282,6 +282,6 @@ jobs:
           tags: ${{ env.STRETCH_TAG }}
           tag_with_ref: false
           add_git_labels: true
-          build_args: STACKS_NODE_VERSION=${{ github.event.inputs.tag || env.GITHUB_SHA_SHORT }},GIT_BRANCH=${{ env.GITHUB_REF_SHORT }},GIT_COMMIT=${{ env.GITHUB_SHA_SHORT }}
+          build_args: SUBNET_NODE_VERSION=${{ github.event.inputs.tag || env.GITHUB_SHA_SHORT }},GIT_BRANCH=${{ env.GITHUB_REF_SHORT }},GIT_COMMIT=${{ env.GITHUB_SHA_SHORT }}
           # Only push if a tag was passed in
           push: ${{ github.event.inputs.tag != '' }}

@@ -219,8 +219,8 @@ impl RPCPeerInfoData {
         genesis_chainstate_hash: &Sha256Sum,
     ) -> RPCPeerInfoData {
         let server_version = version_string(
-            "stacks-node",
-            option_env!("STACKS_NODE_VERSION")
+            "subnet-node",
+            option_env!("SUBNET_NODE_VERSION")
                 .or(option_env!("CARGO_PKG_VERSION"))
                 .unwrap_or("0.0.0.0"),
         );
