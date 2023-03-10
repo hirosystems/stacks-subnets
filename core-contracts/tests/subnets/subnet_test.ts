@@ -511,6 +511,185 @@ Clarinet.test({
       "1964591d7db5eaad6d89e8556303ed932d1dffd0420b6d76476f8e8b84f11401"
     );
 
+    // Miner should commit a block with the appropriate root hash (mocking a withdrawal Merkle tree)
+    const id_header_hash = chain
+      .callReadOnlyFn("test-helpers", "get-id-header-hash", [], alice.address)
+      .result.expectOk()
+      .toString();
+
+    block = chain.mineBlock([
+      // Successfully commit block at height 0 with alice.
+      Tx.contractCall(
+        "subnet",
+        "commit-block",
+        [
+          types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          id_header_hash,
+          types.buff(root_hash),
+        ],
+        alice.address
+      ),
+    ]);
+    block.receipts[0].result
+      .expectOk()
+      .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
+
+    // Miner should be able to withdraw NFT asset for user
+    block = chain.mineBlock([
+      Tx.contractCall(
+        "subnet",
+        "withdraw-nft-asset",
+        [
+          types.principal(nft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(0),
+          types.some(types.principal(nft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(nft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(nft_sib_hash),
+              "is-left-side": types.bool(true),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+    ]);
+    block.receipts[0].result.expectOk().expectBool(true);
+
+    // Check that user owns NFT
+    assets = chain.getAssetsMaps().assets[".simple-nft.nft-token"];
+    nft_amount = assets[charlie.address];
+    assertEquals(nft_amount, 1);
+
+    // Miner should not be able to withdraw NFT asset a second time
+    block = chain.mineBlock([
+      Tx.contractCall(
+        "subnet",
+        "withdraw-nft-asset",
+        [
+          types.principal(nft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(0),
+          types.some(types.principal(nft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(nft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(nft_sib_hash),
+              "is-left-side": types.bool(true),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+    ]);
+    // should return (err ERR_WITHDRAWAL_ALREADY_PROCESSED)
+    block.receipts[0].result.expectErr().expectInt(9);
+  },
+});
+
+Clarinet.test({
+  name: "Ensure that NFT withdrawal fails with invalid parameters",
+  async fn(
+    chain: Chain,
+    accounts: Map<string, Account>,
+    contracts: Map<string, Contract>
+  ) {
+    // contract deployer
+    const deployer = accounts.get("deployer")!;
+    // valid miner
+    const alice = accounts.get("wallet_1")!;
+    // invalid miner
+    const bob = accounts.get("wallet_2")!;
+    // user
+    const charlie = accounts.get("wallet_3")!;
+
+    // set alice as a miner
+    let block = chain.mineBlock([
+      Tx.contractCall(
+        "subnet",
+        "update-miner",
+        [types.principal(alice.address)],
+        deployer.address
+      ),
+    ]);
+    block.receipts[0].result.expectOk().expectBool(true);
+
+    // nft contract id
+    const nft_contract = contracts.get(
+      "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.simple-nft"
+    )!;
+    const subnet_contract = contracts.get(
+      "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet"
+    )!;
+
+    // User should be able to mint an NFT
+    block = chain.mineBlock([
+      Tx.contractCall(
+        "simple-nft",
+        "test-mint",
+        [types.principal(charlie.address)],
+        charlie.address
+      ),
+    ]);
+    block.receipts[0].result.expectOk().expectBool(true);
+    // Check that user owns NFT
+    let assets = chain.getAssetsMaps().assets[".simple-nft.nft-token"];
+    let nft_amount = assets[charlie.address];
+    assertEquals(nft_amount, 1);
+
+    // Deployer sets up allowed assets
+    block = chain.mineBlock([
+      // Register contract
+      Tx.contractCall(
+        "subnet",
+        "register-new-nft-contract",
+        [
+          types.principal(nft_contract.contract_id),
+          types.principal(nft_contract.contract_id),
+        ],
+        deployer.address
+      ),
+    ]);
+    block.receipts[0].result.expectOk().expectBool(true);
+
+    // User should be able to deposit NFT asset
+    block = chain.mineBlock([
+      Tx.contractCall(
+        "subnet",
+        "deposit-nft-asset",
+        [
+          types.principal(nft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+        ],
+        charlie.address
+      ),
+    ]);
+    block.receipts[0].result.expectOk().expectBool(true);
+    // Check that contract owns NFT, and that the user does not
+    assets = chain.getAssetsMaps().assets[".simple-nft.nft-token"];
+    nft_amount = assets[charlie.address];
+    assertEquals(nft_amount, 0);
+    nft_amount = assets[subnet_contract.contract_id];
+    assertEquals(nft_amount, 1);
+
+    const root_hash = fromHex(
+      "fd5ece9024d526e1114ef41ce319a129053d739e0f81960483209d49aec29e62"
+    );
+    const nft_sib_hash = fromHex(
+      "0000000000000000000000000000000000000000000000000000000000000000"
+    );
+    const nft_leaf_hash = fromHex(
+      "1964591d7db5eaad6d89e8556303ed932d1dffd0420b6d76476f8e8b84f11401"
+    );
+
     const root_hash_invalid = fromHex(
       "fd5ece9024d526e1114ef41ce319a129053d739e0f81960483209d49aec29e63"
     );
@@ -746,33 +925,6 @@ Clarinet.test({
     assets = chain.getAssetsMaps().assets[".simple-nft.nft-token"];
     nft_amount = assets[charlie.address];
     assertEquals(nft_amount, 1);
-
-    // Miner should not be able to withdraw NFT asset a second time
-    block = chain.mineBlock([
-      Tx.contractCall(
-        "subnet",
-        "withdraw-nft-asset",
-        [
-          types.principal(nft_contract.contract_id),
-          types.uint(1),
-          types.principal(charlie.address),
-          types.uint(0),
-          types.uint(0),
-          types.some(types.principal(nft_contract.contract_id)),
-          types.buff(root_hash),
-          types.buff(nft_leaf_hash),
-          types.list([
-            types.tuple({
-              hash: types.buff(nft_sib_hash),
-              "is-left-side": types.bool(true),
-            }),
-          ]),
-        ],
-        alice.address
-      ),
-    ]);
-    // should return (err ERR_WITHDRAWAL_ALREADY_PROCESSED)
-    block.receipts[0].result.expectErr().expectInt(9);
   },
 });
 
@@ -829,24 +981,6 @@ Clarinet.test({
       ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
-
-    // Try to overflow amount of fungible tokens
-    // This will cause a runtime error in `clarinet` but should not affect token balance
-    const u128_max = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
-
-    block = chain.mineBlock([
-      Tx.contractCall(
-        "simple-ft",
-        "gift-tokens",
-        [types.uint(u128_max), types.principal(charlie.address)],
-        charlie.address
-      ),
-    ]);
-
-    // Check that user right amount of fungible tokens
-    let assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
-    let ft_amount = assets[charlie.address];
-    assertEquals(ft_amount, 2);
 
     // User should not be able to deposit FT assets if they are not allowed
     block = chain.mineBlock([
@@ -943,6 +1077,191 @@ Clarinet.test({
     ]);
     // should return (err ERR_CONTRACT_CALL_FAILED)
     block.receipts[0].result.expectErr().expectInt(3);
+
+    const ft_leaf_hash = fromHex(
+      "0710ad82cb4fd77b664629f8079b9410b1fcbd6b2b057edd39f6397eb8f37c03"
+    ); //new Uint8Array([33, 202, 115, 15, 237, 187, 156, 88, 59, 212, 42, 195, 30, 149, 130, 0, 37, 203, 93, 165, 189, 33, 107, 213, 116, 211, 170, 0, 89, 231, 154, 3]);
+    const root_hash = fromHex(
+      "c075d6e19bbe76e23cff6256d97333941e1365feb7d16572f8eba8cbc39f6c64"
+    ); // new Uint8Array([203, 225, 170, 121, 99, 143, 221, 118, 153, 59, 252, 68, 117, 30, 27, 33, 49, 100, 166, 167, 250, 154, 172, 149, 149, 79, 236, 105, 254, 184, 172, 103]);
+    const ft_sib_hash = new Uint8Array([
+      38, 72, 158, 13, 57, 120, 9, 95, 13, 62, 11, 118, 71, 237, 60, 173, 121,
+      221, 127, 38, 163, 75, 203, 191, 227, 4, 195, 17, 239, 76, 42, 55,
+    ]);
+
+    // Miner should commit a block with the appropriate root hash
+    const id_header_hash = chain
+      .callReadOnlyFn("test-helpers", "get-id-header-hash", [], alice.address)
+      .result.expectOk()
+      .toString();
+    block = chain.mineBlock([
+      // Successfully commit block at height 0 with alice.
+      Tx.contractCall(
+        "subnet",
+        "commit-block",
+        [
+          types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          id_header_hash,
+          types.buff(root_hash),
+        ],
+        alice.address
+      ),
+    ]);
+    block.receipts[0].result
+      .expectOk()
+      .expectBuff(new Uint8Array([0, 1, 1, 1, 1]));
+
+    // Miner should be able to withdraw FT asset for user
+    block = chain.mineBlock([
+      Tx.contractCall(
+        "subnet",
+        "withdraw-ft-asset",
+        [
+          types.principal(ft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(0),
+          types.none(),
+          types.some(types.principal(ft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(ft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(ft_sib_hash),
+              "is-left-side": types.bool(false),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+    ]);
+    block.receipts[0].result.expectOk().expectBool(true);
+
+    // Check that user owns FT
+    const assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
+    const ft_amount = assets[charlie.address];
+    assertEquals(ft_amount, 1);
+
+    // Miner should not be able to withdraw FT asset a second time
+    block = chain.mineBlock([
+      Tx.contractCall(
+        "subnet",
+        "withdraw-ft-asset",
+        [
+          types.principal(ft_contract.contract_id),
+          types.uint(1),
+          types.principal(charlie.address),
+          types.uint(0),
+          types.uint(0),
+          types.none(),
+          types.some(types.principal(ft_contract.contract_id)),
+          types.buff(root_hash),
+          types.buff(ft_leaf_hash),
+          types.list([
+            types.tuple({
+              hash: types.buff(ft_sib_hash),
+              "is-left-side": types.bool(false),
+            }),
+          ]),
+        ],
+        alice.address
+      ),
+    ]);
+    block.receipts[0].result.expectErr().expectInt(9);
+  },
+});
+
+Clarinet.test({
+  name: "Ensure that FT withdrawal fails with invalid parameters",
+  async fn(
+    chain: Chain,
+    accounts: Map<string, Account>,
+    contracts: Map<string, Contract>
+  ) {
+    // contract deployer
+    const deployer = accounts.get("deployer")!;
+    // valid miner
+    const alice = accounts.get("wallet_1")!;
+    // invalid miner
+    const bob = accounts.get("wallet_2")!;
+    // user
+    const charlie = accounts.get("wallet_3")!;
+
+    // ft contract
+    const ft_contract = contracts.get(
+      "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.simple-ft"
+    )!;
+
+    // set alice as a miner
+    let block = chain.mineBlock([
+      Tx.contractCall(
+        "subnet",
+        "update-miner",
+        [types.principal(alice.address)],
+        deployer.address
+      ),
+    ]);
+    block.receipts[0].result.expectOk().expectBool(true);
+
+    // User should be able to mint a fungible token
+    block = chain.mineBlock([
+      Tx.contractCall(
+        "simple-ft",
+        "gift-tokens",
+        [types.uint(2), types.principal(charlie.address)],
+        charlie.address
+      ),
+    ]);
+    block.receipts[0].result.expectOk().expectBool(true);
+
+    // Try to overflow amount of fungible tokens
+    // This will cause a runtime error in `clarinet` but should not affect token balance
+    const u128_max = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+
+    block = chain.mineBlock([
+      Tx.contractCall(
+        "simple-ft",
+        "gift-tokens",
+        [types.uint(u128_max), types.principal(charlie.address)],
+        charlie.address
+      ),
+    ]);
+
+    // Check that user right amount of fungible tokens
+    let assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
+    let ft_amount = assets[charlie.address];
+    assertEquals(ft_amount, 2);
+
+    // Deployer sets up allowed assets
+    block = chain.mineBlock([
+      Tx.contractCall(
+        "subnet",
+        "register-new-ft-contract",
+        [
+          types.principal(ft_contract.contract_id),
+          types.principal(ft_contract.contract_id),
+        ],
+        deployer.address
+      ),
+    ]);
+    block.receipts[0].result.expectOk().expectBool(true);
+
+    // User should be able to deposit FT asset
+    block = chain.mineBlock([
+      Tx.contractCall(
+        "subnet",
+        "deposit-ft-asset",
+        [
+          types.principal(ft_contract.contract_id),
+          types.uint(2),
+          types.principal(charlie.address),
+          types.none(),
+        ],
+        charlie.address
+      ),
+    ]);
+    block.receipts[0].result.expectOk().expectBool(true);
 
     const ft_leaf_hash = fromHex(
       "0710ad82cb4fd77b664629f8079b9410b1fcbd6b2b057edd39f6397eb8f37c03"
@@ -1197,33 +1516,6 @@ Clarinet.test({
     assets = chain.getAssetsMaps().assets[".simple-ft.ft-token"];
     ft_amount = assets[charlie.address];
     assertEquals(ft_amount, 1);
-
-    // Miner should not be able to withdraw FT asset a second time
-    block = chain.mineBlock([
-      Tx.contractCall(
-        "subnet",
-        "withdraw-ft-asset",
-        [
-          types.principal(ft_contract.contract_id),
-          types.uint(1),
-          types.principal(charlie.address),
-          types.uint(0),
-          types.uint(0),
-          types.none(),
-          types.some(types.principal(ft_contract.contract_id)),
-          types.buff(root_hash),
-          types.buff(ft_leaf_hash),
-          types.list([
-            types.tuple({
-              hash: types.buff(ft_sib_hash),
-              "is-left-side": types.bool(false),
-            }),
-          ]),
-        ],
-        alice.address
-      ),
-    ]);
-    block.receipts[0].result.expectErr().expectInt(9);
   },
 });
 
