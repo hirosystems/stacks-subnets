@@ -10,7 +10,7 @@ import { assertEquals } from "https://deno.land/std@0.90.0/testing/asserts.ts";
 
 import {
   decode as decHex,
-  encode as encHex,
+  //encode as encHex,
 } from "https://deno.land/std@0.149.0/encoding/hex.ts";
 
 function fromHex(input: string) {
@@ -20,10 +20,10 @@ function fromHex(input: string) {
 
 Clarinet.test({
   name: "Unit test the withdrawal leaf hash calculations using test vectors",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
-    contracts: Map<string, Contract>
+    _contracts: Map<string, Contract>
   ) {
     const alice = accounts.get("wallet_1")!.address;
     // Test data comes from clarity_vm::withdrawal tests
@@ -92,10 +92,10 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that block can be committed by subnet miner",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
-    contracts: Map<string, Contract>
+    _contracts: Map<string, Contract>
   ) {
     // contract deployer
     const deployer = accounts.get("deployer")!;
@@ -218,7 +218,7 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that user can register and setup assets ",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
     contracts: Map<string, Contract>
@@ -369,7 +369,7 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that user can deposit NFT & miner can withdraw it",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
     contracts: Map<string, Contract>
@@ -596,7 +596,7 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that NFT withdrawal fails with invalid parameters",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
     contracts: Map<string, Contract>
@@ -930,7 +930,7 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that user can deposit FT & miner can withdraw it",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
     contracts: Map<string, Contract>
@@ -1174,7 +1174,7 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that FT withdrawal fails with invalid parameters",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
     contracts: Map<string, Contract>
@@ -1521,7 +1521,7 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that user can withdraw FT minted on subnet & L1 miner can mint it",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
     contracts: Map<string, Contract>
@@ -1539,7 +1539,7 @@ Clarinet.test({
     )!;
 
     // set alice as a miner
-    let initialize = chain.mineBlock([
+    let block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
         "update-miner",
@@ -1547,9 +1547,10 @@ Clarinet.test({
         deployer.address
       ),
     ]);
+    block.receipts[0].result.expectOk().expectBool(true);
 
     // User should be able to mint a fungible token
-    let block = chain.mineBlock([
+    block = chain.mineBlock([
       Tx.contractCall(
         "simple-ft",
         "gift-tokens",
@@ -1601,13 +1602,13 @@ Clarinet.test({
 
     // Miner should commit a block with the appropriate root hash
     // Mocks a withdrawal of ft-token for amount 3
-    let ft_leaf_hash = fromHex(
+    const ft_leaf_hash = fromHex(
       "b393fb2ea05f2f28535cee6111de603996bbf4de5b15321f3e6b4258e933c7aa"
     );
-    let root_hash = fromHex(
+    const root_hash = fromHex(
       "2390d2b6476c5cb4543a67b7f1d5cc1ba979f5b9963f4b7c640d3828dd21f94f"
     );
-    let ft_sib_hash = fromHex(
+    const ft_sib_hash = fromHex(
       "0000000000000000000000000000000000000000000000000000000000000000"
     );
 
@@ -1725,7 +1726,7 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that withdrawals work with a more complex Merkle tree",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
     contracts: Map<string, Contract>
@@ -1737,7 +1738,7 @@ Clarinet.test({
     // user
     const charlie = accounts.get("wallet_3")!;
 
-    let charlie_init_balance = 100000000000000;
+    const charlie_init_balance = 100000000000000;
 
     const recipient = "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8";
 
@@ -1750,7 +1751,7 @@ Clarinet.test({
     )!;
 
     // set alice as a miner
-    let initialize = chain.mineBlock([
+    let block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
         "update-miner",
@@ -1758,9 +1759,10 @@ Clarinet.test({
         deployer.address
       ),
     ]);
+    block.receipts[0].result.expectOk().expectBool(true);
 
     // User should be able to mint a fungible token
-    let block = chain.mineBlock([
+    block = chain.mineBlock([
       Tx.contractCall(
         "simple-ft",
         "gift-tokens",
@@ -1879,30 +1881,30 @@ Clarinet.test({
     // Here we are using the root hash that would be constructed for 3 withdrawal requests.
     // The data used for this can be seen in the test `test_verify_withdrawal_merkle_tree` in `withdrawal.rs`
 
-    let root_hash = fromHex(
+    const root_hash = fromHex(
       "b02609e344ebb6525c83cd6c2bd3d2a1c73daa2c9344119f036d615b110aad15"
     );
 
-    let ft_leaf_hash = fromHex(
+    const ft_leaf_hash = fromHex(
       "be7bcffde781f217150cfc63c88fc2e78bca424b318f5421abdfe96842321e79"
     );
-    let stx_leaf_hash = fromHex(
+    const stx_leaf_hash = fromHex(
       "bde3658bbc38952599ef925ea3075a2fbfc5619cebf48cce140994c8b328fe35"
     );
-    let nft_leaf_hash = fromHex(
+    const nft_leaf_hash = fromHex(
       "6456c2cdb1c1016fddf2e9b7eb88cd677741f0420614a824ac8b774a24285a35"
     );
 
-    let ft_level_one_sib_hash = stx_leaf_hash;
-    let ft_level_two_sib_hash = fromHex(
+    const ft_level_one_sib_hash = stx_leaf_hash;
+    const ft_level_two_sib_hash = fromHex(
       "8bec7ac5a0ec8eed899374f25fa8c0aa67e852b0c5a99ff6595e589a8d123ea0"
     );
 
-    let stx_level_one_sib_hash = ft_leaf_hash;
-    let stx_level_two_sib_hash = ft_level_two_sib_hash;
+    const stx_level_one_sib_hash = ft_leaf_hash;
+    const stx_level_two_sib_hash = ft_level_two_sib_hash;
 
-    let nft_level_one_sib_hash = nft_leaf_hash;
-    let nft_level_two_sib_hash = fromHex(
+    const nft_level_one_sib_hash = nft_leaf_hash;
+    const nft_level_two_sib_hash = fromHex(
       "a00db116739a78d6547e18399924b8ec0201079149369b43422e816587f97ede"
     );
 
@@ -2127,7 +2129,7 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that L1 contract can't mint an NFT first created on the subnet if it already exists on the L1",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
     contracts: Map<string, Contract>
@@ -2147,7 +2149,7 @@ Clarinet.test({
     )!;
 
     // set alice as a miner
-    let initialize = chain.mineBlock([
+    let block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
         "update-miner",
@@ -2155,9 +2157,10 @@ Clarinet.test({
         deployer.address
       ),
     ]);
+    block.receipts[0].result.expectOk().expectBool(true);
 
     // Deployer sets up allowed assets
-    let block = chain.mineBlock([
+    block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
         "register-new-nft-contract",
@@ -2181,8 +2184,8 @@ Clarinet.test({
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
     // Check that Bob now owns this NFT
-    let assets = chain.getAssetsMaps().assets[".simple-nft.nft-token"];
-    let nft_amount = assets[bob.address];
+    const assets = chain.getAssetsMaps().assets[".simple-nft.nft-token"];
+    const nft_amount = assets[bob.address];
     assertEquals(nft_amount, 1);
 
     // Miner should commit a block with the appropriate root hash (mocking a withdrawal Merkle tree)
@@ -2191,13 +2194,13 @@ Clarinet.test({
       .callReadOnlyFn("test-helpers", "get-id-header-hash", [], alice.address)
       .result.expectOk()
       .toString();
-    let root_hash = fromHex(
+    const root_hash = fromHex(
       "fd5ece9024d526e1114ef41ce319a129053d739e0f81960483209d49aec29e62"
     );
-    let nft_sib_hash = fromHex(
+    const nft_sib_hash = fromHex(
       "0000000000000000000000000000000000000000000000000000000000000000"
     );
-    let nft_leaf_hash = fromHex(
+    const nft_leaf_hash = fromHex(
       "1964591d7db5eaad6d89e8556303ed932d1dffd0420b6d76476f8e8b84f11401"
     );
 
@@ -2249,7 +2252,7 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that user can mint an NFT on the subnet and L1 miner can withdraw it by minting",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
     contracts: Map<string, Contract>
@@ -2267,7 +2270,7 @@ Clarinet.test({
     )!;
 
     // set alice as a miner
-    let initialize = chain.mineBlock([
+    let block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
         "update-miner",
@@ -2275,9 +2278,10 @@ Clarinet.test({
         deployer.address
       ),
     ]);
+    block.receipts[0].result.expectOk().expectBool(true);
 
     // Deployer sets up allowed assets
-    let block = chain.mineBlock([
+    block = chain.mineBlock([
       Tx.contractCall(
         "subnet",
         "register-new-nft-contract",
@@ -2299,13 +2303,13 @@ Clarinet.test({
       .callReadOnlyFn("test-helpers", "get-id-header-hash", [], alice.address)
       .result.expectOk()
       .toString();
-    let root_hash = fromHex(
+    const root_hash = fromHex(
       "fd5ece9024d526e1114ef41ce319a129053d739e0f81960483209d49aec29e62"
     );
-    let nft_sib_hash = fromHex(
+    const nft_sib_hash = fromHex(
       "0000000000000000000000000000000000000000000000000000000000000000"
     );
-    let nft_leaf_hash = fromHex(
+    const nft_leaf_hash = fromHex(
       "1964591d7db5eaad6d89e8556303ed932d1dffd0420b6d76476f8e8b84f11401"
     );
 
@@ -2353,7 +2357,7 @@ Clarinet.test({
     block.receipts[0].result.expectOk().expectBool(true);
     // Check that user owns NFT on the L1
     assets = chain.getAssetsMaps().assets[".simple-nft.nft-token"];
-    let nft_amount = assets[charlie.address];
+    const nft_amount = assets[charlie.address];
     assertEquals(nft_amount, 1);
 
     // Miner should not be able to withdraw NFT asset a second time
@@ -2387,7 +2391,7 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that a miner can't withdraw an NFT if nobody owns it, in the `no-mint` case.",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
     contracts: Map<string, Contract>
@@ -2423,7 +2427,7 @@ Clarinet.test({
     block.receipts[0].result.expectOk().expectBool(true);
 
     // Check that user does not own this NFT on the L1
-    let assets = chain.getAssetsMaps().assets[".simple-nft-no-mint.nft-token"];
+    const assets = chain.getAssetsMaps().assets[".simple-nft-no-mint.nft-token"];
     assertEquals(assets, undefined);
 
     // Miner should commit a block with the appropriate root hash (mocking a withdrawal Merkle tree)
@@ -2432,13 +2436,13 @@ Clarinet.test({
       .callReadOnlyFn("test-helpers", "get-id-header-hash", [], miner.address)
       .result.expectOk()
       .toString();
-    let root_hash = fromHex(
+    const root_hash = fromHex(
       "381dc593ba22617f227f5e1e413f91989394fa2934fcaba7badb2d7aaf0b2d49"
     );
-    let nft_sib_hash = fromHex(
+    const nft_sib_hash = fromHex(
       "0000000000000000000000000000000000000000000000000000000000000000"
     );
-    let nft_leaf_hash = fromHex(
+    const nft_leaf_hash = fromHex(
       "d95c47532db6bdf22595bbff81ca31a5128417f243988f7da23b917c67c969eb"
     );
     block = chain.mineBlock([
@@ -2490,7 +2494,7 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that a miner can withdraw an NFT to the original owner, in the `no-mint` case.",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
     contracts: Map<string, Contract>
@@ -2565,13 +2569,13 @@ Clarinet.test({
       .callReadOnlyFn("test-helpers", "get-id-header-hash", [], miner.address)
       .result.expectOk()
       .toString();
-    let root_hash = fromHex(
+    const root_hash = fromHex(
       "381dc593ba22617f227f5e1e413f91989394fa2934fcaba7badb2d7aaf0b2d49"
     );
-    let nft_sib_hash = fromHex(
+    const nft_sib_hash = fromHex(
       "0000000000000000000000000000000000000000000000000000000000000000"
     );
-    let nft_leaf_hash = fromHex(
+    const nft_leaf_hash = fromHex(
       "d95c47532db6bdf22595bbff81ca31a5128417f243988f7da23b917c67c969eb"
     );
 
@@ -2628,7 +2632,7 @@ Clarinet.test({
 
 Clarinet.test({
   name: "Ensure that a miner can withdraw an NFT to a different user, in the `no-mint` case.",
-  async fn(
+  fn(
     chain: Chain,
     accounts: Map<string, Account>,
     contracts: Map<string, Contract>
@@ -2712,13 +2716,13 @@ Clarinet.test({
     assertEquals(nft_amount, undefined);
 
     // Miner commits a block.
-    let root_hash = fromHex(
+    const root_hash = fromHex(
       "381dc593ba22617f227f5e1e413f91989394fa2934fcaba7badb2d7aaf0b2d49"
     );
-    let nft_sib_hash = fromHex(
+    const nft_sib_hash = fromHex(
       "0000000000000000000000000000000000000000000000000000000000000000"
     );
-    let nft_leaf_hash = fromHex(
+    const nft_leaf_hash = fromHex(
       "d95c47532db6bdf22595bbff81ca31a5128417f243988f7da23b917c67c969eb"
     );
 
