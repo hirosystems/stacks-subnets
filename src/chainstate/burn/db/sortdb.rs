@@ -40,6 +40,7 @@ use crate::burnchains::{
     Burnchain, BurnchainBlockHeader, BurnchainRecipient, BurnchainStateTransition,
     BurnchainTransaction, BurnchainView, Error as BurnchainError, PoxConstants,
 };
+use crate::chainstate::burn::operations::RegisterAssetOp;
 use crate::chainstate::burn::operations::{
     leader_block_commit::{MissedBlockCommit, RewardSetInfo, OUTPUTS_PER_COMMIT},
     BlockstackOperationType, DepositFtOp, DepositNftOp, DepositStxOp, LeaderBlockCommitOp,
@@ -418,6 +419,18 @@ const SORTITION_DB_INITIAL_SCHEMA: &'static [&'static str] = &[
         PRIMARY KEY(txid,sortition_id),
         FOREIGN KEY(sortition_id) REFERENCES snapshots(sortition_id)
     );"#,
+    r#"
+     CREATE TABLE register_asset(
+         txid TEXT NOT NULL,
+         l1_block_id TEXT NOT NULL,
+         asset_type TEXT NOT NULL
+         l1_contract_id TEXT NOT NULL,
+         l2_contract_id TEXT NOT NULL,
+         sortition_id TEXT NOT NULL,
+
+         PRIMARY KEY(txid,sortition_id),
+         FOREIGN KEY(sortition_id) REFERENCES snapshots(sortition_id)
+     );"#,
     r#"
      CREATE TABLE deposit_stx(
          txid TEXT NOT NULL,
@@ -3059,6 +3072,18 @@ impl<'a> SortitionHandleTx<'a> {
                 );
                 self.insert_block_commit(op, sort_id)
             }
+            BlockstackOperationType::RegisterAsset(ref op) => {
+                info!(
+                    "ACCEPTED burnchain operation";
+                    "op" => "register_asset",
+                    "l1_stacks_block_id" => %op.burn_header_hash,
+                    "txid" => %op.txid,
+                    "asset_type" => %op.asset_type,
+                    "l1_contract_id" => %op.l1_contract_id,
+                    "l2_contract_id" => %op.l2_contract_id,
+                );
+                self.insert_register_asset(op, sort_id)
+            }
             BlockstackOperationType::DepositStx(ref op) => {
                 info!(
                     "ACCEPTED burnchain operation";
@@ -3166,6 +3191,26 @@ impl<'a> SortitionHandleTx<'a> {
                       VALUES (?1, ?2, ?3, ?4, ?5)",
             args,
         )?;
+
+        Ok(())
+    }
+
+    /// Insert a deposit ft op
+    fn insert_register_asset(
+        &mut self,
+        op: &RegisterAssetOp,
+        sort_id: &SortitionId,
+    ) -> Result<(), db_error> {
+        let args: &[&dyn ToSql] = &[
+            &op.txid,
+            &op.burn_header_hash,
+            &op.asset_type.to_string(),
+            &op.l1_contract_id.to_string(),
+            &op.l2_contract_id.to_string(),
+            sort_id,
+        ];
+
+        self.execute("REPLACE INTO register_asset (txid, l1_block_id, asset_type, l1_contract_id, l2_contract_id, sortition_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)", args)?;
 
         Ok(())
     }

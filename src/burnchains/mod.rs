@@ -20,6 +20,8 @@ use std::convert::TryFrom;
 use std::default::Default;
 use std::error;
 use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::io;
 use std::marker::PhantomData;
 
@@ -198,6 +200,35 @@ pub struct BurnchainRecipient {
     pub amount: u64,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub enum AssetType {
+    #[serde(rename = "ft")]
+    FungibleToken,
+    #[serde(rename = "nft")]
+    NonFungibleToken,
+}
+
+impl std::str::FromStr for AssetType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "ft" => Ok(AssetType::FungibleToken),
+            "nft" => Ok(AssetType::NonFungibleToken),
+            _ => Err(format!("Invalid asset type: {}", s)),
+        }
+    }
+}
+
+impl Display for AssetType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AssetType::FungibleToken => write!(f, "ft"),
+            AssetType::NonFungibleToken => write!(f, "nft"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 /// This is the inner type of the Layer-1 Stacks event,
 /// containing any operation specific data.
@@ -205,6 +236,11 @@ pub enum StacksSubnetOpType {
     BlockCommit {
         subnet_block_hash: BlockHeaderHash,
         withdrawal_merkle_root: Sha512Trunc256Sum,
+    },
+    RegisterAsset {
+        asset_type: AssetType,
+        l1_contract_id: QualifiedContractIdentifier,
+        l2_contract_id: QualifiedContractIdentifier,
     },
     DepositStx {
         amount: u128,

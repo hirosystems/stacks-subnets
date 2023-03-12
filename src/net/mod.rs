@@ -2160,6 +2160,19 @@ pub mod test {
                     .unwrap();
                     Ok(())
                 }
+                BlockstackOperationType::RegisterAsset(ref op) => {
+                    serde_json::to_writer(
+                        fd,
+                        &json!({
+                            "op": "register_asset",
+                            "asset_type": op.asset_type,
+                            "l1_contract_id": op.l1_contract_id,
+                            "l2_contract_id": op.l2_contract_id,
+                        }),
+                    )
+                    .unwrap();
+                    Ok(())
+                }
                 BlockstackOperationType::DepositStx(ref op) => {
                     serde_json::to_writer(
                         fd,

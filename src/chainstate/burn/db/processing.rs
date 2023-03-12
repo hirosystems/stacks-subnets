@@ -60,6 +60,20 @@ impl<'a> SortitionHandleTx<'a> {
                     BurnchainError::OpError(e)
                 })
             }
+            BlockstackOperationType::RegisterAsset(ref op) => {
+                op.check(burnchain, self).map_err(|e| {
+                    warn!(
+                        "REJECTED burnchain operation";
+                        "op" => "register_asset",
+                        "l1_stacks_block_id" => %op.burn_header_hash,
+                        "txid" => %op.txid,
+                        "l1_contract_id" => %op.l1_contract_id,
+                        "l2_contract_id" => %op.l2_contract_id,
+                        "asset_type" => %op.asset_type,
+                    );
+                    BurnchainError::OpError(e)
+                })
+            }
             BlockstackOperationType::DepositStx(ref op) => op.check(burnchain, self).map_err(|e| {
                 warn!(
                     "REJECTED burnchain operation";
