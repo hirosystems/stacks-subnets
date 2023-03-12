@@ -234,6 +234,7 @@ pub fn burnchain_from_config(
     burnchain.first_block_hash = BurnchainHeaderHash::sentinel();
     burnchain.first_block_height = config.first_burn_header_height;
     burnchain.first_block_timestamp = 0;
+    burnchain.watch_contract = config.contract_identifier.clone();
 
     debug!("Configured burnchain: {:?}", &burnchain);
     Ok(burnchain)

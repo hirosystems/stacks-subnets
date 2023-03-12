@@ -5396,6 +5396,7 @@ mod test {
             first_block_height: 50,
             first_block_timestamp: 0,
             first_block_hash: first_burn_hash.clone(),
+            watch_contract: QualifiedContractIdentifier::transient(),
         };
 
         let mut burnchain_view = BurnchainView {

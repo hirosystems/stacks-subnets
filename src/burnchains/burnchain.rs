@@ -226,6 +226,7 @@ impl Burnchain {
             first_block_hash: params.first_block_hash,
             first_block_timestamp: params.first_block_timestamp,
             pox_constants,
+            watch_contract: params.watch_contract,
         })
     }
 

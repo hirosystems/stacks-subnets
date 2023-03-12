@@ -1050,6 +1050,7 @@ pub struct RPCPeerInfoData {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub node_public_key_hash: Option<Hash160>,
+    pub watch_contract: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

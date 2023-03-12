@@ -19,6 +19,7 @@ use crate::burnchains::Burnchain;
 use crate::burnchains::Error as burnchain_error;
 use crate::chainstate::burn::ConsensusHash;
 use clarity::vm::costs::ExecutionCost;
+use clarity::vm::types::QualifiedContractIdentifier;
 use stacks_common::util::log;
 use std::convert::TryFrom;
 
@@ -128,6 +129,9 @@ pub const EMPTY_MICROBLOCK_PARENT_HASH: BlockHeaderHash = BlockHeaderHash([0u8; 
 lazy_static! {
     pub static ref FIRST_STACKS_BLOCK_ID: StacksBlockId =
         StacksBlockId::new(&FIRST_BURNCHAIN_CONSENSUS_HASH, &FIRST_STACKS_BLOCK_HASH);
+    pub static ref DEFAULT_WATCH_CONTRACT: QualifiedContractIdentifier =
+        QualifiedContractIdentifier::parse("STXMJXCJDCT4WPF2X1HE42T6ZCCK3TPMBRZ51JEG.subnet")
+            .unwrap();
 }
 
 pub const BOOT_BLOCK_HASH: BlockHeaderHash = BlockHeaderHash([0xff; 32]);
