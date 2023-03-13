@@ -1805,6 +1805,7 @@ impl StacksBlockBuilder {
             microblock_fees,
             matured_miner_rewards_opt,
             microblock_txs_receipts,
+            tx_receipts,
             ..
         } = StacksChainState::setup_block(
             &mut info.chainstate_tx,
@@ -1820,6 +1821,7 @@ impl StacksBlockBuilder {
             info.mainnet,
             Some(self.miner_id),
         )?;
+        self.tx_receipts.extend(tx_receipts.into_iter());
         self.microblock_tx_receipts = microblock_txs_receipts;
         self.miner_payouts =
             matured_miner_rewards_opt.map(|(miner, users, parent, _)| (miner, users, parent));
