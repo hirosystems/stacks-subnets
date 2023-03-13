@@ -102,7 +102,7 @@ pub struct BurnchainParameters {
     pub first_block_hash: BurnchainHeaderHash,
     pub first_block_timestamp: u32,
     pub initial_reward_start_block: u64,
-    pub watch_contract: QualifiedContractIdentifier,
+    pub subnet_governing_contract: QualifiedContractIdentifier,
 }
 
 impl BurnchainParameters {
@@ -129,7 +129,7 @@ impl BurnchainParameters {
                 .unwrap(),
             first_block_timestamp: 0,
             initial_reward_start_block: 0,
-            watch_contract: DEFAULT_WATCH_CONTRACT.clone(),
+            subnet_governing_contract: DEFAULT_SUBNET_GOVERNING_CONTRACT.clone(),
         }
     }
 
@@ -144,7 +144,7 @@ impl BurnchainParameters {
                 .unwrap(),
             first_block_timestamp: BITCOIN_MAINNET_FIRST_BLOCK_TIMESTAMP,
             initial_reward_start_block: BITCOIN_MAINNET_INITIAL_REWARD_START_BLOCK,
-            watch_contract: DEFAULT_WATCH_CONTRACT.clone(),
+            subnet_governing_contract: DEFAULT_SUBNET_GOVERNING_CONTRACT.clone(),
         }
     }
 
@@ -159,7 +159,7 @@ impl BurnchainParameters {
                 .unwrap(),
             first_block_timestamp: BITCOIN_TESTNET_FIRST_BLOCK_TIMESTAMP,
             initial_reward_start_block: BITCOIN_TESTNET_FIRST_BLOCK_HEIGHT - 10_000,
-            watch_contract: DEFAULT_WATCH_CONTRACT.clone(),
+            subnet_governing_contract: DEFAULT_SUBNET_GOVERNING_CONTRACT.clone(),
         }
     }
 
@@ -174,7 +174,7 @@ impl BurnchainParameters {
                 .unwrap(),
             first_block_timestamp: BITCOIN_REGTEST_FIRST_BLOCK_TIMESTAMP,
             initial_reward_start_block: BITCOIN_REGTEST_FIRST_BLOCK_HEIGHT,
-            watch_contract: DEFAULT_WATCH_CONTRACT.clone(),
+            subnet_governing_contract: DEFAULT_SUBNET_GOVERNING_CONTRACT.clone(),
         }
     }
 
@@ -348,7 +348,7 @@ pub struct Burnchain {
     pub first_block_timestamp: u32,
     pub pox_constants: PoxConstants,
     pub initial_reward_start_block: u64,
-    pub watch_contract: QualifiedContractIdentifier,
+    pub subnet_governing_contract: QualifiedContractIdentifier,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

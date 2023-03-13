@@ -4588,7 +4588,7 @@ impl StacksChainState {
                         tx_index: 0,
                     }),
                     Err(e) => {
-                        info!("RegisterAsset op processing error.";
+                        warn!("RegisterAsset op processing error.";
                               "error" => ?e,
                               "txid" => %txid,
                               "burn_block" => %burn_header_hash);

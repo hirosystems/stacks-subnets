@@ -263,7 +263,7 @@ impl RPCPeerInfoData {
             genesis_chainstate_hash: genesis_chainstate_hash.clone(),
             node_public_key: Some(public_key_buf),
             node_public_key_hash: Some(public_key_hash),
-            watch_contract: network.burnchain.watch_contract.to_string(),
+            l1_subnet_governing_contract: network.burnchain.subnet_governing_contract.to_string(),
         }
     }
 }
