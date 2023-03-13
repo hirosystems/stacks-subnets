@@ -423,7 +423,7 @@ const SORTITION_DB_INITIAL_SCHEMA: &'static [&'static str] = &[
      CREATE TABLE register_asset(
          txid TEXT NOT NULL,
          l1_block_id TEXT NOT NULL,
-         asset_type TEXT NOT NULL
+         asset_type TEXT NOT NULL,
          l1_contract_id TEXT NOT NULL,
          l2_contract_id TEXT NOT NULL,
          sortition_id TEXT NOT NULL,
