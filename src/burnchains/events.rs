@@ -264,7 +264,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 0,
                     event: StacksSubnetOpType::BlockCommit {
                         subnet_block_hash: BlockHeaderHash(block_commit),
                         withdrawal_merkle_root: Sha512Trunc256Sum(withdrawal_merkle_root),
@@ -309,7 +308,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 6,
                     event: StacksSubnetOpType::RegisterAsset {
                         asset_type,
                         l1_contract_id,
@@ -334,7 +332,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 1,
                     event: StacksSubnetOpType::DepositStx { amount, sender },
                 })
             }
@@ -380,7 +377,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 2,
                     event: StacksSubnetOpType::DepositFt {
                         l1_contract_id,
                         subnet_contract_id,
@@ -428,7 +424,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 3,
                     event: StacksSubnetOpType::DepositNft {
                         l1_contract_id,
                         subnet_contract_id,
@@ -454,7 +449,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 1,
                     event: StacksSubnetOpType::WithdrawStx { amount, recipient },
                 })
             }
@@ -489,7 +483,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 4,
                     event: StacksSubnetOpType::WithdrawFt {
                         l1_contract_id,
                         name,
@@ -526,7 +519,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 5,
                     event: StacksSubnetOpType::WithdrawNft {
                         l1_contract_id,
                         id,

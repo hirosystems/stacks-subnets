@@ -3195,7 +3195,7 @@ impl<'a> SortitionHandleTx<'a> {
         Ok(())
     }
 
-    /// Insert a deposit ft op
+    /// Insert a register asset op
     fn insert_register_asset(
         &mut self,
         op: &RegisterAssetOp,

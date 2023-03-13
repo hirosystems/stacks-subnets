@@ -282,7 +282,6 @@ pub enum StacksSubnetOpType {
 pub struct StacksSubnetOp {
     pub txid: Txid,
     pub in_block: StacksBlockId,
-    pub opcode: u8,
     pub event_index: u32,
     pub event: StacksSubnetOpType,
 }
@@ -303,12 +302,6 @@ impl BurnchainTransaction {
     pub fn vtxindex(&self) -> u32 {
         match *self {
             BurnchainTransaction::StacksBase(ref tx) => tx.event_index,
-        }
-    }
-
-    pub fn opcode(&self) -> u8 {
-        match *self {
-            BurnchainTransaction::StacksBase(ref tx) => tx.opcode,
         }
     }
 
