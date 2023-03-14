@@ -42,13 +42,13 @@ use crate::vm::costs::runtime_cost;
 
 /// Handle special cases of contract-calls -- namely, those into PoX that should lock up STX
 pub fn handle_contract_call_special_cases(
-    global_context: &mut GlobalContext,
-    sender: Option<&PrincipalData>,
+    _global_context: &mut GlobalContext,
+    _sender: Option<&PrincipalData>,
     _sponsor: Option<&PrincipalData>,
-    contract_id: &QualifiedContractIdentifier,
-    function_name: &str,
-    args: &[Value],
-    result: &Value,
+    _contract_id: &QualifiedContractIdentifier,
+    _function_name: &str,
+    _args: &[Value],
+    _result: &Value,
 ) -> Result<()> {
     Ok(())
 }

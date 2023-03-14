@@ -4539,7 +4539,6 @@ impl StacksChainState {
         operations: Vec<RegisterAssetOp>,
     ) -> Vec<StacksTransactionReceipt> {
         let mainnet = clarity_tx.config.mainnet;
-        let boot_addr: PrincipalData = boot_code_addr(mainnet).into();
         let cost_so_far = clarity_tx.cost_so_far();
         // return valid receipts
         operations
@@ -4611,7 +4610,7 @@ impl StacksChainState {
                     .into_iter()
                     .filter_map(|deposit_stx_op| {
                         let DepositStxOp {
-                            txid,
+                            txid: _,
                             amount,
                             sender,
                             ..
@@ -4654,7 +4653,6 @@ impl StacksChainState {
         operations: Vec<DepositFtOp>,
     ) -> Vec<StacksTransactionReceipt> {
         let mainnet = clarity_tx.config.mainnet;
-        let boot_addr: PrincipalData = boot_code_addr(mainnet).into();
         let cost_so_far = clarity_tx.cost_so_far();
         // return valid receipts
         operations
@@ -4715,7 +4713,6 @@ impl StacksChainState {
         operations: Vec<DepositNftOp>,
     ) -> Vec<StacksTransactionReceipt> {
         let mainnet = clarity_tx.config.mainnet;
-        let boot_addr: PrincipalData = boot_code_addr(mainnet).into();
         let cost_so_far = clarity_tx.cost_so_far();
         // return valid receipts
         operations
@@ -6421,7 +6418,7 @@ impl StacksChainState {
             }
             TransactionPayload::SmartContract(
                 TransactionSmartContract { name, code_body: _ },
-                version_opt,
+                _version_opt,
             ) => {
                 let contract_identifier =
                     QualifiedContractIdentifier::new(tx.origin_address().into(), name.clone());

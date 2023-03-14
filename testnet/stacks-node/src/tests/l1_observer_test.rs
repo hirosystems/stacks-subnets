@@ -2214,7 +2214,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
-    assert_eq!(addr, Value::none(),);
+    assert_eq!(addr, Value::none());
     // Check that user no longer owns the subnet native NFT on L2 chain.
     let res = call_read_only(
         &l2_rpc_origin,

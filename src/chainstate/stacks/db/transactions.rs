@@ -719,7 +719,6 @@ impl StacksChainState {
                 let contract_id = contract_call.to_clarity_contract_id();
                 let cost_before = clarity_tx.cost_so_far();
                 let sponsor = tx.sponsor_address().map(|a| a.to_account_principal());
-                let epoch_id = clarity_tx.get_epoch();
 
                 let contract_call_resp = clarity_tx.run_contract_call(
                     &origin_account.principal,
@@ -799,7 +798,6 @@ impl StacksChainState {
                 Ok(receipt)
             }
             TransactionPayload::SmartContract(ref smart_contract, ref version_opt) => {
-                let epoch_id = clarity_tx.get_epoch();
                 let clarity_version = version_opt
                     .unwrap_or(ClarityVersion::default_for_epoch(clarity_tx.get_epoch()));
                 let issuer_principal = match origin_account.principal {
