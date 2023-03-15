@@ -91,7 +91,7 @@ jobs:
       - uses: actions/checkout@v2
       - id: set-matrix
         run: |
-          cargo test --workspace --bin=subnet-node -- l1_ --list --format=terse | sed -e 's/: test//g' | jq -ncR '{"test-name": [inputs]}' > test_names.json
+          cargo test --workspace --bin=subnet-node -- l --list --format=terse | sed -e 's/: test//g' | jq -ncR '{"test-name": [inputs]}' > test_names.json
           echo "::set-output name=matrix::$(cat test_names.json)"
   # Run the tests that require stacks-node
   layer-1-tests:
