@@ -130,6 +130,7 @@
             ERR_DISALLOWED_ASSET
         )
         (print {
+            event: "withdraw",
             type: "ft",
             sender: sender,
             amount: amount,
@@ -148,6 +149,7 @@
             ERR_DISALLOWED_ASSET
         )
         (print {
+            event: "withdraw",
             type: "nft",
             sender: sender,
             id: id,
@@ -162,6 +164,7 @@
 (define-public (stx-withdraw? (amount uint) (sender principal))
     (begin
         (print {
+            event: "withdraw",
             type: "stx",
             sender: sender,
             amount: amount,

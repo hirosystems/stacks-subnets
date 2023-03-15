@@ -4922,6 +4922,12 @@ impl StacksChainState {
                     &parent_consensus_hash
                 )))?
                 .burn_header_hash;
+        let register_asset_ops = SortitionDB::get_ops_between(
+            conn,
+            &parent_block_burn_block,
+            &burn_tip,
+            SortitionDB::get_register_asset_ops,
+        )?;
         let deposit_stx_ops = SortitionDB::get_ops_between(
             conn,
             &parent_block_burn_block,
@@ -5053,6 +5059,11 @@ impl StacksChainState {
         // is this stacks block the first of a new epoch?
         let (applied_epoch_transition, mut tx_receipts) =
             StacksChainState::process_epoch_transition(&mut clarity_tx, burn_tip_height)?;
+
+        tx_receipts.extend(StacksChainState::process_register_asset_ops(
+            &mut clarity_tx,
+            register_asset_ops,
+        ));
 
         tx_receipts.extend(StacksChainState::process_deposit_stx_ops(
             &mut clarity_tx,

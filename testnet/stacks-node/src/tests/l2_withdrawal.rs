@@ -109,7 +109,6 @@ fn withdraw_unregistered_asset() {
         "simple-nft",
         &nft_content,
     );
-    let nft_contract_name = ContractName::from("simple-nft");
 
     submit_tx(l1_rpc_origin, &nft_publish);
 
