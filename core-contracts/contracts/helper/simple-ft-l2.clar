@@ -27,6 +27,7 @@
 ;; Transfers tokens to a recipient
 (define-public (transfer (amount uint) (sender principal) (recipient principal) (memo (optional (buff 34))))
     (begin
+      (asserts! (is-eq tx-sender sender) ERR_NOT_AUTHORIZED)
       (try! (ft-transfer? ft-token amount sender recipient))
       (print memo)
       (ok true)
