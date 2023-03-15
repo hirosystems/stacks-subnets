@@ -93,8 +93,7 @@ use rusqlite::types::ToSqlOutput;
 use stacks_common::types::chainstate::{StacksAddress, StacksBlockId};
 
 static DEPOSIT_FUNCTION_NAME: &str = "deposit-from-burnchain";
-static REGISTER_FT_FUNCTION_NAME: &str = "register-new-ft-contract";
-static REGISTER_NFT_FUNCTION_NAME: &str = "register-new-nft-contract";
+static REGISTER_ASSET_FUNCTION_NAME: &str = "register-asset-contract";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StagingMicroblock {
@@ -4552,19 +4551,24 @@ impl StacksChainState {
                     l2_contract_id,
                     ..
                 } = register_asset_op.clone();
-                // call the corresponding register function in the subnet contract
+
+                let asset_type_ascii =
+                    Value::string_ascii_from_bytes(asset_type.to_string().into())
+                        .expect("BUG: failed to convert asset type to ascii string");
+                let txid_buff = Value::buff_from(txid.as_bytes().to_vec())
+                    .expect("BUG: failed to convert txid to buffer");
+                // call the register asset function in the subnet contract
                 let result = clarity_tx.connection().as_transaction(|tx| {
                     tx.run_contract_call(
                         &boot_code_addr(mainnet).into(),
                         None,
                         &boot_code_id("subnet", mainnet),
-                        match asset_type {
-                            AssetType::FungibleToken => REGISTER_FT_FUNCTION_NAME,
-                            AssetType::NonFungibleToken => REGISTER_NFT_FUNCTION_NAME,
-                        },
+                        REGISTER_ASSET_FUNCTION_NAME,
                         &[
+                            asset_type_ascii,
                             Value::Principal(l1_contract_id.into()),
                             Value::Principal(l2_contract_id.into()),
+                            txid_buff,
                         ],
                         |_, _| false,
                     )

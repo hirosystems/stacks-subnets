@@ -79,31 +79,14 @@
 ;; Returned if the function is called by anyone other than the boot address
 (define-constant ERR_UNCALLABLE (err u17))
 
-;; Register a new FT contract to be supported by this subnet. This function is
-;; called only by the subnet miner
-(define-public (register-new-ft-contract (l1-contract principal) (l2-contract principal))
-    (begin
-        ;; Verify that tx-sender is the boot address
-        (asserts! (is-boot tx-sender) ERR_UNCALLABLE)
-
-        ;; Set up the assets that the contract is allowed to transfer
-        (asserts! (map-insert allowed-contracts l2-contract l1-contract)
-                  ERR_ASSET_ALREADY_ALLOWED)
-
-        (print {
-            event: "register-contract",
-            asset-type: "ft",
-            l1-contract: l1-contract,
-            l2-contract: l2-contract,
-        })
-
-        (ok true)
-    )
-)
-
 ;; Register a new NFT contract to be supported by this subnet. This function is
 ;; called only by the subnet miner
-(define-public (register-new-nft-contract (l1-contract principal) (l2-contract principal))
+(define-public (register-asset-contract
+        (asset-type (string-ascii 3))
+        (l1-contract principal)
+        (l2-contract principal)
+        (burnchain-txid (buff 32))
+    )
     (begin
         ;; Verify that tx-sender is the boot address
         (asserts! (is-boot tx-sender) ERR_UNCALLABLE)
@@ -114,9 +97,10 @@
 
         (print {
             event: "register-contract",
-            asset-type: "nft",
+            asset-type: asset-type,
             l1-contract: l1-contract,
-            l2-contract: l2-contract
+            l2-contract: l2-contract,
+            burnchain-txid: burnchain-txid,
         })
 
         (ok true)
