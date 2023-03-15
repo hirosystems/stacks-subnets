@@ -64,9 +64,57 @@
   )
 )
 
+;; Map of allowed contracts for asset transfers - maps L2 contract principal to L1 contract principal
+(define-map allowed-contracts principal principal)
+
+(define-private (is-boot (p principal))
+  (or 
+    (is-eq tx-sender 'ST000000000000000000002AMW42H)
+    (is-eq tx-sender 'SP000000000000000000002Q6VF78)
+  )
+)
+
+(define-constant ERR_DISALLOWED_ASSET (err u5))
+(define-constant ERR_ASSET_ALREADY_ALLOWED (err u6))
+;; Returned if the function is called by anyone other than the boot address
+(define-constant ERR_UNCALLABLE (err u17))
+
+;; Register a new NFT contract to be supported by this subnet. This function is
+;; called only by the subnet miner
+(define-public (register-asset-contract
+        (asset-type (string-ascii 3))
+        (l1-contract principal)
+        (l2-contract principal)
+        (burnchain-txid (buff 32))
+    )
+    (begin
+        ;; Verify that tx-sender is the boot address
+        (asserts! (is-boot tx-sender) ERR_UNCALLABLE)
+
+        ;; Set up the assets that the contract is allowed to transfer
+        (asserts! (map-insert allowed-contracts l2-contract l1-contract)
+                  ERR_ASSET_ALREADY_ALLOWED)
+
+        (print {
+            event: "register-contract",
+            asset-type: asset-type,
+            l1-contract: l1-contract,
+            l2-contract: l2-contract,
+            burnchain-txid: burnchain-txid,
+        })
+
+        (ok true)
+    )
+)
+
 (define-public (ft-withdraw? (asset <subnet-asset>) (amount uint) (sender principal))
     (begin
+        (unwrap!
+            (map-get? allowed-contracts (contract-of asset))
+            ERR_DISALLOWED_ASSET
+        )
         (print {
+            event: "withdraw",
             type: "ft",
             sender: sender,
             amount: amount,
@@ -80,7 +128,12 @@
 
 (define-public (nft-withdraw? (asset <subnet-asset>) (id uint) (sender principal))
     (begin
+        (unwrap!
+            (map-get? allowed-contracts (contract-of asset))
+            ERR_DISALLOWED_ASSET
+        )
         (print {
+            event: "withdraw",
             type: "nft",
             sender: sender,
             id: id,
@@ -95,6 +148,7 @@
 (define-public (stx-withdraw? (amount uint) (sender principal))
     (begin
         (print {
+            event: "withdraw",
             type: "stx",
             sender: sender,
             amount: amount,

@@ -21,6 +21,7 @@ use std::fmt;
 use std::fs;
 use std::io;
 
+use crate::burnchains::AssetType;
 use crate::burnchains::Burnchain;
 use crate::burnchains::BurnchainBlockHeader;
 use crate::burnchains::Error as BurnchainError;
@@ -57,6 +58,7 @@ pub mod deposit_ft;
 pub mod deposit_nft;
 pub mod deposit_stx;
 pub mod leader_block_commit;
+pub mod register_asset;
 pub mod withdraw_ft;
 pub mod withdraw_nft;
 pub mod withdraw_stx;
@@ -293,6 +295,25 @@ pub struct LeaderBlockCommitOp {
 }
 
 #[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
+pub struct RegisterAssetOp {
+    /// Transaction ID of this register op
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
+    pub txid: Txid,
+    /// Hash of the base chain block that produced this commit op.
+    #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
+    pub burn_header_hash: BurnchainHeaderHash,
+
+    /// Asset type
+    pub asset_type: AssetType,
+    /// Contract ID on L1 chain for this fungible token
+    #[serde(serialize_with = "qc_serialize", deserialize_with = "qc_deserialize")]
+    pub l1_contract_id: QualifiedContractIdentifier,
+    /// Contract ID on subnet for this fungible token
+    #[serde(serialize_with = "qc_serialize", deserialize_with = "qc_deserialize")]
+    pub l2_contract_id: QualifiedContractIdentifier,
+}
+
+#[derive(Debug, PartialEq, Clone, Eq, Serialize, Deserialize)]
 pub struct DepositStxOp {
     /// Transaction ID of this commit op
     #[serde(serialize_with = "hex_serialize", deserialize_with = "hex_deserialize")]
@@ -446,6 +467,7 @@ pub struct UserBurnSupportOp {
 #[serde(rename_all = "snake_case")]
 pub enum BlockstackOperationType {
     LeaderBlockCommit(LeaderBlockCommitOp),
+    RegisterAsset(RegisterAssetOp),
     DepositStx(DepositStxOp),
     DepositFt(DepositFtOp),
     DepositNft(DepositNftOp),
@@ -457,6 +479,12 @@ pub enum BlockstackOperationType {
 impl From<LeaderBlockCommitOp> for BlockstackOperationType {
     fn from(op: LeaderBlockCommitOp) -> Self {
         BlockstackOperationType::LeaderBlockCommit(op)
+    }
+}
+
+impl From<RegisterAssetOp> for BlockstackOperationType {
+    fn from(op: RegisterAssetOp) -> Self {
+        BlockstackOperationType::RegisterAsset(op)
     }
 }
 
@@ -504,6 +532,7 @@ impl BlockstackOperationType {
     pub fn txid_ref(&self) -> &Txid {
         match *self {
             BlockstackOperationType::LeaderBlockCommit(ref data) => &data.txid,
+            BlockstackOperationType::RegisterAsset(ref data) => &data.txid,
             BlockstackOperationType::DepositStx(ref data) => &data.txid,
             BlockstackOperationType::DepositFt(ref data) => &data.txid,
             BlockstackOperationType::DepositNft(ref data) => &data.txid,
@@ -524,6 +553,7 @@ impl BlockstackOperationType {
     pub fn burn_header_hash(&self) -> BurnchainHeaderHash {
         match *self {
             BlockstackOperationType::LeaderBlockCommit(ref data) => data.burn_header_hash.clone(),
+            BlockstackOperationType::RegisterAsset(ref data) => data.burn_header_hash.clone(),
             BlockstackOperationType::DepositStx(ref data) => data.burn_header_hash.clone(),
             BlockstackOperationType::DepositFt(ref data) => data.burn_header_hash.clone(),
             BlockstackOperationType::DepositNft(ref data) => data.burn_header_hash.clone(),
@@ -539,6 +569,7 @@ impl BlockstackOperationType {
             BlockstackOperationType::LeaderBlockCommit(ref mut data) => {
                 data.set_burn_height(height)
             }
+            BlockstackOperationType::RegisterAsset(ref mut data) => data.set_burn_height(height),
             BlockstackOperationType::DepositStx(ref mut data) => data.set_burn_height(height),
             BlockstackOperationType::DepositFt(ref mut data) => data.set_burn_height(height),
             BlockstackOperationType::DepositNft(ref mut data) => data.set_burn_height(height),
@@ -554,6 +585,7 @@ impl BlockstackOperationType {
             BlockstackOperationType::LeaderBlockCommit(ref mut data) => {
                 data.burn_header_hash = hash
             }
+            BlockstackOperationType::RegisterAsset(ref mut data) => data.burn_header_hash = hash,
             BlockstackOperationType::DepositStx(ref mut data) => data.burn_header_hash = hash,
             BlockstackOperationType::DepositFt(ref mut data) => data.burn_header_hash = hash,
             BlockstackOperationType::DepositNft(ref mut data) => data.burn_header_hash = hash,
@@ -573,6 +605,7 @@ impl fmt::Display for BlockstackOperationType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             BlockstackOperationType::LeaderBlockCommit(ref op) => write!(f, "{:?}", op),
+            BlockstackOperationType::RegisterAsset(ref op) => write!(f, "{:?}", op),
             BlockstackOperationType::DepositStx(ref op) => write!(f, "{:?}", op),
             BlockstackOperationType::DepositFt(ref op) => write!(f, "{:?}", op),
             BlockstackOperationType::DepositNft(ref op) => write!(f, "{:?}", op),
@@ -599,6 +632,36 @@ pub fn parse_u16_from_be(bytes: &[u8]) -> Option<u16> {
 #[cfg(test)]
 mod json_tests {
     use super::*;
+
+    #[test]
+    fn register_asset() {
+        let register = RegisterAssetOp {
+            txid: Txid([0x11; 32]),
+            burn_header_hash: BurnchainHeaderHash([0xaa; 32]),
+            l1_contract_id: QualifiedContractIdentifier::parse("SP000000000000000000002Q6VF78.l1")
+                .unwrap(),
+            l2_contract_id: QualifiedContractIdentifier::parse("SP000000000000000000002Q6VF78.l2")
+                .unwrap(),
+            asset_type: AssetType::FungibleToken,
+        }
+        .into();
+
+        let expected = r#"
+        {
+          "register_asset": {
+            "asset_type": "ft",
+            "burn_header_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "l1_contract_id": "SP000000000000000000002Q6VF78.l1",
+            "l2_contract_id": "SP000000000000000000002Q6VF78.l2",
+            "txid": "1111111111111111111111111111111111111111111111111111111111111111"
+          }
+        }"#;
+
+        assert_eq!(
+            BlockstackOperationType::blockstack_op_to_json(&register),
+            serde_json::from_str::<serde_json::Value>(expected).unwrap()
+        );
+    }
 
     #[test]
     fn deposit_ft() {

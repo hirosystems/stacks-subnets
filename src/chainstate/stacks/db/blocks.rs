@@ -31,6 +31,7 @@ use rusqlite::Connection;
 use rusqlite::DatabaseName;
 use rusqlite::{Error as sqlite_error, OptionalExtension};
 
+use crate::burnchains::AssetType;
 use crate::chainstate::burn::db::sortdb::*;
 use crate::chainstate::burn::operations::*;
 use crate::chainstate::burn::BlockSnapshot;
@@ -92,6 +93,7 @@ use rusqlite::types::ToSqlOutput;
 use stacks_common::types::chainstate::{StacksAddress, StacksBlockId};
 
 static DEPOSIT_FUNCTION_NAME: &str = "deposit-from-burnchain";
+static REGISTER_ASSET_FUNCTION_NAME: &str = "register-asset-contract";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StagingMicroblock {
@@ -4529,6 +4531,77 @@ impl StacksChainState {
         Ok((applied, receipts))
     }
 
+    /// Process any register asset operations that haven't been processed in this
+    /// subnet fork yet.
+    pub fn process_register_asset_ops(
+        clarity_tx: &mut ClarityTx,
+        operations: Vec<RegisterAssetOp>,
+    ) -> Vec<StacksTransactionReceipt> {
+        let mainnet = clarity_tx.config.mainnet;
+        let cost_so_far = clarity_tx.cost_so_far();
+        // return valid receipts
+        operations
+            .into_iter()
+            .filter_map(|register_asset_op| {
+                let RegisterAssetOp {
+                    txid,
+                    burn_header_hash,
+                    asset_type,
+                    l1_contract_id,
+                    l2_contract_id,
+                    ..
+                } = register_asset_op.clone();
+
+                let asset_type_ascii =
+                    Value::string_ascii_from_bytes(asset_type.to_string().into())
+                        .expect("BUG: failed to convert asset type to ascii string");
+                let txid_buff = Value::buff_from(txid.as_bytes().to_vec())
+                    .expect("BUG: failed to convert txid to buffer");
+                // call the register asset function in the subnet contract
+                let result = clarity_tx.connection().as_transaction(|tx| {
+                    tx.run_contract_call(
+                        &boot_code_addr(mainnet).into(),
+                        None,
+                        &boot_code_id("subnet", mainnet),
+                        REGISTER_ASSET_FUNCTION_NAME,
+                        &[
+                            asset_type_ascii,
+                            Value::Principal(l1_contract_id.into()),
+                            Value::Principal(l2_contract_id.into()),
+                            txid_buff,
+                        ],
+                        |_, _| false,
+                    )
+                });
+                let mut execution_cost = clarity_tx.cost_so_far();
+                execution_cost
+                    .sub(&cost_so_far)
+                    .expect("BUG: cost declined between executions");
+
+                match result {
+                    Ok((value, _, events)) => Some(StacksTransactionReceipt {
+                        transaction: TransactionOrigin::Burn(register_asset_op.into()),
+                        events,
+                        result: value,
+                        post_condition_aborted: false,
+                        stx_burned: 0,
+                        contract_analysis: None,
+                        execution_cost,
+                        microblock_header: None,
+                        tx_index: 0,
+                    }),
+                    Err(e) => {
+                        warn!("RegisterAsset op processing error.";
+                              "error" => ?e,
+                              "txid" => %txid,
+                              "burn_block" => %burn_header_hash);
+                        None
+                    }
+                }
+            })
+            .collect()
+    }
+
     /// Process any deposit STX operations that haven't been processed in this
     /// subnet fork yet.
     pub fn process_deposit_stx_ops(
@@ -4541,7 +4614,7 @@ impl StacksChainState {
                     .into_iter()
                     .filter_map(|deposit_stx_op| {
                         let DepositStxOp {
-                            txid,
+                            txid: _,
                             amount,
                             sender,
                             ..
@@ -4584,7 +4657,6 @@ impl StacksChainState {
         operations: Vec<DepositFtOp>,
     ) -> Vec<StacksTransactionReceipt> {
         let mainnet = clarity_tx.config.mainnet;
-        let boot_addr: PrincipalData = boot_code_addr(mainnet).into();
         let cost_so_far = clarity_tx.cost_so_far();
         // return valid receipts
         operations
@@ -4645,7 +4717,6 @@ impl StacksChainState {
         operations: Vec<DepositNftOp>,
     ) -> Vec<StacksTransactionReceipt> {
         let mainnet = clarity_tx.config.mainnet;
-        let boot_addr: PrincipalData = boot_code_addr(mainnet).into();
         let cost_so_far = clarity_tx.cost_so_far();
         // return valid receipts
         operations
@@ -4855,6 +4926,12 @@ impl StacksChainState {
                     &parent_consensus_hash
                 )))?
                 .burn_header_hash;
+        let register_asset_ops = SortitionDB::get_ops_between(
+            conn,
+            &parent_block_burn_block,
+            &burn_tip,
+            SortitionDB::get_register_asset_ops,
+        )?;
         let deposit_stx_ops = SortitionDB::get_ops_between(
             conn,
             &parent_block_burn_block,
@@ -4986,6 +5063,11 @@ impl StacksChainState {
         // is this stacks block the first of a new epoch?
         let (applied_epoch_transition, mut tx_receipts) =
             StacksChainState::process_epoch_transition(&mut clarity_tx, burn_tip_height)?;
+
+        tx_receipts.extend(StacksChainState::process_register_asset_ops(
+            &mut clarity_tx,
+            register_asset_ops,
+        ));
 
         tx_receipts.extend(StacksChainState::process_deposit_stx_ops(
             &mut clarity_tx,
@@ -6351,7 +6433,7 @@ impl StacksChainState {
             }
             TransactionPayload::SmartContract(
                 TransactionSmartContract { name, code_body: _ },
-                version_opt,
+                _version_opt,
             ) => {
                 let contract_identifier =
                     QualifiedContractIdentifier::new(tx.origin_address().into(), name.clone());
@@ -11157,6 +11239,49 @@ pub mod test {
             MessageSignature([1u8; 65]),
         ]);
         assert_eq!(ToSqlOutput::from("{\"signatures\":[\"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101\"]}".to_string()), list.to_sql().unwrap());
+    }
+
+    #[test]
+    fn test_process_register_asset_ops() {
+        let mut chainstate =
+            instantiate_chainstate(false, 0x80000000, "test_process_deposit_ft_ops");
+
+        let boot_code_address = boot_code_addr(false);
+        let boot_code_auth = boot_code_tx_auth(boot_code_address);
+        let boot_code_account = boot_code_acc(boot_code_address, 0);
+
+        let mut conn = chainstate.block_begin(
+            &TEST_BURN_STATE_DB,
+            &FIRST_BURNCHAIN_CONSENSUS_HASH,
+            &FIRST_STACKS_BLOCK_HASH,
+            &ConsensusHash([1u8; 20]),
+            &BlockHeaderHash([1u8; 32]),
+        );
+
+        // create register asset op
+        let ops = vec![
+            // This op registers an FT contract
+            RegisterAssetOp {
+                txid: Txid([1; 32]),
+                burn_header_hash: BurnchainHeaderHash([0; 32]),
+                asset_type: AssetType::FungibleToken,
+                l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
+                l2_contract_id: QualifiedContractIdentifier::local("l2-contract").unwrap(),
+            },
+            // This op registers an NFT contract
+            RegisterAssetOp {
+                txid: Txid([1; 32]),
+                burn_header_hash: BurnchainHeaderHash([0; 32]),
+                asset_type: AssetType::NonFungibleToken,
+                l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
+                l2_contract_id: QualifiedContractIdentifier::local("l2-contract").unwrap(),
+            },
+        ];
+
+        // process ops
+        let processed_ops = StacksChainState::process_register_asset_ops(&mut conn, ops);
+
+        assert_eq!(processed_ops.len(), 2);
     }
 
     #[test]

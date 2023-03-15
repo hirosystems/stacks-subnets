@@ -237,7 +237,6 @@ fn run_analysis_free<C: ClarityStorage>(
     marf_kv: &mut C,
     save_contract: bool,
 ) -> Result<ContractAnalysis, (CheckError, LimitedCostTracker)> {
-    let clarity_version = ClarityVersion::default_for_epoch(DEFAULT_CLI_EPOCH);
     analysis::run_analysis(
         contract_identifier,
         expressions,

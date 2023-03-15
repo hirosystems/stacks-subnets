@@ -1001,16 +1001,21 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
                         serde_json::from_value(contract_event.get("value").unwrap().clone())
                             .unwrap();
                     let data_map = value.expect_tuple();
-                    match data_map
-                        .get("type")
-                        .unwrap()
-                        .clone()
-                        .expect_ascii()
-                        .as_str()
-                    {
-                        "ft" | "nft" => Some((height, data_map.clone())),
-                        _ => None,
+                    if let Ok(event_type) = data_map.get("event") {
+                        if event_type.clone().expect_ascii() == "withdraw" {
+                            return match data_map
+                                .get("type")
+                                .unwrap()
+                                .clone()
+                                .expect_ascii()
+                                .as_str()
+                            {
+                                "ft" | "nft" => Some((height, data_map.clone())),
+                                _ => None,
+                            };
+                        }
                     }
+                    return None;
                 }
                 _ => None,
             }
@@ -1264,7 +1269,6 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
             Value::list_from(nft_sib_data).unwrap(),
         ],
     );
-    l1_nonce += 1;
 
     // Withdraw ft-token from subnet contract on L1
     submit_tx(&l1_rpc_origin, &l1_withdraw_ft_tx);
@@ -1536,10 +1540,14 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
                         serde_json::from_value(contract_event.get("value").unwrap().clone())
                             .unwrap();
                     let data_map = value.expect_tuple();
-                    if data_map.get("type").unwrap().clone().expect_ascii() != "stx" {
-                        return None;
+                    if let Ok(event_type) = data_map.get("event") {
+                        if event_type.clone().expect_ascii() == "withdraw" {
+                            if data_map.get("type").unwrap().clone().expect_ascii() == "stx" {
+                                return Some((height, data_map.clone()));
+                            }
+                        }
                     }
-                    Some((height, data_map.clone()))
+                    return None;
                 }
                 _ => None,
             }
@@ -2214,7 +2222,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
-    assert_eq!(addr, Value::none(),);
+    assert_eq!(addr, Value::none());
     // Check that user no longer owns the subnet native NFT on L2 chain.
     let res = call_read_only(
         &l2_rpc_origin,
@@ -2314,10 +2322,14 @@ fn nft_deposit_and_withdraw_integration_test() {
                         serde_json::from_value(contract_event.get("value").unwrap().clone())
                             .unwrap();
                     let data_map = value.expect_tuple();
-                    if data_map.get("type").unwrap().clone().expect_ascii() != "nft" {
-                        return None;
+                    if let Ok(event_type) = data_map.get("event") {
+                        if event_type.clone().expect_ascii() == "withdraw" {
+                            if data_map.get("type").unwrap().clone().expect_ascii() == "nft" {
+                                return Some((height, data_map.clone()));
+                            }
+                        }
                     }
-                    Some((height, data_map.clone()))
+                    return None;
                 }
                 _ => None,
             }
@@ -2865,7 +2877,7 @@ fn ft_deposit_and_withdraw_integration_test() {
     l1_nonce += 1;
 
     // deposit 1 ft-token into subnet contract on L1
-    let tx_res = submit_tx(&l1_rpc_origin, &l1_deposit_ft_tx);
+    submit_tx(&l1_rpc_origin, &l1_deposit_ft_tx);
 
     // Sleep to give the run loop time to mine a block
     wait_for_next_stacks_block(&sortition_db);
@@ -3028,10 +3040,14 @@ fn ft_deposit_and_withdraw_integration_test() {
                         serde_json::from_value(contract_event.get("value").unwrap().clone())
                             .unwrap();
                     let data_map = value.expect_tuple();
-                    if data_map.get("type").unwrap().clone().expect_ascii() != "ft" {
-                        return None;
+                    if let Ok(event_type) = data_map.get("event") {
+                        if event_type.clone().expect_ascii() == "withdraw" {
+                            if data_map.get("type").unwrap().clone().expect_ascii() == "ft" {
+                                return Some((height, data_map.clone()));
+                            }
+                        }
                     }
-                    Some((height, data_map.clone()))
+                    return None;
                 }
                 _ => None,
             }

@@ -2,26 +2,12 @@ use crate::burnchains::commitment::{
     calculate_fee_rate_adjustment, compute_fee_from_response_and_transaction, FeeCalculationError,
 };
 use clarity::vm::costs::ExecutionCost;
-use clarity::vm::types::PrincipalData;
-use clarity::vm::types::PrincipalData::Standard;
-use clarity::vm::Value::Sequence;
-use clarity::vm::{ClarityName, ContractName};
-use stacks::chainstate::stacks::SinglesigHashMode::P2PKH;
-use stacks::chainstate::stacks::TransactionAnchorMode::Any;
-use stacks::chainstate::stacks::TransactionPayload::ContractCall;
-use stacks::chainstate::stacks::TransactionPostConditionMode::Allow;
-use stacks::chainstate::stacks::TransactionPublicKeyEncoding::Compressed;
-use stacks::chainstate::stacks::{
-    StacksTransaction, TransactionAuth, TransactionContractCall, TransactionPayload,
-    TransactionVersion,
-};
+use stacks::chainstate::stacks::StacksTransaction;
 use stacks::net::{RPCFeeEstimate, RPCFeeEstimateResponse};
 use stacks_common::codec::StacksMessageCodec;
-use stacks_common::deps_common::bitcoin::network::constants::Network::Testnet;
-use stacks_common::types::chainstate::StacksAddress;
 
 /// Sample commitment transaction json taken from a mocknet run.
-const example_transaction_json: &str = r#"
+const EXAMPLE_TRANSACTION_JSON: &str = r#"
     {
    "version":"Testnet",
    "chain_id":2147483648,
@@ -78,7 +64,7 @@ const example_transaction_json: &str = r#"
 
 #[test]
 fn test_extract_estimate_works() {
-    let transaction: StacksTransaction = serde_json::from_str(example_transaction_json).unwrap();
+    let transaction: StacksTransaction = serde_json::from_str(EXAMPLE_TRANSACTION_JSON).unwrap();
     let mut transaction_bytes = vec![];
     transaction
         .consensus_serialize(&mut transaction_bytes)
@@ -141,7 +127,7 @@ fn make_dummy_response_with_num_estimations(num_estimations: u64) -> RPCFeeEstim
 #[test]
 /// If there are 0 estimates, it's an error.
 fn test_extract_estimate_fails_no_estimates() {
-    let transaction: StacksTransaction = serde_json::from_str(example_transaction_json).unwrap();
+    let transaction: StacksTransaction = serde_json::from_str(EXAMPLE_TRANSACTION_JSON).unwrap();
     assert_eq!(
         Err(FeeCalculationError::NoEstimatesReturned),
         compute_fee_from_response_and_transaction(
@@ -154,7 +140,7 @@ fn test_extract_estimate_fails_no_estimates() {
 #[test]
 /// Try different numbers of estimates to see that each one works.
 fn test_extract_estimate_fails_works_many_estimates() {
-    let transaction: StacksTransaction = serde_json::from_str(example_transaction_json).unwrap();
+    let transaction: StacksTransaction = serde_json::from_str(EXAMPLE_TRANSACTION_JSON).unwrap();
 
     // Answer in each case is `fee + size_delta * fee_rate`, where `fee = fee_rate = num_estimations`.
     assert_eq!(
