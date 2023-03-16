@@ -2757,7 +2757,7 @@ dependencies = [
 
 [[package]]
 name = "stacks-subnets"
-version = "0.0.1"
+version = "0.4.0"
 dependencies = [
  "assert-json-diff",
  "chrono",
@@ -2862,7 +2862,7 @@ dependencies = [
 
 [[package]]
 name = "subnet-node"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "async-h1",
  "async-std",
