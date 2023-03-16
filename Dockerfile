@@ -17,8 +17,5 @@ RUN cp target/release/subnet-node /out
 FROM debian:bullseye-backports
 
 COPY --from=build /out/ /bin/
-# Add the core contracts to the image, so that clarinet can retrieve them.
-COPY --from=build /src/core-contracts/contracts/subnet.clar /contracts/subnet.clar
-COPY --from=build /src/core-contracts/contracts/helper/subnet-traits.clar /contracts/subnet-traits.clar
 
 CMD ["subnet-node", "start"]
