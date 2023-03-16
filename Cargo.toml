@@ -1,6 +1,6 @@
 [package]
 name = "stacks-subnets"
-version = "0.0.1"
+version = "0.4.0"
 authors = [
     "Jude Nelson <jude@stacks.org>",
     "Aaron Blankstein <aaron@hiro.so>",
