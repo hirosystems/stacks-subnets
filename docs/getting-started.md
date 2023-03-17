@@ -386,7 +386,7 @@ async function main() {
 
   const txOptions = {
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet",
+    contractName: "subnet-v1-1",
     functionName: "register-new-nft-contract",
     functionArgs: [
       contractPrincipalCV(deployerAddr, "simple-nft-l1"),
@@ -489,7 +489,7 @@ async function main() {
 
   const txOptions = {
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet",
+    contractName: "subnet-v1-1",
     functionName: "deposit-nft-asset",
     functionArgs: [
       contractPrincipalCV(deployerAddr, "simple-nft-l1"), // contract ID of nft contract on L1
@@ -678,7 +678,7 @@ async function main() {
     network,
     anchorMode: AnchorMode.Any,
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet",
+    contractName: "subnet-v1-1",
     functionName: "withdraw-nft-asset",
     functionArgs: [
       contractPrincipalCV(l1ContractAddr, "simple-nft-l1"), // nft-contract
@@ -809,7 +809,7 @@ We can see this transaction either on the Clarinet interface or in the Devnet
 network on the explorer.
 
 We can verify that the NFT is now owned by the subnet contract
-(`ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet`) on the L1 using:
+(`ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet-v1-1`) on the L1 using:
 
 ```js
 node ./verify.js 1
