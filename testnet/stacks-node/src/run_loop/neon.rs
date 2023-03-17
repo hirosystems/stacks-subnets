@@ -694,18 +694,20 @@ impl RunLoop {
                     //  this prevents a possible corner case in the event of a PoX fork.
                     mine_start = 0;
 
-                    // at tip, and not downloading. proceed to mine.
+                    // at tip, and not downloading. do nothing here.
+                    // relayer will issue microblock tenures on a timer.
                     if last_tenure_sortition_height != sortition_db_height {
                         info!(
                             "Synchronized full burnchain up to height {}. Proceeding to mine blocks",
                             sortition_db_height
                         );
                         last_tenure_sortition_height = sortition_db_height;
-                    }
-                    if !node.relayer_issue_tenure() {
-                        // relayer hung up, exit.
-                        error!("Block relayer and miner hung up, exiting.");
-                        continue;
+
+                        if !node.relayer_issue_tenure() {
+                            // relayer hung up, exit.
+                            error!("Block relayer and miner hung up, exiting.");
+                            continue;
+                        }
                     }
                 }
             }

@@ -1,4 +1,3 @@
-use core::time;
 use std::cmp;
 use std::collections::{BTreeMap, HashMap};
 use std::collections::{HashSet, VecDeque};
@@ -101,8 +100,6 @@ pub struct StacksNode {
     pub atlas_config: AtlasConfig,
     pub p2p_thread_handle: JoinHandle<()>,
     pub relayer_thread_handle: JoinHandle<()>,
-    /// Lock used for the timer thread before issuing a tenure directive
-    is_tenure_timer_running: Arc<Mutex<bool>>,
 }
 
 #[cfg(test)]
@@ -1051,6 +1048,10 @@ fn spawn_miner_relayer(
                         // stale request
                         continue;
                     }
+                    if last_mined_blocks.contains_key(&burnchain_tip.burn_header_hash) {
+                        // this miner has already made an anchored block for this burn block
+                        continue;
+                    }
                     if let Some(cur_sortition) = get_last_sortition(&last_sortition) {
                         if burnchain_tip.sortition_id != cur_sortition.sortition_id {
                             debug!("Drop stale RunMicroblockTenure for {}/{}: current sortition is for {} ({})", &burnchain_tip.consensus_hash, &burnchain_tip.winning_stacks_block_hash, &cur_sortition.consensus_hash, &cur_sortition.burn_header_hash);
@@ -1364,7 +1365,6 @@ impl StacksNode {
             atlas_config,
             p2p_thread_handle,
             relayer_thread_handle,
-            is_tenure_timer_running: Arc::new(Mutex::new(false)),
         }
     }
 
@@ -1377,54 +1377,18 @@ impl StacksNode {
         }
 
         if let Some(burnchain_tip) = get_last_sortition(&self.last_sortition) {
-            let relay_channel = self.relay_channel.clone();
-            let wait_before_first_anchored_block =
-                self.config.node.wait_before_first_anchored_block;
-
-            // Check if a thread to send the `RunTenure` directive is already running, and if not we should start one.
-            let start_new_thread = {
-                let mut tenure_timer_mutex = self.is_tenure_timer_running.lock().unwrap();
-
-                let thread_running = *tenure_timer_mutex;
-
-                // Update the shared data for the `RunTenure` directive.
-                *tenure_timer_mutex = true;
-
-                !thread_running
-            };
+            // Just immediately send the `RunTenure` directive to the relayer.
+            let channel_accepted = self
+                .relay_channel
+                .try_send(RelayerDirective::RunTenure)
+                .is_ok();
 
             debug!(
                 "relayer_issue_tenure invoked";
-                "will_spawn_new_issue" => start_new_thread,
-                "wait_ms" => wait_before_first_anchored_block,
                 "received_at_burn_hash" => %burnchain_tip.burn_header_hash,
                 "received_at_burn_height" => %burnchain_tip.block_height,
             );
-
-            if start_new_thread {
-                let tenure_timer_mutex = self.is_tenure_timer_running.clone();
-                thread::spawn(move || {
-                    thread::sleep(time::Duration::from_millis(
-                        wait_before_first_anchored_block,
-                    ));
-
-                    {
-                        let mut tenure_lock_handle = tenure_timer_mutex.lock().unwrap();
-                        *tenure_lock_handle = false;
-                    }
-
-                    debug!(
-                        "relayer_issue_tenure: Have waited {} ms and now will build off of chain tip",
-                        wait_before_first_anchored_block,
-                    );
-
-                    // Send the signal.
-                    let channel_accepted = relay_channel.send(RelayerDirective::RunTenure).is_ok();
-
-                    channel_accepted
-                });
-            }
-            true
+            channel_accepted
         } else {
             warn!("Tenure: Do not know the last burn block. As a miner, this is bad.");
             true
