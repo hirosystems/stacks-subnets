@@ -684,13 +684,6 @@ impl RunLoop {
                 }
             }
 
-            target_burnchain_block_height = burnchain_config.reward_cycle_to_block_height(
-                burnchain_config
-                    .block_height_to_reward_cycle(burnchain_height)
-                    .expect("BUG: block height is not in a reward cycle")
-                    + 1,
-            );
-
             if sortition_db_height >= burnchain_height && !ibd {
                 let canonical_stacks_tip_height =
                     SortitionDB::get_canonical_burn_chain_tip(burnchain.sortdb_ref().conn())
