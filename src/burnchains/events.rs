@@ -85,11 +85,12 @@ impl std::fmt::Debug for NewBlock {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         write!(
             f,
-            "NewBlock(hash={:?}, parent_hash={:?}, block_height={}, num_events={})",
+            "NewBlock(hash={:?}, parent_hash={:?}, block_height={}, num_events={}, burn_block_time={})",
             &self.index_block_hash,
             &self.parent_index_block_hash,
             self.block_height,
-            self.events.len()
+            self.events.len(),
+            self.burn_block_time
         )
     }
 }
@@ -545,6 +546,7 @@ impl StacksSubnetBlock {
             index_block_hash,
             parent_index_block_hash,
             block_height,
+            burn_block_time,
             ..
         } = b;
 
@@ -604,6 +606,7 @@ impl StacksSubnetBlock {
             current_block: index_block_hash,
             parent_block: parent_index_block_hash,
             block_height,
+            burn_block_time,
             ops,
         }
     }

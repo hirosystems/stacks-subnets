@@ -317,6 +317,7 @@ pub struct StacksSubnetBlock {
     pub current_block: StacksBlockId,
     pub parent_block: StacksBlockId,
     pub block_height: u64,
+    pub burn_block_time: u64,
     pub ops: Vec<StacksSubnetOp>,
 }
 
