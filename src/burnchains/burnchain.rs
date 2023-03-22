@@ -174,7 +174,9 @@ impl BurnchainBlock {
     }
 
     pub fn timestamp(&self) -> u64 {
-        0
+        match self {
+            BurnchainBlock::StacksSubnetBlock(b) => b.burn_block_time,
+        }
     }
 
     pub fn header(&self) -> BurnchainBlockHeader {
