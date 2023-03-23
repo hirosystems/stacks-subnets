@@ -57,8 +57,13 @@ pub const SUBNETS_CLARITY_VERSION: ClarityVersion = ClarityVersion::Clarity2;
 // first byte == major network protocol version (currently 0x18)
 // second and third bytes are unused
 // fourth byte == highest epoch supported by this node (0x05 for 2.05)
-pub const PEER_VERSION_MAINNET: u32 = 0x18000005;
-pub const PEER_VERSION_TESTNET: u32 = 0xfacade05;
+/// Note these are Stacks (L1) peer versions, but these are also used
+///  as the peer versions for subnets currently. Subnets do not have an
+///  independent notion of peer versions. If a particular subnet wishes
+///  to undergo a consensus change and use peer versioning to assist in
+///  that change, subnets will need to introduce an independent peer version.
+pub const PEER_VERSION_MAINNET: u32 = 0x18000006;
+pub const PEER_VERSION_TESTNET: u32 = 0xfacade06;
 
 pub const PEER_VERSION_EPOCH_1_0: u8 = 0x00;
 pub const PEER_VERSION_EPOCH_2_0: u8 = 0x00;
