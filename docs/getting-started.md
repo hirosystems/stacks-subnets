@@ -46,4 +46,10 @@ cd subnet-nft-example
 
 This command creates a new directory, 'subnet-nft-example', with a clarinet project already initialized and then switches into that directory.
 
-You can now create L1 Stacks contract and L2 subnets contracts by following the [create contracts](how-to-guides/how-to-create-contracts.md) article.
+Next, follow the articles in the order below to interact with subnets.
+
+- [Create contracts](how-to-guides/how-to-create-contracts.md)
+- [Start devnet](how-to-guides/how-to-start-devnet.md)
+- [Set up node.js scripts](how-to-guides/how-to-setup-nodejs-scripts.md)
+- [Interact with subnets](how-to-guides/how-to-interact-with-subnet.md)
+- [Enable event observer interface](how-to-guides/how-to-enable-event-observer-interface.md)
