@@ -433,6 +433,7 @@ impl TestBurnchainBlock {
             parent_block: StacksBlockId(self.parent_snapshot.burn_header_hash.0.clone()),
             ops: vec![],
             block_height: self.block_height,
+            burn_block_time: 0,
         };
         let block = BurnchainBlock::StacksSubnetBlock(mock_bitcoin_block);
 
@@ -487,6 +488,7 @@ impl TestBurnchainBlock {
             parent_block: StacksBlockId(self.parent_snapshot.burn_header_hash.0.clone()),
             ops: vec![],
             block_height: self.block_height,
+            burn_block_time: 0,
         };
         let block = BurnchainBlock::StacksSubnetBlock(mock_bitcoin_block);
 
