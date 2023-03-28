@@ -372,12 +372,7 @@ impl RunLoop {
         coordinator_receivers: CoordinatorReceivers,
     ) -> (JoinHandle<()>, Receiver<HashSet<AttachmentInstance>>) {
         // load up genesis balances
-        let initial_balances = self
-            .config
-            .initial_balances
-            .iter()
-            .map(|e| (e.address.clone(), e.amount))
-            .collect();
+        let initial_balances = self.config.get_initial_balances();
 
         // load up genesis Atlas attachments
         let mut atlas_config = AtlasConfig::default(self.config.is_mainnet());
@@ -538,7 +533,7 @@ impl RunLoop {
         let mut num_sortitions_in_last_cycle = 1;
 
         // prepare to fetch the first reward cycle!
-        let mut target_burnchain_block_height = burnchain_config.reward_cycle_to_block_height(
+        let target_burnchain_block_height = burnchain_config.reward_cycle_to_block_height(
             burnchain_config
                 .block_height_to_reward_cycle(burnchain_height)
                 .expect("BUG: block height is not in a reward cycle")

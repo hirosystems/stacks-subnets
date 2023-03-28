@@ -2665,7 +2665,6 @@ fn ft_deposit_and_withdraw_integration_test() {
     // Start Stacks L1.
     let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
     let l1_rpc_origin = "http://127.0.0.1:20443";
-    let trait_standards_contract_name = "trait-standards";
 
     // Start the L2 run loop.
     let mut config = super::new_test_conf();

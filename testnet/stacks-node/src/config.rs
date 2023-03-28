@@ -60,60 +60,6 @@ pub struct ConfigFile {
     pub miner: Option<MinerConfigFile>,
 }
 
-#[derive(Clone, Deserialize, Default)]
-pub struct LegacyMstxConfigFile {
-    pub mstx_balance: Option<Vec<InitialBalanceFile>>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn should_load_legacy_mstx_balances_toml() {
-        let config = ConfigFile::from_str(
-            r#"
-            [[ustx_balance]]
-            address = "ST2QKZ4FKHAH1NQKYKYAYZPY440FEPK7GZ1R5HBP2"
-            amount = 10000000000000000
-
-            [[ustx_balance]]
-            address = "ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VPF"
-            amount = 10000000000000000
-
-            [[mstx_balance]] # legacy property name
-            address = "ST221Z6TDTC5E0BYR2V624Q2ST6R0Q71T78WTAX6H"
-            amount = 10000000000000000
-
-            [[mstx_balance]] # legacy property name
-            address = "ST2TFVBMRPS5SSNP98DQKQ5JNB2B6NZM91C4K3P7B"
-            amount = 10000000000000000
-            "#,
-        );
-        assert!(config.ustx_balance.is_some());
-        let balances = config
-            .ustx_balance
-            .expect("Failed to parse stx balances from toml");
-        assert_eq!(balances.len(), 4);
-        assert_eq!(
-            balances[0].address,
-            "ST2QKZ4FKHAH1NQKYKYAYZPY440FEPK7GZ1R5HBP2"
-        );
-        assert_eq!(
-            balances[1].address,
-            "ST319CF5WV77KYR1H3GT0GZ7B8Q4AQPY42ETP1VPF"
-        );
-        assert_eq!(
-            balances[2].address,
-            "ST221Z6TDTC5E0BYR2V624Q2ST6R0Q71T78WTAX6H"
-        );
-        assert_eq!(
-            balances[3].address,
-            "ST2TFVBMRPS5SSNP98DQKQ5JNB2B6NZM91C4K3P7B"
-        );
-    }
-}
-
 impl ConfigFile {
     pub fn from_path(path: &str) -> ConfigFile {
         let content_str = fs::read_to_string(path).unwrap();
@@ -121,92 +67,7 @@ impl ConfigFile {
     }
 
     pub fn from_str(content: &str) -> ConfigFile {
-        let mut config: ConfigFile = toml::from_str(content).unwrap();
-        let legacy_config: LegacyMstxConfigFile = toml::from_str(content).unwrap();
-        if let Some(mstx_balance) = legacy_config.mstx_balance {
-            warn!("'mstx_balance' inside toml config is deprecated, replace with 'ustx_balance'");
-            config.ustx_balance = match config.ustx_balance {
-                Some(balance) => Some([balance, mstx_balance].concat()),
-                None => Some(mstx_balance),
-            };
-        }
-        config
-    }
-
-    pub fn mainnet() -> ConfigFile {
-        let burnchain = BurnchainConfigFile {
-            rpc_port: Some(8332),
-            peer_port: Some(8333),
-            peer_host: Some("bitcoin.blockstack.com".to_string()),
-            ..BurnchainConfigFile::default()
-        };
-
-        let bootstrap_nodes = [
-            "02da7a464ac770ae8337a343670778b93410f2f3fef6bea98dd1c3e9224459d36b@seed-0.mainnet.stacks.co:20444",
-            "02afeae522aab5f8c99a00ddf75fbcb4a641e052dd48836408d9cf437344b63516@seed-1.mainnet.stacks.co:20444",
-            "03652212ea76be0ed4cd83a25c06e57819993029a7b9999f7d63c36340b34a4e62@seed-2.mainnet.stacks.co:20444"].join(",");
-
-        let node = NodeConfigFile {
-            bootstrap_node: Some(bootstrap_nodes),
-            miner: Some(false),
-            ..NodeConfigFile::default()
-        };
-
-        ConfigFile {
-            burnchain: Some(burnchain),
-            node: Some(node),
-            ustx_balance: None,
-            ..ConfigFile::default()
-        }
-    }
-
-    pub fn mocknet() -> ConfigFile {
-        let burnchain = BurnchainConfigFile {
-            ..BurnchainConfigFile::default()
-        };
-
-        let node = NodeConfigFile {
-            miner: Some(false),
-            ..NodeConfigFile::default()
-        };
-
-        let balances = vec![
-            InitialBalanceFile {
-                // "mnemonic": "point approve language letter cargo rough similar wrap focus edge polar task olympic tobacco cinnamon drop lawn boring sort trade senior screen tiger climb",
-                // "privateKey": "539e35c740079b79f931036651ad01f76d8fe1496dbd840ba9e62c7e7b355db001",
-                // "btcAddress": "n1htkoYKuLXzPbkn9avC2DJxt7X85qVNCK",
-                address: "ST3EQ88S02BXXD0T5ZVT3KW947CRMQ1C6DMQY8H19".to_string(),
-                amount: 10000000000000000,
-            },
-            InitialBalanceFile {
-                // "mnemonic": "laugh capital express view pull vehicle cluster embark service clerk roast glance lumber glove purity project layer lyrics limb junior reduce apple method pear",
-                // "privateKey": "075754fb099a55e351fe87c68a73951836343865cd52c78ae4c0f6f48e234f3601",
-                // "btcAddress": "n2ZGZ7Zau2Ca8CLHGh11YRnLw93b4ufsDR",
-                address: "ST3KCNDSWZSFZCC6BE4VA9AXWXC9KEB16FBTRK36T".to_string(),
-                amount: 10000000000000000,
-            },
-            InitialBalanceFile {
-                // "mnemonic": "level garlic bean design maximum inhale daring alert case worry gift frequent floor utility crowd twenty burger place time fashion slow produce column prepare",
-                // "privateKey": "374b6734eaff979818c5f1367331c685459b03b1a2053310906d1408dc928a0001",
-                // "btcAddress": "mhY4cbHAFoXNYvXdt82yobvVuvR6PHeghf",
-                address: "STB2BWB0K5XZGS3FXVTG3TKS46CQVV66NAK3YVN8".to_string(),
-                amount: 10000000000000000,
-            },
-            InitialBalanceFile {
-                // "mnemonic": "drop guess similar uphold alarm remove fossil riot leaf badge lobster ability mesh parent lawn today student olympic model assault syrup end scorpion lab",
-                // "privateKey": "26f235698d02803955b7418842affbee600fc308936a7ca48bf5778d1ceef9df01",
-                // "btcAddress": "mkEDDqbELrKYGUmUbTAyQnmBAEz4V1MAro",
-                address: "STSTW15D618BSZQB85R058DS46THH86YQQY6XCB7".to_string(),
-                amount: 10000000000000000,
-            },
-        ];
-
-        ConfigFile {
-            burnchain: Some(burnchain),
-            node: Some(node),
-            ustx_balance: Some(balances),
-            ..ConfigFile::default()
-        }
+        toml::from_str(content).unwrap()
     }
 }
 
@@ -214,6 +75,7 @@ impl ConfigFile {
 pub struct Config {
     pub burnchain: BurnchainConfig,
     pub node: NodeConfig,
+    #[cfg(test)]
     pub initial_balances: Vec<InitialBalance>,
     pub events_observers: Vec<EventObserverConfig>,
     pub connection_options: ConnectionOptions,
@@ -437,22 +299,14 @@ impl Config {
             node.set_deny_nodes(deny_nodes, node.chain_id, burnchain.peer_version);
         }
 
-        let initial_balances: Vec<InitialBalance> = match config_file.ustx_balance {
-            Some(balances) => balances
-                .iter()
-                .map(|balance| {
-                    let address: PrincipalData =
-                        PrincipalData::parse_standard_principal(&balance.address)
-                            .unwrap()
-                            .into();
-                    InitialBalance {
-                        address,
-                        amount: balance.amount,
-                    }
-                })
-                .collect(),
-            None => vec![],
-        };
+        let initial_balances_len = config_file
+            .ustx_balance
+            .map_or(0, |balances| balances.len());
+
+        if initial_balances_len > 0 && !cfg!(test) {
+            error!("Config file error: Subnets do not support configuring genesis account balances except in tests");
+            panic!();
+        }
 
         let mut events_observers = match config_file.events_observer {
             Some(raw_observers) => {
@@ -657,11 +511,11 @@ impl Config {
         Config {
             node,
             burnchain,
-            initial_balances,
             events_observers,
             connection_options,
             estimation,
             miner,
+            ..Config::default()
         }
     }
 
@@ -735,6 +589,7 @@ impl Config {
         path.to_str().expect("Unable to produce path").to_string()
     }
 
+    #[cfg(test)]
     pub fn add_initial_balance(&mut self, address: String, amount: u64) {
         let new_balance = InitialBalance {
             address: PrincipalData::parse_standard_principal(&address)
@@ -745,12 +600,17 @@ impl Config {
         self.initial_balances.push(new_balance);
     }
 
-    pub fn get_initial_liquid_ustx(&self) -> u128 {
-        let mut total = 0;
-        for ib in self.initial_balances.iter() {
-            total += ib.amount as u128
-        }
-        total
+    #[cfg(not(test))]
+    pub fn get_initial_balances(&self) -> Vec<(PrincipalData, u64)> {
+        vec![]
+    }
+
+    #[cfg(test)]
+    pub fn get_initial_balances(&self) -> Vec<(PrincipalData, u64)> {
+        self.initial_balances
+            .iter()
+            .map(|e| (e.address.clone(), e.amount))
+            .collect()
     }
 
     pub fn is_mainnet(&self) -> bool {
@@ -808,25 +668,21 @@ impl Config {
 impl std::default::Default for Config {
     fn default() -> Config {
         // Testnet's name
-        let node = NodeConfig {
-            ..NodeConfig::default()
-        };
-
-        let burnchain = BurnchainConfig {
-            ..BurnchainConfig::default()
-        };
+        let node = NodeConfig::default();
+        let burnchain = BurnchainConfig::default();
+        let estimation = FeeEstimationConfig::default();
 
         let connection_options = HELIUM_DEFAULT_CONNECTION_OPTIONS.clone();
-        let estimation = FeeEstimationConfig::default();
 
         Config {
             burnchain,
             node,
-            initial_balances: vec![],
             events_observers: vec![],
             connection_options,
             estimation,
             miner: MinerConfig::default(),
+            #[cfg(test)]
+            initial_balances: vec![],
         }
     }
 }
