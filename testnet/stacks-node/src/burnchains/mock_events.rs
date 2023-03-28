@@ -424,7 +424,6 @@ impl BurnchainController for MockController {
         withdrawal_merkle_root: Sha512Trunc256Sum,
         _signatures: Vec<ClaritySignature>,
         _op_signer: &mut BurnchainOpSigner,
-        _attempt: u64,
     ) -> Result<Txid, Error> {
         let mut next_commit_and_withdrawal_root =
             self.next_commit_and_withdrawal_root.lock().unwrap();

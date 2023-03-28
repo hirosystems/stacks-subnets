@@ -46,7 +46,6 @@ pub trait Layer1Committer {
         target_height: u64,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
-        attempt: u64,
         op_signer: &mut BurnchainOpSigner,
     ) -> Result<StacksTransaction, Error>;
 }
@@ -315,14 +314,8 @@ impl MultiPartyCommitter {
         target_height: u64,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
-        attempt: u64,
         op_signer: &mut BurnchainOpSigner,
     ) -> Result<StacksTransaction, Error> {
-        // todo: think about enabling replace-by-nonce?
-        if attempt > 1 {
-            return Err(Error::AlreadyCommitted);
-        }
-
         // figure out the miner's nonce
         let miner_address = l1_addr_from_signer(self.config.is_mainnet(), op_signer);
         let nonce = l1_get_nonce(&self.config.get_rpc_url(), &miner_address).map_err(|e| {
@@ -448,7 +441,6 @@ impl Layer1Committer for MultiPartyCommitter {
         target_height: u64,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
-        attempt: u64,
         op_signer: &mut BurnchainOpSigner,
     ) -> Result<StacksTransaction, Error> {
         self.make_commit_tx(
@@ -458,7 +450,6 @@ impl Layer1Committer for MultiPartyCommitter {
             target_height,
             withdrawal_merkle_root,
             signatures,
-            attempt,
             op_signer,
         )
     }
@@ -477,7 +468,6 @@ impl Layer1Committer for DirectCommitter {
         target_height: u64,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         _signatures: Vec<ClaritySignature>,
-        attempt: u64,
         op_signer: &mut BurnchainOpSigner,
     ) -> Result<StacksTransaction, Error> {
         self.make_commit_tx(
@@ -486,7 +476,6 @@ impl Layer1Committer for DirectCommitter {
             target_tip,
             target_height,
             withdrawal_merkle_root,
-            attempt,
             op_signer,
         )
     }
@@ -565,14 +554,8 @@ impl DirectCommitter {
         target_tip: BurnchainHeaderHash,
         target_height: u64,
         withdrawal_merkle_root: Sha512Trunc256Sum,
-        attempt: u64,
         op_signer: &mut BurnchainOpSigner,
     ) -> Result<StacksTransaction, Error> {
-        // todo: think about enabling replace-by-nonce?
-        if attempt > 1 {
-            return Err(Error::AlreadyCommitted);
-        }
-
         // figure out the miner's nonce
         let miner_address = l1_addr_from_signer(self.config.is_mainnet(), op_signer);
         let nonce = l1_get_nonce(&self.config.get_rpc_url(), &miner_address).map_err(|e| {

@@ -460,7 +460,6 @@ impl BurnchainController for L1Controller {
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<super::ClaritySignature>,
         op_signer: &mut BurnchainOpSigner,
-        attempt: u64,
     ) -> Result<Txid, Error> {
         self.l1_contract_ok()?;
 
@@ -471,7 +470,6 @@ impl BurnchainController for L1Controller {
             target_height,
             withdrawal_merkle_root,
             signatures,
-            attempt,
             op_signer,
         )?;
 

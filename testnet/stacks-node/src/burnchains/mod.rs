@@ -119,7 +119,6 @@ pub trait BurnchainController {
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
         op_signer: &mut BurnchainOpSigner,
-        attempt: u64,
     ) -> Result<Txid, Error>;
 
     /// Returns the number of signatures necessary to provide
@@ -229,7 +228,6 @@ impl BurnchainController for PanicController {
         _withdrawal_merkle_root: Sha512Trunc256Sum,
         _signatures: Vec<ClaritySignature>,
         _op_signer: &mut BurnchainOpSigner,
-        _attempt: u64,
     ) -> Result<Txid, Error> {
         panic!()
     }

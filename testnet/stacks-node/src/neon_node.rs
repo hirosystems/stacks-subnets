@@ -58,7 +58,6 @@ use crate::run_loop::neon::Counters;
 use crate::run_loop::neon::RunLoop;
 
 use super::{BurnchainTip, Config, EventDispatcher, Keychain};
-use crate::stacks::vm::database::BurnStateDB;
 use stacks::monitoring;
 
 pub const RELAYER_MAX_BUFFER: usize = 100;
@@ -67,7 +66,6 @@ struct AssembledAnchorBlock {
     parent_consensus_hash: ConsensusHash,
     my_burn_hash: BurnchainHeaderHash,
     anchored_block: StacksBlock,
-    attempt: u64,
 }
 
 struct MicroblockMinerState {
@@ -213,30 +211,6 @@ fn inner_generate_coinbase_tx(
     tx_signer.get_tx().unwrap()
 }
 
-fn inner_generate_poison_microblock_tx(
-    keychain: &mut Keychain,
-    nonce: u64,
-    poison_payload: TransactionPayload,
-    is_mainnet: bool,
-    chain_id: u32,
-) -> StacksTransaction {
-    let mut tx_auth = keychain.get_transaction_auth().unwrap();
-    tx_auth.set_origin_nonce(nonce);
-
-    let version = if is_mainnet {
-        TransactionVersion::Mainnet
-    } else {
-        TransactionVersion::Testnet
-    };
-    let mut tx = StacksTransaction::new(version, tx_auth, poison_payload);
-    tx.chain_id = chain_id;
-    tx.anchor_mode = TransactionAnchorMode::OnChainOnly;
-    let mut tx_signer = StacksTransactionSigner::new(&tx);
-    keychain.sign_as_origin(&mut tx_signer);
-
-    tx_signer.get_tx().unwrap()
-}
-
 /// Mine and broadcast a single microblock, unconditionally.
 fn mine_one_microblock(
     microblock_state: &mut MicroblockMinerState,
@@ -287,6 +261,96 @@ fn mine_one_microblock(
         let new_cost_so_far = microblock_miner.get_cost_so_far().expect("BUG: cannot read cost so far from miner -- indicates that the underlying Clarity Tx is somehow in use still.");
         let t2 = get_epoch_time_ms();
 
+        info!(
+            "Mined microblock {} ({}) with {} transactions in {}ms",
+            mblock.block_hash(),
+            mblock.header.sequence,
+            mblock.txs.len(),
+            t2.saturating_sub(t1)
+        );
+
+        Ok((mblock, new_cost_so_far))
+    };
+
+    let (mined_microblock, new_cost) = match mint_result {
+        Ok(x) => x,
+        Err(e) => {
+            warn!("Failed to mine microblock: {}", e);
+            return Err(e);
+        }
+    };
+
+    // preprocess the microblock locally
+    chainstate.preprocess_streamed_microblock(
+        &microblock_state.parent_consensus_hash,
+        &microblock_state.parent_block_hash,
+        &mined_microblock,
+    )?;
+
+    // update unconfirmed state cost
+    microblock_state.cost_so_far = new_cost;
+    microblock_state.quantity += 1;
+    return Ok(mined_microblock);
+}
+
+/// Mine and broadcast a single microblock, unconditionally.
+fn mine_one_microblock_from_prev(
+    microblock_state: &mut MicroblockMinerState,
+    sortdb: &SortitionDB,
+    chainstate: &mut StacksChainState,
+    prev_microblocks: &Vec<StacksMicroblock>,
+) -> Result<StacksMicroblock, ChainstateError> {
+    debug!(
+        "Mine microblock off of {}/{} (total: {}) from previous state",
+        &microblock_state.parent_consensus_hash,
+        &microblock_state.parent_block_hash,
+        chainstate
+            .unconfirmed_state
+            .as_ref()
+            .map(|us| us.num_microblocks())
+            .unwrap_or(0)
+    );
+
+    let mint_result = {
+        let ic = sortdb.index_conn();
+        let mut microblock_miner = match StacksMicroblockBuilder::resume_unconfirmed(
+            chainstate,
+            &ic,
+            &microblock_state.cost_so_far,
+            microblock_state.settings.clone(),
+        ) {
+            Ok(x) => x,
+            Err(e) => {
+                let msg = format!(
+                    "Failed to create a microblock miner at chaintip {}/{}: {:?}",
+                    &microblock_state.parent_consensus_hash,
+                    &microblock_state.parent_block_hash,
+                    &e
+                );
+                error!("{}", msg);
+                return Err(e);
+            }
+        };
+
+        let t1 = get_epoch_time_ms();
+
+        let txs_and_lens: Vec<(StacksTransaction, u64)> = prev_microblocks
+            .iter()
+            .flat_map(|mb| {
+                mb.txs.iter().map(|tx| {
+                    let tx_len = {
+                        let mut bytes = vec![];
+                        tx.consensus_serialize(&mut bytes).unwrap();
+                        bytes.len() as u64
+                    };
+                    (tx.clone(), tx_len)
+                })
+            })
+            .collect();
+        let mblock = microblock_miner
+            .mine_next_microblock_from_txs(txs_and_lens, &microblock_state.miner_key)?;
+        let new_cost_so_far = microblock_miner.get_cost_so_far().expect("BUG: cannot read cost so far from miner -- indicates that the underlying Clarity Tx is somehow in use still.");
+        let t2 = get_epoch_time_ms();
         info!(
             "Mined microblock {} ({}) with {} transactions in {}ms",
             mblock.block_hash(),
@@ -429,7 +493,7 @@ fn run_microblock_tenure(
     miner_tip: (ConsensusHash, BlockHeaderHash, Secp256k1PrivateKey),
     counters: &Counters,
     event_dispatcher: &EventDispatcher,
-) {
+) -> Option<StacksMicroblock> {
     // TODO: this is sensitive to poll latency -- can we call this on a fixed
     // schedule, regardless of network activity?
     let parent_consensus_hash = &miner_tip.0;
@@ -437,7 +501,7 @@ fn run_microblock_tenure(
 
     debug!(
         "Run microblock tenure for {}/{}",
-        parent_consensus_hash, parent_block_hash
+        parent_consensus_hash, parent_block_hash,
     );
 
     // Mine microblocks, if we're active
@@ -458,7 +522,7 @@ fn run_microblock_tenure(
     };
 
     // did we mine anything?
-    if let Some(next_microblock) = next_microblock_opt {
+    if let Some(ref next_microblock) = next_microblock_opt {
         // apply it
         let microblock_hash = next_microblock.block_hash();
 
@@ -468,7 +532,6 @@ fn run_microblock_tenure(
             .as_ref()
             .map(|ref unconfirmed| unconfirmed.num_microblocks())
             .unwrap_or(0);
-
         debug!(
             "Mined one microblock: {} seq {} (total processed: {})",
             &microblock_hash, next_microblock.header.sequence, num_mblocks
@@ -481,15 +544,18 @@ fn run_microblock_tenure(
             .process_new_microblocks(parent_index_block_hash, processed_unconfirmed_state);
 
         // send it off
-        if let Err(e) =
-            relayer.broadcast_microblock(parent_consensus_hash, parent_block_hash, next_microblock)
-        {
+        if let Err(e) = relayer.broadcast_microblock(
+            parent_consensus_hash,
+            parent_block_hash,
+            next_microblock.clone(),
+        ) {
             error!(
                 "Failure trying to broadcast microblock {}: {}",
                 microblock_hash, e
             );
         }
     }
+    next_microblock_opt
 }
 
 /// Grant the p2p thread a copy of the unconfirmed microblock transaction list, so it can serve it
@@ -809,6 +875,7 @@ fn spawn_miner_relayer(
     )
     .map_err(|e| NetError::ChainstateError(e.to_string()))?;
 
+    let mut current_microblocks = Vec::new();
     let mut last_mined_blocks: HashMap<
         BurnchainHeaderHash,
         Vec<(AssembledAnchorBlock, Secp256k1PrivateKey)>,
@@ -885,7 +952,6 @@ fn spawn_miner_relayer(
                                 parent_consensus_hash,
                                 anchored_block: mined_block,
                                 my_burn_hash: mined_burn_hash,
-                                attempt: _,
                             } = last_mined_block;
                             if mined_block.block_hash() == block_header_hash
                                 && burn_hash == mined_burn_hash
@@ -976,7 +1042,24 @@ fn spawn_miner_relayer(
                                         "Microblock miner tip is now {}/{} ({})",
                                         &consensus_hash, &block_header_hash, StacksBlockHeader::make_index_block_hash(&consensus_hash, &block_header_hash)
                                     );
+
                                     miner_tip = Some((ch, bh, microblock_privkey));
+                                    let parent_index_hash = StacksBlockHeader::make_index_block_hash(&ch, &bh);
+                                    let cost_so_far = StacksChainState::get_stacks_block_anchored_cost(
+                                        chainstate.db(),
+                                        &parent_index_hash,
+                                    ).expect("BUG: failed to load anchored cost of parent block")
+                                    .ok_or(NetError::NotFoundError).expect("BUG: failed to load anchored cost of parent block");
+                                    microblock_miner_state = Some(MicroblockMinerState {
+                                        parent_consensus_hash: ch.clone(),
+                                        parent_block_hash: bh.clone(),
+                                        miner_key: microblock_privkey.clone(),
+                                        frequency: config.node.microblock_frequency,
+                                        last_mined: 0,
+                                        quantity: 0,
+                                        cost_so_far: cost_so_far,
+                                        settings: config.make_block_builder_settings(0, true),
+                                    });
 
                                     Relayer::refresh_unconfirmed(&mut chainstate, &mut sortdb);
                                     send_unconfirmed_txs(&chainstate, unconfirmed_txs.clone());
@@ -1027,12 +1110,14 @@ fn spawn_miner_relayer(
                         &mut sortdb,
                         burn_tenure_snapshot,
                         &mut keychain,
-                        &mut mem_pool,
-                        &mut *burnchain_controller,
-                        &last_mined_blocks_vec.iter().map(|(blk, _)| blk).collect(),
+                        &mut relayer,
+                        &mut *burnchaincoin_controller,
                         &event_dispatcher,
+                        &current_microblocks,
+                        &mut microblock_miner_state,
                     );
                     if let Some((last_mined_block, microblock_privkey)) = last_mined_block_opt {
+                        // microblock_miner_state = None;
                         if last_mined_blocks_vec.len() == 0 {
                             counters.bump_blocks_processed();
                         }
@@ -1045,11 +1130,8 @@ fn spawn_miner_relayer(
                 }
                 RelayerDirective::RunMicroblockTenure(burnchain_tip, tenure_issue_ms) => {
                     if last_microblock_tenure_time > tenure_issue_ms {
+                        debug!("Drop stale RunMicroblockTenure for {}/{}: last_microblock_tenure_time = {}, tenure_issue_ms = {}", &burnchain_tip.consensus_hash, &burnchain_tip.winning_stacks_block_hash, last_microblock_tenure_time, tenure_issue_ms);
                         // stale request
-                        continue;
-                    }
-                    if last_mined_blocks.contains_key(&burnchain_tip.burn_header_hash) {
-                        // this miner has already made an anchored block for this burn block
                         continue;
                     }
                     if let Some(cur_sortition) = get_last_sortition(&last_sortition) {
@@ -1067,16 +1149,16 @@ fn spawn_miner_relayer(
                         if let Some(miner_state) = microblock_miner_state.take() {
                             if miner_state.parent_consensus_hash == ch || miner_state.parent_block_hash == bh {
                                 // preserve -- chaintip is unchanged
-                                microblock_miner_state = Some(miner_state);
+                                // microblock_miner_state = Some(miner_state);
                             }
                             else {
                                 debug!("Relayer: reset microblock miner state");
-                                microblock_miner_state = None;
+                                // microblock_miner_state = None;
                                 counters.set_microblocks_processed(0);
                             }
                         }
 
-                        run_microblock_tenure(
+                        if let Some(microblock) = run_microblock_tenure(
                             &config,
                             &mut microblock_miner_state,
                             &mut chainstate,
@@ -1086,7 +1168,9 @@ fn spawn_miner_relayer(
                             (ch, bh, mblock_pkey),
                             &counters,
                             &event_dispatcher,
-                        );
+                        ) {
+                            current_microblocks.push(microblock);
+                        }
 
                         // synchronize unconfirmed tx index to p2p thread
                         send_unconfirmed_txs(&chainstate, unconfirmed_txs.clone());
@@ -1095,7 +1179,7 @@ fn spawn_miner_relayer(
                     else {
                         debug!("Relayer: reset unconfirmed state to 0 microblocks");
                         counters.set_microblocks_processed(0);
-                        microblock_miner_state = None;
+                        // microblock_miner_state = None;
                     }
                 }
                 RelayerDirective::Exit => break
@@ -1521,15 +1605,15 @@ impl StacksNode {
         burn_db: &mut SortitionDB,
         burn_block: BlockSnapshot,
         keychain: &mut Keychain,
-        mem_pool: &mut MemPoolDB,
+        relayer: &mut Relayer,
         burnchain_controller: &mut (dyn BurnchainController + Send),
-        last_mined_blocks: &Vec<&AssembledAnchorBlock>,
         event_dispatcher: &EventDispatcher,
+        microblocks: &Vec<StacksMicroblock>,
+        microblock_miner_state: &mut Option<MicroblockMinerState>,
     ) -> Option<(AssembledAnchorBlock, Secp256k1PrivateKey)> {
         let MiningTenureInformation {
             mut stacks_parent_header,
             parent_consensus_hash,
-            parent_block_burn_height,
             parent_block_total_burn,
             coinbase_nonce,
             ..
@@ -1569,122 +1653,75 @@ impl StacksNode {
             }
         };
 
-        // has the tip changed from our previously-mined block for this epoch?
-        let attempt = {
-            let mut best_attempt = 0;
-            debug!(
-                "Consider {} in-flight Stacks tip(s)",
-                &last_mined_blocks.len()
-            );
-            for prev_block in last_mined_blocks.iter() {
-                debug!(
-                    "Consider in-flight block {} on Stacks tip {}/{} in {} with {} txs",
-                    &prev_block.anchored_block.block_hash(),
-                    &prev_block.parent_consensus_hash,
-                    &prev_block.anchored_block.header.parent_block,
-                    &prev_block.my_burn_hash,
-                    &prev_block.anchored_block.txs.len()
-                );
-                if prev_block.anchored_block.txs.len() == 1 {
-                    if last_mined_blocks.len() == 1 {
-                        // this is an empty block, and we've only tried once before. We should always
-                        // try again, with the `subsequent_miner_time_ms` allotment, in order to see if
-                        // we can make a bigger block
-                        debug!("Have only mined one empty block off of {}/{} height {}; unconditionally trying again", &prev_block.parent_consensus_hash, &prev_block.anchored_block.block_hash(), prev_block.anchored_block.header.total_work.work);
-                        best_attempt = 1;
-                        break;
-                    } else if prev_block.attempt == 1 {
-                        // Don't let the fact that we've built an empty block during this sortition
-                        // prevent us from trying again.
-                        best_attempt = 1;
-                        continue;
-                    }
-                }
-                if prev_block.parent_consensus_hash == parent_consensus_hash
-                    && prev_block.my_burn_hash == burn_block.burn_header_hash
-                    && prev_block.anchored_block.header.parent_block
-                        == stacks_parent_header.anchored_header.block_hash()
-                {
-                    // the anchored chain tip hasn't changed since we attempted to build a block.
-                    // But, have discovered any new microblocks worthy of being mined?
-                    if let Ok(Some(stream)) =
-                        StacksChainState::load_descendant_staging_microblock_stream(
-                            chain_state.db(),
-                            &StacksBlockHeader::make_index_block_hash(
-                                &prev_block.parent_consensus_hash,
-                                &stacks_parent_header.anchored_header.block_hash(),
-                            ),
-                            0,
-                            u16::MAX,
-                        )
-                    {
-                        if (prev_block.anchored_block.header.parent_microblock
-                            == BlockHeaderHash([0u8; 32])
-                            && stream.len() == 0)
-                            || (prev_block.anchored_block.header.parent_microblock
-                                != BlockHeaderHash([0u8; 32])
-                                && stream.len()
-                                    <= (prev_block.anchored_block.header.parent_microblock_sequence
-                                        as usize)
-                                        + 1)
-                        {
-                            // the chain tip hasn't changed since we attempted to build a block.  Use what we
-                            // already have.
-                            debug!("Stacks tip is unchanged since we last tried to mine a block off of {}/{} at height {} with {} txs, in {} at burn height {}, and no new microblocks ({} <= {})",
-                                   &prev_block.parent_consensus_hash, &prev_block.anchored_block.header.parent_block, prev_block.anchored_block.header.total_work.work,
-                                   prev_block.anchored_block.txs.len(), prev_block.my_burn_hash, parent_block_burn_height, stream.len(), prev_block.anchored_block.header.parent_microblock_sequence);
+        // First, append a microblock to the newly confirmed anchor block with
+        // the same transactions that we will be including in this anchor block.
+        // This allows us to mine off of that microblock stream before this new
+        // anchor block is confirmed.
+        if let Some(microblock_miner) = microblock_miner_state {
+            if microblocks.len() > 0 {
+                // There are microblocks to replicate. Build a microblock off
+                // of the new block that replicates the microblocks that we'll
+                // be confirming in this anchor block.
+                match mine_one_microblock_from_prev(
+                    microblock_miner,
+                    burn_db,
+                    chain_state,
+                    microblocks,
+                ) {
+                    Ok(next_microblock) => {
+                        microblock_miner.last_mined = get_epoch_time_ms();
 
-                            return None;
-                        } else {
-                            // there are new microblocks!
-                            // TODO: only consider rebuilding our anchored block if we (a) have
-                            // time, and (b) the new microblocks are worth more than the new BTC
-                            // fee minus the old BTC fee
-                            debug!("Stacks tip is unchanged since we last tried to mine a block off of {}/{} at height {} with {} txs, in {} at burn height {}, but there are new microblocks ({} > {})",
-                                   &prev_block.parent_consensus_hash, &prev_block.anchored_block.header.parent_block, prev_block.anchored_block.header.total_work.work,
-                                   prev_block.anchored_block.txs.len(), prev_block.my_burn_hash, parent_block_burn_height, stream.len(), prev_block.anchored_block.header.parent_microblock_sequence);
+                        // apply it
+                        let microblock_hash = next_microblock.block_hash();
 
-                            best_attempt = cmp::max(best_attempt, prev_block.attempt);
+                        let processed_unconfirmed_state =
+                            Relayer::refresh_unconfirmed(chain_state, burn_db);
+                        let num_mblocks = chain_state
+                            .unconfirmed_state
+                            .as_ref()
+                            .map(|ref unconfirmed| unconfirmed.num_microblocks())
+                            .unwrap_or(0);
+                        debug!(
+                            "Mined one microblock: {} seq {} (total processed: {})",
+                            &microblock_hash, next_microblock.header.sequence, num_mblocks
+                        );
+
+                        let parent_index_block_hash = StacksBlockHeader::make_index_block_hash(
+                            &microblock_miner.parent_consensus_hash,
+                            &microblock_miner.parent_block_hash,
+                        );
+                        event_dispatcher.process_new_microblocks(
+                            parent_index_block_hash,
+                            processed_unconfirmed_state,
+                        );
+
+                        // send it off
+                        if let Err(e) = relayer.broadcast_microblock(
+                            &microblock_miner.parent_consensus_hash,
+                            &microblock_miner.parent_block_hash,
+                            next_microblock.clone(),
+                        ) {
+                            error!(
+                                "Failure trying to broadcast microblock {}: {}",
+                                microblock_hash, e
+                            );
                         }
-                    } else {
-                        // no microblock stream to confirm, and the stacks tip hasn't changed
-                        debug!("Stacks tip is unchanged since we last tried to mine a block off of {}/{} at height {} with {} txs, in {} at burn height {}, and no microblocks present",
-                               &prev_block.parent_consensus_hash, &prev_block.anchored_block.header.parent_block, prev_block.anchored_block.header.total_work.work,
-                               prev_block.anchored_block.txs.len(), prev_block.my_burn_hash, parent_block_burn_height);
-
-                        return None;
                     }
-                } else {
-                    if burn_block.burn_header_hash == prev_block.my_burn_hash {
-                        // only try and re-mine if there was no sortition since the last chain tip
-                        debug!("Stacks tip has changed to {}/{} since we last tried to mine a block in {} at burn height {}; attempt was {} (for Stacks tip {}/{})",
-                               parent_consensus_hash, stacks_parent_header.anchored_header.block_hash(), prev_block.my_burn_hash, parent_block_burn_height, prev_block.attempt, &prev_block.parent_consensus_hash, &prev_block.anchored_block.header.parent_block);
-                        best_attempt = cmp::max(best_attempt, prev_block.attempt);
-                    } else {
-                        debug!("Burn tip has changed to {} ({}) since we last tried to mine a block in {}",
-                               &burn_block.burn_header_hash, burn_block.block_height, &prev_block.my_burn_hash);
+                    Err(e) => {
+                        error!("Failed to mine microblock: {}", e);
                     }
-                }
+                };
             }
-            best_attempt + 1
-        };
+        }
+
+        debug!(
+            "Relayer will try to mine off of {}/{}",
+            &parent_consensus_hash, &stacks_parent_header.burn_header_hash
+        );
 
         // Generates a new secret key for signing the trail of microblocks
         // of the upcoming tenure.
-        let microblock_secret_key = if attempt > 1 {
-            match keychain.get_microblock_key() {
-                Some(k) => k,
-                None => {
-                    error!(
-                        "Failed to obtain microblock key for mining attempt";
-                        "attempt" => %attempt
-                    );
-                    return None;
-                }
-            }
-        } else {
-            keychain.rotate_microblock_keypair(burn_block.block_height)
-        };
+        let microblock_secret_key = keychain.rotate_microblock_keypair(burn_block.block_height);
         let mblock_pubkey_hash =
             Hash160::from_node_public_key(&StacksPublicKey::from_private(&microblock_secret_key));
 
@@ -1727,7 +1764,7 @@ impl StacksNode {
                 }
             };
 
-        if let Some((ref microblocks, ref poison_opt)) = &microblock_info_opt {
+        if let Some((ref microblocks, _)) = &microblock_info_opt {
             if let Some(ref tail) = microblocks.last() {
                 debug!(
                     "Confirm microblock stream tailed at {} (seq {})",
@@ -1740,99 +1777,20 @@ impl StacksNode {
             // be too long; we'll try again if that happens).
             stacks_parent_header.microblock_tail =
                 microblocks.last().clone().map(|blk| blk.header.clone());
-
-            if let Some(poison_payload) = poison_opt {
-                let poison_microblock_tx = inner_generate_poison_microblock_tx(
-                    keychain,
-                    coinbase_nonce + 1,
-                    poison_payload.clone(),
-                    config.is_mainnet(),
-                    config.burnchain.chain_id,
-                );
-
-                let stacks_epoch = burn_db
-                    .index_conn()
-                    .get_stacks_epoch(burn_block.block_height as u32)
-                    .expect("Could not find a stacks epoch.");
-
-                // submit the poison payload, privately, so we'll mine it when building the
-                // anchored block.
-                if let Err(e) = mem_pool.submit(
-                    chain_state,
-                    &parent_consensus_hash,
-                    &stacks_parent_header.anchored_header.block_hash(),
-                    &poison_microblock_tx,
-                    Some(event_dispatcher),
-                    &stacks_epoch.block_limit,
-                    &stacks_epoch.epoch_id,
-                ) {
-                    warn!(
-                        "Detected but failed to mine poison-microblock transaction: {:?}",
-                        &e
-                    );
-                }
-            }
         }
 
-        let built_info = match StacksBlockBuilder::build_anchored_block_full_info(
+        let built_info = match StacksBlockBuilder::build_anchored_block_from_microblocks(
             chain_state,
             &burn_db.index_conn(),
-            mem_pool,
             &stacks_parent_header,
             parent_block_total_burn,
             VRFProof::empty(),
             mblock_pubkey_hash,
             &coinbase_tx,
-            config.make_block_builder_settings((last_mined_blocks.len() + 1) as u64, false),
             Some(event_dispatcher),
+            microblocks,
         ) {
             Ok(block) => block,
-            Err(ChainstateError::InvalidStacksMicroblock(msg, mblock_header_hash)) => {
-                // part of the parent microblock stream is invalid, so try again
-                debug!("Parent microblock stream is invalid; trying again without the offender {} (msg: {})", &mblock_header_hash, &msg);
-
-                // truncate the stream
-                stacks_parent_header.microblock_tail = match microblock_info_opt {
-                    Some((microblocks, _)) => {
-                        let mut tail = None;
-                        for mblock in microblocks.into_iter() {
-                            if mblock.block_hash() == mblock_header_hash {
-                                break;
-                            }
-                            tail = Some(mblock);
-                        }
-                        if let Some(ref t) = &tail {
-                            debug!(
-                                "New parent microblock stream tail is {} (seq {})",
-                                t.block_hash(),
-                                t.header.sequence
-                            );
-                        }
-                        tail.map(|t| t.header)
-                    }
-                    None => None,
-                };
-
-                // try again
-                match StacksBlockBuilder::build_anchored_block_full_info(
-                    chain_state,
-                    &burn_db.index_conn(),
-                    mem_pool,
-                    &stacks_parent_header,
-                    parent_block_total_burn,
-                    VRFProof::empty(),
-                    mblock_pubkey_hash,
-                    &coinbase_tx,
-                    config.make_block_builder_settings((last_mined_blocks.len() + 1) as u64, false),
-                    Some(event_dispatcher),
-                ) {
-                    Ok(block) => block,
-                    Err(e) => {
-                        error!("Failure mining anchor block even after removing offending microblock {}: {}", &mblock_header_hash, &e);
-                        return None;
-                    }
-                }
-            }
             Err(e) => {
                 error!("Failure mining anchored block: {}", e);
                 return None;
@@ -1936,7 +1894,6 @@ impl StacksNode {
                     "old_tip_burn_block_hash" => %burn_block.burn_header_hash,
                     "old_tip_burn_block_height" => burn_block.block_height,
                     "old_tip_burn_block_sortition_id" => %burn_block.sortition_id,
-                    "attempt" => attempt,
                     "new_stacks_tip_block_hash" => %stacks_tip.anchored_block_hash,
                     "new_stacks_tip_consensus_hash" => %stacks_tip.consensus_hash,
                     "new_tip_burn_block_height" => cur_burn_chain_tip.block_height,
@@ -1959,7 +1916,6 @@ impl StacksNode {
             "tip_burn_block_hash" => %burn_block.burn_header_hash,
             "tip_burn_block_height" => burn_block.block_height,
             "tip_burn_block_sortition_id" => %burn_block.sortition_id,
-            "attempt" => attempt
         );
 
         let res = burnchain_controller.submit_commit(
@@ -1970,7 +1926,6 @@ impl StacksNode {
             withdrawal_merkle_root,
             signatures,
             &mut op_signer,
-            attempt,
         );
 
         match res {
@@ -1992,7 +1947,6 @@ impl StacksNode {
                 parent_consensus_hash,
                 my_burn_hash: burn_block.burn_header_hash,
                 anchored_block,
-                attempt,
             },
             microblock_secret_key,
         ))

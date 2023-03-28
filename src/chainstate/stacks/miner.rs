@@ -791,7 +791,7 @@ impl<'a> StacksMicroblockBuilder<'a> {
         }
     }
 
-    /// NOTE: this is only used in integration tests.
+    /// Mine a microblock with the specified transactions.
     pub fn mine_next_microblock_from_txs(
         &mut self,
         txs_and_lens: Vec<(StacksTransaction, u64)>,
@@ -1687,14 +1687,16 @@ impl StacksBlockBuilder {
         }
     }
 
-    /// This function should be called before `epoch_begin`.
+    #[cfg(test)]
+    /// This function should be called before `epoch_begin` in tests that require anchor blocks
+    /// to confirm microblocks.
     /// It loads the parent microblock stream, sets the parent microblock, and returns
     /// data necessary for `epoch_begin`.
     /// Returns chainstate transaction, clarity instance, burnchain header hash
     /// of the burn tip, burn tip height + 1, the parent microblock stream,
     /// the parent consensus hash, the parent header hash, and a bool
     /// representing whether the network is mainnet or not.
-    pub fn pre_epoch_begin<'a>(
+    pub fn microblock_confirming_pre_epoch_begin<'a>(
         &mut self,
         chainstate: &'a mut StacksChainState,
         burn_dbconn: &'a SortitionDBConn,
@@ -1771,6 +1773,53 @@ impl StacksBlockBuilder {
             self.set_parent_microblock(&last_mblock_hdr.block_hash(), last_mblock_hdr.sequence);
         };
 
+        let mainnet = chainstate.config().mainnet;
+
+        let (chainstate_tx, clarity_instance) = chainstate.chainstate_tx_begin()?;
+
+        Ok(MinerEpochInfo {
+            chainstate_tx,
+            clarity_instance,
+            burn_tip,
+            burn_tip_height: burn_tip_height + 1,
+            parent_microblocks,
+            mainnet,
+        })
+    }
+
+    /// This function should be called before `epoch_begin`.
+    /// It returns data necessary for `epoch_begin`.
+    /// Returns chainstate transaction, clarity instance, burnchain header hash
+    /// of the burn tip, burn tip height + 1, the parent consensus hash, the
+    /// parent header hash, and a bool representing whether the network is
+    /// mainnet or not.
+    pub fn pre_epoch_begin<'a>(
+        &mut self,
+        chainstate: &'a mut StacksChainState,
+        burn_dbconn: &'a SortitionDBConn,
+    ) -> Result<MinerEpochInfo<'a>, Error> {
+        debug!(
+            "Miner epoch begin";
+            "miner" => %self.miner_id,
+            "chain_tip" => %format!("{}/{}", self.chain_tip.consensus_hash,
+                                    self.header.parent_block)
+        );
+
+        if let Some((ref _miner_payout, ref _user_payouts, ref _parent_reward)) = self.miner_payouts
+        {
+            test_debug!(
+                "Miner payout to process: {:?}; user payouts: {:?}; parent payout: {:?}",
+                _miner_payout,
+                _user_payouts,
+                _parent_reward
+            );
+        }
+
+        let burn_tip_info = SortitionDB::get_canonical_burn_chain_tip(burn_dbconn.conn())?;
+        let burn_tip_height = burn_tip_info.block_height as u32;
+        let burn_tip = burn_tip_info.burn_header_hash;
+        let parent_microblocks = vec![];
+        self.set_parent_microblock(&EMPTY_MICROBLOCK_PARENT_HASH, 0);
         let mainnet = chainstate.config().mainnet;
 
         let (chainstate_tx, clarity_instance) = chainstate.chainstate_tx_begin()?;
@@ -1866,7 +1915,8 @@ impl StacksBlockBuilder {
     ) -> Result<(StacksBlock, u64, ExecutionCost), Error> {
         debug!("Build anchored block from {} transactions", txs.len());
         let (mut chainstate, _) = chainstate_handle.reopen()?;
-        let mut miner_epoch_info = builder.pre_epoch_begin(&mut chainstate, burn_dbconn)?;
+        let mut miner_epoch_info =
+            builder.microblock_confirming_pre_epoch_begin(&mut chainstate, burn_dbconn)?;
         let (mut epoch_tx, _) = builder.epoch_begin(burn_dbconn, &mut miner_epoch_info)?;
         for tx in txs.drain(..) {
             match builder.try_mine_tx(&mut epoch_tx, &tx) {
@@ -1998,6 +2048,8 @@ impl StacksBlockBuilder {
         Ok(builder)
     }
 
+    #[cfg(test)]
+    /// Used only for testing. Standard anchor blocks only confirm transactions from previous microblocks.
     /// Given access to the mempool, mine an anchored block with no more than the given execution cost.
     ///   returns the assembled block, the consumed execution budget, and the block size.
     pub fn build_anchored_block(
@@ -2027,6 +2079,7 @@ impl StacksBlockBuilder {
         .map(|r| (r.block, r.block_execution_cost, r.block_size))
     }
 
+    #[cfg(test)]
     pub fn build_anchored_block_full_info(
         chainstate_handle: &StacksChainState, // not directly used; used as a handle to open other chainstates
         burn_dbconn: &SortitionDBConn,
@@ -2073,7 +2126,8 @@ impl StacksBlockBuilder {
 
         let ts_start = get_epoch_time_ms();
 
-        let mut miner_epoch_info = builder.pre_epoch_begin(&mut chainstate, burn_dbconn)?;
+        let mut miner_epoch_info =
+            builder.microblock_confirming_pre_epoch_begin(&mut chainstate, burn_dbconn)?;
 
         let (mut epoch_tx, confirmed_mblock_cost) =
             builder.epoch_begin(burn_dbconn, &mut miner_epoch_info)?;
@@ -2281,6 +2335,106 @@ impl StacksBlockBuilder {
 
         // the prior do_rebuild logic wasn't necessary
         // a transaction that caused a budget exception is rolled back in process_transaction
+
+        // save the block so we can build microblocks off of it
+        let block = builder.mine_anchored_block(&mut epoch_tx);
+        let size = builder.bytes_so_far;
+        let consumed = builder.epoch_finish(epoch_tx);
+
+        let ts_end = get_epoch_time_ms();
+
+        if let Some(observer) = event_observer {
+            observer.mined_block_event(
+                SortitionDB::get_canonical_burn_chain_tip(burn_dbconn.conn())?.block_height + 1,
+                &block,
+                size,
+                &consumed,
+                &confirmed_mblock_cost,
+                tx_events,
+            );
+        }
+
+        info!(
+            "Miner: mined anchored block";
+            "block_hash" => %block.block_hash(),
+            "height" => block.header.total_work.work,
+            "tx_count" => block.txs.len(),
+            "parent_stacks_block_hash" => %block.header.parent_block,
+            "parent_stacks_microblock" => %block.header.parent_microblock,
+            "parent_stacks_microblock_seq" => block.header.parent_microblock_sequence,
+            "block_size" => size,
+            "execution_consumed" => %consumed,
+            "assembly_time_ms" => ts_end.saturating_sub(ts_start),
+            "tx_fees_microstacks" => block.txs.iter().fold(0, |agg: u64, tx| {
+                agg.saturating_add(tx.get_tx_fee())
+            })
+        );
+
+        Ok(AssembledBlockInfo {
+            block,
+            block_execution_cost: consumed,
+            block_size: size,
+            mblocks_confirmed: miner_epoch_info.parent_microblocks,
+            burn_tip: miner_epoch_info.burn_tip,
+            burn_tip_height: miner_epoch_info.burn_tip_height,
+        })
+    }
+
+    pub fn build_anchored_block_from_microblocks(
+        chainstate_handle: &StacksChainState, // not directly used; used as a handle to open other chainstates
+        burn_dbconn: &SortitionDBConn,
+        parent_stacks_header: &StacksHeaderInfo, // Stacks header we're building off of
+        total_burn: u64, // the burn so far on the burnchain (i.e. from the last burnchain block)
+        proof: VRFProof, // proof over the burnchain's last seed
+        pubkey_hash: Hash160,
+        coinbase_tx: &StacksTransaction,
+        event_observer: Option<&dyn MemPoolEventDispatcher>,
+        microblocks: &Vec<StacksMicroblock>,
+    ) -> Result<AssembledBlockInfo, Error> {
+        let (tip_consensus_hash, tip_block_hash, tip_height) = (
+            parent_stacks_header.consensus_hash.clone(),
+            parent_stacks_header.anchored_header.block_hash(),
+            parent_stacks_header.stacks_block_height,
+        );
+
+        debug!(
+            "Build anchored block off of {}/{} height {}",
+            &tip_consensus_hash, &tip_block_hash, tip_height
+        );
+
+        let (mut chainstate, _) = chainstate_handle.reopen()?;
+
+        let mut builder = StacksBlockBuilder::make_block_builder(
+            chainstate.mainnet,
+            parent_stacks_header,
+            proof,
+            total_burn,
+            pubkey_hash,
+            &MessageSignatureList::empty(),
+        )?;
+
+        let ts_start = get_epoch_time_ms();
+
+        let mut miner_epoch_info = builder.pre_epoch_begin(&mut chainstate, burn_dbconn)?;
+
+        let (mut epoch_tx, confirmed_mblock_cost) =
+            builder.epoch_begin(burn_dbconn, &mut miner_epoch_info)?;
+
+        let mut tx_events = Vec::new();
+        tx_events.push(
+            builder
+                .try_mine_tx(&mut epoch_tx, coinbase_tx)?
+                .convert_to_event(),
+        );
+
+        // Include all of the transactions from the microblocks in this anchor block.
+        for mblock in microblocks {
+            for tx in &mblock.txs {
+                tx_events.push(builder.try_mine_tx(&mut epoch_tx, tx)?.convert_to_event());
+            }
+
+            // TODO: Generate an event to confirm the microblock
+        }
 
         // save the block so we can build microblocks off of it
         let block = builder.mine_anchored_block(&mut epoch_tx);
@@ -3656,7 +3810,7 @@ pub mod test {
 
                     let sort_iconn = sortdb.index_conn();
                     let mut miner_epoch_info = builder
-                        .pre_epoch_begin(&mut miner_chainstate, &sort_iconn)
+                        .microblock_confirming_pre_epoch_begin(&mut miner_chainstate, &sort_iconn)
                         .unwrap();
                     let mut epoch = builder
                         .epoch_begin(&sort_iconn, &mut miner_epoch_info)
