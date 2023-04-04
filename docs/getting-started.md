@@ -23,11 +23,6 @@ There are two ways to test your applications on a subnet. Running a local subnet
   - Transfer the NFT from one user to another in the subnet
   - Withdraw the NFT from the subnet
 
-> **_NOTE:_**
->
-> A subnet was previously referred to as a hyperchain. While the process of
-> updating the content is ongoing; there may still be some references to a
-> hyperchain instead of a subnet.
 
 ## Create a new project with Clarinet
 
@@ -35,9 +30,12 @@ This guide walks you through the first step of running a local subnet which is c
 
 Clarinet provides a tool to set up a complete local development environment, referred to as "devnet," which uses Docker to spin up a Bitcoin node, a Stacks node, a Stacks API node, a Stacks Explorer, and now, a subnet node and subnet API node. This allows developers to test locally on a system that matches the production environment.
 
-Make sure you have [`clarinet`](https://github.com/hirosystems/clarinet/releases/tag/v1.5.3) installed and the **clarinet version is at 1.5.3 or above**. If you do not already have Clarinet installed, you can refer to the instructions [here](https://docs.hiro.so/smart-contracts/clarinet#installing-clarinet) for installation procedures.
+Make sure you have [`clarinet`](https://github.com/hirosystems/clarinet/releases/tag/v1.5.3) installed and the **clarinet version is at 1.5.3 or above**.
+If you have clarinet installed but you want to know the version, you can navigate to your terminal and type `clarinet`. You'll see a version of the clarinet. If you have an older version of the Clarinet and need an upgrade to a specific version, you can use the following command in your terminal:
+`brew install clarinet@1.5.3`.
+If you do not already have Clarinet installed, you can refer to the instructions [here](https://docs.hiro.so/clarinet/getting-started#install-clarinet) for installation procedures.
 
-To create a new project, run:
+You can create a new project by running the following command or by using [Hiro platform](https://docs.hiro.so/platform/create-project). 
 
 ```sh
 clarinet new subnet-nft-example

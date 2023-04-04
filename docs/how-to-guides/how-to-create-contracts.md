@@ -172,4 +172,4 @@ Next, we will create the subnet contract at _./contracts/simple-nft-l2.clar_. As
 
 This contract implements the `nft-trait` and the `subnet-asset` trait. The `nft-trait` is the same as the [`SIP-009`](https://github.com/stacksgov/sips/blob/a17d318321abf0754e8b2ce5706a9d25493d42ee/sips/sip-009/sip-009-nft-standard.md) trait on the Stacks network. The `subnet-asset` defines the functions required for deposit and withdrawal. The `deposit-from-burnchain` is invoked by the subnet node's consensus logic whenever a deposit is made in layer-1. The `burn-for-withdrawal` is invoked by the `nft-withdraw?` or `ft-withdraw?` functions of the subnet contract, that a user calls when they wish to withdraw their asset from the subnet back to the layer-1.
 
-Now that your contracts are ready, you can start the devnet by following [start the devnet](how-to-start-devnet.md).
+Now that your contracts are ready, you can start the devnet by following [how to start the Devnet guide.](how-to-start-devnet.md).
