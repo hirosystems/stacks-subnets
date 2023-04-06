@@ -1459,7 +1459,7 @@ impl PeerNetwork {
             Ok(s) => s,
             Err(net_error::NotFoundError) => {
                 // we're not caught up
-                debug!("{:?}: Will not send GetBlocksInv to {:?}, since we are not caught up to block height {}", &self.local_peer, nk, target_block_height);
+                warn!("{:?}: Will not send GetBlocksInv to {:?}, since we are not caught up to block height {}", &self.local_peer, nk, target_block_height);
                 return Ok(None);
             }
             Err(e) => {
@@ -1487,7 +1487,7 @@ impl PeerNetwork {
                 )? {
                     0 => {
                         // cannot ask this peer for any blocks in this reward cycle
-                        debug!("{:?}: no blocks available from {} at cycle {} (which starts at height {})", &self.local_peer, nk, target_block_reward_cycle, self.burnchain.reward_cycle_to_block_height(target_block_reward_cycle));
+                        warn!("{:?}: no blocks available from {} at cycle {} (which starts at height {})", &self.local_peer, nk, target_block_reward_cycle, self.burnchain.reward_cycle_to_block_height(target_block_reward_cycle));
                         return Ok(None);
                     }
                     x => x,
@@ -1589,15 +1589,10 @@ impl PeerNetwork {
         nk: &NeighborKey,
         stats: &NeighborBlockStats,
     ) -> Result<Option<(u64, GetBlocksInv)>, net_error> {
-        if stats.block_reward_cycle <= stats.inv.num_reward_cycles {
-            self.make_getblocksinv(sortdb, nk, stats, stats.block_reward_cycle)
-                .and_then(|getblocksinv_opt| {
-                    Ok(getblocksinv_opt
-                        .map(|getblocksinv| (stats.block_reward_cycle, getblocksinv)))
-                })
-        } else {
-            Ok(None)
-        }
+        self.make_getblocksinv(sortdb, nk, stats, stats.block_reward_cycle)
+            .and_then(|getblocksinv_opt| {
+                Ok(getblocksinv_opt.map(|getblocksinv| (stats.block_reward_cycle, getblocksinv)))
+            })
     }
 
     /// Determine at which reward cycle to begin scanning inventories

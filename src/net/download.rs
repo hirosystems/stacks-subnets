@@ -727,7 +727,7 @@ impl BlockDownloader {
                 return Ok(vec![]);
             }
 
-            debug!("Begin headers load");
+            trace!("Begin headers load");
             let begin_ts = get_epoch_time_ms();
             let last_ancestor = SortitionDB::get_ancestor_snapshot(
                 &ic,
@@ -766,7 +766,7 @@ impl BlockDownloader {
                 );
             }
             let end_ts = get_epoch_time_ms();
-            debug!("End headers load ({} ms)", end_ts.saturating_sub(begin_ts));
+            trace!("End headers load ({} ms)", end_ts.saturating_sub(begin_ts));
 
             // update cache
             SortitionDB::merge_block_header_cache(header_cache, &local_blocks);
