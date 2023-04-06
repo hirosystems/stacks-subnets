@@ -281,10 +281,13 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
             &block_string,
         ];
         let transaction = connection.transaction()?;
-        transaction.execute(
+        if let Err(e) = transaction.execute(
             "INSERT INTO block_index (height, header_hash, parent_header_hash, time_stamp, is_canonical, block) VALUES (?, ?, ?, ?, ?, ?)",
             params,
-        )?;
+        ) {
+            warn!("Failed to write block header to block index, probably a duplicate event"; "error" => ?e);
+            return Ok(())
+        }
 
         // Possibly process re-org in the database representation.
         if needs_reorg {
