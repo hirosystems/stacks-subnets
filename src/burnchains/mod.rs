@@ -457,7 +457,7 @@ pub enum Error {
     /// Thread channel error
     ThreadChannelError,
     /// Missing headers
-    MissingHeaders,
+    MissingHeaders(BurnchainHeaderHash),
     /// Missing parent block
     MissingParentBlock,
     /// Remote burnchain peer has misbehaved
@@ -480,7 +480,7 @@ impl fmt::Display for Error {
             Error::DBError(ref dbe) => fmt::Display::fmt(dbe, f),
             Error::DownloadError(ref btce) => fmt::Display::fmt(btce, f),
             Error::ParseError => write!(f, "Parse error"),
-            Error::MissingHeaders => write!(f, "Missing block headers"),
+            Error::MissingHeaders(ref bh) => write!(f, "Missing block headers for block {}", bh),
             Error::MissingParentBlock => write!(f, "Missing parent block"),
             Error::ThreadChannelError => write!(f, "Error in thread channel"),
             Error::BurnchainPeerBroken => write!(f, "Remote burnchain peer has misbehaved"),
@@ -501,7 +501,7 @@ impl error::Error for Error {
             Error::DBError(ref e) => Some(e),
             Error::DownloadError(ref _e) => None,
             Error::ParseError => None,
-            Error::MissingHeaders => None,
+            Error::MissingHeaders(_) => None,
             Error::MissingParentBlock => None,
             Error::ThreadChannelError => None,
             Error::BurnchainPeerBroken => None,
