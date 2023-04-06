@@ -20,6 +20,8 @@ use std::convert::TryFrom;
 use std::default::Default;
 use std::error;
 use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::io;
 use std::marker::PhantomData;
 
@@ -100,6 +102,7 @@ pub struct BurnchainParameters {
     pub first_block_hash: BurnchainHeaderHash,
     pub first_block_timestamp: u32,
     pub initial_reward_start_block: u64,
+    pub subnet_governing_contract: QualifiedContractIdentifier,
 }
 
 impl BurnchainParameters {
@@ -126,6 +129,7 @@ impl BurnchainParameters {
                 .unwrap(),
             first_block_timestamp: 0,
             initial_reward_start_block: 0,
+            subnet_governing_contract: DEFAULT_SUBNET_GOVERNING_CONTRACT.clone(),
         }
     }
 
@@ -140,6 +144,7 @@ impl BurnchainParameters {
                 .unwrap(),
             first_block_timestamp: BITCOIN_MAINNET_FIRST_BLOCK_TIMESTAMP,
             initial_reward_start_block: BITCOIN_MAINNET_INITIAL_REWARD_START_BLOCK,
+            subnet_governing_contract: DEFAULT_SUBNET_GOVERNING_CONTRACT.clone(),
         }
     }
 
@@ -154,6 +159,7 @@ impl BurnchainParameters {
                 .unwrap(),
             first_block_timestamp: BITCOIN_TESTNET_FIRST_BLOCK_TIMESTAMP,
             initial_reward_start_block: BITCOIN_TESTNET_FIRST_BLOCK_HEIGHT - 10_000,
+            subnet_governing_contract: DEFAULT_SUBNET_GOVERNING_CONTRACT.clone(),
         }
     }
 
@@ -168,6 +174,7 @@ impl BurnchainParameters {
                 .unwrap(),
             first_block_timestamp: BITCOIN_REGTEST_FIRST_BLOCK_TIMESTAMP,
             initial_reward_start_block: BITCOIN_REGTEST_FIRST_BLOCK_HEIGHT,
+            subnet_governing_contract: DEFAULT_SUBNET_GOVERNING_CONTRACT.clone(),
         }
     }
 
@@ -193,6 +200,35 @@ pub struct BurnchainRecipient {
     pub amount: u64,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub enum AssetType {
+    #[serde(rename = "ft")]
+    FungibleToken,
+    #[serde(rename = "nft")]
+    NonFungibleToken,
+}
+
+impl std::str::FromStr for AssetType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "ft" => Ok(AssetType::FungibleToken),
+            "nft" => Ok(AssetType::NonFungibleToken),
+            _ => Err(format!("Invalid asset type: {}", s)),
+        }
+    }
+}
+
+impl Display for AssetType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AssetType::FungibleToken => write!(f, "ft"),
+            AssetType::NonFungibleToken => write!(f, "nft"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 /// This is the inner type of the Layer-1 Stacks event,
 /// containing any operation specific data.
@@ -200,6 +236,11 @@ pub enum StacksSubnetOpType {
     BlockCommit {
         subnet_block_hash: BlockHeaderHash,
         withdrawal_merkle_root: Sha512Trunc256Sum,
+    },
+    RegisterAsset {
+        asset_type: AssetType,
+        l1_contract_id: QualifiedContractIdentifier,
+        l2_contract_id: QualifiedContractIdentifier,
     },
     DepositStx {
         amount: u128,
@@ -241,7 +282,6 @@ pub enum StacksSubnetOpType {
 pub struct StacksSubnetOp {
     pub txid: Txid,
     pub in_block: StacksBlockId,
-    pub opcode: u8,
     pub event_index: u32,
     pub event: StacksSubnetOpType,
 }
@@ -265,12 +305,6 @@ impl BurnchainTransaction {
         }
     }
 
-    pub fn opcode(&self) -> u8 {
-        match *self {
-            BurnchainTransaction::StacksBase(ref tx) => tx.opcode,
-        }
-    }
-
     pub fn get_burn_amount(&self) -> u64 {
         0
     }
@@ -283,6 +317,7 @@ pub struct StacksSubnetBlock {
     pub current_block: StacksBlockId,
     pub parent_block: StacksBlockId,
     pub block_height: u64,
+    pub burn_block_time: u64,
     pub ops: Vec<StacksSubnetOp>,
 }
 
@@ -314,6 +349,7 @@ pub struct Burnchain {
     pub first_block_timestamp: u32,
     pub pox_constants: PoxConstants,
     pub initial_reward_start_block: u64,
+    pub subnet_governing_contract: QualifiedContractIdentifier,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

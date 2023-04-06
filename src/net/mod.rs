@@ -1050,6 +1050,7 @@ pub struct RPCPeerInfoData {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub node_public_key_hash: Option<Hash160>,
+    pub l1_subnet_governing_contract: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2154,6 +2155,19 @@ pub mod test {
                         &json!({
                             "op": "leader_block_commit",
                             "block_header_hash": op.block_header_hash,
+                        }),
+                    )
+                    .unwrap();
+                    Ok(())
+                }
+                BlockstackOperationType::RegisterAsset(ref op) => {
+                    serde_json::to_writer(
+                        fd,
+                        &json!({
+                            "op": "register_asset",
+                            "asset_type": op.asset_type,
+                            "l1_contract_id": op.l1_contract_id,
+                            "l2_contract_id": op.l2_contract_id,
                         }),
                     )
                     .unwrap();

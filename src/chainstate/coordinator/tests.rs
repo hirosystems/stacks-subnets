@@ -226,30 +226,6 @@ pub fn setup_states(
 
         let mut boot_data = ChainStateBootData::new(&burnchain, initial_balances.clone(), None);
 
-        let post_flight_callback = move |clarity_tx: &mut ClarityTx| {
-            let contract = boot_code_id("pox", false);
-            let sender = PrincipalData::from(contract.clone());
-
-            clarity_tx.connection().as_transaction(|conn| {
-                conn.run_contract_call(
-                    &sender,
-                    None,
-                    &contract,
-                    "set-burnchain-parameters",
-                    &[
-                        Value::UInt(burnchain.first_block_height as u128),
-                        Value::UInt(0u128),
-                        Value::UInt(0u128),
-                        Value::UInt(0u128),
-                    ],
-                    |_, _| false,
-                )
-                .expect("Failed to set burnchain parameters in PoX contract");
-            });
-        };
-
-        boot_data.post_flight_callback = Some(Box::new(post_flight_callback));
-
         let (chain_state_db, _) = StacksChainState::open_and_exec(
             false,
             0x80000000,

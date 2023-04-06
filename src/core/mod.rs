@@ -19,6 +19,7 @@ use crate::burnchains::Burnchain;
 use crate::burnchains::Error as burnchain_error;
 use crate::chainstate::burn::ConsensusHash;
 use clarity::vm::costs::ExecutionCost;
+use clarity::vm::types::QualifiedContractIdentifier;
 use stacks_common::util::log;
 use std::convert::TryFrom;
 
@@ -56,8 +57,13 @@ pub const SUBNETS_CLARITY_VERSION: ClarityVersion = ClarityVersion::Clarity2;
 // first byte == major network protocol version (currently 0x18)
 // second and third bytes are unused
 // fourth byte == highest epoch supported by this node (0x05 for 2.05)
-pub const PEER_VERSION_MAINNET: u32 = 0x18000005;
-pub const PEER_VERSION_TESTNET: u32 = 0xfacade05;
+/// Note these are Stacks (L1) peer versions, but these are also used
+///  as the peer versions for subnets currently. Subnets do not have an
+///  independent notion of peer versions. If a particular subnet wishes
+///  to undergo a consensus change and use peer versioning to assist in
+///  that change, subnets will need to introduce an independent peer version.
+pub const PEER_VERSION_MAINNET: u32 = 0x18000006;
+pub const PEER_VERSION_TESTNET: u32 = 0xfacade06;
 
 pub const PEER_VERSION_EPOCH_1_0: u8 = 0x00;
 pub const PEER_VERSION_EPOCH_2_0: u8 = 0x00;
@@ -128,6 +134,9 @@ pub const EMPTY_MICROBLOCK_PARENT_HASH: BlockHeaderHash = BlockHeaderHash([0u8; 
 lazy_static! {
     pub static ref FIRST_STACKS_BLOCK_ID: StacksBlockId =
         StacksBlockId::new(&FIRST_BURNCHAIN_CONSENSUS_HASH, &FIRST_STACKS_BLOCK_HASH);
+    pub static ref DEFAULT_SUBNET_GOVERNING_CONTRACT: QualifiedContractIdentifier =
+        QualifiedContractIdentifier::parse("STXMJXCJDCT4WPF2X1HE42T6ZCCK3TPMBRZ51JEG.subnet")
+            .unwrap();
 }
 
 pub const BOOT_BLOCK_HASH: BlockHeaderHash = BlockHeaderHash([0xff; 32]);
@@ -295,20 +304,20 @@ lazy_static! {
         StacksEpoch {
             epoch_id: StacksEpochId::Epoch20,
             start_height: 0,
-            end_height: 1000,
+            end_height: 0,
             block_limit: HELIUM_BLOCK_LIMIT_20.clone(),
             network_epoch: PEER_VERSION_EPOCH_2_0
         },
         StacksEpoch {
             epoch_id: StacksEpochId::Epoch2_05,
-            start_height: 1000,
-            end_height: 2000,
+            start_height: 0,
+            end_height: 0,
             block_limit: HELIUM_BLOCK_LIMIT_20.clone(),
             network_epoch: PEER_VERSION_EPOCH_2_05
         },
         StacksEpoch {
             epoch_id: StacksEpochId::Epoch21,
-            start_height: 2000,
+            start_height: 0,
             end_height: STACKS_EPOCH_MAX,
             block_limit: HELIUM_BLOCK_LIMIT_20.clone(),
             network_epoch: PEER_VERSION_EPOCH_2_1

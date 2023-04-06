@@ -85,11 +85,12 @@ impl std::fmt::Debug for NewBlock {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         write!(
             f,
-            "NewBlock(hash={:?}, parent_hash={:?}, block_height={}, num_events={})",
+            "NewBlock(hash={:?}, parent_hash={:?}, block_height={}, num_events={}, burn_block_time={})",
             &self.index_block_hash,
             &self.parent_index_block_hash,
             self.block_height,
-            self.events.len()
+            self.events.len(),
+            self.burn_block_time
         )
     }
 }
@@ -264,10 +265,54 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 0,
                     event: StacksSubnetOpType::BlockCommit {
                         subnet_block_hash: BlockHeaderHash(block_commit),
                         withdrawal_merkle_root: Sha512Trunc256Sum(withdrawal_merkle_root),
+                    },
+                })
+            }
+            "\"register-contract\"" => {
+                // Parse 3 fields: asset-type, l1-contract, l2-contract
+                let asset_type_string = tuple
+                    .get("asset-type")
+                    .map_err(|_| "No 'asset-type' field in Clarity tuple")?
+                    .clone()
+                    .expect_ascii();
+                let asset_type = asset_type_string.parse().map_err(|_| {
+                    format!(
+                        "Expected 'asset-type' to be a valid asset type, found '{}'",
+                        asset_type_string
+                    )
+                })?;
+                let l1_contract = tuple
+                    .get("l1-contract")
+                    .map_err(|_| "No 'l1-contract' field in Clarity tuple")?
+                    .clone()
+                    .expect_principal();
+                let l1_contract_id = if let PrincipalData::Contract(id) = l1_contract {
+                    Ok(id)
+                } else {
+                    Err("Expected 'l1-contract-id' to be a contract principal")
+                }?;
+                let l2_contract = tuple
+                    .get("l2-contract")
+                    .map_err(|_| "No 'l2-contract' field in Clarity tuple")?
+                    .clone()
+                    .expect_principal();
+                let l2_contract_id = if let PrincipalData::Contract(id) = l2_contract {
+                    Ok(id)
+                } else {
+                    Err("Expected 'l1-contract-id' to be a contract principal")
+                }?;
+
+                Ok(Self {
+                    txid,
+                    event_index,
+                    in_block: in_block.clone(),
+                    event: StacksSubnetOpType::RegisterAsset {
+                        asset_type,
+                        l1_contract_id,
+                        l2_contract_id,
                     },
                 })
             }
@@ -288,7 +333,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 1,
                     event: StacksSubnetOpType::DepositStx { amount, sender },
                 })
             }
@@ -334,7 +378,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 2,
                     event: StacksSubnetOpType::DepositFt {
                         l1_contract_id,
                         subnet_contract_id,
@@ -382,7 +425,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 3,
                     event: StacksSubnetOpType::DepositNft {
                         l1_contract_id,
                         subnet_contract_id,
@@ -408,7 +450,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 1,
                     event: StacksSubnetOpType::WithdrawStx { amount, recipient },
                 })
             }
@@ -443,7 +484,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 4,
                     event: StacksSubnetOpType::WithdrawFt {
                         l1_contract_id,
                         name,
@@ -480,7 +520,6 @@ impl StacksSubnetOp {
                     txid,
                     event_index,
                     in_block: in_block.clone(),
-                    opcode: 5,
                     event: StacksSubnetOpType::WithdrawNft {
                         l1_contract_id,
                         id,
@@ -507,6 +546,7 @@ impl StacksSubnetBlock {
             index_block_hash,
             parent_index_block_hash,
             block_height,
+            burn_block_time,
             ..
         } = b;
 
@@ -566,6 +606,7 @@ impl StacksSubnetBlock {
             current_block: index_block_hash,
             parent_block: parent_index_block_hash,
             block_height,
+            burn_block_time,
             ops,
         }
     }

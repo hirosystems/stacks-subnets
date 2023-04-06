@@ -2487,6 +2487,7 @@ mod test {
             first_block_hash: first_burn_hash.clone(),
             first_block_timestamp: 0,
             pox_constants: PoxConstants::test_default(),
+            subnet_governing_contract: QualifiedContractIdentifier::transient(),
         }
     }
 

@@ -31,6 +31,7 @@ use rusqlite::Connection;
 use rusqlite::DatabaseName;
 use rusqlite::{Error as sqlite_error, OptionalExtension};
 
+use crate::burnchains::AssetType;
 use crate::chainstate::burn::db::sortdb::*;
 use crate::chainstate::burn::operations::*;
 use crate::chainstate::burn::BlockSnapshot;
@@ -92,6 +93,7 @@ use rusqlite::types::ToSqlOutput;
 use stacks_common::types::chainstate::{StacksAddress, StacksBlockId};
 
 static DEPOSIT_FUNCTION_NAME: &str = "deposit-from-burnchain";
+static REGISTER_ASSET_FUNCTION_NAME: &str = "register-asset-contract";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StagingMicroblock {
@@ -4490,7 +4492,7 @@ impl StacksChainState {
             // the parent stacks block has a different epoch than what the Sortition DB
             //  thinks should be in place.
             if stacks_parent_epoch != sortition_epoch.epoch_id {
-                info!("Applying epoch transition"; "new_epoch_id" => %sortition_epoch.epoch_id, "old_epoch_id" => %stacks_parent_epoch);
+                info!("Applying epoch transition"; "new_epoch_id" => %sortition_epoch.epoch_id, "old_epoch_id" => %stacks_parent_epoch, "chain_tip_burn_height" => chain_tip_burn_header_height);
                 // this assertion failing means that the _parent_ block was invalid: this is bad and should panic.
                 assert!(stacks_parent_epoch < sortition_epoch.epoch_id, "The SortitionDB believes the epoch is earlier than this Stacks block's parent: sortition db epoch = {}, parent epoch = {}", sortition_epoch.epoch_id, stacks_parent_epoch);
                 // time for special cases:
@@ -4499,19 +4501,23 @@ impl StacksChainState {
                         panic!("Clarity VM believes it was running in 1.0: pre-Clarity.")
                     }
                     StacksEpochId::Epoch20 => {
-                        assert_eq!(
-                            sortition_epoch.epoch_id,
-                            StacksEpochId::Epoch2_05,
-                            "Should only transition from Epoch20 to Epoch2_05"
+                        assert!(
+                            sortition_epoch.epoch_id >= StacksEpochId::Epoch2_05,
+                            "Should only transition to a higher epoch"
                         );
-                        receipts.push(clarity_tx.block.initialize_epoch_2_05()?);
-                        applied = true;
+                        if sortition_epoch.epoch_id >= StacksEpochId::Epoch2_05 {
+                            receipts.push(clarity_tx.block.initialize_epoch_2_05()?);
+                            applied = true;
+                        }
+                        if sortition_epoch.epoch_id >= StacksEpochId::Epoch21 {
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
+                            applied = true;
+                        }
                     }
                     StacksEpochId::Epoch2_05 => {
-                        assert_eq!(
-                            sortition_epoch.epoch_id,
-                            StacksEpochId::Epoch21,
-                            "Should only transition from Epoch2_05 to Epoch21"
+                        assert!(
+                            sortition_epoch.epoch_id >= StacksEpochId::Epoch21,
+                            "Should only transition to a higher epoch"
                         );
                         receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
                         applied = true;
@@ -4523,6 +4529,77 @@ impl StacksChainState {
             }
         }
         Ok((applied, receipts))
+    }
+
+    /// Process any register asset operations that haven't been processed in this
+    /// subnet fork yet.
+    pub fn process_register_asset_ops(
+        clarity_tx: &mut ClarityTx,
+        operations: Vec<RegisterAssetOp>,
+    ) -> Vec<StacksTransactionReceipt> {
+        let mainnet = clarity_tx.config.mainnet;
+        let cost_so_far = clarity_tx.cost_so_far();
+        // return valid receipts
+        operations
+            .into_iter()
+            .filter_map(|register_asset_op| {
+                let RegisterAssetOp {
+                    txid,
+                    burn_header_hash,
+                    asset_type,
+                    l1_contract_id,
+                    l2_contract_id,
+                    ..
+                } = register_asset_op.clone();
+
+                let asset_type_ascii =
+                    Value::string_ascii_from_bytes(asset_type.to_string().into())
+                        .expect("BUG: failed to convert asset type to ascii string");
+                let txid_buff = Value::buff_from(txid.as_bytes().to_vec())
+                    .expect("BUG: failed to convert txid to buffer");
+                // call the register asset function in the subnet contract
+                let result = clarity_tx.connection().as_transaction(|tx| {
+                    tx.run_contract_call(
+                        &boot_code_addr(mainnet).into(),
+                        None,
+                        &boot_code_id("subnet", mainnet),
+                        REGISTER_ASSET_FUNCTION_NAME,
+                        &[
+                            asset_type_ascii,
+                            Value::Principal(l1_contract_id.into()),
+                            Value::Principal(l2_contract_id.into()),
+                            txid_buff,
+                        ],
+                        |_, _| false,
+                    )
+                });
+                let mut execution_cost = clarity_tx.cost_so_far();
+                execution_cost
+                    .sub(&cost_so_far)
+                    .expect("BUG: cost declined between executions");
+
+                match result {
+                    Ok((value, _, events)) => Some(StacksTransactionReceipt {
+                        transaction: TransactionOrigin::Burn(register_asset_op.into()),
+                        events,
+                        result: value,
+                        post_condition_aborted: false,
+                        stx_burned: 0,
+                        contract_analysis: None,
+                        execution_cost,
+                        microblock_header: None,
+                        tx_index: 0,
+                    }),
+                    Err(e) => {
+                        warn!("RegisterAsset op processing error.";
+                              "error" => ?e,
+                              "txid" => %txid,
+                              "burn_block" => %burn_header_hash);
+                        None
+                    }
+                }
+            })
+            .collect()
     }
 
     /// Process any deposit STX operations that haven't been processed in this
@@ -4537,7 +4614,7 @@ impl StacksChainState {
                     .into_iter()
                     .filter_map(|deposit_stx_op| {
                         let DepositStxOp {
-                            txid,
+                            txid: _,
                             amount,
                             sender,
                             ..
@@ -4580,7 +4657,6 @@ impl StacksChainState {
         operations: Vec<DepositFtOp>,
     ) -> Vec<StacksTransactionReceipt> {
         let mainnet = clarity_tx.config.mainnet;
-        let boot_addr: PrincipalData = boot_code_addr(mainnet).into();
         let cost_so_far = clarity_tx.cost_so_far();
         // return valid receipts
         operations
@@ -4682,6 +4758,13 @@ impl StacksChainState {
                                     SmartContractEventData {
                                         key: (boot_code_id("subnet", mainnet), "print".into()),
                                         value: TupleData::from_data(vec![
+                                            (
+                                                "event".into(),
+                                                Value::string_ascii_from_bytes(
+                                                    "withdraw".as_bytes().to_vec(),
+                                                )
+                                                .expect("Supplied string was not ASCII"),
+                                            ),
                                             (
                                                 "type".into(),
                                                 Value::string_ascii_from_bytes(
@@ -4811,58 +4894,6 @@ impl StacksChainState {
         Ok(coinbase_reward)
     }
 
-    /// Process all STX that unlock at this block height.
-    /// Return the total number of uSTX unlocked in this block
-    pub fn process_stx_unlocks<'a, 'b>(
-        clarity_tx: &mut ClarityTx<'a, 'b>,
-    ) -> Result<(u128, Vec<StacksTransactionEvent>), Error> {
-        let mainnet = clarity_tx.config.mainnet;
-        let lockup_contract_id = boot_code_id("lockup", mainnet);
-        clarity_tx
-            .connection()
-            .as_transaction(|tx_connection| {
-                let result = tx_connection.with_clarity_db(|db| {
-                    let block_height = Value::UInt(db.get_current_block_height().into());
-                    let res = db.fetch_entry_unknown_descriptor(
-                        &lockup_contract_id,
-                        "lockups",
-                        &block_height,
-                    )?;
-                    Ok(res)
-                })?;
-
-                let entries = match result {
-                    Value::Optional(_) => match result.expect_optional() {
-                        Some(Value::Sequence(SequenceData::List(entries))) => entries.data,
-                        _ => return Ok((0, vec![])),
-                    },
-                    _ => return Ok((0, vec![])),
-                };
-
-                let mut total_minted = 0;
-                let mut events = vec![];
-                for entry in entries.into_iter() {
-                    let schedule: TupleData = entry.expect_tuple();
-                    let amount = schedule
-                        .get("amount")
-                        .expect("Lockup malformed")
-                        .to_owned()
-                        .expect_u128();
-                    let recipient = schedule
-                        .get("recipient")
-                        .expect("Lockup malformed")
-                        .to_owned()
-                        .expect_principal();
-                    total_minted += amount;
-                    StacksChainState::account_credit(tx_connection, &recipient, amount as u64);
-                    let event = STXEventType::STXMintEvent(STXMintEventData { recipient, amount });
-                    events.push(StacksTransactionEvent::STXEvent(event));
-                }
-                Ok((total_minted, events))
-            })
-            .map_err(Error::ClarityError)
-    }
-
     /// Given the list of matured miners, find the miner reward schedule that produced the parent
     /// of the block whose coinbase just matured.
     pub fn get_parent_matured_miner(
@@ -4944,6 +4975,12 @@ impl StacksChainState {
                     &parent_consensus_hash
                 )))?
                 .burn_header_hash;
+        let register_asset_ops = SortitionDB::get_ops_between(
+            conn,
+            &parent_block_burn_block,
+            &burn_tip,
+            SortitionDB::get_register_asset_ops,
+        )?;
         let deposit_stx_ops = SortitionDB::get_ops_between(
             conn,
             &parent_block_burn_block,
@@ -5076,6 +5113,11 @@ impl StacksChainState {
         let (applied_epoch_transition, mut tx_receipts) =
             StacksChainState::process_epoch_transition(&mut clarity_tx, burn_tip_height)?;
 
+        tx_receipts.extend(StacksChainState::process_register_asset_ops(
+            &mut clarity_tx,
+            register_asset_ops,
+        ));
+
         tx_receipts.extend(StacksChainState::process_deposit_stx_ops(
             &mut clarity_tx,
             deposit_stx_ops,
@@ -5130,11 +5172,6 @@ impl StacksChainState {
             clarity_tx.increment_ustx_liquid_supply(matured_ustx);
         }
 
-        // process unlocks
-        let (new_unlocked_ustx, lockup_events) = StacksChainState::process_stx_unlocks(clarity_tx)?;
-
-        clarity_tx.increment_ustx_liquid_supply(new_unlocked_ustx);
-
         // mark microblock public key as used
         match StacksChainState::insert_microblock_pubkey_hash(
             clarity_tx,
@@ -5158,7 +5195,7 @@ impl StacksChainState {
             }
         }
 
-        Ok(lockup_events)
+        Ok(vec![])
     }
 
     /// Process the next pre-processed staging block.
@@ -6427,10 +6464,10 @@ impl StacksChainState {
 
                 let contract_identifier =
                     QualifiedContractIdentifier::new(address.clone().into(), contract_name.clone());
-
+                let epoch = clarity_connection.get_epoch().clone();
                 clarity_connection.with_analysis_db_readonly(|db| {
                     let function_type = db
-                        .get_public_function_type(&contract_identifier, &function_name)
+                        .get_public_function_type(&contract_identifier, &function_name, &epoch)
                         .map_err(|_e| MemPoolRejection::NoSuchContract)?
                         .ok_or_else(|| MemPoolRejection::NoSuchPublicFunction)?;
                     function_type
@@ -6445,7 +6482,7 @@ impl StacksChainState {
             }
             TransactionPayload::SmartContract(
                 TransactionSmartContract { name, code_body: _ },
-                version_opt,
+                _version_opt,
             ) => {
                 let contract_identifier =
                     QualifiedContractIdentifier::new(tx.origin_address().into(), name.clone());
@@ -11251,6 +11288,49 @@ pub mod test {
             MessageSignature([1u8; 65]),
         ]);
         assert_eq!(ToSqlOutput::from("{\"signatures\":[\"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101\"]}".to_string()), list.to_sql().unwrap());
+    }
+
+    #[test]
+    fn test_process_register_asset_ops() {
+        let mut chainstate =
+            instantiate_chainstate(false, 0x80000000, "test_process_deposit_ft_ops");
+
+        let boot_code_address = boot_code_addr(false);
+        let boot_code_auth = boot_code_tx_auth(boot_code_address);
+        let boot_code_account = boot_code_acc(boot_code_address, 0);
+
+        let mut conn = chainstate.block_begin(
+            &TEST_BURN_STATE_DB,
+            &FIRST_BURNCHAIN_CONSENSUS_HASH,
+            &FIRST_STACKS_BLOCK_HASH,
+            &ConsensusHash([1u8; 20]),
+            &BlockHeaderHash([1u8; 32]),
+        );
+
+        // create register asset op
+        let ops = vec![
+            // This op registers an FT contract
+            RegisterAssetOp {
+                txid: Txid([1; 32]),
+                burn_header_hash: BurnchainHeaderHash([0; 32]),
+                asset_type: AssetType::FungibleToken,
+                l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
+                l2_contract_id: QualifiedContractIdentifier::local("l2-contract").unwrap(),
+            },
+            // This op registers an NFT contract
+            RegisterAssetOp {
+                txid: Txid([1; 32]),
+                burn_header_hash: BurnchainHeaderHash([0; 32]),
+                asset_type: AssetType::NonFungibleToken,
+                l1_contract_id: QualifiedContractIdentifier::local("l1-contract").unwrap(),
+                l2_contract_id: QualifiedContractIdentifier::local("l2-contract").unwrap(),
+            },
+        ];
+
+        // process ops
+        let processed_ops = StacksChainState::process_register_asset_ops(&mut conn, ops);
+
+        assert_eq!(processed_ops.len(), 2);
     }
 
     #[test]

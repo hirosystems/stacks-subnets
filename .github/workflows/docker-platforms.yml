@@ -59,7 +59,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            STACKS_NODE_VERSION=${{ inputs.tag || env.GITHUB_SHA_SHORT }}
+            SUBNET_NODE_VERSION=${{ inputs.tag || env.GITHUB_SHA_SHORT }}
             GIT_BRANCH=${{ env.GITHUB_REF_SHORT }}
             GIT_COMMIT=${{ env.GITHUB_SHA_SHORT }}
           push: true
@@ -119,7 +119,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            STACKS_NODE_VERSION=${{ inputs.tag || env.GITHUB_SHA_SHORT }}
+            SUBNET_NODE_VERSION=${{ inputs.tag || env.GITHUB_SHA_SHORT }}
             GIT_BRANCH=${{ env.GITHUB_REF_SHORT }}
             GIT_COMMIT=${{ env.GITHUB_SHA_SHORT }}
           push: true

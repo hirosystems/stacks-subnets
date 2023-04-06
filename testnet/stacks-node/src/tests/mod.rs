@@ -27,6 +27,7 @@ use super::Config;
 pub mod forking;
 pub mod l1_multiparty;
 pub mod l1_observer_test;
+pub mod l2_withdrawal;
 #[allow(dead_code)]
 pub mod neon_integrations;
 

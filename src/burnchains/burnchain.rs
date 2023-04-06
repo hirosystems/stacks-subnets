@@ -41,6 +41,7 @@ use crate::burnchains::{
     BurnchainStateTransition, BurnchainTransaction, Error as burnchain_error, PoxConstants,
 };
 use crate::chainstate::burn::db::sortdb::{SortitionDB, SortitionHandleConn, SortitionHandleTx};
+use crate::chainstate::burn::operations::RegisterAssetOp;
 use crate::chainstate::burn::operations::{
     leader_block_commit::MissedBlockCommit, BlockstackOperationType, DepositFtOp, DepositNftOp,
     DepositStxOp, LeaderBlockCommitOp, LeaderKeyRegisterOp, PreStxOp, StackStxOp, TransferStxOp,
@@ -97,6 +98,9 @@ impl BurnchainStateTransition {
                 BlockstackOperationType::LeaderBlockCommit(op) => {
                     // we don't yet know which block commits are going to be accepted until we have
                     // the burn distribution, so just account for them for now.
+                    accepted_ops.push(op.clone().into());
+                }
+                BlockstackOperationType::RegisterAsset(op) => {
                     accepted_ops.push(op.clone().into());
                 }
                 BlockstackOperationType::DepositStx(op) => {
@@ -170,7 +174,9 @@ impl BurnchainBlock {
     }
 
     pub fn timestamp(&self) -> u64 {
-        0
+        match self {
+            BurnchainBlock::StacksSubnetBlock(b) => b.burn_block_time,
+        }
     }
 
     pub fn header(&self) -> BurnchainBlockHeader {
@@ -226,6 +232,7 @@ impl Burnchain {
             first_block_hash: params.first_block_hash,
             first_block_timestamp: params.first_block_timestamp,
             pox_constants,
+            subnet_governing_contract: params.subnet_governing_contract,
         })
     }
 
@@ -401,6 +408,19 @@ impl Burnchain {
                         Err(e) => {
                             warn!(
                                 "Failed to parse subnet block operation";
+                                "txid" => %burn_tx.txid(),
+                                "error" => ?e,
+                            );
+                            None
+                        }
+                    }
+                }
+                StacksSubnetOpType::RegisterAsset { .. } => {
+                    match RegisterAssetOp::try_from(event) {
+                        Ok(op) => Some(BlockstackOperationType::from(op)),
+                        Err(e) => {
+                            warn!(
+                                "Failed to parse register asset operation";
                                 "txid" => %burn_tx.txid(),
                                 "error" => ?e,
                             );

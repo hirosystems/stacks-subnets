@@ -487,6 +487,29 @@ dependencies = [
 [[package]]
 name = "clarity"
 version = "0.0.1"
+source = "git+https://github.com/stacks-network/stacks-blockchain.git?tag=2.1.0.0.0#f0ed1b950ae1bafe1b23b68bced9f1eff66d7a99"
+dependencies = [
+ "integer-sqrt",
+ "lazy_static",
+ "rand 0.7.3",
+ "rand_chacha 0.2.2",
+ "regex",
+ "rstest",
+ "rstest_reuse",
+ "rusqlite",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_stacker",
+ "sha2-asm 0.5.5",
+ "slog",
+ "stacks-common 0.0.1 (git+https://github.com/stacks-network/stacks-blockchain.git?tag=2.1.0.0.0)",
+ "time 0.2.27",
+]
+
+[[package]]
+name = "clarity"
+version = "0.0.1"
 source = "git+https://github.com/stacks-network/stacks-blockchain.git?rev=580e811223a389d38071dcb9fde79ab55cd6f685#580e811223a389d38071dcb9fde79ab55cd6f685"
 dependencies = [
  "integer-sqrt",
@@ -503,7 +526,7 @@ dependencies = [
  "serde_stacker",
  "sha2-asm 0.5.5",
  "slog",
- "stacks-common",
+ "stacks-common 0.0.1 (git+https://github.com/stacks-network/stacks-blockchain.git?rev=580e811223a389d38071dcb9fde79ab55cd6f685)",
  "time 0.2.27",
 ]
 
@@ -2641,13 +2664,13 @@ checksum = "f2dd574626839106c320a323308629dcb1acfc96e32a8cba364ddc61ac23ee83"
 name = "soar-db"
 version = "0.1.0"
 dependencies = [
- "clarity",
+ "clarity 0.0.1 (git+https://github.com/stacks-network/stacks-blockchain.git?rev=580e811223a389d38071dcb9fde79ab55cd6f685)",
  "lazy_static",
  "serde",
  "serde_derive",
  "serde_json",
  "slog",
- "stacks-common",
+ "stacks-common 0.0.1 (git+https://github.com/stacks-network/stacks-blockchain.git?rev=580e811223a389d38071dcb9fde79ab55cd6f685)",
 ]
 
 [[package]]
@@ -2682,7 +2705,7 @@ dependencies = [
 [[package]]
 name = "stacks-common"
 version = "0.0.1"
-source = "git+https://github.com/stacks-network/stacks-blockchain.git?rev=580e811223a389d38071dcb9fde79ab55cd6f685#580e811223a389d38071dcb9fde79ab55cd6f685"
+source = "git+https://github.com/stacks-network/stacks-blockchain.git?tag=2.1.0.0.0#f0ed1b950ae1bafe1b23b68bced9f1eff66d7a99"
 dependencies = [
  "chrono",
  "curve25519-dalek",
@@ -2707,12 +2730,38 @@ dependencies = [
 ]
 
 [[package]]
-name = "stacks-subnets"
+name = "stacks-common"
 version = "0.0.1"
+source = "git+https://github.com/stacks-network/stacks-blockchain.git?rev=580e811223a389d38071dcb9fde79ab55cd6f685#580e811223a389d38071dcb9fde79ab55cd6f685"
+dependencies = [
+ "chrono",
+ "curve25519-dalek",
+ "ed25519-dalek",
+ "lazy_static",
+ "libc",
+ "percent-encoding",
+ "rand 0.7.3",
+ "ripemd",
+ "rusqlite",
+ "secp256k1 0.21.2",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_stacker",
+ "sha2 0.10.2",
+ "sha3",
+ "slog",
+ "slog-term",
+ "time 0.2.27",
+]
+
+[[package]]
+name = "stacks-subnets"
+version = "0.4.0"
 dependencies = [
  "assert-json-diff",
  "chrono",
- "clarity",
+ "clarity 0.0.1 (git+https://github.com/stacks-network/stacks-blockchain.git?tag=2.1.0.0.0)",
  "criterion",
  "curve25519-dalek",
  "ed25519-dalek",
@@ -2739,7 +2788,7 @@ dependencies = [
  "slog",
  "slog-json",
  "slog-term",
- "stacks-common",
+ "stacks-common 0.0.1 (git+https://github.com/stacks-network/stacks-blockchain.git?tag=2.1.0.0.0)",
  "time 0.2.27",
  "url",
  "winapi 0.3.9",
@@ -2813,13 +2862,13 @@ dependencies = [
 
 [[package]]
 name = "subnet-node"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "async-h1",
  "async-std",
  "backtrace",
  "base64 0.12.3",
- "clarity",
+ "clarity 0.0.1 (git+https://github.com/stacks-network/stacks-blockchain.git?tag=2.1.0.0.0)",
  "http-types",
  "lazy_static",
  "libc",
@@ -2832,7 +2881,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "slog",
- "stacks-common",
+ "stacks-common 0.0.1 (git+https://github.com/stacks-network/stacks-blockchain.git?tag=2.1.0.0.0)",
  "stacks-subnets",
  "stx-genesis",
  "tokio",

@@ -219,8 +219,8 @@ impl RPCPeerInfoData {
         genesis_chainstate_hash: &Sha256Sum,
     ) -> RPCPeerInfoData {
         let server_version = version_string(
-            "stacks-node",
-            option_env!("STACKS_NODE_VERSION")
+            "subnet-node",
+            option_env!("SUBNET_NODE_VERSION")
                 .or(option_env!("CARGO_PKG_VERSION"))
                 .unwrap_or("0.0.0.0"),
         );
@@ -263,6 +263,7 @@ impl RPCPeerInfoData {
             genesis_chainstate_hash: genesis_chainstate_hash.clone(),
             node_public_key: Some(public_key_buf),
             node_public_key_hash: Some(public_key_hash),
+            l1_subnet_governing_contract: network.burnchain.subnet_governing_contract.to_string(),
         }
     }
 }
@@ -1660,8 +1661,9 @@ impl ConversationHttp {
 
         let response =
             match chainstate.maybe_read_only_clarity_tx(&sortdb.index_conn(), tip, |clarity_tx| {
+                let epoch = clarity_tx.get_epoch();
                 clarity_tx.with_analysis_db_readonly(|db| {
-                    let contract = db.load_contract(&contract_identifier)?;
+                    let contract = db.load_contract(&contract_identifier, &epoch)?;
                     contract.contract_interface
                 })
             }) {
@@ -6270,10 +6272,10 @@ mod test {
 
     #[test]
     fn test_getinfo_compat() {
-        let old_getinfo_json = r#"{"peer_version":402653189,"pox_consensus":"b712eb731b613eebae814a8f416c5c15bc8391ec","burn_block_height":727631,"stable_pox_consensus":"53b5ed79842080500d7d83daa36aa1069dedf983","stable_burn_block_height":727624,"server_version":"stacks-node 0.0.1 (feat/faster-inv-generation:68f33190a, release build, linux [x86_64])","network_id":1,"parent_network_id":3652501241,"stacks_tip_height":52537,"stacks_tip":"b3183f2ac588e12319ff0fde78f97e62c92a218d87828c35710c29aaf7adbedc","stacks_tip_consensus_hash":"b712eb731b613eebae814a8f416c5c15bc8391ec","genesis_chainstate_hash":"74237aa39aa50a83de11a4f53e9d3bb7d43461d1de9873f402e5453ae60bc59b","unanchored_tip":"e76f68d607480e9984b4062b2691fb60a88423177898f5780b40ace17ae8982a","unanchored_seq":0,"exit_at_block_height":null}"#;
-        let getinfo_no_pubkey_hash_json = r#"{"peer_version":402653189,"pox_consensus":"b712eb731b613eebae814a8f416c5c15bc8391ec","burn_block_height":727631,"stable_pox_consensus":"53b5ed79842080500d7d83daa36aa1069dedf983","stable_burn_block_height":727624,"server_version":"stacks-node 0.0.1 (feat/faster-inv-generation:68f33190a, release build, linux [x86_64])","network_id":1,"parent_network_id":3652501241,"stacks_tip_height":52537,"stacks_tip":"b3183f2ac588e12319ff0fde78f97e62c92a218d87828c35710c29aaf7adbedc","stacks_tip_consensus_hash":"b712eb731b613eebae814a8f416c5c15bc8391ec","genesis_chainstate_hash":"74237aa39aa50a83de11a4f53e9d3bb7d43461d1de9873f402e5453ae60bc59b","unanchored_tip":"e76f68d607480e9984b4062b2691fb60a88423177898f5780b40ace17ae8982a","unanchored_seq":0,"exit_at_block_height":null,"node_public_key":"029b27d345e7bd2a6627262cefe6e97d9bc482f41ec32ec76a7bec391bb441798d"}"#;
-        let getinfo_no_pubkey_json = r#"{"peer_version":402653189,"pox_consensus":"b712eb731b613eebae814a8f416c5c15bc8391ec","burn_block_height":727631,"stable_pox_consensus":"53b5ed79842080500d7d83daa36aa1069dedf983","stable_burn_block_height":727624,"server_version":"stacks-node 0.0.1 (feat/faster-inv-generation:68f33190a, release build, linux [x86_64])","network_id":1,"parent_network_id":3652501241,"stacks_tip_height":52537,"stacks_tip":"b3183f2ac588e12319ff0fde78f97e62c92a218d87828c35710c29aaf7adbedc","stacks_tip_consensus_hash":"b712eb731b613eebae814a8f416c5c15bc8391ec","genesis_chainstate_hash":"74237aa39aa50a83de11a4f53e9d3bb7d43461d1de9873f402e5453ae60bc59b","unanchored_tip":"e76f68d607480e9984b4062b2691fb60a88423177898f5780b40ace17ae8982a","unanchored_seq":0,"exit_at_block_height":null,"node_public_key_hash":"046e6f832a83ff0da4a550907d3a44412cc1e4bf"}"#;
-        let getinfo_full_json = r#"{"peer_version":402653189,"pox_consensus":"b712eb731b613eebae814a8f416c5c15bc8391ec","burn_block_height":727631,"stable_pox_consensus":"53b5ed79842080500d7d83daa36aa1069dedf983","stable_burn_block_height":727624,"server_version":"stacks-node 0.0.1 (feat/faster-inv-generation:68f33190a, release build, linux [x86_64])","network_id":1,"parent_network_id":3652501241,"stacks_tip_height":52537,"stacks_tip":"b3183f2ac588e12319ff0fde78f97e62c92a218d87828c35710c29aaf7adbedc","stacks_tip_consensus_hash":"b712eb731b613eebae814a8f416c5c15bc8391ec","genesis_chainstate_hash":"74237aa39aa50a83de11a4f53e9d3bb7d43461d1de9873f402e5453ae60bc59b","unanchored_tip":"e76f68d607480e9984b4062b2691fb60a88423177898f5780b40ace17ae8982a","unanchored_seq":0,"exit_at_block_height":null,"node_public_key":"029b27d345e7bd2a6627262cefe6e97d9bc482f41ec32ec76a7bec391bb441798d","node_public_key_hash":"046e6f832a83ff0da4a550907d3a44412cc1e4bf"}"#;
+        let old_getinfo_json = r#"{"peer_version":402653189,"pox_consensus":"b712eb731b613eebae814a8f416c5c15bc8391ec","burn_block_height":727631,"stable_pox_consensus":"53b5ed79842080500d7d83daa36aa1069dedf983","stable_burn_block_height":727624,"server_version":"stacks-node 0.0.1 (feat/faster-inv-generation:68f33190a, release build, linux [x86_64])","network_id":1,"parent_network_id":3652501241,"stacks_tip_height":52537,"stacks_tip":"b3183f2ac588e12319ff0fde78f97e62c92a218d87828c35710c29aaf7adbedc","stacks_tip_consensus_hash":"b712eb731b613eebae814a8f416c5c15bc8391ec","genesis_chainstate_hash":"74237aa39aa50a83de11a4f53e9d3bb7d43461d1de9873f402e5453ae60bc59b","unanchored_tip":"e76f68d607480e9984b4062b2691fb60a88423177898f5780b40ace17ae8982a","unanchored_seq":0,"exit_at_block_height":null, "l1_subnet_governing_contract":"ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet"}"#;
+        let getinfo_no_pubkey_hash_json = r#"{"peer_version":402653189,"pox_consensus":"b712eb731b613eebae814a8f416c5c15bc8391ec","burn_block_height":727631,"stable_pox_consensus":"53b5ed79842080500d7d83daa36aa1069dedf983","stable_burn_block_height":727624,"server_version":"stacks-node 0.0.1 (feat/faster-inv-generation:68f33190a, release build, linux [x86_64])","network_id":1,"parent_network_id":3652501241,"stacks_tip_height":52537,"stacks_tip":"b3183f2ac588e12319ff0fde78f97e62c92a218d87828c35710c29aaf7adbedc","stacks_tip_consensus_hash":"b712eb731b613eebae814a8f416c5c15bc8391ec","genesis_chainstate_hash":"74237aa39aa50a83de11a4f53e9d3bb7d43461d1de9873f402e5453ae60bc59b","unanchored_tip":"e76f68d607480e9984b4062b2691fb60a88423177898f5780b40ace17ae8982a","unanchored_seq":0,"exit_at_block_height":null,"node_public_key":"029b27d345e7bd2a6627262cefe6e97d9bc482f41ec32ec76a7bec391bb441798d", "l1_subnet_governing_contract":"ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet"}"#;
+        let getinfo_no_pubkey_json = r#"{"peer_version":402653189,"pox_consensus":"b712eb731b613eebae814a8f416c5c15bc8391ec","burn_block_height":727631,"stable_pox_consensus":"53b5ed79842080500d7d83daa36aa1069dedf983","stable_burn_block_height":727624,"server_version":"stacks-node 0.0.1 (feat/faster-inv-generation:68f33190a, release build, linux [x86_64])","network_id":1,"parent_network_id":3652501241,"stacks_tip_height":52537,"stacks_tip":"b3183f2ac588e12319ff0fde78f97e62c92a218d87828c35710c29aaf7adbedc","stacks_tip_consensus_hash":"b712eb731b613eebae814a8f416c5c15bc8391ec","genesis_chainstate_hash":"74237aa39aa50a83de11a4f53e9d3bb7d43461d1de9873f402e5453ae60bc59b","unanchored_tip":"e76f68d607480e9984b4062b2691fb60a88423177898f5780b40ace17ae8982a","unanchored_seq":0,"exit_at_block_height":null,"node_public_key_hash":"046e6f832a83ff0da4a550907d3a44412cc1e4bf", "l1_subnet_governing_contract":"ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet"}"#;
+        let getinfo_full_json = r#"{"peer_version":402653189,"pox_consensus":"b712eb731b613eebae814a8f416c5c15bc8391ec","burn_block_height":727631,"stable_pox_consensus":"53b5ed79842080500d7d83daa36aa1069dedf983","stable_burn_block_height":727624,"server_version":"stacks-node 0.0.1 (feat/faster-inv-generation:68f33190a, release build, linux [x86_64])","network_id":1,"parent_network_id":3652501241,"stacks_tip_height":52537,"stacks_tip":"b3183f2ac588e12319ff0fde78f97e62c92a218d87828c35710c29aaf7adbedc","stacks_tip_consensus_hash":"b712eb731b613eebae814a8f416c5c15bc8391ec","genesis_chainstate_hash":"74237aa39aa50a83de11a4f53e9d3bb7d43461d1de9873f402e5453ae60bc59b","unanchored_tip":"e76f68d607480e9984b4062b2691fb60a88423177898f5780b40ace17ae8982a","unanchored_seq":0,"exit_at_block_height":null,"node_public_key":"029b27d345e7bd2a6627262cefe6e97d9bc482f41ec32ec76a7bec391bb441798d","node_public_key_hash":"046e6f832a83ff0da4a550907d3a44412cc1e4bf", "l1_subnet_governing_contract":"ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet"}"#;
 
         // they all parse
         for json_obj in &[
