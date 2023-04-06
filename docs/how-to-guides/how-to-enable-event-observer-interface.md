@@ -4,6 +4,10 @@ title: How to enable the event observer interface
 
 # Enable Event Observer Interface
 
+This document helps you build developer and API tools for Subnets.
+
+## Configure Event Observer Interface
+
 The `stacks-node` supports a configurable event observer interface. This is enabled by adding an entry to the node's `config.toml` file:
 
 ```toml
@@ -23,8 +27,7 @@ The `stacks-node` will then execute HTTP POSTs to the configured endpoint in two
 
 These events are sent to the configured endpoint at two URLs:
 
-
-### `POST /new_block`
+## `POST /new_block`
 
 This payload includes data related to a newly processed block and any events emitted from Stacks transactions during the block.
 
