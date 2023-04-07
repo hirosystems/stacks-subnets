@@ -1,14 +1,15 @@
 ---
-title: How to enable the event observer interface
+title: Event dispatching / observer interface
 ---
 
-# Enable Event Observer Interface
+# Event dispatching / observer interface
 
 This document helps you build developer and API tools for Subnets.
 
 ## Configure Event Observer Interface
 
-The `stacks-node` supports a configurable event observer interface. This is enabled by adding an entry to the node's `config.toml` file:
+The `stacks-node` supports a configurable event observer interface.
+This is enabled by adding an entry to the node's `config.toml` file:
 
 ```toml
 ...
@@ -20,18 +21,22 @@ events_keys = [
 ...
 ```
 
-The `stacks-node` will then execute HTTP POSTs to the configured endpoint in two events:
+The `stacks-node` will then execute HTTP POSTs to the configured
+endpoint in two events:
 
 1. A new Stacks block is processed.
 2. New mempool transactions have been received.
 
 These events are sent to the configured endpoint at two URLs:
 
-## `POST /new_block`
 
-This payload includes data related to a newly processed block and any events emitted from Stacks transactions during the block.
+### `POST /new_block`
 
-If the transaction originally comes from the parent microblock stream preceding this block, the microblock-related fields will be filled in.
+This payload includes data related to a newly processed block,
+and any events emitted from Stacks transactions during the block.
+
+If the transaction originally comes from the parent microblock stream 
+preceding this block, the microblock related fields will be filled in.
 
 Example:
 
@@ -112,7 +117,10 @@ Example:
 
 #### Layer 1-triggered transactions
 
-Some subnet transactions are broadcasted via layer-1 (just as some Stacks transactions are broadcasted via Bitcoin). These transactions use the `burnchain_op` field of the `transaction` object to convey information from the layer-1 operation. The following block payload contains an example of this:
+Some subnet transactions are broadcasted via the layer-1 (just as some
+Stacks transactions are broadcasted via Bitcoin). These transactions
+use the `burnchain_op` field of the `transaction` object to convey information
+from the layer-1 operation. The following block payload contains an example of this:
 
 ```json
   {
@@ -253,7 +261,8 @@ Some subnet transactions are broadcasted via layer-1 (just as some Stacks transa
   }
 ```
 
-The `burnchain_op` field contains an "externally tagged" object. These example burnchain ops cover the whole of the subnet burnchain_op enum:
+The `burnchain_op` field contains an "externally tagged" object. These example burnchain ops cover the whole of the
+subnet burnchain_op enum:
 
 ```json
 {
@@ -322,15 +331,15 @@ The `burnchain_op` field contains an "externally tagged" object. These example b
 }
 ```
 
-:::note
-
-The withdraw operations and block commit operations on the layer-1 do not impact the subnet's transaction state, so these burnchain ops will not appear in transaction receipts.
-
-:::
+**Note** that withdraw operations and block commit operations on the
+layer-1 do not impact the subnet's transaction state, so these
+burnchain ops will not appear in transaction receipts.
 
 ### `POST /new_burn_block`
 
-This payload includes information about burn blocks as their sortitions are processed. In the event of PoX forks, a `new_burn_block` event may be triggered for a burn block previously processed.
+This payload includes information about burn blocks as their sortitions are processed.
+In the event of PoX forks, a `new_burn_block` event may be triggered for a burn block
+previously processed.
 
 Example:
 
@@ -362,8 +371,8 @@ Example:
 
 ### `POST /new_microblocks`
 
-This payload includes data related to one or more microblocks that are either emitted by the 
-the node itself or received through the network. 
+This payload includes data related to one or more microblocks that are either emmitted by the 
+node itself, or received through the network. 
 
 Example:
 
@@ -413,12 +422,14 @@ Example:
 }
 ```
 
-* `burn_block_{}` are the stats related to the burn block associated with the stacks block preceding this microblock stream.
-* Each transaction JSON object includes information about the microblock the transaction was packaged into. 
+* `burn_block_{}` are the stats related to the burn block that is associated with the stacks 
+  block that precedes this microblock stream.
+* Each transaction json object includes information about the microblock the transaction was packaged into. 
 
 ### `POST /new_mempool_tx`
 
-This payload includes raw transactions newly received in the node's mempool.
+This payload includes raw transactions newly received in the
+node's mempool.
 
 Example:
 
@@ -431,7 +442,8 @@ Example:
 
 ### `POST /drop_mempool_tx`
 
-This payload includes raw transactions newly received in the node's mempool.
+This payload includes raw transactions newly received in the
+node's mempool.
 
 Example:
 
@@ -442,7 +454,7 @@ Example:
 }
 ```
 
-The reason can be one of the following:
+Reason can be one of:
 
 * `ReplaceByFee` - replaced by a transaction with the same nonce, but a higher fee
 * `ReplaceAcrossFork` - replaced by a transaction with the same nonce but in the canonical fork
@@ -451,9 +463,12 @@ The reason can be one of the following:
 
 ### `POST /mined_block`
 
-This payload includes data related to block mined by this Stacks node. This will never be invoked if the node is configured only as a follower. This is invoked when the miner **assembles** the block; this block may or may not win the sortition.
+This payload includes data related to block mined by this Stacks node. This
+will never be invoked if the node is configured only as a follower. This is invoked
+when the miner **assembles** the block; this block may or may not win the sortition.
 
-This endpoint will only broadcast events to observers that explicitly register for `MinedBlocks` events, `AnyEvent` observers will not receive the events by default.
+This endpoint will only broadcast events to observers that explicitly register for
+`MinedBlocks` events, `AnyEvent` observers will not receive the events by default.
 
 Example:
 
@@ -509,9 +524,13 @@ Example:
 
 ### `POST /mined_microblock`
 
-This payload includes data related to microblocks mined by this Stacks node. This will never be invoked if the node is configured only as a follower. This is invoked when the miner **assembles** the microblock; this microblock may or may be incorporated into the canonical chain.
+This payload includes data related to microblocks mined by this Stacks node. This
+will never be invoked if the node is configured only as a follower. This is invoked
+when the miner **assembles** the microblock; this microblock may or may be incorporated
+into the canonical chain.
 
-This endpoint will only broadcast events to observers that explicitly register for `MinedMicroblocks` events, `AnyEvent` observers will not receive the events by default.
+This endpoint will only broadcast events to observers that explicitly register for
+`MinedMicroblocks` events, `AnyEvent` observers will not receive the events by default.
 
 Example:
 

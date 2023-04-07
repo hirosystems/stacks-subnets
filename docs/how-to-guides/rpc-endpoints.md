@@ -58,7 +58,8 @@ Possible values for the "reason" field and "reason_data" field are:
    * The `reason_data` field will be an object containing a `message`
      string detailing why the supplied argument was bad.
 * `ContractAlreadyExists`
-   * The `reason_data` field will be an object containing a `contract_identifier` string representing the contract identifier that would be duplicated.
+   * The `reason_data` field will be an object containing a `contract_identifier`
+     string representing the contract identifier that would be duplicated.
 * `PoisonMicroblocksDoNotConflict`
 * `PoisonMicroblockHasUnknownPubKeyHash`
 * `PoisonMicroblockIsInvalid`
@@ -81,11 +82,23 @@ Get current PoX-relevant information. See OpenAPI [spec](./rpc/openapi.yaml) for
 
 ### GET /v2/headers/[Count]
 
-Get a given number of ancestral Stacks block headers in order from newest to oldest. If the `?tip=` query parameter is given, the headers will be loaded from the block identified by the tip. If no `?tip=` query parameter is given, then the canonical Stacks chain tip will be used. The first header in the list is the header of the `?tip=` query parameter (or the canonical tip of the blockchain); the second header is the parent block's header; the third header is the grandparent block's header, and so on. [Count] determines how many headers, including this first header, to return.
+Get a given number of ancestral Stacks block headers, in order from newest to
+oldest.  If the `?tip=` query parameter is given, the headers will be loaded
+from the block identified by the tip.  If no `?tip=` query parameter is given,
+then the canonical Stacks chain tip will be used.  The first header in the list
+is the header of the `?tip=` query parameter (or the canonical tip of the blockchain);
+the second header is the parent block's header; the third header is the
+grandparent block's header, and so on. [Count] determines how many headers, including this first header, to return.
 
-Up to 2100 headers (one PoX reward cycle) may be returned by this endpoint. Callers who wish to download more headers will need to issue this query multiple times, with a `?tip=` query parameter set to the index block hash of the earliest header received.
+Up to 2100 headers (one PoX reward cycle) may be returned by this endpoint.
+Callers who wish to download more headers will need to issue this query
+multiple times, with a `?tip=` query parameter set to the index block hash of
+the earliest header received.
 
-Returns a [SIP-003](https://github.com/stacksgov/sips/blob/main/sips/sip-003/sip-003-peer-network.md)-encoded vector with length up to [Count] that contains a list of the following SIP-003-encoded structures:
+Returns a
+[SIP-003](https://github.com/stacksgov/sips/blob/main/sips/sip-003/sip-003-peer-network.md)-encoded
+vector with length up to [Count] that contains a list of the following SIP-003-encoded
+structures:
 
 ```
 struct ExtendedStacksHeader {
@@ -115,7 +128,8 @@ struct StacksBlockHeader {
 }
 ```
 
-Where `BlockHeaderHash`, `Sha512Trunc256Sum`, and `TrieHash` are 32-byte byte buffers.
+Where `BlockHeaderHash`, `Sha512Trunc256Sum`, and `TrieHash` are 32-byte byte
+buffers.
 
 Where `Hash160` is a 20-byte byte buffer.
 
@@ -136,17 +150,31 @@ struct VRFProof {
 }
 ```
 
-The interpretation of most these fields is beyond the scope of this document (please see [SIP-005](https://github.com/stacksgov/sips/blob/main/sips/sip-005/sip-005-blocks-and-transactions.md) for details). However, it is worth pointing out that `parent_block_id` is a valid argument to the `?tip=` query parameter. If the caller of this API endpoint wants to receive more than 2100 contiguous headers, it will use the oldest header's `parent_block_id` field from the previous call as the `?tip=` argument to the next call in order to fetch the next batch of ancestor headers.
+The interpretation of most these fields is beyond the scope of this document (please
+see
+[SIP-005](https://github.com/stacksgov/sips/blob/main/sips/sip-005/sip-005-blocks-and-transactions.md)
+for details).  However, it is worth pointing out that `parent_block_id` is a
+valid argument to the `?tip=` query parameter.  If the caller of this API
+endpoint wants to receive more than 2100 contiguous headers, it would use the
+oldest header's `parent_block_id` field from the previous call as the `?tip=`
+argument to the next call in order to fetch the next batch of ancestor headers.
 
-This API endpoint may return a list of zero headers if `?tip=` refers to the hash of the Stacks genesis block.
+This API endpoint may return a list of zero headers if `?tip=` refers to the
+hash of the Stacks genesis block.
 
-This API endpoint will return HTTP 404 if the `?tip=` argument is given but refers to a non-existent Stacks block, or a Stacks block that has not yet been processed by the node.
+This API endpoint will return HTTP 404 if the `?tip=` argument is given but
+refers to a nonexistent Stacks block, or a Stacks block that has not yet been
+processed by the node.
 
-The `?tip=` argument may refer to a Stacks block that is not on the canonical fork. In this case, this endpoint behaves as described above, except that non-canonical headers will be returned instead.
+The `?tip=` argument may refer to a Stacks block that is not on the canonical
+fork.  In this case, this endpoint behaves as described above, except that
+non-canonical headers will be returned instead.
 
 ### GET /v2/accounts/[Principal]
 
-Get the account data for the provided principal. The principal string is either a Stacks address or a Contract identifier (e.g., `SP31DA6FTSJX2WGTZ69SFY11BH51NZMB0ZW97B5P0.get-info`
+Get the account data for the provided principal.
+The principal string is either a Stacks address or a Contract identifier (e.g., 
+`SP31DA6FTSJX2WGTZ69SFY11BH51NZMB0ZW97B5P0.get-info`
 
 Returns JSON data in the form:
 
@@ -159,15 +187,20 @@ Returns JSON data in the form:
 }
 ```
 
-Where balance is the hex encoding of a unsigned 128-bit integer (big-endian), nonce is a unsigned 64-bit integer, and the proofs are provided as hex strings.
+Where balance is the hex encoding of a unsigned 128-bit integer
+(big-endian), nonce is a unsigned 64-bit integer, and the proofs are
+provided as hex strings.
 
-For non-existent accounts, this _does not_ 404, rather it returns an object with balance and nonce of 0.
+For non-existent accounts, this _does not_ 404, rather it returns an
+object with balance and nonce of 0.
 
-This endpoint also accepts a querystring parameter `?proof=` which when supplied `0`, will return the JSON object _without_ the `balance_proof` or `nonce_proof` fields.
+This endpoint also accepts a querystring parameter `?proof=` which when supplied `0`, will return the
+JSON object _without_ the `balance_proof` or `nonce_proof` fields.
 
 ### GET /v2/data_var/[Stacks Address]/[Contract Name]/[Var Name]
 
-Attempt to vetch a data var from a contract. The contract is identified with [Stacks Address] and [Contract Name] in the URL path. The variable is identified with [Var Name].
+Attempt to vetch a data var from a contract. The contract is identified with [Stacks Address] and
+ [Contract Name] in the URL path. The variable is identified with [Var Name].
  
 Returns JSON data in the form:
 
@@ -180,13 +213,16 @@ Returns JSON data in the form:
 
 Where data is the hex serialization of the variable value.
 
-This endpoint also accepts a `querystring` parameter `?proof=` which when supplied `0`, will return the JSON object _without_ the `proof` field.
+This endpoint also accepts a querystring parameter `?proof=` which when supplied `0`, will return the
+JSON object _without_ the `proof` field.
 
 ### POST /v2/map_entry/[Stacks Address]/[Contract Name]/[Map Name]
 
-Attempt to fetch data from a contract data map. The contract is identified with [Stacks Address] and [Contract Name] in the URL path. The map is identified with [Map Name].
+Attempt to fetch data from a contract data map. The contract is identified with [Stacks Address] and
+ [Contract Name] in the URL path. The map is identified with [Map Name].
  
-The _key_ to lookup at the map is supplied via the POST body. This should be supplied as the hex string serialization of the key (which should be a Clarity value). Note this is a _JSON_ string atom.
+The _key_ to lookup in the map is supplied via the POST body. This should be supplied as the hex string
+serialization of the key (which should be a Clarity value). Note, this is a _JSON_ string atom.
 
 Returns JSON data in the form:
 
@@ -197,9 +233,12 @@ Returns JSON data in the form:
 }
 ```
 
-Where data is the hex serialization of the map response. Note that map responses are Clarity _option_ types, for non-existent values, this is a serialized `none`, and for all other responses, it is a serialized `(some ...)` object.
+Where data is the hex serialization of the map response. Note that map responses are Clarity _option_ types,
+for non-existent values, this is a serialized `none`, and for all other responses, it is a serialized `(some ...)`
+object.
 
-This endpoint also accepts a querystring parameter `?proof=` which when supplied `0`, will return the JSON object _without_ the `proof` field.
+This endpoint also accepts a querystring parameter `?proof=` which when supplied `0`, will return the
+JSON object _without_ the `proof` field.
 
 ### GET /v2/fees/transfer
 
@@ -358,7 +397,8 @@ This returns a JSON object of the form:
 
 ### GET /v2/contracts/source/[Stacks Address]/[Contract Name]
 
-Fetch the source for a smart contract, along with the block height it was published in, and the MARF proof for the data.
+Fetch the source for a smart contract, along with the block height it was
+published in, and the MARF proof for the data.
 
 ```
 {
@@ -368,14 +408,16 @@ Fetch the source for a smart contract, along with the block height it was publis
 }
 ```
 
-This endpoint also accepts a `querystring` parameter `?proof=` which when supplied `0`, will return the JSON object _without_ the `proof`
+This endpoint also accepts a querystring parameter `?proof=` which
+when supplied `0`, will return the JSON object _without_ the `proof`
 field.
 
 ### POST /v2/contracts/call-read/[Stacks Address]/[Contract Name]/[Function Name]
 
 Call a read-only public function on a given smart contract.
 
-The smart contract and function are specified using the URL path. The arguments and the simulated `tx-sender` are supplied via the POST body in the following JSON format:
+The smart contract and function are specified using the URL path. The arguments and
+the simulated `tx-sender` are supplied via the POST body in the following JSON format:
 
 ```
 {
@@ -384,7 +426,8 @@ The smart contract and function are specified using the URL path. The arguments 
 }
 ```
 
-Where the sender is either a Contract identifier or a normal Stacks address, and the argument is an array of hex serialized Clarity values.
+Where sender is either a Contract identifier or a normal Stacks address, and arguments
+is an array of hex serialized Clarity values.
 
 This endpoint returns a JSON object of the following form:
 
@@ -395,9 +438,11 @@ This endpoint returns a JSON object of the following form:
 }
 ```
 
-Where `"okay"` is `true` if the function is executed successfully, and the result contains the hex serialization of the Clarity return value.
+Where `"okay"` is `true` if the function executed successfully, and result contains the
+hex serialization of the Clarity return value.
 
-If an error occurs in processing the function call, this endpoint returns a 200 response with a JSON an object of the following form:
+If an error occurs in processing the function call, this endpoint returns a 200 response with a JSON
+object of the following form:
 
 ```
 {
@@ -414,7 +459,10 @@ See OpenAPI [spec](./rpc/openapi.yaml) for details.
 
 ### GET /v2/withdrawal/stx/[Block Height]/[Withdrawer Stacks Address]/[Withdrawal ID]/[Amount]
 
-Attempt to vetch withdrawal hash information for a specific withdrawal. This endpoint requires the block height at which the withdrawal happened, the withdrawal sender, the withdrawal ID of the withdrawal (which is generated by the node), and the amount withdrawn. If a block has only one withdrawal, the withdrawal ID is 0. The returned information can be used to finalize a withdrawal through the subnet contract on the L1 chain.
+Attempt to vetch withdrawal hash information for a specific withdrawal. This endpoint requires
+the block height at which the withdrawal happened, the withdrawal sender, the withdrawal ID of the withdrawal
+(which is generated by the node), and the amount withdrawn. If a block has only 1 withdrawal, the withdrawal ID is 0.
+The returned information can be used to finalize a withdrawal through the subnet contract on the L1 chain.
 
 Returns JSON data in the form:
 
@@ -428,8 +476,11 @@ Returns JSON data in the form:
 
 ### GET /v2/withdrawal/nft/[Block Height]/[Withdrawer Stacks Address]/[Withdrawal ID]/[Contract Stacks Address]/[Contract Name]/[Asset Name]/[Asset ID]
 
-Attempt to vetch withdrawal hash information for a specific withdrawal. The NFT contract is identified with [Contract Stacks Address] and [Contract Name] in the URL path. The NFT is further identified with [Asset Name] and [Asset ID]. This endpoint also requires the block height at which the withdrawal happened, the withdrawal sender, and the withdrawal ID of the withdrawal 
-(which is generated by the node). If a block has only one withdrawal, the withdrawal ID is 0. The returned information can be used to finalize a withdrawal through the subnet contract on the L1 chain. 
+Attempt to vetch withdrawal hash information for a specific withdrawal. The NFT contract is identified with [Contract Stacks Address] and
+[Contract Name] in the URL path. The NFT is further identified with [Asset Name] and [Asset ID]. This endpoint also requires
+the block height at which the withdrawal happened, the withdrawal sender, and the withdrawal ID of the withdrawal 
+(which is generated by the node). If a block has only 1 withdrawal, the withdrawal ID is 0.
+The returned information can be used to finalize a withdrawal through the subnet contract on the L1 chain. 
 
 Returns JSON data in the form:
 
