@@ -4710,6 +4710,37 @@ impl StacksChainState {
             .collect()
     }
 
+    fn make_nft_withdrawal_event(
+        subnet_contract_id: QualifiedContractIdentifier,
+        sender: PrincipalData,
+        id: u128,
+        mainnet: bool,
+    ) -> StacksTransactionEvent {
+        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+            key: (boot_code_id("subnet", mainnet), "print".into()),
+            value: TupleData::from_data(vec![
+                (
+                    "event".into(),
+                    Value::string_ascii_from_bytes("withdraw".into())
+                        .expect("Supplied string was not ASCII"),
+                ),
+                (
+                    "type".into(),
+                    Value::string_ascii_from_bytes("nft".into())
+                        .expect("Supplied string was not ASCII"),
+                ),
+                ("sender".into(), Value::Principal(sender)),
+                ("id".into(), Value::UInt(id)),
+                (
+                    "asset-contract".into(),
+                    Value::Principal(PrincipalData::Contract(subnet_contract_id)),
+                ),
+            ])
+            .expect("Failed to create tuple data.")
+            .into(),
+        })
+    }
+
     /// Process any deposit NFT operations that haven't been processed in this
     /// subnet fork yet.
     pub fn process_deposit_nft_ops(
@@ -4717,6 +4748,7 @@ impl StacksChainState {
         operations: Vec<DepositNftOp>,
     ) -> Vec<StacksTransactionReceipt> {
         let mainnet = clarity_tx.config.mainnet;
+        let boot_addr = PrincipalData::from(boot_code_addr(mainnet));
         let cost_so_far = clarity_tx.cost_so_far();
         // return valid receipts
         operations
@@ -4732,11 +4764,11 @@ impl StacksChainState {
                 } = deposit_nft_op.clone();
                 let result = clarity_tx.connection().as_transaction(|tx| {
                     tx.run_contract_call(
-                        &boot_code_addr(mainnet).into(),
+                        &boot_addr,
                         None,
                         &subnet_contract_id,
                         DEPOSIT_FUNCTION_NAME,
-                        &[Value::UInt(id), Value::Principal(sender)],
+                        &[Value::UInt(id), Value::Principal(sender.clone())],
                         |_, _| false,
                     )
                 });
@@ -4746,22 +4778,47 @@ impl StacksChainState {
                     .expect("BUG: cost declined between executions");
 
                 match result {
-                    Ok((value, _, events)) => Some(StacksTransactionReceipt {
-                        transaction: TransactionOrigin::Burn(deposit_nft_op.into()),
-                        events,
-                        result: value,
-                        post_condition_aborted: false,
-                        stx_burned: 0,
-                        contract_analysis: None,
-                        execution_cost,
-                        microblock_header: None,
-                        tx_index: 0,
-                    }),
+                    Ok((value, _, mut events)) => {
+                        // Examine response to see if transaction failed
+                        let deposit_op_failed = match &value {
+                            Value::Response(r) => r.committed == false,
+                            _ => {
+                                // TODO: Do anything for the case where `value` is not of type `Value::Response()`?
+                                warn!("DepositNft op returned unexpected value"; "value" => %value);
+                                false
+                            }
+                        };
+
+                        // If deposit fails, create a withdrawal event to send NFT back to user
+                        if deposit_op_failed {
+                            info!("DepositNft op failed. Issue withdrawal tx");
+                            events.push(Self::make_nft_withdrawal_event(
+                                subnet_contract_id,
+                                sender,
+                                id,
+                                mainnet,
+                            ));
+                        };
+
+                        Some(StacksTransactionReceipt {
+                            transaction: TransactionOrigin::Burn(deposit_nft_op.into()),
+                            events,
+                            result: value,
+                            post_condition_aborted: false,
+                            stx_burned: 0,
+                            contract_analysis: None,
+                            execution_cost,
+                            microblock_header: None,
+                            tx_index: 0,
+                        })
+                    }
                     Err(e) => {
+                        // Deposit was not processed, log and do nothing else?
                         info!("DepositNft op processing error.";
                               "error" => ?e,
                               "txid" => %txid,
                               "burn_block" => %burn_header_hash);
+
                         None
                     }
                 }
