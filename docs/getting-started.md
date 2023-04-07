@@ -1,35 +1,33 @@
 ---
-# The default id is the same as the one being defined below. so not needed
+# The default id is the same as the one defined below. so not needed
 title: Getting Started
 ---
 
 # Getting Started
 
-Developers can test their applications on a subnet either locally, or on Hiro's
+Developers can test their applications on a subnet either locally or on Hiro's
 hosted testnet subnet. This page describes two different walkthroughs that
 illustrate how to use a subnet.
 
 - Run a local subnet
 - Use Hiro's subnet on testnet
 
-> **_NOTE:_**
->
-> A subnet was previously referred to as a hyperchain. While the process of
-> updating the content is ongoing, there may still be some references to a
-> hyperchain instead of a subnet.
+:::note
+
+A subnet was previously referred to as a hyperchain. While the process of updating the content is ongoing, there may still be some references to a
+hyperchain instead of a subnet.
+
+:::
+
 
 ## Run a local subnet
 
-Clarinet provides a tool to set up a complete local development environment,
-referred to as "devnet", which uses Docker to spin up a Bitcoin node, a Stacks
-node, a Stacks API node, a Stacks Explorer, and now, a subnet node and subnet
-API node. This allows developers to test locally on a system that matches the
-production environment.
+Clarinet provides a tool to set up a complete local development environment, referred to as "devnet," which uses Docker to spin up a Bitcoin node, a Stacks node, a Stacks API node, a Stacks Explorer, and now, a subnet node and subnet API node. This allows developers to test locally on a system that matches the production environment.
 
 In this section, we will explain how to launch and interact with this devnet
 subnet environment using a simple NFT example project.
 
-Make sure you have `clarinet` installed, and the clarinet version is at 1.5.3 or
+Ensure you have `clarinet` installed and the version is 1.5.3 or
 above. If you do not already have clarinet installed, please refer to the
 clarinet installation instructions
 [here](https://docs.hiro.so/smart-contracts/clarinet#installing-clarinet) for
@@ -49,9 +47,7 @@ initialized, and then switches into that directory.
 
 ### Create the contracts
 
-Clarinet does not yet support deploying a contract to a subnet, so we will not
-use it to manage our subnet contracts in this guide. Instead, we will manually
-deploy our subnet contracts for now.
+The clarinet does not yet support deploying a contract to a subnet, so we will not use it to manage our subnet contracts in this guide. Instead, we will manually deploy our subnet contracts for now.
 
 #### Creating the Stacks (L1) contract
 
@@ -65,9 +61,9 @@ for us.
 clarinet requirements add ST1NXBK3K5YYMD6FD41MVNP3JS1GABZ8TRVX023PT.nft-trait
 ```
 
-We'll also use a new trait defined for the subnet, `mint-from-subnet-trait`,
+We'll also use a new trait defined for the subnet, `mint-from-subnet-trait,`
 that allows the subnet to mint a new asset on the Stacks chain if it was
-originally minted on the subnet, and then withdrawn. We will add a requirement
+originally minted on the subnet and then withdrawn. We will add a requirement
 for this contract as well:
 
 ```sh
@@ -141,15 +137,14 @@ following clarity code:
 )
 ```
 
-Note that this contract implements the `mint-from-subnet-trait`, in addition to
-the SIP-009 `nft-trait`. When `mint-from-subnet-trait` is implemented, it allows
-an NFT to be minted on the subnet, then later withdrawn to the L1.
+Note that this contract implements the `mint-from-subnet-trait` and
+the SIP-009 `nft-trait.` When `mint-from-subnet-trait` is implemented, it allows an NFT to be minted on the subnet, then later withdrawn to the L1.
 
 #### Creating the subnet (L2) contract
 
 Next, we will create the subnet contract at _./contracts/simple-nft-l2.clar_. As
 mentioned earlier, Clarinet does not support deploying subnet contracts yet, so
-we will manually create this file, and add the following contents:
+we will manually create this file and add the following contents:
 
 ```clarity
 (define-constant CONTRACT_OWNER tx-sender)
@@ -222,7 +217,7 @@ we will manually create this file, and add the following contents:
 )
 ```
 
-Note that this contract implements the `nft-trait` and the `subnet-asset` trait.
+This contract implements the `nft-trait` and the `subnet-asset` trait.
 The `nft-trait` is the same as the SIP-009 trait on the Stacks network.
 `subnet-asset` defines the functions required for deposit and withdrawal.
 `deposit-from-burnchain` is invoked by the subnet node's consensus logic
@@ -233,9 +228,7 @@ layer-1.
 
 ### Start the devnet
 
-The settings for the devnet are found in _./settings/Devnet.toml_. In order to
-launch a subnet in the devnet, we need to tell Clarinet to enable a subnet node
-and a corresponding API node.
+The settings for the devnet are found in _./settings/Devnet.toml_. In order to launch a subnet in the devnet, we need to tell Clarinet to enable a subnet node and a corresponding API node.
 
 Add, or uncomment, the following line under `[devnet]`:
 
@@ -243,11 +236,8 @@ Add, or uncomment, the following line under `[devnet]`:
 enable_subnet_node = true
 ```
 
-Also in that file, we can see a few of the default settings that `clarinet` will
-be using for our subnet. `subnet_contract_id` specifies the L1 contract that the
-subnet will be interacting with. This will be automatically downloaded from the
-network and deployed by `clarinet`, but you can take a look at it
-[here](https://explorer.hiro.so/txid/0x928db807c802078153009524e8f7f062ba45371e72a763ce60ed04a70aaefddc?chain=testnet)
+Also, in that file, we can see a few default settings that `clarinet` will
+be using for our subnet. `subnet_contract_id` specifies the L1 contract with which the subnet will be interacting. This will be automatically downloaded from the network and deployed by `clarinet,` but you can take a look at it [here](https://explorer.hiro.so/txid/0x928db807c802078153009524e8f7f062ba45371e72a763ce60ed04a70aaefddc?chain=testnet)
 if interested.
 
 ```toml
@@ -281,15 +271,12 @@ All of the nodes and services are running and ready when we see:
 
 ![Clarinet integrate services](images/subnet-devnet.png)
 
-Once this state is reached, we should see successful calls to `commit-block` in
-the transactions console. This is the subnet miner committing blocks to the L1.
-Leave this running and perform the next steps in another terminal.
+Once this state is reached, we should see successful calls to `commit-block` in the transactions console. This is the subnet miner committing blocks to the L1. Leave this running and perform the next steps in another terminal.
 
 ### Setup Node.js scripts
 
 To submit transactions to Hiro's Stacks node and subnet node, we will use
-[Stacks.js](https://stacks.js.org) and some simple scripts. We will start by
-creating a new directory, _./scripts/_ for these scripts.
+[Stacks.js](https://stacks.js.org) and some simple scripts. We will create a new directory, _./scripts/_, for these scripts.
 
 ```sh
 mkdir scripts
@@ -381,12 +368,9 @@ main();
 
 #### Register NFT script
 
-We also need to register our NFT with our subnet, allowing it to be deposited
-into the subnet. To do this, we'll write another script, but because we only
-need to do this once, we will hardcode our details into the script.
+We also need to register our NFT with our subnet, allowing it to be deposited into the subnet. To do this, we'll write another script, but because we only need to do this once, we will hardcode our details into the script.
 
-This script calls `register-new-nft-contract` on the L1 subnet contract, passing
-the L1 and L2 NFT contracts we will publish.
+This script calls `register-new-nft-contract` on the L1 subnet contract, passing the L1 and L2 NFT contracts we will publish.
 
 _register.js_:
 
@@ -435,10 +419,7 @@ main();
 
 #### Mint NFT script
 
-In order to move NFTs to and from the subnet, we will need to have some NFTs on
-our devnet. To do this, we need to mint, so we also write a script for
-submitting NFT mint transactions to the layer-1 network. This script takes just
-one argument: the user's current account nonce.
+In order to move NFTs to and from the subnet, we will need to have some NFTs on our devnet. To do this, we need to mint, so we also write a script for submitting NFT mint transactions to the layer-1 network. This script takes just one argument: the user's current account nonce.
 
 _mint.js_:
 
@@ -484,10 +465,7 @@ main();
 
 #### Deposit NFT script
 
-We also want to be able to deposit an asset into the subnet. To do this, we will
-write another script to call the `deposit-nft-asset` function on the layer-1
-subnet contract. Like the NFT minting script, this script takes just one
-argument: the user's current account nonce.
+We also want to be able to deposit an asset into the subnet. To do this, we will write another script to call the `deposit-nft-asset` function on the layer-1 subnet contract. Like the NFT minting script, this script takes just one argument: the user's current account nonce.
 
 _deposit.js_
 
@@ -540,10 +518,7 @@ main();
 
 #### Transfer NFT script
 
-To demonstrate some subnet transactions, we will want to transfer an NFT from
-one user to another. We will write another script to invoke the NFT's `transfer`
-function in the subnet. Again, this script takes just one argument: the user's
-current account nonce.
+We will want to transfer an NFT from one user to another to demonstrate some subnet transactions. We will write another script to invoke the NFT's `transfer` function in the subnet. Again, this script takes just one argument: the user's current account nonce.
 
 _transfer.js_
 
@@ -595,10 +570,7 @@ main();
 
 #### L2 withdraw script
 
-In order to withdraw an asset from a subnet, users must first submit a withdraw
-transaction on that subnet. To support this, we will write a script that invokes
-the `nft-withdraw?` method on the layer-2 subnet contract. This script takes
-just a single argument: the user's current account nonce.
+In order to withdraw an asset from a subnet, users must first submit a withdraw transaction on that subnet. To support this, we will write a script that invokes the `nft-withdraw?` method on the layer-2 subnet contract. This script takes just a single argument: the user's current account nonce.
 
 _withdraw-l2.js_
 
@@ -651,14 +623,9 @@ main();
 
 #### L1 withdraw script
 
-The second step of a withdrawal is to call the `withdraw-nft-asset` method on
-the layer-1 subnet contract. This method requires information from the subnet to
-verify that the withdrawal is valid. We will write a script that queries our
-subnet node's RPC interface for this information and then issues the layer-1
-withdrawal transaction.
+The second step of a withdrawal is to call the `withdraw-nft-asset` method on the layer-1 subnet contract. This method requires information from the subnet to verify that the withdrawal is valid. We will write a script that queries our subnet node's RPC interface for this information and then issues the layer-1 withdrawal transaction.
 
-This scripts has two input arguments: the (subnet) block height of the layer-2
-withdrawal transaction, and the user's current account nonce.
+This script has two input arguments: the (subnet) block height of the layer-2 withdrawal transaction, and the user's current account nonce.
 
 _withdraw-l1.js_
 
@@ -731,10 +698,7 @@ main();
 
 #### Verify script
 
-Lastly, we need a simple way to query for the current owner of an NFT, so we
-will write a script that invokes the read-only `get-owner` function via either
-the subnet or stacks node's RPC interface. This script takes just one argument
-indicating whether it should query the subnet (`2`) or the stacks node (`1`).
+Lastly, we need a simple way to query for the current owner of an NFT, so we will write a script that invokes the read-only `get-owner` function via either the subnet or stacks node's RPC interface. This script takes just one argument indicating whether it should query the subnet (`2`) or the stacks node (`1`).
 
 _verify.js_
 
@@ -777,8 +741,7 @@ main();
 
 ### Interacting with the subnet
 
-We will now use this set of scripts to demonstrate a subnet's functionality. We
-will:
+We will now use this set of scripts to demonstrate a subnet's functionality. We will:
 
 1. Publish our NFT contract on the subnet
 2. Mint a new NFT in the stacks network
@@ -795,23 +758,18 @@ node ./publish.js simple-nft-l2 ../contracts/simple-nft-l2.clar 2 0
 Clarinet's interface doesn't show the transactions on the subnet, but we can see
 the transaction in our local explorer instance. In a web browser, visit
 http://localhost:8000. By default, it will open the explorer for the devnet L1.
-To switch to the subnet, click on "Network" in the top right, then "Add a
-network". In the popup, choose a name, e.g. "Devnet Subnet", then for the URL,
-use "http://localhost:13999". You will know this contract deployment succeedeed
-when you see the contract deploy transaction for "simple-nft-l2" in the list of
-confirmed transactions.
+To switch to the subnet, select "Network" in the top right, then "Add a
+network." In the popup, choose a name, e.g., "Devnet Subnet," then for the URL, use "http://localhost:13999". You will know this contract deployment succeeded when you see the contract deploy transaction for "simple-nft-l2" in the list of confirmed transactions.
 
-![contract deploy confirmed](images/confirmed.png)
+![contract deploy confirmed](images/subnets-deployment-confirmed.png)
 
-Now that the NFT contracts are deployed to both the L1 and the L2, we will
-register the NFT with the subnet.
+Now that the NFT contracts are deployed to both the L1 and the L2, we will register the NFT with the subnet.
 
 ```sh
 node ./register.js
 ```
 
-This is an L1 transaction, so you can watch for it in the Clarinet interface or
-in the Devnet network on the explorer.
+This is an L1 transaction so that you can watch for it in the Clarinet interface or the Devnet network on the Explorer.
 
 Now, we need an asset to work with, so we will mint an NFT on the L1:
 
@@ -819,8 +777,13 @@ Now, we need an asset to work with, so we will mint an NFT on the L1:
 node ./mint.js 0
 ```
 
-We can see this transaction either on the Clarinet interface or in the Devnet
-network on the explorer.
+We can see this transaction either on the Clarinet interface or in the Devnet network on Explorer.
+
+:::note
+
+You can troubleshoot your transactions based on the logs exposed by clarinet [here](https://docs.hiro.so/clarinet/how-to-guides/how-to-run-integration-environment#devnet-interface).
+
+:::
 
 Once the mint has been processed, we can deposit it into the subnet:
 
@@ -828,8 +791,7 @@ Once the mint has been processed, we can deposit it into the subnet:
 node ./deposit.js 1
 ```
 
-We can see this transaction either on the Clarinet interface or in the Devnet
-network on the explorer.
+We can see this transaction either on the Clarinet interface or in the Devnet network on the explorer.
 
 We can verify that the NFT is now owned by the subnet contract
 (`ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet-v1-1`) on the L1 using:
@@ -854,7 +816,7 @@ node ./transfer.js 1
 
 We can see this transaction in the "Devnet Subnet" network in our explorer.
 
-If we call the `verify.js` script again, we should now see that the NFT is owned
+If we call the `verify.js` script again, we should now see that the NFT is owned.
 by `ST2REHHS5J3CERCRBEPMGH7921Q6PYKAADT7JP2VB`.
 
 Now, we will initiate a withdrawal from the subnet, by calling the
@@ -864,9 +826,7 @@ Now, we will initiate a withdrawal from the subnet, by calling the
 node ./withdraw-l2.js 0
 ```
 
-We can confirm that this transaction is successful in the L2 explorer. In the
-explorer, note the block height that this withdrawal transaction is included in.
-Fill in this block height for `$height` in the next step.
+We can confirm that this transaction is successful in the L2 explorer. In the explorer, note the block height that this withdrawal transaction is included in. Fill in this block height for `$height` in the next step.
 
 For the second part of the withdraw, we call `withdraw-nft-asset` on the L1
 subnet contract:
@@ -878,7 +838,7 @@ node ./withdraw-l1.js $height 0
 This is an L1 transaction, so it can be confirmed in the L1 explorer or in the
 Clarinet terminal UI.
 
-If everything went well, now the NFT should be owned by the correct user on the
+If everything goes well, now the NFT should be owned by the correct user on the
 L1 (`ST2REHHS5J3CERCRBEPMGH7921Q6PYKAADT7JP2VB`):
 
 ```sh

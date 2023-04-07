@@ -1,4 +1,12 @@
+---
+title: Event dispatching / observer interface
+---
+
 # Event dispatching / observer interface
+
+This document helps you build developer and API tools for Subnets.
+
+## Configure Event Observer Interface
 
 The `stacks-node` supports a configurable event observer interface.
 This is enabled by adding an entry to the node's `config.toml` file:
