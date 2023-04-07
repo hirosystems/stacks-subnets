@@ -4710,6 +4710,37 @@ impl StacksChainState {
             .collect()
     }
 
+    fn make_nft_withdrawal_event(
+        subnet_contract_id: QualifiedContractIdentifier,
+        sender: PrincipalData,
+        id: u128,
+        mainnet: bool,
+    ) -> StacksTransactionEvent {
+        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+            key: (boot_code_id("subnet", mainnet), "print".into()),
+            value: TupleData::from_data(vec![
+                (
+                    "event".into(),
+                    Value::string_ascii_from_bytes("withdraw".into())
+                        .expect("Supplied string was not ASCII"),
+                ),
+                (
+                    "type".into(),
+                    Value::string_ascii_from_bytes("nft".into())
+                        .expect("Supplied string was not ASCII"),
+                ),
+                ("sender".into(), Value::Principal(sender)),
+                ("id".into(), Value::UInt(id)),
+                (
+                    "asset-contract".into(),
+                    Value::Principal(PrincipalData::Contract(subnet_contract_id)),
+                ),
+            ])
+            .expect("Failed to create tuple data.")
+            .into(),
+        })
+    }
+
     /// Process any deposit NFT operations that haven't been processed in this
     /// subnet fork yet.
     pub fn process_deposit_nft_ops(
@@ -4748,49 +4779,28 @@ impl StacksChainState {
 
                 match result {
                     Ok((value, _, mut events)) => {
-                        match &value {
-                            Value::Response(r) if r.committed == false => {
-                                // TODO: Figure out how this macro works and log some variables
-                                info!("DepositNft op returned error. Issue withdrawal tx");
-
-                                // If deposit fails, create a withdrawal event to send NFT back to user
-                                let nft_withdraw_event = StacksTransactionEvent::SmartContractEvent(
-                                    SmartContractEventData {
-                                        key: (boot_code_id("subnet", mainnet), "print".into()),
-                                        value: TupleData::from_data(vec![
-                                            (
-                                                "event".into(),
-                                                Value::string_ascii_from_bytes(
-                                                    "withdraw".as_bytes().to_vec(),
-                                                )
-                                                .expect("Supplied string was not ASCII"),
-                                            ),
-                                            (
-                                                "type".into(),
-                                                Value::string_ascii_from_bytes(
-                                                    "nft".as_bytes().to_vec(),
-                                                )
-                                                .expect("Supplied string was not ASCII"),
-                                            ),
-                                            ("sender".into(), Value::Principal(sender)),
-                                            ("id".into(), Value::UInt(id)),
-                                            (
-                                                "asset-contract".into(),
-                                                Value::Principal(PrincipalData::Contract(
-                                                    subnet_contract_id,
-                                                )),
-                                            ),
-                                        ])
-                                        .expect("Failed to create tuple data.")
-                                        .into(),
-                                    },
-                                );
-                                events.push(nft_withdraw_event)
+                        // Examine response to see if transaction failed
+                        let deposit_op_failed = match &value {
+                            Value::Response(r) => r.committed == false,
+                            _ => {
+                                // TODO: Do anything for the case where `value` is not of type `Value::Response()`?
+                                warn!("DepositNft op returned unexpected value"; "value" => %value);
+                                false
                             }
-                            _ => {}
                         };
 
-                        let reciept = StacksTransactionReceipt {
+                        // If deposit fails, create a withdrawal event to send NFT back to user
+                        if deposit_op_failed {
+                            info!("DepositNft op failed. Issue withdrawal tx");
+                            events.push(Self::make_nft_withdrawal_event(
+                                subnet_contract_id,
+                                sender,
+                                id,
+                                mainnet,
+                            ));
+                        };
+
+                        Some(StacksTransactionReceipt {
                             transaction: TransactionOrigin::Burn(deposit_nft_op.into()),
                             events,
                             result: value,
@@ -4800,9 +4810,7 @@ impl StacksChainState {
                             execution_cost,
                             microblock_header: None,
                             tx_index: 0,
-                        };
-
-                        Some(reciept)
+                        })
                     }
                     Err(e) => {
                         // Deposit was not processed, log and do nothing else?
