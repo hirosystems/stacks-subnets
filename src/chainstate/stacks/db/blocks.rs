@@ -751,6 +751,51 @@ impl Streamer for MicroblockStreamData {
     }
 }
 
+enum Token {
+    Nft { id: u128 },
+    Ft { amount: u128 },
+}
+
+fn make_withdrawal_event(
+    subnet_contract_id: QualifiedContractIdentifier,
+    sender: PrincipalData,
+    token: Token,
+    mainnet: bool,
+) -> StacksTransactionEvent {
+    let (withdrawal_type, mut values) = match token {
+        Token::Nft { id } => ("nft", vec![("id".into(), Value::UInt(id))]),
+        Token::Ft { amount } => ("ft", vec![("amount".into(), Value::UInt(amount))]),
+    };
+
+    values.extend(
+        vec![
+            (
+                "event".into(),
+                Value::string_ascii_from_bytes("withdraw".into())
+                    .expect("Supplied string was not ASCII"),
+            ),
+            (
+                "type".into(),
+                Value::string_ascii_from_bytes(withdrawal_type.into())
+                    .expect("Supplied string was not ASCII"),
+            ),
+            ("sender".into(), Value::Principal(sender)),
+            (
+                "asset-contract".into(),
+                Value::Principal(PrincipalData::Contract(subnet_contract_id)),
+            ),
+        ]
+        .into_iter(),
+    );
+
+    StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
+        key: (boot_code_id("subnet", mainnet), "print".into()),
+        value: TupleData::from_data(values)
+            .expect("Failed to create tuple data.")
+            .into(),
+    })
+}
+
 impl StacksChainState {
     fn get_index_block_pathbuf(blocks_dir: &str, index_block_hash: &StacksBlockId) -> PathBuf {
         let block_hash_bytes = index_block_hash.as_bytes();
@@ -4710,37 +4755,6 @@ impl StacksChainState {
             .collect()
     }
 
-    fn make_nft_withdrawal_event(
-        subnet_contract_id: QualifiedContractIdentifier,
-        sender: PrincipalData,
-        id: u128,
-        mainnet: bool,
-    ) -> StacksTransactionEvent {
-        StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
-            key: (boot_code_id("subnet", mainnet), "print".into()),
-            value: TupleData::from_data(vec![
-                (
-                    "event".into(),
-                    Value::string_ascii_from_bytes("withdraw".into())
-                        .expect("Supplied string was not ASCII"),
-                ),
-                (
-                    "type".into(),
-                    Value::string_ascii_from_bytes("nft".into())
-                        .expect("Supplied string was not ASCII"),
-                ),
-                ("sender".into(), Value::Principal(sender)),
-                ("id".into(), Value::UInt(id)),
-                (
-                    "asset-contract".into(),
-                    Value::Principal(PrincipalData::Contract(subnet_contract_id)),
-                ),
-            ])
-            .expect("Failed to create tuple data.")
-            .into(),
-        })
-    }
-
     /// Process any deposit NFT operations that haven't been processed in this
     /// subnet fork yet.
     pub fn process_deposit_nft_ops(
@@ -4748,7 +4762,6 @@ impl StacksChainState {
         operations: Vec<DepositNftOp>,
     ) -> Vec<StacksTransactionReceipt> {
         let mainnet = clarity_tx.config.mainnet;
-        let boot_addr = PrincipalData::from(boot_code_addr(mainnet));
         let cost_so_far = clarity_tx.cost_so_far();
         // return valid receipts
         operations
@@ -4764,7 +4777,7 @@ impl StacksChainState {
                 } = deposit_nft_op.clone();
                 let result = clarity_tx.connection().as_transaction(|tx| {
                     tx.run_contract_call(
-                        &boot_addr,
+                        &boot_code_addr(mainnet).into(),
                         None,
                         &subnet_contract_id,
                         DEPOSIT_FUNCTION_NAME,
@@ -4792,10 +4805,10 @@ impl StacksChainState {
                         // If deposit fails, create a withdrawal event to send NFT back to user
                         if deposit_op_failed {
                             info!("DepositNft op failed. Issue withdrawal tx");
-                            events.push(Self::make_nft_withdrawal_event(
+                            events.push(make_withdrawal_event(
                                 subnet_contract_id,
                                 sender,
-                                id,
+                                Token::Nft { id },
                                 mainnet,
                             ));
                         };
