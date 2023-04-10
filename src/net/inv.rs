@@ -1712,10 +1712,6 @@ impl PeerNetwork {
             .burnchain
             .reward_cycle_to_block_height(stats.target_block_reward_cycle);
 
-        debug!(
-            "{:?}: got blocksinv at reward cycle {} (block height {}) from {:?}: {:?}",
-            &self.local_peer, stats.target_block_reward_cycle, target_block_height, nk, &blocks_inv
-        );
         let (new_blocks, new_microblocks) = stats.inv.merge_blocks_inv(
             target_block_height,
             blocks_inv.bitlen as u64,
@@ -1724,8 +1720,22 @@ impl PeerNetwork {
             true,
         );
 
-        debug!("{:?}: {:?} has {} new blocks and {} new microblocks (total {} blocks, {} microblocks, {} sortitions): {:?}",
-               &self.local_peer, &nk, new_blocks, new_microblocks, stats.inv.num_blocks(), stats.inv.num_microblock_streams(), stats.inv.num_sortitions, &stats.inv);
+        debug!(
+            "Received blocksinv";
+            "local_peer" => ?self.local_peer,
+            "neighbor" => ?nk,
+            "neighbor_block_reward_cycle" => stats.block_reward_cycle,
+            "target_block_reward_cycle" => stats.target_block_reward_cycle,
+            "target_burn_block_height" => target_block_height,
+            "new_blocks_count" => new_blocks,
+            "new_microblocks_count" => new_microblocks,
+            "total_blocks_count" => stats.inv.num_blocks(),
+            "total_microblocks_count" => stats.inv.num_microblock_streams(),
+            "total_sortitions_count" => stats.inv.num_sortitions,
+            "local_burn_height" => self.burnchain_tip.block_height,
+            "local_inventory_reward_cycles" => self.num_inventory_reward_cycles(),
+            "inventory" => ?stats.inv
+        );
 
         if new_blocks > 0 || new_microblocks > 0 {
             stats.learned_data = true;
@@ -1865,7 +1875,7 @@ impl PeerNetwork {
 
             for (nk, stats) in inv_state.block_stats.iter_mut() {
                 debug!(
-                    "{:?}: inv state-machine for {:?} is in state {:?}, at PoX {},target={}; blocks {},target={}; status {:?}, done={}",
+                    "{:?}: inv state-machine for {:?} is in state {:?}, at PoX {},target={}; blocks {}, target={}; status {:?}, done={}",
                     &network.local_peer,
                     nk,
                     &stats.state,
