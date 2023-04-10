@@ -762,31 +762,29 @@ fn make_withdrawal_event(
     token: Token,
     mainnet: bool,
 ) -> StacksTransactionEvent {
-    let (withdrawal_type, mut values) = match token {
-        Token::Nft { id } => ("nft", vec![("id".into(), Value::UInt(id))]),
-        Token::Ft { amount } => ("ft", vec![("amount".into(), Value::UInt(amount))]),
+    let (withdrawal_type, withdrawal_value) = match token {
+        Token::Nft { id } => ("nft", ("id".into(), Value::UInt(id))),
+        Token::Ft { amount } => ("ft", ("amount".into(), Value::UInt(amount))),
     };
 
-    values.extend(
-        vec![
-            (
-                "event".into(),
-                Value::string_ascii_from_bytes("withdraw".into())
-                    .expect("Supplied string was not ASCII"),
-            ),
-            (
-                "type".into(),
-                Value::string_ascii_from_bytes(withdrawal_type.into())
-                    .expect("Supplied string was not ASCII"),
-            ),
-            ("sender".into(), Value::Principal(sender)),
-            (
-                "asset-contract".into(),
-                Value::Principal(PrincipalData::Contract(subnet_contract_id)),
-            ),
-        ]
-        .into_iter(),
-    );
+    let values = vec![
+        ("sender".into(), Value::Principal(sender)),
+        (
+            "event".into(),
+            Value::string_ascii_from_bytes("withdraw".into())
+                .expect("Supplied string was not ASCII"),
+        ),
+        (
+            "type".into(),
+            Value::string_ascii_from_bytes(withdrawal_type.into())
+                .expect("Supplied string was not ASCII"),
+        ),
+        (
+            "asset-contract".into(),
+            Value::Principal(PrincipalData::Contract(subnet_contract_id)),
+        ),
+        withdrawal_value,
+    ];
 
     StacksTransactionEvent::SmartContractEvent(SmartContractEventData {
         key: (boot_code_id("subnet", mainnet), "print".into()),
@@ -4722,7 +4720,7 @@ impl StacksChainState {
                         None,
                         &subnet_contract_id,
                         DEPOSIT_FUNCTION_NAME,
-                        &[Value::UInt(amount), Value::Principal(sender)],
+                        &[Value::UInt(amount), Value::Principal(sender.clone())],
                         |_, _| false,
                     )
                 });
@@ -4732,17 +4730,40 @@ impl StacksChainState {
                     .expect("BUG: cost declined between executions");
 
                 match result {
-                    Ok((value, _, events)) => Some(StacksTransactionReceipt {
-                        transaction: TransactionOrigin::Burn(deposit_ft_op.into()),
-                        events,
-                        result: value,
-                        post_condition_aborted: false,
-                        stx_burned: 0,
-                        contract_analysis: None,
-                        execution_cost,
-                        microblock_header: None,
-                        tx_index: 0,
-                    }),
+                    Ok((value, _, mut events)) => {
+                        // Examine response to see if transaction failed
+                        let deposit_op_failed = match &value {
+                            Value::Response(r) => r.committed == false,
+                            _ => {
+                                // TODO: Do anything for the case where `value` is not of type `Value::Response()`?
+                                warn!("DepositFt op returned unexpected value"; "value" => %value);
+                                false
+                            }
+                        };
+
+                        // If deposit fails, create a withdrawal event to send NFT back to user
+                        if deposit_op_failed {
+                            info!("DepositFt op failed. Issue withdrawal tx");
+                            events.push(make_withdrawal_event(
+                                subnet_contract_id,
+                                sender,
+                                Token::Ft { amount },
+                                mainnet,
+                            ));
+                        };
+
+                        Some(StacksTransactionReceipt {
+                            transaction: TransactionOrigin::Burn(deposit_ft_op.into()),
+                            events,
+                            result: value,
+                            post_condition_aborted: false,
+                            stx_burned: 0,
+                            contract_analysis: None,
+                            execution_cost,
+                            microblock_header: None,
+                            tx_index: 0,
+                        })
+                    }
                     Err(e) => {
                         info!("DepositFt op processing error.";
                               "error" => ?e,
