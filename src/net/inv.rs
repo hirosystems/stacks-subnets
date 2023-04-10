@@ -1225,8 +1225,8 @@ impl PeerNetwork {
     pub fn num_inventory_reward_cycles(&self) -> u64 {
         let tip_block_height = self.burnchain_tip.block_height;
         self.burnchain
-            .pox_constants
-            .num_sync_cycles_to_height(tip_block_height)
+            .block_height_to_reward_cycle(tip_block_height)
+            .unwrap_or(0)
     }
 
     /// Try to make a GetPoxInv request for the target reward cycle for this peer.
