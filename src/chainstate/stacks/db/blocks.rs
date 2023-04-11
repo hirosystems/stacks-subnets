@@ -4655,7 +4655,7 @@ impl StacksChainState {
             clarity_tx.with_temporary_cost_tracker(LimitedCostTracker::new_free(), |clarity_tx| {
                 operations
                     .into_iter()
-                    .filter_map(|deposit_stx_op| {
+                    .map(|deposit_stx_op| {
                         let DepositStxOp {
                             txid: _,
                             amount,
@@ -4675,7 +4675,7 @@ impl StacksChainState {
                         // deposits increment the STX liquidity in the layer 2
                         clarity_tx.increment_ustx_liquid_supply(amount);
 
-                        Some(StacksTransactionReceipt {
+                        StacksTransactionReceipt {
                             transaction: TransactionOrigin::Burn(deposit_stx_op.into()),
                             events: vec![result],
                             result: Value::okay_true(),
@@ -4685,7 +4685,7 @@ impl StacksChainState {
                             execution_cost: ExecutionCost::zero(),
                             microblock_header: None,
                             tx_index: 0,
-                        })
+                        }
                     })
                     .collect()
             });
