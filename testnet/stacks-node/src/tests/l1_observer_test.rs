@@ -387,7 +387,7 @@ fn l1_basic_listener_test() {
 #[test]
 fn l1_integration_test() {
     // running locally:
-    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_integration_test
+    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_observer_test::l1_integration_test
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
         return;
     }
@@ -458,7 +458,7 @@ fn l1_integration_test() {
 #[test]
 fn l1_deposit_and_withdraw_asset_integration_test() {
     // running locally:
-    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_deposit_and_withdraw_asset_integration_test
+    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_observer_test::l1_deposit_and_withdraw_asset_integration_test
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
         return;
     }
@@ -1338,7 +1338,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
 #[test]
 fn l1_deposit_and_withdraw_stx_integration_test() {
     // running locally:
-    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_deposit_stx_integration_test
+    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_observer_test::l1_deposit_stx_integration_test
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
         return;
     }
@@ -1851,7 +1851,7 @@ fn l2_simple_contract_calls() {
 #[allow(unused_assignments)]
 fn nft_deposit_and_withdraw_integration_test() {
     // running locally:
-    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace nft_deposit_and_withdraw_integration_test
+    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_observer_test::nft_deposit_and_withdraw_integration_test
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
         return;
     }
@@ -2656,7 +2656,7 @@ fn nft_deposit_and_withdraw_integration_test() {
 #[allow(unused_assignments)]
 fn nft_deposit_failure_and_refund_integration_test() {
     // running locally:
-    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace nft_deposit_failure_and_refund_integration_test
+    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_observer_test::nft_deposit_failure_and_refund_integration_test
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
         return;
     }
@@ -3159,7 +3159,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
 #[allow(unused_assignments)]
 fn ft_deposit_and_withdraw_integration_test() {
     // running locally:
-    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace ft_deposit_and_withdraw_integration_test
+    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_observer_test::ft_deposit_and_withdraw_integration_test
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
         return;
     }
@@ -3755,7 +3755,7 @@ fn ft_deposit_and_withdraw_integration_test() {
 #[allow(unused_assignments)]
 fn ft_deposit_failure_and_refund_integration_test() {
     // running locally:
-    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace ft_deposit_failure_and_refund_integration_test
+    // STACKS_BASE_DIR=~/devel/stacks-blockchain/target/release/stacks-node STACKS_NODE_TEST=1 cargo test --workspace l1_observer_test::ft_deposit_failure_and_refund_integration_test
     if env::var("STACKS_NODE_TEST") != Ok("1".into()) {
         return;
     }
