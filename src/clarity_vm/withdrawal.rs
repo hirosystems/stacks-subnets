@@ -73,7 +73,10 @@ pub fn generate_key_from_event(
 
         if let Value::Tuple(ref mut data) = event_data.value {
             let data_map = &mut data.data_map;
-            data_map.insert("withdrawal_id".into(), Value::UInt(withdrawal_id as u128));
+            data_map.insert(
+                "withdrawal-id".into(),
+                Value::UInt(u128::from(withdrawal_id)),
+            );
             let event_type = data_map.get("type")?.clone().expect_ascii();
 
             return match event_type.as_str() {
