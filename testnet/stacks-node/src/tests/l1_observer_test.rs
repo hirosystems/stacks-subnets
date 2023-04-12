@@ -1030,7 +1030,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     let mut withdrawal_height = 0;
     for (height, event) in withdraw_events {
         withdrawal_height = height;
-        let withdrawal_id = event.get("withdrawal_id").unwrap().clone().expect_u128() as u32;
+        let withdrawal_id = event.get("withdrawal-id").unwrap().clone().expect_u128() as u32;
         match event.get("type").unwrap().clone().expect_ascii().as_str() {
             "ft" => ft_withdrawal_id = withdrawal_id,
             "nft" => nft_withdrawal_id = withdrawal_id,
@@ -1561,7 +1561,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     let (withdrawal_height, withdrawal) = withdraw_events.pop().unwrap();
 
     let withdrawal_id = withdrawal
-        .get("withdrawal_id")
+        .get("withdrawal-id")
         .unwrap()
         .clone()
         .expect_u128() as u32;
