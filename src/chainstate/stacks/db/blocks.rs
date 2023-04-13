@@ -4735,8 +4735,8 @@ impl StacksChainState {
                         let deposit_op_failed = match &value {
                             Value::Response(r) => r.committed == false,
                             _ => {
-                                // TODO: Do anything for the case where `value` is not of type `Value::Response()`?
-                                warn!("DepositFt op returned unexpected value"; "value" => %value);
+                                // Public functions should always return type `Response`
+                                error!("DepositFt op returned unexpected value"; "value" => %value);
                                 false
                             }
                         };
@@ -4817,8 +4817,8 @@ impl StacksChainState {
                         let deposit_op_failed = match &value {
                             Value::Response(r) => r.committed == false,
                             _ => {
-                                // TODO: Do anything for the case where `value` is not of type `Value::Response()`?
-                                warn!("DepositNft op returned unexpected value"; "value" => %value);
+                                // Public functions should always return type `Response`
+                                error!("DepositNft op returned unexpected value"; "value" => %value);
                                 false
                             }
                         };

@@ -2764,6 +2764,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
     );
 
     // Publish subnet contract for nft-token
+    // This contract is modified so that deposits to subnet always fail
     let subnet_nft_content =
         include_str!("../../../../core-contracts/contracts/helper/simple-nft-l2-no-deposit.clar");
     let subnet_nft_publish = make_contract_publish(
@@ -3864,6 +3865,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
     );
 
     // Publish subnet contract for ft-token
+    // This contract is modified so that deposits to subnet always fail
     let subnet_simple_ft =
         include_str!("../../../../core-contracts/contracts/helper/simple-ft-l2-no-deposit.clar");
     let subnet_ft_publish = make_contract_publish(
@@ -4234,8 +4236,8 @@ fn ft_deposit_failure_and_refund_integration_test() {
     );
     assert_eq!(amount, Value::okay(Value::UInt(10)).unwrap());
 
-    // Check that the subnet contract no longer owns any tokens. It should have
-    // transferred the 1 that it had, then minted the remaining 3.
+    // Check that the subnet contract no longer owns any tokens
+    // It should have transferred the 3 that it had
     let res = call_read_only(
         &l1_rpc_origin,
         &user_addr,
