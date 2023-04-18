@@ -117,11 +117,10 @@ fn ClarityVersion_consensus_serialize<W: Write>(
     version: &ClarityVersion,
     fd: &mut W,
 ) -> Result<(), codec_error> {
-    match *version {
-        ClarityVersion::Clarity1 => write_next(fd, &1u8)?,
-        ClarityVersion::Clarity2 => write_next(fd, &2u8)?,
+    match version {
+        ClarityVersion::Clarity1 => write_next(fd, &1u8),
+        ClarityVersion::Clarity2 => write_next(fd, &2u8),
     }
-    Ok(())
 }
 
 fn ClarityVersion_consensus_deserialize<R: Read>(
