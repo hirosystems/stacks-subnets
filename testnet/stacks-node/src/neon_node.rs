@@ -2003,6 +2003,7 @@ impl StacksNode {
 
         let res = bitcoin_controller.submit_commit(
             committed_block_hash,
+            block_height,
             target_burn_hash,
             withdrawal_merkle_root,
             signatures,
@@ -2017,10 +2018,9 @@ impl StacksNode {
             Err(e) => {
                 if !config.node.mock_mining {
                     warn!("Failed to submit miner commitment L1 transaction: {}", e);
-                    warn!("Failed to submit Bitcoin transaction");
                     return None;
                 } else {
-                    debug!("Mock-mining enabled; not sending Bitcoin transaction");
+                    debug!("Mock-mining enabled; not sending L1 transaction");
                 }
             }
         }

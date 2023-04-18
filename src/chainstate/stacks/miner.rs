@@ -2342,6 +2342,7 @@ impl Proposal {
         // when using a 2.1 layer-1, this will need to use the structured data hash
         let block_hash_buff = Value::buff_from(self.block.block_hash().0.to_vec())
             .expect("Failed to form Clarity buffer from block hash");
+        let subnet_block_height = Value::UInt(self.block.header.total_work.work.into());
         let withdrawal_root_buff =
             Value::buff_from(self.block.header.withdrawal_merkle_root.0.to_vec())
                 .expect("Failed to form Clarity buffer from withdrawal root");
@@ -2352,6 +2353,7 @@ impl Proposal {
         let data_tuple = Value::Tuple(
             TupleData::from_data(vec![
                 ("block".into(), block_hash_buff),
+                ("subnet-block-height".into(), subnet_block_height),
                 ("withdrawal-root".into(), withdrawal_root_buff),
                 ("target-tip".into(), target_tip),
                 ("multi-contract".into(), signing_contract),
