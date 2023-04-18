@@ -618,6 +618,8 @@ pub enum TransactionPayloadID {
     ContractCall = 2,
     PoisonMicroblock = 3,
     Coinbase = 4,
+    CoinbaseToAltRecipient = 5,
+    VersionedSmartContract = 6,
 }
 
 /// Encoding of an asset type identifier
