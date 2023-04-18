@@ -38,6 +38,7 @@ use crate::{BurnchainController, Config, EventDispatcher};
 use super::RunLoopCallbacks;
 use libc;
 pub const STDERR: i32 = 2;
+pub const SORTITION_PROCESS_INCREMENTS: u64 = 1000;
 
 #[cfg(test)]
 pub type RunLoopCounter = Arc<AtomicU64>;
@@ -537,13 +538,9 @@ impl RunLoop {
         let mut burnchain_height = sortition_db_height;
         let mut num_sortitions_in_last_cycle = 1;
 
-        // prepare to fetch the first reward cycle!
-        let mut target_burnchain_block_height = burnchain_config.reward_cycle_to_block_height(
-            burnchain_config
-                .block_height_to_reward_cycle(burnchain_height)
-                .expect("BUG: block height is not in a reward cycle")
-                + 1,
-        );
+        // prepare to fetch the first set of sortitions
+        let mut target_burnchain_block_height =
+            (1 + (burnchain_height / SORTITION_PROCESS_INCREMENTS)) * SORTITION_PROCESS_INCREMENTS;
 
         debug!(
             "Begin main runloop starting a burnchain block {}",
@@ -683,6 +680,8 @@ impl RunLoop {
                     break;
                 }
             }
+
+            target_burnchain_block_height += SORTITION_PROCESS_INCREMENTS;
 
             if sortition_db_height >= burnchain_height && !ibd {
                 let canonical_stacks_tip_height =

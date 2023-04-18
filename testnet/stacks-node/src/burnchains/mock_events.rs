@@ -672,7 +672,7 @@ impl BurnchainIndexer for MockIndexer {
 
     fn get_headers_height(&self) -> Result<u64, BurnchainError> {
         if self.blocks.len() == 0 {
-            Err(BurnchainError::MissingHeaders)
+            Err(BurnchainError::MissingHeaders(BurnchainHeaderHash([0; 32])))
         } else {
             Ok(self.minimum_recorded_height + (self.blocks.len() as u64) - 1)
         }
@@ -724,7 +724,7 @@ impl BurnchainIndexer for MockIndexer {
         end_block: u64,
     ) -> Result<Vec<MockHeader>, BurnchainError> {
         if start_block < self.minimum_recorded_height {
-            return Err(BurnchainError::MissingHeaders);
+            return Err(BurnchainError::MissingHeaders(BurnchainHeaderHash([0; 32])));
         }
         if end_block < start_block {
             return Err(BurnchainError::BurnchainPeerBroken);

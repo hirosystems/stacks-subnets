@@ -58,7 +58,7 @@ pub fn get_header_for_hash(
 
     match row_option {
         Some(row) => Ok(row),
-        None => Err(BurnchainError::MissingHeaders),
+        None => Err(BurnchainError::MissingHeaders(hash.clone())),
     }
 }
 
@@ -158,6 +158,13 @@ fn process_reorg(
     old_tip: &BurnBlockIndexRow,
 ) -> Result<u64, BurnchainError> {
     // Step 1: Set `is_canonical` to true for ancestors of the new tip.
+    info!(
+        "Processing Stacks (L1) chain reorg";
+        "old_tip_id" => %old_tip.header_hash,
+        "old_tip_height" => old_tip.height,
+        "new_tip_id" => %new_tip.header_hash,
+        "new_tip_height" => new_tip.height,
+    );
     let mut up_cursor = BurnchainHeaderHash(new_tip.parent_header_hash());
     let greatest_common_ancestor = loop {
         let cursor_header = get_header_for_hash(&transaction, &up_cursor)?;
@@ -217,12 +224,20 @@ fn find_first_canonical_ancestor(
 struct DBBurnBlockInputChannel {
     /// Path to the db file underlying this logic.
     output_db_path: String,
+    config: BurnchainConfig,
 }
 
 impl BurnchainChannel for DBBurnBlockInputChannel {
     /// Add `new_block` to the `block_index` database.
     fn push_block(&self, new_block: NewBlock) -> Result<(), BurnchainError> {
-        debug!("BurnchainChannel: try pushing; new_block {:?}", &new_block);
+        if self.config.first_burn_header_height > new_block.block_height {
+            debug!("BurnchainChannel skipping new_block event before first_burn_header_height";
+                    "first_burn_height" => %self.config.first_burn_header_height,
+                    "new_block_height" => new_block.block_height,
+            );
+            return Ok(());
+        }
+        debug!("BurnchainChannel: push_block"; "new_block_ht" => new_block.block_height, "new_block_id" => %new_block.index_block_hash);
         // Re-open the connection.
         let open_flags = OpenFlags::SQLITE_OPEN_READ_WRITE;
         let mut connection = sqlite_open(&self.output_db_path, open_flags, true)?;
@@ -266,10 +281,13 @@ impl BurnchainChannel for DBBurnBlockInputChannel {
             &block_string,
         ];
         let transaction = connection.transaction()?;
-        transaction.execute(
+        if let Err(e) = transaction.execute(
             "INSERT INTO block_index (height, header_hash, parent_header_hash, time_stamp, is_canonical, block) VALUES (?, ?, ?, ?, ?, ?)",
             params,
-        )?;
+        ) {
+            warn!("Failed to write block header to block index, probably a duplicate event"; "error" => ?e);
+            return Ok(())
+        }
 
         // Possibly process re-org in the database representation.
         if needs_reorg {
@@ -518,6 +536,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     fn get_channel(&self) -> Arc<(dyn BurnchainChannel + 'static)> {
         Arc::new(DBBurnBlockInputChannel {
             output_db_path: self.get_headers_path(),
+            config: self.config.clone(),
         })
     }
 
