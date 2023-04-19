@@ -5,7 +5,7 @@ title: Getting Started
 
 # Getting Started
 
-You understand subnets from the [overview](https://docs.hiro.so/subnets/overview)-now you can test one in action. Hiro's Clarinet can serve a local subnet with [`clarinet integrate`](https://docs.hiro.so/clarinet/how-to-guides/how-to-run-integration-environment) as one of the networks in your Stacks development environment.
+You understand subnets from the [overview](https://docs.hiro.so/subnets/overview)—now you can test one out in action. Hiro's Clarinet can serve a local subnet with [`clarinet integrate`](https://docs.hiro.so/clarinet/how-to-guides/how-to-run-integration-environment) as one of the networks in your Stacks development environment.
 
 This guide walks a user through a **subnet demonstration**—minting and transferring NFTs between a main chain (local devnet) and a subnet—to showcase subnet's high throughput and low latency functionality. By the end of this guide, the user will
 
@@ -225,7 +225,7 @@ Uncomment, or add, the following line under `[devnet]`:
 enable_subnet_node = true
 ```
 
-Also, in that file, we can see a few default settings that `clarinet` will be using for our subnet. `subnet_contract_id` specifies the L1 contract with which the subnet will be interacting. This will be automatically downloaded from the network and deployed by `clarinet,` but you can take a look at it [here](https://explorer.hiro.so/txid 0x7d8a5d649d0f2b7583a456225c2e98b40ba62a124c5187f6dbfa563592b24e76?chain=testnet) if interested.
+Also, in that file, we can see a few default settings that `clarinet` will be using for our subnet. `subnet_contract_id` specifies the L1 contract with which the subnet will be interacting. This will be automatically downloaded from the network and deployed by `clarinet,` but you can take a look at it [here](https://explorer.hiro.so/txid/0x7d8a5d649d0f2b7583a456225c2e98b40ba62a124c5187f6dbfa563592b24e76?chain=testnet) if interested.
 
 ```toml
 subnet_contract_id = "ST13F481SBR0R7Z6NMMH8YV2FJJYXA5JPA0AD3HP9.subnet-v1-2"
@@ -260,18 +260,18 @@ Once this state is reached, we should see successful calls to `commit-block` in 
 
 ### Setup Node.js scripts
 
-Clarinet does not yet support direct interaction with the subnet node through `clarinet console` or the like. Instead, we will interact with our subnet node with the same underlying method that any front-end web application interacts with a smart contract: [Stacks.js](https://stacks.js.org) transactions.
+Clarinet does not yet support direct interaction with the subnet node through `clarinet console`. Instead, we will interact with our subnet node with [Stacks.js](https://stacks.js.org) transactions.
 
-By the end of this section, we will have these several scripts that correspond to the various kinds of functionality we can invoke from our smart contract application:
+By the end of this section, we will have these several scripts that correspond to the various kinds of functionality we can invoke from our application:
 
-- publish - publish a smart contract (to our subnet node)
-- register - register an NFT minted on an L1 (devnet) with the subnet so it can be deposited
-- mint - mint a new NFT on the L1 (devnet)
-- deposit - deposit the NFT in the subnet by by calling the deposit function on the interface contract on the L1
-- transfer - transfer the NFT from one user to another in the subnet
-- l2-withdraw - the two-step withdrawal process starts with withdrawing asset from L2
-- l1-withdraw - the second step to withdrawal is to undeposit NFT asset from L1 interface contract. Now user owns asset
-- verify - querying the current owner of an NFT
+- _publish_ - publish a smart contract (to our subnet node)
+- _register_ - register an NFT minted on an L1 (devnet) with the subnet so it can be deposited
+- _mint_ - mint a new NFT on the L1 (devnet)
+- _deposit_ - deposit the NFT in the subnet by by calling the deposit function on the interface contract on the L1
+- _transfer_ - transfer the NFT from one user to another in the subnet
+- _l2-withdraw_ - the two-step withdrawal process starts with withdrawing asset from L2
+- _l1-withdraw_ - the second step to withdrawal is to undeposit the NFT asset from L1 interface contract
+- _verify_ - querying the current owner of an NFT
 
 To submit transactions to Hiro's Stacks node and subnet node, we will use the following simple scripts. We will save them in a new directory, _./scripts/_.
 
