@@ -21,7 +21,7 @@ A subnet was previously referred to as a hyperchain. While the process of updati
 
 ## Run a local subnet with Clarinet
 
-Clarinet provides a tool to set up a complete local development environment, referred to as devnet, which uses Docker to spin up a Bitcoin node, a Stacks node, a Stacks API node, a Stacks Explorer, and now, a subnet node and subnet API node. This allows developers to configure a subnet and develop and test applications locally on a system that matches the production environment.
+Clarinet provides a tool to set up a complete local development environment, known as a "devnet", which uses Docker to spin up a Bitcoin node, a Stacks node, a Stacks API node, a Stacks Explorer, and now, a subnet node and subnet API node. This allows developers to configure a subnet and develop and test applications locally on a system that matches the production environment.
 
 In this section, we will explain how to launch and interact with the devnet's subnet node using a simple NFT example project.
 
