@@ -264,14 +264,14 @@ Clarinet does not yet support direct interaction with the subnet node through `c
 
 By the end of this section, we will have these several scripts that correspond to the various kinds of functionality we can invoke from our application:
 
-- _publish_ - publish a smart contract (to our subnet node)
-- _register_ - register an NFT minted on an L1 (devnet) with the subnet so it can be deposited
-- _mint_ - mint a new NFT on the L1 (devnet)
-- _deposit_ - deposit the NFT in the subnet by by calling the deposit function on the interface contract on the L1
-- _transfer_ - transfer the NFT from one user to another in the subnet
-- _l2-withdraw_ - the two-step withdrawal process starts with withdrawing asset from L2
-- _l1-withdraw_ - the second step to withdrawal is to undeposit the NFT asset from L1 interface contract
-- _verify_ - querying the current owner of an NFT
+- _publish.js_ - publish a smart contract (to our subnet node)
+- _register.js_ - register an NFT minted on an L1 (devnet) with the subnet so it can be deposited
+- _mint.js_ - mint a new NFT on the L1 (devnet)
+- _deposit.js_ - deposit the NFT in the subnet by by calling the deposit function on the interface contract on the L1
+- _transfer.js_ - transfer the NFT from one user to another in the subnet
+- _withdraw-l2.js_ - the two-step withdrawal process starts with withdrawing asset from L2
+- _withdraw-l1.js_ - the second step to withdrawal is to undeposit the NFT asset from L1 interface contract
+- _verify.js_ - querying the current owner of an NFT
 
 To submit transactions to Hiro's Stacks node and subnet node, we will use the following simple scripts. We will save them in a new directory, _./scripts/_.
 
