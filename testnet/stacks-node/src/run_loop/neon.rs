@@ -373,12 +373,7 @@ impl RunLoop {
         coordinator_receivers: CoordinatorReceivers,
     ) -> (JoinHandle<()>, Receiver<HashSet<AttachmentInstance>>) {
         // load up genesis balances
-        let initial_balances = self
-            .config
-            .initial_balances
-            .iter()
-            .map(|e| (e.address.clone(), e.amount))
-            .collect();
+        let initial_balances = self.config.get_initial_balances();
 
         // load up genesis Atlas attachments
         let mut atlas_config = AtlasConfig::default(self.config.is_mainnet());

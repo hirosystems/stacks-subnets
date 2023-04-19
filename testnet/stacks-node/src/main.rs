@@ -88,14 +88,6 @@ fn main() {
     }
 
     let config_file = match subcommand.as_str() {
-        "mocknet" => {
-            args.finish().unwrap();
-            ConfigFile::mocknet()
-        }
-        "mainnet" => {
-            args.finish().unwrap();
-            ConfigFile::mainnet()
-        }
         "start" => {
             let config_path: String = args.value_from_str("--config").unwrap();
             args.finish().unwrap();
