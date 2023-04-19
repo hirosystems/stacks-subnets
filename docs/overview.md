@@ -4,11 +4,11 @@ title: Overview
 
 # Overview
 
-A subnet is a layer-2 scaling solution in the Stacks blockchain, offering low latency and high throughput while enabling developers to build fast and reliable experiences on Stacks.
+A subnet is a layer-2 scaling solution for the Stacks blockchain, offering low latency and high throughput at the expense of centralization to a federated set of miners, enabling developers to build fast and reliable user experiences on Stacks.
 
 ## Background
 
-A subnet is a network separate from the Stacks chain. A subnet can be thought of as a layer-2 (L2), and the Stacks chain can be thought of as a layer-1 (L1). A subnet interfaces with the Stacks chain via a smart contract specific to the subnet. Different subnets use distinct contracts on the Stacks chain as an interface.
+A subnet is a network separate from the Stacks mainnet blockchain. A subnet can be thought of as a layer-2 (L2), and the Stacks chain can be thought of as a layer-1 (L1). A subnet interfaces with the Stacks chain via a smart contract specific to the subnet. Different subnets use distinct contracts on the Stacks chain as an interface.
 
 This interface contract has several functions that allow it to act as an intermediary between the Stacks chain and some particular subnet. These functions include, but are not limited to, the following functions:
 
@@ -26,7 +26,7 @@ This diagram outlines the interaction between a subnet and the Stacks layer-1 ch
 
 ## Features
 
-A subnets is designed to transact on Stacks assets, meaning users can move assets from the Stacks chain in and out of a subnet. While a user's assets are in a subnet, the asset is locked in the subnet contract on the Stacks chain.
+A subnet is designed to on and off-board Stacks assets, meaning users can move assets from the Stacks chain in and out of a subnet. While a user's assets are in a subnet, the asset is locked in the subnet contract on the Stacks chain, and representations of those assets are created—appearing in a user's Hiro Wallet—and handled by applications on the subnet. The benefit of these subnet applications is the higher throughput and faster block time relative to Stacks mainnet.
 
 > **_NOTE:_**
 >
