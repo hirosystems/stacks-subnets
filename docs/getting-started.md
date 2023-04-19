@@ -7,11 +7,11 @@ title: Getting Started
 
 You understand subnets from the [overview](https://docs.hiro.so/subnets/overview)—now you can test one out in action. Hiro's Clarinet can serve a local subnet with [`clarinet integrate`](https://docs.hiro.so/clarinet/how-to-guides/how-to-run-integration-environment) as one of the networks in your Stacks development environment.
 
-This guide walks a user through a **subnet demonstration**—minting and transferring NFTs between a main chain (local devnet) and a subnet—to showcase subnet's high throughput and low latency functionality. By the end of this guide, the user will
+This guide walks a user through a **subnet demonstration**: minting and transferring NFTs between a main chain (local devnet) and a subnet to showcase subnet's high throughput and low latency functionality. By the end of this guide, the user will
 
 - Deploy the layer-1 contract that governs the interface to your subnet
 - Deploy the layer-2 subnet contract that runs our example application—an NFT contract
-- Create the handful of [stacks.js](https://github.com/hirosystems/stacks.js) scripts that will allow us to interact with our subnet and its contract application
+- Create the handful of [Stacks.js](https://github.com/hirosystems/stacks.js) scripts that will allow us to interact with our subnet and its contract application
 
 :::note
 
@@ -40,11 +40,11 @@ This command creates a new directory with a clarinet project already initialized
 
 ### Create the contracts
 
-While this guide does involve writing and publishing a Clarity contract to your local subnet, Clarinet does not yet support contract deployment to subnets directly. Instead, we will manually deploy the contract through a stacks.js script in a later step.
+While this guide does involve writing and publishing a Clarity contract to your local subnet, Clarinet does not yet support contract deployment to subnets directly. Instead, we will manually deploy the contract through a Stacks.js script in a later step.
 
 #### Creating the Stacks (L1) contract
 
-Our first Clarity code will be the L1 contract that serves as an interface with the subnet node, in this instance allowing us to mint and transfer NFTs between the layers. Our L1 NFT contract is going to implement the [SIP-009 NFT trait](https://github.com/stacksgov/sips/blob/main/sips/sip-009/sip-009-nft-standard.md#trait).
+Our first contract will be the L1 contract that serves as an interface with the subnet node, in this instance allowing us to mint and transfer NFTs between the layers. Our L1 NFT contract is going to implement the [SIP-009 NFT trait](https://github.com/stacksgov/sips/blob/main/sips/sip-009/sip-009-nft-standard.md#trait).
 
 We will add this to our project as a requirement so that Clarinet will deploy it for us.
 
@@ -52,7 +52,7 @@ We will add this to our project as a requirement so that Clarinet will deploy it
 clarinet requirements add ST1NXBK3K5YYMD6FD41MVNP3JS1GABZ8TRVX023PT.nft-trait
 ```
 
-We'll also use a new trait defined for the subnet, `mint-from-subnet-trait,` that allows the subnet to mint a new asset on the Stacks chain if it was originally minted on the subnet and then withdrawn. We will add a requirement for this contract as well:
+We'll also use a new trait defined for the subnet, `mint-from-subnet-trait`, that allows the subnet to mint a new asset on the Stacks chain if it was originally minted on the subnet and then withdrawn. We will add a requirement for this contract as well:
 
 ```sh
 clarinet requirements add ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet-traits
@@ -132,7 +132,7 @@ Note that this contract implements the `mint-from-subnet-trait` and the SIP-009 
 Next, we will create the subnet contract at _./contracts/simple-nft-l2.clar_. As mentioned earlier, Clarinet does not support deploying subnet contracts yet, so we will manually create this file and add the following contents:
 
 :::note
-You can use Clarinet to create the Clarity file at the specific location by entering into the terminal `clarinet contract new simple-nft-l2` or you can manually create a new file. But note that Clarinet will not deploy this contract to the subnet; instead, in a later step, you will write and run a stacks.js script that communicates to the subnet node.
+You can use Clarinet to create the Clarity file at the specific location by entering into the terminal `clarinet contract new simple-nft-l2` or you can manually create a new file. But note that Clarinet will not deploy this contract to the subnet; instead, in a later step, you will write and run a Stacks.js script that communicates to the subnet node.
 :::
 
 ```clarity
@@ -280,7 +280,7 @@ mkdir scripts
 cd scripts
 ```
 
-Then we will initialize a Node.js project and install the stacks.js dependencies:
+Then we will initialize a Node.js project and install the Stacks.js dependencies:
 
 ```sh
 npm init -y
