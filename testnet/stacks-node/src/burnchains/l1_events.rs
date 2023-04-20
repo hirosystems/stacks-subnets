@@ -263,6 +263,7 @@ impl BurnchainController for L1Controller {
     fn submit_commit(
         &mut self,
         committed_block_hash: BlockHeaderHash,
+        committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<super::ClaritySignature>,
@@ -271,6 +272,7 @@ impl BurnchainController for L1Controller {
     ) -> Result<Txid, Error> {
         let tx = self.committer.make_commit_tx(
             committed_block_hash,
+            committed_block_height,
             target_tip,
             withdrawal_merkle_root,
             signatures,

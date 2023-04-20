@@ -94,6 +94,7 @@ pub trait BurnchainController {
     fn submit_commit(
         &mut self,
         committed_block_hash: BlockHeaderHash,
+        committed_block_height: u64,
         target_burn_chain: BurnchainHeaderHash,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
@@ -202,6 +203,7 @@ impl BurnchainController for PanicController {
     fn submit_commit(
         &mut self,
         _committed_block_hash: BlockHeaderHash,
+        _committed_block_height: u64,
         _target_block: BurnchainHeaderHash,
         _withdrawal_merkle_root: Sha512Trunc256Sum,
         _signatures: Vec<ClaritySignature>,

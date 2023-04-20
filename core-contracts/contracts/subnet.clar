@@ -109,10 +109,10 @@
 ;; Helper function: determines whether the commit-block operation satisfies pre-conditions
 ;; listed in `commit-block`.
 ;; Returns response<bool, int>
-(define-private (can-commit-block? (commit-block-height uint)  (target-chain-tip (buff 32)))
+(define-private (can-commit-block? (l1-block-height uint)  (target-chain-tip (buff 32)))
     (begin
         ;; check no block has been committed at this height
-        (asserts! (is-none (map-get? block-commits commit-block-height)) (err ERR_BLOCK_ALREADY_COMMITTED))
+        (asserts! (is-none (map-get? block-commits l1-block-height)) (err ERR_BLOCK_ALREADY_COMMITTED))
 
         ;; check that `target-chain-tip` matches the burn chain tip
         (asserts! (is-eq
@@ -132,15 +132,21 @@
 
 ;; Helper function: modifies the block-commits map with a new commit and prints related info
 ;; Returns response<(buff 32), ?>
-(define-private (inner-commit-block (block (buff 32)) (commit-block-height uint) (withdrawal-root (buff 32)))
+(define-private (inner-commit-block
+        (block (buff 32))
+        (subnet-block-height uint)
+        (l1-block-height uint)
+        (withdrawal-root (buff 32))
+    )
     (begin
-        (map-set block-commits commit-block-height block)
+        (map-set block-commits l1-block-height block)
         (map-set withdrawal-roots-map withdrawal-root true)
         (print {
             event: "block-commit",
             block-commit: block,
+            subnet-block-height: subnet-block-height,
             withdrawal-root: withdrawal-root,
-            block-height: commit-block-height
+            l1-block-height: l1-block-height
         })
         (ok block)
     )
@@ -155,10 +161,15 @@
 ;;  1) we have already committed at this block height
 ;;  2) `target-chain-tip` is not the burn chain tip (i.e., on this chain)
 ;;  3) the sender is not a miner
-(define-public (commit-block (block (buff 32)) (target-chain-tip (buff 32)) (withdrawal-root (buff 32)))
-    (let ((commit-block-height block-height))
-        (try! (can-commit-block? commit-block-height target-chain-tip))
-        (inner-commit-block block commit-block-height withdrawal-root)
+(define-public (commit-block
+        (block (buff 32))
+        (subnet-block-height uint)
+        (target-chain-tip (buff 32))
+        (withdrawal-root (buff 32))
+    )
+    (let ((l1-block-height block-height))
+        (try! (can-commit-block? l1-block-height target-chain-tip))
+        (inner-commit-block block subnet-block-height l1-block-height withdrawal-root)
     )
 )
 

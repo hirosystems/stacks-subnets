@@ -418,6 +418,7 @@ impl BurnchainController for MockController {
     fn submit_commit(
         &mut self,
         committed_block_hash: BlockHeaderHash,
+        _committed_block_height: u64,
         _target_block: BurnchainHeaderHash,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         _signatures: Vec<ClaritySignature>,

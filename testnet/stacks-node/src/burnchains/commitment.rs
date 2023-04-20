@@ -40,6 +40,7 @@ pub trait Layer1Committer {
     fn make_commit_tx(
         &self,
         committed_block_hash: BlockHeaderHash,
+        committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
@@ -231,6 +232,7 @@ impl MultiPartyCommitter {
         sender_nonce: u64,
         tx_fee: u64,
         commit_to: BlockHeaderHash,
+        committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
         withdrawal_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
@@ -247,6 +249,7 @@ impl MultiPartyCommitter {
 
         let block_val = ClarityValue::buff_from(commit_to.as_bytes().to_vec())
             .map_err(|_| Error::BadCommitment)?;
+        let height_val = ClarityValue::UInt(committed_block_height.into());
         let target_tip_val = ClarityValue::buff_from(target_tip.as_bytes().to_vec())
             .map_err(|_| Error::BadCommitment)?;
         let withdrawal_root_val = ClarityValue::buff_from(withdrawal_root.as_bytes().to_vec())
@@ -264,6 +267,7 @@ impl MultiPartyCommitter {
 
         let block_data_val = TupleData::from_data(vec![
             ("block".into(), block_val),
+            ("subnet-block-height".into(), height_val),
             ("withdrawal-root".into(), withdrawal_root_val),
             ("target-tip".into(), target_tip_val),
         ])
@@ -300,6 +304,7 @@ impl MultiPartyCommitter {
     pub fn make_commit_tx(
         &self,
         committed_block_hash: BlockHeaderHash,
+        committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
@@ -325,6 +330,7 @@ impl MultiPartyCommitter {
                 nonce,
                 DEFAULT_MINER_COMMITMENT_FEE,
                 committed_block_hash,
+                committed_block_height,
                 target_tip,
                 withdrawal_merkle_root,
                 signatures.clone(),
@@ -347,6 +353,7 @@ impl MultiPartyCommitter {
             nonce,
             computed_fee,
             committed_block_hash,
+            committed_block_height,
             target_tip,
             withdrawal_merkle_root,
             signatures,
@@ -427,6 +434,7 @@ impl Layer1Committer for MultiPartyCommitter {
     fn make_commit_tx(
         &self,
         committed_block_hash: BlockHeaderHash,
+        committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
@@ -435,6 +443,7 @@ impl Layer1Committer for MultiPartyCommitter {
     ) -> Result<StacksTransaction, Error> {
         self.make_commit_tx(
             committed_block_hash,
+            committed_block_height,
             target_tip,
             withdrawal_merkle_root,
             signatures,
@@ -452,6 +461,7 @@ impl Layer1Committer for DirectCommitter {
     fn make_commit_tx(
         &self,
         committed_block_hash: BlockHeaderHash,
+        committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         _signatures: Vec<ClaritySignature>,
@@ -460,6 +470,7 @@ impl Layer1Committer for DirectCommitter {
     ) -> Result<StacksTransaction, Error> {
         self.make_commit_tx(
             committed_block_hash,
+            committed_block_height,
             target_tip,
             withdrawal_merkle_root,
             attempt,
@@ -483,6 +494,7 @@ impl DirectCommitter {
         sender_nonce: u64,
         tx_fee: u64,
         commit_to: BlockHeaderHash,
+        committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
         withdrawal_root: Sha512Trunc256Sum,
     ) -> Result<StacksTransaction, Error> {
@@ -504,6 +516,7 @@ impl DirectCommitter {
             function_name: ClarityName::from("commit-block"),
             function_args: vec![
                 ClarityValue::buff_from(committed_block).map_err(|_| Error::BadCommitment)?,
+                ClarityValue::UInt(committed_block_height.into()),
                 ClarityValue::buff_from(target_tip_bytes).map_err(|_| Error::BadCommitment)?,
                 ClarityValue::buff_from(withdrawal_root_bytes).map_err(|_| Error::BadCommitment)?,
             ],
@@ -533,6 +546,7 @@ impl DirectCommitter {
     pub fn make_commit_tx(
         &self,
         committed_block_hash: BlockHeaderHash,
+        committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         attempt: u64,
@@ -557,6 +571,7 @@ impl DirectCommitter {
                 nonce,
                 DEFAULT_MINER_COMMITMENT_FEE,
                 committed_block_hash,
+                committed_block_height,
                 target_tip,
                 withdrawal_merkle_root,
             )
@@ -578,6 +593,7 @@ impl DirectCommitter {
             nonce,
             computed_fee,
             committed_block_hash,
+            committed_block_height,
             target_tip,
             withdrawal_merkle_root,
         )

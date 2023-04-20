@@ -8,9 +8,7 @@ import {
 } from "https://deno.land/x/clarinet@v1.2.0/index.ts";
 import { assertEquals } from "https://deno.land/std@0.90.0/testing/asserts.ts";
 
-import {
-  decode as decHex,
-} from "https://deno.land/std@0.149.0/encoding/hex.ts";
+import { decode as decHex } from "https://deno.land/std@0.149.0/encoding/hex.ts";
 
 function fromHex(input: string) {
   const hexBytes = new TextEncoder().encode(input);
@@ -135,6 +133,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          types.uint(0),
           id_header_hash1,
           types.buff(new Uint8Array([0, 1, 1, 1, 2])),
         ],
@@ -146,6 +145,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
+          types.uint(1),
           id_header_hash1,
           types.buff(new Uint8Array([0, 2, 2, 2, 3])),
         ],
@@ -170,6 +170,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
+          types.uint(1),
           id_header_hash2,
           types.buff(new Uint8Array([0, 2, 2, 2, 3])),
         ],
@@ -181,6 +182,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 2, 2, 2, 1])),
+          types.uint(1),
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
           types.buff(new Uint8Array([0, 2, 2, 2, 3])),
         ],
@@ -203,6 +205,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
+          types.uint(1),
           id_header_hash3,
           types.buff(new Uint8Array([0, 2, 2, 2, 3])),
         ],
@@ -429,7 +432,6 @@ Clarinet.test({
         charlie.address
       ),
     ]);
-    console.log("BLOCK:", block);
     // should return (err ERR_DISALLOWED_ASSET)
     block.receipts[0].result.expectErr().expectInt(5);
 
@@ -523,6 +525,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          types.uint(0),
           id_header_hash,
           types.buff(root_hash),
         ],
@@ -712,6 +715,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          types.uint(0),
           id_header_hash,
           types.buff(root_hash),
         ],
@@ -1100,6 +1104,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          types.uint(0),
           id_header_hash,
           types.buff(root_hash),
         ],
@@ -1295,6 +1300,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          types.uint(0),
           id_header_hash,
           types.buff(root_hash),
         ],
@@ -1622,6 +1628,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          types.uint(0),
           id_header_hash,
           types.buff(root_hash),
         ],
@@ -1919,6 +1926,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          types.uint(0),
           id_header_hash,
           types.buff(root_hash),
         ],
@@ -2210,6 +2218,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          types.uint(0),
           id_header_hash,
           types.buff(root_hash),
         ],
@@ -2319,6 +2328,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          types.uint(0),
           id_header_hash,
           types.buff(root_hash),
         ],
@@ -2426,7 +2436,8 @@ Clarinet.test({
     block.receipts[0].result.expectOk().expectBool(true);
 
     // Check that user does not own this NFT on the L1
-    const assets = chain.getAssetsMaps().assets[".simple-nft-no-mint.nft-token"];
+    const assets =
+      chain.getAssetsMaps().assets[".simple-nft-no-mint.nft-token"];
     assertEquals(assets, undefined);
 
     // Miner should commit a block with the appropriate root hash (mocking a withdrawal Merkle tree)
@@ -2451,6 +2462,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          types.uint(0),
           id_header_hash,
           types.buff(root_hash),
         ],
@@ -2585,6 +2597,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          types.uint(0),
           id_header_hash,
           types.buff(root_hash),
         ],
@@ -2736,6 +2749,7 @@ Clarinet.test({
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
+          types.uint(0),
           id_header_hash,
           types.buff(root_hash),
         ],

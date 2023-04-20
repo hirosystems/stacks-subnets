@@ -112,6 +112,7 @@ Clarinet.test({
       .toString();
     const commit_data_1 = types.tuple({
       block: buffFromHex(block_hash_1.slice(2)),
+      "subnet-block-height": types.uint(0),
       "withdrawal-root": buffFromHex(withdrawal_root_1.slice(2)),
       "target-tip": id_header_hash_1,
     });
@@ -149,6 +150,7 @@ Clarinet.test({
       .toString();
     const commit_data_2 = types.tuple({
       block: buffFromHex(block_hash_1.slice(2)),
+      "subnet-block-height": types.uint(1),
       "withdrawal-root": buffFromHex(withdrawal_root_1.slice(2)),
       "target-tip": id_header_hash_2,
     });
@@ -278,6 +280,7 @@ Clarinet.test({
       .toString();
     const commit_data_1 = types.tuple({
       block: buffFromHex(block_hash_1.slice(2)),
+      "subnet-block-height": types.uint(0),
       "withdrawal-root": buffFromHex(withdrawal_root_1.slice(2)),
       "target-tip": id_header_hash_1,
     });
@@ -317,6 +320,7 @@ Clarinet.test({
       .toString();
     const commit_data_2 = types.tuple({
       block: buffFromHex(block_hash_1.slice(2)),
+      "subnet-block-height": types.uint(0),
       "withdrawal-root": buffFromHex(withdrawal_root_1.slice(2)),
       "target-tip": id_header_hash_2,
     });
@@ -357,6 +361,7 @@ Clarinet.test({
       .toString();
     const commit_data_3 = types.tuple({
       block: buffFromHex(block_hash_1.slice(2)),
+      "subnet-block-height": types.uint(0),
       "withdrawal-root": buffFromHex(withdrawal_root_1.slice(2)),
       "target-tip": id_header_hash_3,
     });
