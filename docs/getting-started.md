@@ -132,7 +132,11 @@ Note that this contract implements the `mint-from-subnet-trait` and the SIP-009 
 
 Next, we will manually create the subnet contract at _./contracts/simple-nft-l2.clar_ with `touch contracts/simple-nft-l2.clar` in terminal.
 
-As mentioned earlier, Clarinet does not support deploying subnet contracts yet, so this manually created Clarity contract file will be published to the subnet with a Stacks.js script created later in this guide. Include this Clarity code in the contract:
+Next, we will create the subnet contract at _./contracts/simple-nft-l2.clar_. As mentioned earlier, Clarinet does not support deploying subnet contracts yet, so we will manually create this file and add the following contents:
+
+:::note
+You can use Clarinet to create the Clarity file at the specific location by entering into the terminal `clarinet contract new simple-nft-l2` or you can manually create a new file. But note that Clarinet will not deploy this contract to the subnet; instead, in a later step, you will write and run a Stacks.js script that communicates to the subnet node.
+:::
 
 ```clarity
 (define-constant CONTRACT_OWNER tx-sender)
@@ -223,6 +227,8 @@ Uncomment, or add, the following line under `[devnet]`:
 ```toml
 enable_subnet_node = true
 ```
+
+### Subnet Settings
 
 Also, in that file, we can see a few default settings that `clarinet` will be using for our subnet. `subnet_contract_id` specifies the L1 contract with which the subnet will be interacting. This will be automatically downloaded from the network and deployed by `clarinet` but you can take a look at it [here](https://explorer.hiro.so/txid/0x7d8a5d649d0f2b7583a456225c2e98b40ba62a124c5187f6dbfa563592b24e76?chain=testnet) if interested.
 
