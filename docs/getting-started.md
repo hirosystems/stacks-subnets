@@ -272,11 +272,13 @@ By the end of this section, we will have these several scripts that correspond t
 - _withdraw-l1.js_ - the second step to withdrawal is to undeposit the NFT asset from L1 interface contract
 - _verify.js_ - querying the current owner of an NFT
 
+
 To submit transactions to Hiro's Stacks node and subnet node, we will use the following simple scripts. We will save them in a new directory, _./scripts/_.
 
 ```sh
 mkdir scripts
 cd scripts
+touch {publish.js,register.js,mint.js,deposit.js,transfer.js,withdraw-l2.js,withdraw-l1.js,verify.js}
 ```
 
 Then we will initialize a Node.js project and install the Stacks.js dependencies:
@@ -749,11 +751,12 @@ First, we will publish the L2 NFT contract to the subnet:
 node ./publish.js simple-nft-l2 ../contracts/simple-nft-l2.clar 2 0
 ```
 
-Clarinet's interface doesn't show the transactions on the subnet, but we can see
-the transaction in our local explorer instance. In a web browser, visit
-http://localhost:8000. By default, it will open the explorer for the devnet L1.
-To switch to the subnet, select "Network" in the top right, then "Add a
-network." In the popup, choose a name, e.g., "Devnet Subnet," then for the URL, use "http://localhost:13999". You will know this contract deployment succeeded when you see the contract deploy transaction for "simple-nft-l2" in the list of confirmed transactions.
+Clarinet's terminal interface does not show the transactions on the subnet, but we can see the transaction in our local explorer instance. In a web browser, visit http://localhost:8000. By default, it will open the Explorer for the devnet L1. To switch to the subnet, select "Network" in the top right, then "Add a network." In the popup, choose a name, e.g., "Devnet Subnet" and then for the URL, use "http://localhost:13999". You will know this contract deployment succeeded when you see the contract deploy transaction for "simple-nft-l2" in the list of confirmed transactions. Be sure to confirm transactions before proceeding.
+
+:::note
+
+Each of these scripts depend upon the prior transaction to be published to either the L1 devnet or the L2 subnet before the next transaction can be completed successfully (for instance, the `register.js` transaction must be published to a devnet block before the `mint.js` transaction can be called). The Explorer shows these transactions in each new block; be sure to occasionally refresh the Explorer.
+:::
 
 ![contract deploy confirmed](images/subnets-deployment-confirmed.png)
 
