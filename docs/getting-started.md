@@ -228,7 +228,7 @@ Uncomment, or add, the following line under `[devnet]`:
 enable_subnet_node = true
 ```
 
-### Subnet Settings
+### Optional Settings
 
 Also, in that file, we can see a few default settings that `clarinet` will be using for our subnet. `subnet_contract_id` specifies the L1 contract with which the subnet will be interacting. This will be automatically downloaded from the network and deployed by `clarinet` but you can take a look at it [here](https://explorer.hiro.so/txid/0x7d8a5d649d0f2b7583a456225c2e98b40ba62a124c5187f6dbfa563592b24e76?chain=testnet) if interested.
 
