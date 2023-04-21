@@ -243,7 +243,6 @@ subnet_node_image_url = "hirosystems/stacks-subnets:0.4.2"
 subnet_api_image_url = "hirosystems/stacks-blockchain-api:7.1.0-beta.2"
 ```
 
-These settings are modifiable if you'd like to test a custom subnet implementation.
 
 Once the configuration is complete, run the following command to start the
 devnet environment:
