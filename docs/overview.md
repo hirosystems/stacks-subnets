@@ -4,7 +4,7 @@ title: Overview
 
 # Overview
 
-A subnet is a layer-2 scaling solution for the Stacks blockchain, offering low latency and high throughput at the expense of centralization to a federated set of miners, enabling developers to build fast and reliable user experiences on Stacks.
+A subnet is a layer-2 scaling solution for the Stacks blockchain, offering low latency and high throughput, enabling developers to build fast and reliable user experiences on Stacks.
 
 ## Background
 

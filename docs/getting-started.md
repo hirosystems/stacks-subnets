@@ -7,6 +7,8 @@ title: Getting Started
 
 You understand subnets from the [overview](https://docs.hiro.so/subnets/overview)—now you can test one out in action. Hiro's Clarinet can serve a local subnet with [`clarinet integrate`](https://docs.hiro.so/clarinet/how-to-guides/how-to-run-integration-environment) as one of the networks in your Stacks development environment.
 
+## What to expect
+
 This guide walks a user through a **subnet demonstration**: minting and transferring NFTs between a main chain (local devnet) and a subnet to showcase subnet's high throughput and low latency functionality. By the end of this guide, the user will
 
 - Deploy the layer-1 contract that governs the interface to your subnet
@@ -64,8 +66,7 @@ Now, we will use Clarinet to create our L1 contract:
 clarinet contract new simple-nft-l1
 ```
 
-This creates the file, _./contracts/simple-nft-l1.clar_, which will include the
-following clarity code:
+This creates the file, _./contracts/simple-nft-l1.clar_, which will include the following Clarity code:
 
 ```clarity
 (define-constant CONTRACT_OWNER tx-sender)
@@ -129,11 +130,9 @@ Note that this contract implements the `mint-from-subnet-trait` and the SIP-009 
 
 #### Creating the subnet (L2) contract
 
-Next, we will create the subnet contract at _./contracts/simple-nft-l2.clar_. As mentioned earlier, Clarinet does not support deploying subnet contracts yet, so we will manually create this file and add the following contents:
+Next, we will manually create the subnet contract at _./contracts/simple-nft-l2.clar_ with `touch contracts/simple-nft-l2.clar` in terminal.
 
-:::note
-You can use Clarinet to create the Clarity file at the specific location by entering into the terminal `clarinet contract new simple-nft-l2` or you can manually create a new file. But note that Clarinet will not deploy this contract to the subnet; instead, in a later step, you will write and run a Stacks.js script that communicates to the subnet node.
-:::
+As mentioned earlier, Clarinet does not support deploying subnet contracts yet, so this manually created Clarity contract file will be published to the subnet with a Stacks.js script created later in this guide. Include this Clarity code in the contract:
 
 ```clarity
 (define-constant CONTRACT_OWNER tx-sender)
@@ -228,17 +227,17 @@ enable_subnet_node = true
 Also, in that file, we can see a few default settings that `clarinet` will be using for our subnet. `subnet_contract_id` specifies the L1 contract with which the subnet will be interacting. This will be automatically downloaded from the network and deployed by `clarinet` but you can take a look at it [here](https://explorer.hiro.so/txid/0x7d8a5d649d0f2b7583a456225c2e98b40ba62a124c5187f6dbfa563592b24e76?chain=testnet) if interested.
 
 ```toml
-subnet_contract_id = "ST13F481SBR0R7Z6NMMH8YV2FJJYXA5JPA0AD3HP9.subnet-v1-2"
+subnet_contract_id = "ST13F481SBR0R7Z6NMMH8YV2FJJYXA5JPA0AD3HP9.subnet-v1-1"
 ```
 
-`subnet_node_image_url` and `subnet_api_image_url` specify the docket images that will be used for the subnet node and the subnet API node, respectively.
+`subnet_node_image_url` and `subnet_api_image_url` specify the docket images that will be used for the subnet node and the subnet API node, respectively. Make sure your settings match the ones below:
 
 ```toml
-subnet_node_image_url = "hirosystems/stacks-subnets:0.4.1"
+subnet_node_image_url = "hirosystems/stacks-subnets:0.4.2"
 subnet_api_image_url = "hirosystems/stacks-blockchain-api:7.1.0-beta.2"
 ```
 
-You do not need to modify or uncomment any of these, but you can if you'd like to test a custom subnet implementation.
+These settings are modifiable if you'd like to test a custom subnet implementation.
 
 Once the configuration is complete, run the following command to start the
 devnet environment:
@@ -384,7 +383,7 @@ async function main() {
   const senderKey = process.env.DEPLOYER_KEY;
   const deployerAddr = process.env.DEPLOYER_ADDR;
   const userAddr = process.env.USER_ADDR;
-  const nonce = await getNonce(deployerAddr, network);
+  const nonce = (await getNonce(deployerAddr, network)) + BigInt(1);
 
   const txOptions = {
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
@@ -821,10 +820,13 @@ Now, we will initiate a withdrawal from the subnet, by calling the
 node ./withdraw-l2.js 0
 ```
 
-We can confirm that this transaction is successful in the L2 explorer. In the explorer, note the block height that this withdrawal transaction is included in. Fill in this block height for `$height` in the next step.
+We can confirm that this transaction is successful in the L2 explorer. For the second part of the withdraw, we call `withdraw-nft-asset` on the L1 subnet contract:
 
-For the second part of the withdraw, we call `withdraw-nft-asset` on the L1
-subnet contract:
+:::note
+
+In the explorer, note the block height that this withdrawal transaction is included in. Fill in this block height for `$height` in the next step.
+
+:::
 
 ```sh
 node ./withdraw-l1.js $height 0
