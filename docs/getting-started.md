@@ -286,7 +286,7 @@ To submit transactions to Hiro's Stacks node and subnet node, we will use the fo
 ```sh
 mkdir scripts
 cd scripts
-touch {publish.js,register.js,mint.js,deposit.js,transfer.js,withdraw-l2.js,withdraw-l1.js,verify.js}
+touch {publish,register,mint,deposit,transfer,withdraw-l2,withdraw-l1,verify}.js
 ```
 
 Then we will initialize a Node.js project and install the Stacks.js dependencies:
