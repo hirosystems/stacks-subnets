@@ -6,11 +6,13 @@
 ;; Must follow Semver rules: https://semver.org/
 ;; NOTE: Versioning was added as of `2.0.0`
 ;; NOTE: Contract should be deployed with name matching version here
-(define-constant VERSION_MAJOR 2)
-(define-constant VERSION_MINOR 0)
-(define-constant VERSION_PATCH 0)
-(define-constant VERSION_PRERELEASE "")
-(define-constant VERSION_METADATA "")
+(define-constant VERSION {
+    major: 2,
+    minor: 0,
+    patch: 0,
+    prerelease: "",
+    metadata: ""
+})
 
 ;; Error codes
 (define-constant ERR_BLOCK_ALREADY_COMMITTED 1)
@@ -57,13 +59,7 @@
 ;; Get the version of this contract
 ;; Returns a tuple containing the 5 Semver fields: major, minor, patch, prerelease, and metadata
 (define-read-only (get-version)
-    {
-        major: VERSION_MAJOR,
-        minor: VERSION_MINOR,
-        patch: VERSION_PATCH,
-        prerelease: VERSION_PRERELEASE,
-        metadata: VERSION_PRERELEASE
-    }
+    VERSION
 )
 
 ;; Update the miner for this contract.

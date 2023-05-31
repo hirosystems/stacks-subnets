@@ -6,6 +6,7 @@
 (define-constant ERR_INVALID_SIGNATURE 103)
 (define-constant ERR_UNAUTHORIZED_CONTRACT_CALLER 104)
 (define-constant ERR_MINER_ALREADY_SET 105)
+(define-constant ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION 106)
 
 ;; SIP-018 Constants
 (define-constant sip18-prefix 0x534950303138)
@@ -18,6 +19,13 @@
 
 ;; List of miners
 (define-data-var miners (optional (list 10 principal)) none)
+
+;; Minimun version of subnet contract required
+(define-constant SUBNET_CONTRACT_VERSION_MIN {
+    major: 2,
+    minor: 0,
+    patch: 0,
+})
 
 (define-private (get-miners)
     (unwrap-panic (var-get miners)))
@@ -77,11 +85,16 @@
 (define-public (commit-block  (block-data { block: (buff 32), subnet-block-height: uint, withdrawal-root: (buff 32), target-tip: (buff 32) })
                               (signatures (list 9 (buff 65))))
     (let ((block-data-hash (make-block-commit-hash block-data))
-          (signer-principals (try! (fold verify-sign-helper signatures (ok { block-hash: block-data-hash, signers: (list) })))))
+          (signer-principals (try! (fold verify-sign-helper signatures (ok { block-hash: block-data-hash, signers: (list) }))))
+          (subnet-contract-version (contract-call? .subnet get-version)))
          ;; check that the caller is a direct caller!
          (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
          ;; check that we have enough signatures
          (try! (check-miners (append (get signers signer-principals) tx-sender)))
+         ;; Check subnet contract version is greater than min supported version
+         (asserts! (>= (get major subnet-contract-version) (get major SUBNET_CONTRACT_VERSION_MIN)) (err ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION))
+         (asserts! (>= (get minor subnet-contract-version) (get minor SUBNET_CONTRACT_VERSION_MIN)) (err ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION))
+         (asserts! (>= (get patch subnet-contract-version) (get patch SUBNET_CONTRACT_VERSION_MIN)) (err ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION))
          ;; execute the block commit
          (as-contract (contract-call? .subnet commit-block (get block block-data) (get subnet-block-height block-data) (get target-tip block-data) (get withdrawal-root block-data)))
     )
