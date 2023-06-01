@@ -41,6 +41,8 @@ mod tests;
 #[derive(Debug)]
 pub enum Error {
     UnsupportedBurnchain(String),
+    /// Problem with contract deployed on burnchain
+    UnsupportedBurnchainContract(String),
     CoordinatorClosed,
     IndexerError(burnchains::Error),
     RPCError(String),
@@ -51,12 +53,15 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::UnsupportedBurnchain(ref chain_name) => {
-                write!(f, "Burnchain is not supported: {:?}", chain_name)
+                write!(f, "Burnchain is not supported: {chain_name:?}")
+            }
+            Error::UnsupportedBurnchainContract(ref msg) => {
+                write!(f, "Burnchain contract is not supported: {msg}")
             }
             Error::CoordinatorClosed => write!(f, "ChainsCoordinator closed"),
-            Error::IndexerError(ref e) => write!(f, "Indexer error: {:?}", e),
-            Error::RPCError(ref e) => write!(f, "ControllerError(RPCError: {})", e),
-            Error::BadCommitment(ref e) => write!(f, "ControllerError(BadCommitment: {}))", e),
+            Error::IndexerError(ref e) => write!(f, "Indexer error: {e:?}"),
+            Error::RPCError(ref e) => write!(f, "ControllerError(RPCError: {e})"),
+            Error::BadCommitment(ref e) => write!(f, "ControllerError(BadCommitment: {e}))"),
         }
     }
 }

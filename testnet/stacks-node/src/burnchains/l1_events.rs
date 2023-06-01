@@ -48,6 +48,15 @@ pub struct L1Controller {
     committer: Box<dyn Layer1Committer + Send>,
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct ContractVersion {
+    major: u32,
+    minor: u32,
+    patch: u32,
+    prerelease: Option<String>,
+    metadata: Option<String>,
+}
+
 impl L1Channel {
     /// Creates a channel with a single block with hash from `make_mock_byte_string`.
     pub fn single_block() -> L1Channel {
@@ -109,7 +118,7 @@ impl L1Controller {
                 other_participants.clone(),
             )),
         };
-        Ok(L1Controller {
+        let l1_controller = L1Controller {
             burnchain,
             config,
             indexer,
@@ -119,7 +128,9 @@ impl L1Controller {
             coordinator,
             chain_tip: None,
             committer,
-        })
+        };
+        l1_controller.check_l1_contract_version()?;
+        Ok(l1_controller)
     }
 
     fn receive_blocks(
@@ -226,6 +237,46 @@ impl L1Controller {
         } else {
             Err(Error::RPCError(res.text()?))
         }
+    }
+
+    /// Return the Semver version of the `subnet.clar` contract this node is configured to use
+    fn get_l1_contract_version(&self) -> Result<ContractVersion, Error> {
+        use stacks::net::CallReadOnlyRequestBody;
+        let burn_conf = &self.config.burnchain;
+        let url = format!(
+            "http://{host}:{port}/v2/contracts/call-read/{contract_addr}/{contract}/get-version",
+            host = burn_conf.peer_host,
+            port = burn_conf.peer_port,
+            contract_addr = burn_conf.contract_identifier.issuer,
+            contract = burn_conf.contract_identifier.name,
+        );
+
+        let body = CallReadOnlyRequestBody {
+            sender: "'SP139Q3N9RXCJCD1XVA4N5RYWQ5K9XQ0T9PKQ8EE5".into(),
+            arguments: Vec::default(),
+        };
+
+        reqwest::blocking::Client::new()
+            .post(&url)
+            .json(&body)
+            .send()?
+            .json::<ContractVersion>()
+            .map_err(Error::from)
+    }
+
+    /// Check that the version of `subnet.clar` the node is configured to use is supported
+    fn check_l1_contract_version(&self) -> Result<(), Error> {
+        const MINIMUM_MAJOR_VERSION: u32 = 2;
+        let version = self.get_l1_contract_version()?;
+
+        if version.major < MINIMUM_MAJOR_VERSION {
+            let msg = format!(
+                "Major version must be at least {MINIMUM_MAJOR_VERSION} (found {major})",
+                major = version.major
+            );
+            return Err(Error::UnsupportedBurnchainContract(msg));
+        };
+        Ok(())
     }
 }
 
