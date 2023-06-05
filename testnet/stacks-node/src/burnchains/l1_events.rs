@@ -13,6 +13,7 @@ use stacks::chainstate::stacks::miner::SignedProposal;
 use stacks::chainstate::stacks::StacksTransaction;
 use stacks::codec::StacksMessageCodec;
 use stacks::core::StacksEpoch;
+use stacks::net::CallReadOnlyRequestBody;
 use stacks::util::hash::hex_bytes;
 use stacks::util::sleep_ms;
 use stacks_common::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksBlockId};
@@ -48,6 +49,7 @@ pub struct L1Controller {
     committer: Box<dyn Layer1Committer + Send>,
 }
 
+/// Semver version of a Clarity contract
 #[derive(Deserialize, Serialize)]
 pub struct ContractVersion {
     major: u32,
@@ -55,6 +57,16 @@ pub struct ContractVersion {
     patch: u32,
     prerelease: Option<String>,
     metadata: Option<String>,
+}
+
+/// Response from read-only function
+#[derive(Deserialize, Serialize)]
+pub struct GetVersionResponse {
+    okay: bool,
+    /// Response will contain `result` on success
+    result: Option<ContractVersion>,
+    /// Response will contain `cause` on failure
+    cause: Option<String>,
 }
 
 impl L1Channel {
@@ -129,7 +141,6 @@ impl L1Controller {
             chain_tip: None,
             committer,
         };
-        l1_controller.check_l1_contract_version()?;
         Ok(l1_controller)
     }
 
@@ -241,27 +252,39 @@ impl L1Controller {
 
     /// Return the Semver version of the `subnet.clar` contract this node is configured to use
     fn get_l1_contract_version(&self) -> Result<ContractVersion, Error> {
-        use stacks::net::CallReadOnlyRequestBody;
         let burn_conf = &self.config.burnchain;
         let url = format!(
-            "http://{host}:{port}/v2/contracts/call-read/{contract_addr}/{contract}/get-version",
-            host = burn_conf.peer_host,
-            port = burn_conf.peer_port,
+            "{http_origin}/v2/contracts/call-read/{contract_addr}/{contract}/get-version",
+            http_origin = self.l1_rpc_interface(),
             contract_addr = burn_conf.contract_identifier.issuer,
             contract = burn_conf.contract_identifier.name,
         );
 
         let body = CallReadOnlyRequestBody {
-            sender: "'SP139Q3N9RXCJCD1XVA4N5RYWQ5K9XQ0T9PKQ8EE5".into(),
+            sender: "'SP139Q3N9RXCJCD1XVA4N5RYWQ5K9XQ0T9PKQ8EE5".into(), // FIXME
             arguments: Vec::default(),
         };
 
-        reqwest::blocking::Client::new()
-            .post(&url)
+        let response = reqwest::blocking::Client::new()
+            .post(url)
+            .header("Content-Type", "application/octet-stream")
             .json(&body)
             .send()?
-            .json::<ContractVersion>()
-            .map_err(Error::from)
+            .error_for_status()?
+            .json::<GetVersionResponse>()
+            .map_err(Error::from)?;
+
+        if !response.okay {
+            let message = response
+                .cause
+                .unwrap_or_else(|| "Unknown contract error".to_string());
+            return Err(Error::RPCError(message));
+        }
+
+        match response.result {
+            Some(r) => Ok(r),
+            None => Err(Error::RPCError("Empty result".to_string())),
+        }
     }
 
     /// Check that the version of `subnet.clar` the node is configured to use is supported
@@ -321,6 +344,8 @@ impl BurnchainController for L1Controller {
         op_signer: &mut BurnchainOpSigner,
         attempt: u64,
     ) -> Result<Txid, Error> {
+        self.check_l1_contract_version()?;
+
         let tx = self.committer.make_commit_tx(
             committed_block_hash,
             committed_block_height,
