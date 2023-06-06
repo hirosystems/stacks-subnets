@@ -30,7 +30,7 @@
 ;; Return error if subnet contract version not supported
 (define-read-only (check-subnet-contract-version) (
     let (
-        (subnet-contract-version (contract-call? .subnet get-version))
+        (subnet-contract-version (contract-call? .subnet-v2-0-0 get-version))
     )
 
     ;; Check subnet contract version is greater than min supported version
@@ -111,6 +111,6 @@
          ;; check that we have enough signatures
          (try! (check-miners (append (get signers signer-principals) tx-sender)))
          ;; execute the block commit
-         (as-contract (contract-call? .subnet commit-block (get block block-data) (get subnet-block-height block-data) (get target-tip block-data) (get withdrawal-root block-data)))
+         (as-contract (contract-call? .subnet-v2-0-0 commit-block (get block block-data) (get subnet-block-height block-data) (get target-tip block-data) (get withdrawal-root block-data)))
     )
 )
