@@ -4543,30 +4543,113 @@ impl StacksChainState {
                     StacksEpochId::Epoch10 => {
                         panic!("Clarity VM believes it was running in 1.0: pre-Clarity.")
                     }
-                    StacksEpochId::Epoch20 => {
-                        assert!(
-                            sortition_epoch.epoch_id >= StacksEpochId::Epoch2_05,
-                            "Should only transition to a higher epoch"
-                        );
-                        if sortition_epoch.epoch_id >= StacksEpochId::Epoch2_05 {
+                    StacksEpochId::Epoch20 => match sortition_epoch.epoch_id {
+                        StacksEpochId::Epoch2_05 => {
                             receipts.push(clarity_tx.block.initialize_epoch_2_05()?);
                             applied = true;
                         }
-                        if sortition_epoch.epoch_id >= StacksEpochId::Epoch21 {
+                        StacksEpochId::Epoch21 => {
+                            receipts.push(clarity_tx.block.initialize_epoch_2_05()?);
                             receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
                             applied = true;
                         }
-                    }
-                    StacksEpochId::Epoch2_05 => {
-                        assert!(
-                            sortition_epoch.epoch_id >= StacksEpochId::Epoch21,
-                            "Should only transition to a higher epoch"
+                        StacksEpochId::Epoch22 => {
+                            receipts.push(clarity_tx.block.initialize_epoch_2_05()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_2()?);
+                            applied = true;
+                        }
+                        StacksEpochId::Epoch23 => {
+                            receipts.push(clarity_tx.block.initialize_epoch_2_05()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_2()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_3()?);
+                            applied = true;
+                        }
+                        StacksEpochId::Epoch24 => {
+                            receipts.push(clarity_tx.block.initialize_epoch_2_05()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_2()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_3()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_4()?);
+                            applied = true;
+                        }
+                        _ => {
+                            panic!("Bad Stacks epoch transition; parent_epoch = {}, current_epoch = {}", &stacks_parent_epoch, &sortition_epoch.epoch_id);
+                        }
+                    },
+                    StacksEpochId::Epoch2_05 => match sortition_epoch.epoch_id {
+                        StacksEpochId::Epoch21 => {
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
+                            applied = true;
+                        }
+                        StacksEpochId::Epoch22 => {
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_2()?);
+                            applied = true;
+                        }
+                        StacksEpochId::Epoch23 => {
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_2()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_3()?);
+                            applied = true;
+                        }
+                        StacksEpochId::Epoch24 => {
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_2()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_3()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_4()?);
+                            applied = true;
+                        }
+                        _ => {
+                            panic!("Bad Stacks epoch transition; parent_epoch = {}, current_epoch = {}", &stacks_parent_epoch, &sortition_epoch.epoch_id);
+                        }
+                    },
+                    StacksEpochId::Epoch21 => match sortition_epoch.epoch_id {
+                        StacksEpochId::Epoch22 => {
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_2()?);
+                            applied = true;
+                        }
+                        StacksEpochId::Epoch23 => {
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_2()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_3()?);
+                            applied = true;
+                        }
+                        StacksEpochId::Epoch24 => {
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_2()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_3()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_4()?);
+                            applied = true;
+                        }
+                        _ => {
+                            panic!("Bad Stacks epoch transition; parent_epoch = {}, current_epoch = {}", &stacks_parent_epoch, &sortition_epoch.epoch_id);
+                        }
+                    },
+                    StacksEpochId::Epoch22 => match sortition_epoch.epoch_id {
+                        StacksEpochId::Epoch23 => {
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_3()?);
+                            applied = true;
+                        }
+                        StacksEpochId::Epoch24 => {
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_3()?);
+                            receipts.append(&mut clarity_tx.block.initialize_epoch_2_4()?);
+                            applied = true;
+                        }
+                        _ => {
+                            panic!("Bad Stacks epoch transition; parent_epoch = {}, current_epoch = {}", &stacks_parent_epoch, &sortition_epoch.epoch_id);
+                        }
+                    },
+                    StacksEpochId::Epoch23 => {
+                        assert_eq!(
+                            sortition_epoch.epoch_id,
+                            StacksEpochId::Epoch24,
+                            "Should only transition from Epoch23 to Epoch24"
                         );
-                        receipts.append(&mut clarity_tx.block.initialize_epoch_2_1()?);
+                        receipts.append(&mut clarity_tx.block.initialize_epoch_2_4()?);
                         applied = true;
                     }
-                    StacksEpochId::Epoch21 => {
-                        panic!("No defined transition from Epoch21 forward")
+                    StacksEpochId::Epoch24 => {
+                        panic!("No defined transition from Epoch23 forward")
                     }
                 }
             }
@@ -6423,11 +6506,12 @@ impl StacksChainState {
             return Err(MemPoolRejection::BadAddressVersionByte);
         }
 
-        let (block_height, v1_unlock_height) =
-            clarity_connection.with_clarity_db_readonly(|ref mut db| {
+        let (block_height, v1_unlock_height, v2_unlock_height) = clarity_connection
+            .with_clarity_db_readonly(|ref mut db| {
                 (
                     db.get_current_burnchain_block_height() as u64,
                     db.get_v1_unlock_height(),
+                    db.get_v2_unlock_height(),
                 )
             });
 
@@ -6436,6 +6520,7 @@ impl StacksChainState {
             fee as u128,
             block_height,
             v1_unlock_height,
+            v2_unlock_height,
         ) {
             match &tx.payload {
                 TransactionPayload::TokenTransfer(..) => {
@@ -6467,12 +6552,15 @@ impl StacksChainState {
                     total_spent,
                     block_height,
                     v1_unlock_height,
+                    v2_unlock_height,
                 ) {
                     return Err(MemPoolRejection::NotEnoughFunds(
                         total_spent,
-                        origin
-                            .stx_balance
-                            .get_available_balance_at_burn_block(block_height, v1_unlock_height),
+                        origin.stx_balance.get_available_balance_at_burn_block(
+                            block_height,
+                            v1_unlock_height,
+                            v2_unlock_height,
+                        ),
                     ));
                 }
 
@@ -6482,6 +6570,7 @@ impl StacksChainState {
                         fee as u128,
                         block_height,
                         v1_unlock_height,
+                        v2_unlock_height,
                     ) {
                         return Err(MemPoolRejection::NotEnoughFunds(
                             fee as u128,

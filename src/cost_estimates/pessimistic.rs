@@ -230,15 +230,21 @@ impl PessimisticEstimator {
                     StacksEpochId::Epoch20 => "",
                     StacksEpochId::Epoch2_05 => ":2.05",
                     StacksEpochId::Epoch21 => ":2.1",
+                    // reuse cost estimates in Epoch22
+                    StacksEpochId::Epoch22 => ":2.1",
+                    // reuse cost estimates in Epoch23
+                    StacksEpochId::Epoch23 => ":2.1",
+                    // reuse cost estimates in Epoch24
+                    StacksEpochId::Epoch24 => ":2.1",
                 };
                 format!(
                     "cc{}:{}:{}.{}",
                     epoch_marker, cc.address, cc.contract_name, cc.function_name
                 )
             }
-            TransactionPayload::SmartContract(_sc, _) => "contract-publish".to_string(),
+            TransactionPayload::SmartContract(..) => "contract-publish".to_string(),
             TransactionPayload::PoisonMicroblock(_, _) => "poison-ublock".to_string(),
-            TransactionPayload::Coinbase(_) => "coinbase".to_string(),
+            TransactionPayload::Coinbase(..) => "coinbase".to_string(),
         };
 
         format!("{}:{}", &tx_descriptor, field)

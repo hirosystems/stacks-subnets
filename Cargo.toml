@@ -84,8 +84,8 @@ slog-term = "2.6.0"
 slog-json = { version = "2.3.0", optional = true }
 chrono = "0.4.19"
 libc = "0.2.82"
-clarity = { git = "https://github.com/stacks-network/stacks-blockchain.git", tag = "2.1.0.0.0" }
-stacks-common = { git = "https://github.com/stacks-network/stacks-blockchain.git", tag = "2.1.0.0.0" }
+clarity = { git = "https://github.com/stacks-network/stacks-blockchain.git", tag = "2.4.0.0.0" }
+stacks-common = { git = "https://github.com/stacks-network/stacks-blockchain.git", tag = "2.4.0.0.0" }
 # clarity = { package = "clarity", path = "../stacks-blockchain-develop/clarity" }
 # stacks-common = { package = "stacks-common", path = "../stacks-blockchain-develop/stacks-common" }
 siphasher = "0.3.7"
@@ -109,7 +109,7 @@ version = "1.0"
 features = ["arbitrary_precision", "unbounded_depth"]
 
 [dependencies.secp256k1]
-version = "0.24.2"
+version = "0.24.3"
 features = ["serde", "recovery"]
 
 [dependencies.rusqlite]
@@ -131,11 +131,11 @@ features = ["std"]
 [dev-dependencies]
 assert-json-diff = "1.0.0"
 criterion = "0.3.5"
-clarity = { git = "https://github.com/stacks-network/stacks-blockchain.git", tag = "2.1.0.0.0", features = [
+clarity = { git = "https://github.com/stacks-network/stacks-blockchain.git", tag = "2.4.0.0.0", features = [
     "default",
     "testing",
 ] }
-stacks-common = { git = "https://github.com/stacks-network/stacks-blockchain.git", tag = "2.1.0.0.0", features = [
+stacks-common = { git = "https://github.com/stacks-network/stacks-blockchain.git", tag = "2.4.0.0.0", features = [
     "default",
     "testing",
 ] }

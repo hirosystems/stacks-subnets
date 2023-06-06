@@ -1875,10 +1875,52 @@ impl SortitionDB {
     /// Is a particular database version supported by a given epoch?
     pub fn is_db_version_supported_in_epoch(epoch: StacksEpochId, version: &str) -> bool {
         match epoch {
-            StacksEpochId::Epoch10 => false,
-            StacksEpochId::Epoch20 => version == "1" || version == "2" || version == "3",
-            StacksEpochId::Epoch2_05 => version == "2" || version == "3",
-            StacksEpochId::Epoch21 => version == "3" || version == "4",
+            StacksEpochId::Epoch10 => true,
+            StacksEpochId::Epoch20 => {
+                version == "1"
+                    || version == "2"
+                    || version == "3"
+                    || version == "4"
+                    || version == "5"
+                    || version == "6"
+                    || version == "7"
+            }
+            StacksEpochId::Epoch2_05 => {
+                version == "2"
+                    || version == "3"
+                    || version == "4"
+                    || version == "5"
+                    || version == "6"
+                    || version == "7"
+            }
+            StacksEpochId::Epoch21 => {
+                version == "3"
+                    || version == "4"
+                    || version == "5"
+                    || version == "6"
+                    || version == "7"
+            }
+            StacksEpochId::Epoch22 => {
+                version == "3"
+                    || version == "4"
+                    || version == "5"
+                    || version == "6"
+                    || version == "7"
+            }
+            StacksEpochId::Epoch23 => {
+                version == "3"
+                    || version == "4"
+                    || version == "5"
+                    || version == "6"
+                    || version == "7"
+            }
+            StacksEpochId::Epoch24 => {
+                version == "3"
+                    || version == "4"
+                    || version == "5"
+                    || version == "6"
+                    || version == "7"
+            }
         }
     }
 
