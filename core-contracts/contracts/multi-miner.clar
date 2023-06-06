@@ -27,9 +27,6 @@
     patch: 0,
 })
 
-;; Store state for `check-subnet-contract-version-cached`
-(define-data-var check-subnet-contract-version-result (optional (response bool int)) none)
-
 ;; Return error if subnet contract version not supported
 (define-read-only (check-subnet-contract-version) (
     let (
@@ -47,18 +44,8 @@
     (ok true)
 ))
 
-;; Return error if subnet contract version not supported, 
-(define-public (check-subnet-contract-version-cached)
-    (match (var-get check-subnet-contract-version-result)
-        ;; If we already have a result, return it
-        result result
-        ;; Else, check the version and cache it
-        (let ((result (check-subnet-contract-version)))
-            (var-set check-subnet-contract-version-result (some result))
-            result
-        )
-    )
-)
+;; Fail if the subnet contract is not compatible
+(try! (check-subnet-contract-version))
 
 (define-private (get-miners)
     (unwrap-panic (var-get miners)))
@@ -121,8 +108,6 @@
           (signer-principals (try! (fold verify-sign-helper signatures (ok { block-hash: block-data-hash, signers: (list) })))))
          ;; check that the caller is a direct caller!
          (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
-         ;; check subnet contract version
-         (try! (check-subnet-contract-version-cached))
          ;; check that we have enough signatures
          (try! (check-miners (append (get signers signer-principals) tx-sender)))
          ;; execute the block commit
