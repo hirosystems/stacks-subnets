@@ -13,8 +13,10 @@ use stacks::chainstate::stacks::miner::SignedProposal;
 use stacks::chainstate::stacks::StacksTransaction;
 use stacks::codec::StacksMessageCodec;
 use stacks::core::StacksEpoch;
+use stacks::net::CallReadOnlyRequestBody;
 use stacks::util::hash::hex_bytes;
 use stacks::util::sleep_ms;
+use stacks::util_lib::boot::boot_code_addr;
 use stacks_common::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksBlockId};
 
 use super::commitment::{Layer1Committer, MultiPartyCommitter};
@@ -46,6 +48,28 @@ pub struct L1Controller {
     chain_tip: Option<BurnchainTip>,
 
     committer: Box<dyn Layer1Committer + Send>,
+
+    l1_contract_check_passed: bool,
+}
+
+/// Semver version of a Clarity contract
+#[derive(Deserialize, Serialize)]
+pub struct ContractVersion {
+    major: u32,
+    minor: u32,
+    patch: u32,
+    prerelease: Option<String>,
+    metadata: Option<String>,
+}
+
+/// Response from read-only function
+#[derive(Deserialize, Serialize)]
+pub struct GetVersionResponse {
+    okay: bool,
+    /// Response will contain `result` on success
+    result: Option<ContractVersion>,
+    /// Response will contain `cause` on failure
+    cause: Option<String>,
 }
 
 impl L1Channel {
@@ -109,7 +133,7 @@ impl L1Controller {
                 other_participants.clone(),
             )),
         };
-        Ok(L1Controller {
+        let l1_controller = L1Controller {
             burnchain,
             config,
             indexer,
@@ -119,7 +143,9 @@ impl L1Controller {
             coordinator,
             chain_tip: None,
             committer,
-        })
+            l1_contract_check_passed: false,
+        };
+        Ok(l1_controller)
     }
 
     fn receive_blocks(
@@ -227,6 +253,91 @@ impl L1Controller {
             Err(Error::RPCError(res.text()?))
         }
     }
+
+    /// Return the Semver version of the `subnet.clar` contract this node is configured to use
+    fn get_l1_contract_version(&self) -> Result<ContractVersion, Error> {
+        let burn_conf = &self.config.burnchain;
+        let url = format!(
+            "{http_origin}/v2/contracts/call-read/{contract_addr}/{contract}/get-version",
+            http_origin = self.l1_rpc_interface(),
+            contract_addr = burn_conf.contract_identifier.issuer,
+            contract = burn_conf.contract_identifier.name,
+        );
+
+        let body = CallReadOnlyRequestBody {
+            sender: boot_code_addr(self.config.is_mainnet()).to_string(),
+            arguments: Vec::default(),
+        };
+
+        let response = reqwest::blocking::Client::new()
+            .post(url)
+            .header("Content-Type", "application/octet-stream")
+            .json(&body)
+            .send()?
+            .error_for_status()?
+            .json::<GetVersionResponse>()
+            .map_err(Error::from)?;
+
+        if !response.okay {
+            let message = response
+                .cause
+                .unwrap_or_else(|| "Unknown contract error".to_string());
+            return Err(Error::RPCError(message));
+        }
+
+        match response.result {
+            Some(r) => Ok(r),
+            None => Err(Error::RPCError("Empty result".to_string())),
+        }
+    }
+
+    /// Check that the version of `subnet.clar` the node is configured to use is supported
+    fn check_l1_contract_version(&self) -> Result<(), Error> {
+        const EXACT_MAJOR_VERSION: u32 = 2;
+        const MINIMUM_MINOR_VERSION: u32 = 0;
+        const MINIMUM_PATCH_VERSION: u32 = 0;
+        let ContractVersion {
+            major,
+            minor,
+            patch,
+            ..
+        } = self.get_l1_contract_version()?;
+
+        if major != EXACT_MAJOR_VERSION {
+            let msg = format!("Major version must be {EXACT_MAJOR_VERSION} (found {major})");
+            return Err(Error::UnsupportedBurnchainContract(msg));
+        };
+        if minor < MINIMUM_MINOR_VERSION {
+            let msg =
+                format!("Minor version must be at least {MINIMUM_MINOR_VERSION} (found {minor})");
+            return Err(Error::UnsupportedBurnchainContract(msg));
+        };
+        if minor == MINIMUM_MINOR_VERSION && patch < MINIMUM_PATCH_VERSION {
+            let msg =
+                format!("Patch version must be at least {MINIMUM_PATCH_VERSION} (found {patch})");
+            return Err(Error::UnsupportedBurnchainContract(msg));
+        };
+        Ok(())
+    }
+
+    /// Check that the version of `subnet.clar` the node is configured to use is supported
+    fn l1_contract_ok(&mut self) -> Result<(), Error> {
+        match self.l1_contract_check_passed {
+            true => Ok(()),
+            false => match self.check_l1_contract_version() {
+                // This error is fatal. We can't continue with wrong contract version
+                Err(Error::UnsupportedBurnchainContract(e)) => {
+                    panic!("Unsupported burnchain contract version: {e}")
+                }
+                // Error, but not fatal
+                Err(e) => Err(e),
+                Ok(_) => {
+                    self.l1_contract_check_passed = true;
+                    Ok(())
+                }
+            },
+        }
+    }
 }
 
 impl BurnchainController for L1Controller {
@@ -270,6 +381,8 @@ impl BurnchainController for L1Controller {
         op_signer: &mut BurnchainOpSigner,
         attempt: u64,
     ) -> Result<Txid, Error> {
+        self.l1_contract_ok()?;
+
         let tx = self.committer.make_commit_tx(
             committed_block_hash,
             committed_block_height,

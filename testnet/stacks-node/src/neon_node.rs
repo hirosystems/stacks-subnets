@@ -817,7 +817,7 @@ fn spawn_miner_relayer(
         Vec<(AssembledAnchorBlock, Secp256k1PrivateKey)>,
     > = HashMap::new();
 
-    let mut bitcoin_controller = config
+    let mut burnchain_controller = config
         .make_burnchain_controller(coord_comms.clone())
         .expect("couldn't create burnchain controller");
     let mut microblock_miner_state: Option<MicroblockMinerState> = None;
@@ -1031,7 +1031,7 @@ fn spawn_miner_relayer(
                         burn_tenure_snapshot,
                         &mut keychain,
                         &mut mem_pool,
-                        &mut *bitcoin_controller,
+                        &mut *burnchain_controller,
                         &last_mined_blocks_vec.iter().map(|(blk, _)| blk).collect(),
                         &event_dispatcher,
                     );
@@ -1562,7 +1562,7 @@ impl StacksNode {
         burn_block: BlockSnapshot,
         keychain: &mut Keychain,
         mem_pool: &mut MemPoolDB,
-        bitcoin_controller: &mut (dyn BurnchainController + Send),
+        burnchain_controller: &mut (dyn BurnchainController + Send),
         last_mined_blocks: &Vec<&AssembledAnchorBlock>,
         event_dispatcher: &EventDispatcher,
     ) -> Option<(AssembledAnchorBlock, Secp256k1PrivateKey)> {
@@ -1901,7 +1901,7 @@ impl StacksNode {
         let withdrawal_merkle_root = anchored_block.header.withdrawal_merkle_root;
 
         let mut op_signer = keychain.generate_op_signer();
-        let required_signatures = bitcoin_controller.commit_required_signatures();
+        let required_signatures = burnchain_controller.commit_required_signatures();
         let signatures = if required_signatures > 0 {
             // if we need to collect signatures, assemble the proposal and send to other participants
             let proposal = Proposal {
@@ -1928,7 +1928,7 @@ impl StacksNode {
 
             (0..required_signatures)
                 .filter_map(|participant_index| {
-                    match bitcoin_controller.propose_block(participant_index, &proposal) {
+                    match burnchain_controller.propose_block(participant_index, &proposal) {
                         Ok(signature) => Some(signature),
                         Err(rejection) => {
                             warn!("Failed to obtain approval"; "error" => %rejection);
@@ -2001,7 +2001,7 @@ impl StacksNode {
             "attempt" => attempt
         );
 
-        let res = bitcoin_controller.submit_commit(
+        let res = burnchain_controller.submit_commit(
             committed_block_hash,
             block_height,
             target_burn_hash,

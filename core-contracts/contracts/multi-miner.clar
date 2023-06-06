@@ -6,6 +6,7 @@
 (define-constant ERR_INVALID_SIGNATURE 103)
 (define-constant ERR_UNAUTHORIZED_CONTRACT_CALLER 104)
 (define-constant ERR_MINER_ALREADY_SET 105)
+(define-constant ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION 106)
 
 ;; SIP-018 Constants
 (define-constant sip18-prefix 0x534950303138)
@@ -18,6 +19,33 @@
 
 ;; List of miners
 (define-data-var miners (optional (list 10 principal)) none)
+
+;; Minimun version of subnet contract required
+(define-constant SUBNET_CONTRACT_VERSION_MIN {
+    major: 2,
+    minor: 0,
+    patch: 0,
+})
+
+;; Return error if subnet contract version not supported
+(define-read-only (check-subnet-contract-version) (
+    let (
+        (subnet-contract-version (contract-call? .subnet-v2-0-0 get-version))
+    )
+
+    ;; Check subnet contract version is greater than min supported version
+    (asserts! (is-eq (get major subnet-contract-version) (get major SUBNET_CONTRACT_VERSION_MIN)) (err ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION))
+    (asserts! (>= (get minor subnet-contract-version) (get minor SUBNET_CONTRACT_VERSION_MIN)) (err ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION))
+    ;; Only check patch version if major and minor version are equal
+    (asserts! (or
+            (not (is-eq (get minor subnet-contract-version) (get minor SUBNET_CONTRACT_VERSION_MIN)))
+            (>= (get patch subnet-contract-version) (get patch SUBNET_CONTRACT_VERSION_MIN)))
+        (err ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION))
+    (ok true)
+))
+
+;; Fail if the subnet contract is not compatible
+(try! (check-subnet-contract-version))
 
 (define-private (get-miners)
     (unwrap-panic (var-get miners)))
@@ -83,6 +111,6 @@
          ;; check that we have enough signatures
          (try! (check-miners (append (get signers signer-principals) tx-sender)))
          ;; execute the block commit
-         (as-contract (contract-call? .subnet commit-block (get block block-data) (get subnet-block-height block-data) (get target-tip block-data) (get withdrawal-root block-data)))
+         (as-contract (contract-call? .subnet-v2-0-0 commit-block (get block block-data) (get subnet-block-height block-data) (get target-tip block-data) (get withdrawal-root block-data)))
     )
 )
