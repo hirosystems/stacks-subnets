@@ -48,6 +48,8 @@ pub struct L1Controller {
     chain_tip: Option<BurnchainTip>,
 
     committer: Box<dyn Layer1Committer + Send>,
+
+    l1_contract_check_passed: bool,
 }
 
 /// Semver version of a Clarity contract
@@ -141,6 +143,7 @@ impl L1Controller {
             coordinator,
             chain_tip: None,
             committer,
+            l1_contract_check_passed: false,
         };
         Ok(l1_controller)
     }
@@ -293,21 +296,47 @@ impl L1Controller {
         const EXACT_MAJOR_VERSION: u32 = 2;
         const MINIMUM_MINOR_VERSION: u32 = 0;
         const MINIMUM_PATCH_VERSION: u32 = 0;
-        let ContractVersion{major, minor, patch, ..} = self.get_l1_contract_version()?;
+        let ContractVersion {
+            major,
+            minor,
+            patch,
+            ..
+        } = self.get_l1_contract_version()?;
 
         if major != EXACT_MAJOR_VERSION {
-            let msg = format!( "Major version must be {EXACT_MAJOR_VERSION} (found {major})");
+            let msg = format!("Major version must be {EXACT_MAJOR_VERSION} (found {major})");
             return Err(Error::UnsupportedBurnchainContract(msg));
         };
         if minor < MINIMUM_MINOR_VERSION {
-            let msg = format!( "Minor version must be at least {MINIMUM_MINOR_VERSION} (found {minor})");
+            let msg =
+                format!("Minor version must be at least {MINIMUM_MINOR_VERSION} (found {minor})");
             return Err(Error::UnsupportedBurnchainContract(msg));
         };
         if minor == MINIMUM_MINOR_VERSION && patch < MINIMUM_PATCH_VERSION {
-            let msg = format!( "Patch version must be at least {MINIMUM_PATCH_VERSION} (found {patch})");
+            let msg =
+                format!("Patch version must be at least {MINIMUM_PATCH_VERSION} (found {patch})");
             return Err(Error::UnsupportedBurnchainContract(msg));
         };
         Ok(())
+    }
+
+    /// Check that the version of `subnet.clar` the node is configured to use is supported
+    fn l1_contract_ok(&mut self) -> Result<(), Error> {
+        match self.l1_contract_check_passed {
+            true => Ok(()),
+            false => match self.check_l1_contract_version() {
+                // This error is fatal. We can't continue with wrong contract version
+                Err(Error::UnsupportedBurnchainContract(e)) => {
+                    panic!("Unsupported burnchain contract version: {e}")
+                }
+                // Error, but not fatal
+                Err(e) => Err(e),
+                Ok(_) => {
+                    self.l1_contract_check_passed = true;
+                    Ok(())
+                }
+            },
+        }
     }
 }
 
@@ -352,7 +381,7 @@ impl BurnchainController for L1Controller {
         op_signer: &mut BurnchainOpSigner,
         attempt: u64,
     ) -> Result<Txid, Error> {
-        self.check_l1_contract_version()?;
+        self.l1_contract_ok()?;
 
         let tx = self.committer.make_commit_tx(
             committed_block_hash,
