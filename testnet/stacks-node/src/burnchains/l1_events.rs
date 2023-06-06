@@ -16,6 +16,7 @@ use stacks::core::StacksEpoch;
 use stacks::net::CallReadOnlyRequestBody;
 use stacks::util::hash::hex_bytes;
 use stacks::util::sleep_ms;
+use stacks::util_lib::boot::boot_code_addr;
 use stacks_common::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksBlockId};
 
 use super::commitment::{Layer1Committer, MultiPartyCommitter};
@@ -261,7 +262,7 @@ impl L1Controller {
         );
 
         let body = CallReadOnlyRequestBody {
-            sender: "'SP139Q3N9RXCJCD1XVA4N5RYWQ5K9XQ0T9PKQ8EE5".into(), // FIXME
+            sender: boot_code_addr(self.config.is_mainnet()).to_string(),
             arguments: Vec::default(),
         };
 
@@ -289,14 +290,21 @@ impl L1Controller {
 
     /// Check that the version of `subnet.clar` the node is configured to use is supported
     fn check_l1_contract_version(&self) -> Result<(), Error> {
-        const MINIMUM_MAJOR_VERSION: u32 = 2;
-        let version = self.get_l1_contract_version()?;
+        const EXACT_MAJOR_VERSION: u32 = 2;
+        const MINIMUM_MINOR_VERSION: u32 = 0;
+        const MINIMUM_PATCH_VERSION: u32 = 0;
+        let ContractVersion{major, minor, patch, ..} = self.get_l1_contract_version()?;
 
-        if version.major < MINIMUM_MAJOR_VERSION {
-            let msg = format!(
-                "Major version must be at least {MINIMUM_MAJOR_VERSION} (found {major})",
-                major = version.major
-            );
+        if major != EXACT_MAJOR_VERSION {
+            let msg = format!( "Major version must be {EXACT_MAJOR_VERSION} (found {major})");
+            return Err(Error::UnsupportedBurnchainContract(msg));
+        };
+        if minor < MINIMUM_MINOR_VERSION {
+            let msg = format!( "Minor version must be at least {MINIMUM_MINOR_VERSION} (found {minor})");
+            return Err(Error::UnsupportedBurnchainContract(msg));
+        };
+        if minor == MINIMUM_MINOR_VERSION && patch < MINIMUM_PATCH_VERSION {
+            let msg = format!( "Patch version must be at least {MINIMUM_PATCH_VERSION} (found {patch})");
             return Err(Error::UnsupportedBurnchainContract(msg));
         };
         Ok(())

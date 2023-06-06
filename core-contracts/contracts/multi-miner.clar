@@ -27,6 +27,39 @@
     patch: 0,
 })
 
+;; Store state for `check-subnet-contract-version-cached`
+(define-data-var check-subnet-contract-version-result (optional (response bool int)) none)
+
+;; Return error if subnet contract version not supported
+(define-read-only (check-subnet-contract-version) (
+    let (
+        (subnet-contract-version (contract-call? .subnet get-version))
+    )
+
+    ;; Check subnet contract version is greater than min supported version
+    (asserts! (is-eq (get major subnet-contract-version) (get major SUBNET_CONTRACT_VERSION_MIN)) (err ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION))
+    (asserts! (>= (get minor subnet-contract-version) (get minor SUBNET_CONTRACT_VERSION_MIN)) (err ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION))
+    ;; Only check patch version if major and minor version are equal
+    (asserts! (or
+            (not (is-eq (get minor subnet-contract-version) (get minor SUBNET_CONTRACT_VERSION_MIN)))
+            (>= (get patch subnet-contract-version) (get patch SUBNET_CONTRACT_VERSION_MIN)))
+        (err ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION))
+    (ok true)
+))
+
+;; Return error if subnet contract version not supported, 
+(define-public (check-subnet-contract-version-cached)
+    (match (var-get check-subnet-contract-version-result)
+        ;; If we already have a result, return it
+        result result
+        ;; Else, check the version and cache it
+        (let ((result (check-subnet-contract-version)))
+            (var-set check-subnet-contract-version-result (some result))
+            result
+        )
+    )
+)
+
 (define-private (get-miners)
     (unwrap-panic (var-get miners)))
 
@@ -85,16 +118,13 @@
 (define-public (commit-block  (block-data { block: (buff 32), subnet-block-height: uint, withdrawal-root: (buff 32), target-tip: (buff 32) })
                               (signatures (list 9 (buff 65))))
     (let ((block-data-hash (make-block-commit-hash block-data))
-          (signer-principals (try! (fold verify-sign-helper signatures (ok { block-hash: block-data-hash, signers: (list) }))))
-          (subnet-contract-version (contract-call? .subnet get-version)))
+          (signer-principals (try! (fold verify-sign-helper signatures (ok { block-hash: block-data-hash, signers: (list) })))))
          ;; check that the caller is a direct caller!
          (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
+         ;; check subnet contract version
+         (try! (check-subnet-contract-version-cached))
          ;; check that we have enough signatures
          (try! (check-miners (append (get signers signer-principals) tx-sender)))
-         ;; Check subnet contract version is greater than min supported version
-         (asserts! (>= (get major subnet-contract-version) (get major SUBNET_CONTRACT_VERSION_MIN)) (err ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION))
-         (asserts! (>= (get minor subnet-contract-version) (get minor SUBNET_CONTRACT_VERSION_MIN)) (err ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION))
-         (asserts! (>= (get patch subnet-contract-version) (get patch SUBNET_CONTRACT_VERSION_MIN)) (err ERR_UNSUPPORTED_SUBNET_CONTRACT_VERSION))
          ;; execute the block commit
          (as-contract (contract-call? .subnet commit-block (get block block-data) (get subnet-block-height block-data) (get target-tip block-data) (get withdrawal-root block-data)))
     )
