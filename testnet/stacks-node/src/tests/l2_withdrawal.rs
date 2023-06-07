@@ -7,7 +7,6 @@ use crate::tests::l1_multiparty::MOCKNET_EPOCH_2_1;
 use crate::tests::neon_integrations::{get_account, submit_tx, test_observer};
 use crate::tests::{make_contract_call, make_contract_publish, to_addr};
 use clarity::boot_util::boot_code_addr;
-use clarity::vm::database::ClaritySerializable;
 use clarity::vm::representations::ContractName;
 use clarity::vm::types::{PrincipalData, TypeSignature};
 use clarity::vm::Value;
