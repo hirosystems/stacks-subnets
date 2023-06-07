@@ -13,8 +13,8 @@ use stacks::util::hash::hex_bytes;
 use stacks::vm::types::{QualifiedContractIdentifier, TupleData};
 use stacks::vm::ClarityName;
 use stacks::vm::Value as ClarityValue;
-use stacks_common::types::StacksEpochId;
 use stacks_common::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksAddress};
+use stacks_common::types::StacksEpochId;
 use stacks_common::util::hash::{to_hex, Sha512Trunc256Sum};
 
 use crate::config::BurnchainConfig;
@@ -263,7 +263,7 @@ impl MultiPartyCommitter {
                         .expect("Failed to construct length 65 buffer")
                 })
                 .collect(),
-                &StacksEpochId::latest(),
+            &StacksEpochId::latest(),
         )
         .map_err(|_| Error::BadCommitment)?;
 
