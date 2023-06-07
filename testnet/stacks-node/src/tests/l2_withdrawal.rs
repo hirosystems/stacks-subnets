@@ -20,7 +20,7 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use crate::tests::l1_observer_test::{
-    call_read_only, publish_subnet_contracts_to_l1, wait_for_next_stacks_block,
+    call_read_only, deserialize_value, publish_subnet_contracts_to_l1, wait_for_next_stacks_block,
     wait_for_target_l1_block, StacksL1Controller,
 };
 use crate::tests::l1_observer_test::{MOCKNET_PRIVATE_KEY_1, MOCKNET_PRIVATE_KEY_2};
@@ -204,7 +204,7 @@ fn withdraw_unregistered_asset() {
         &user_addr,
         "simple-nft",
         "get-token-owner",
-        vec![Value::UInt(5).serialize()],
+        vec![Value::UInt(5).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -214,7 +214,7 @@ fn withdraw_unregistered_asset() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let owner = deserialize_value(
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
@@ -229,7 +229,7 @@ fn withdraw_unregistered_asset() {
         &user_addr,
         "simple-nft",
         "get-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -239,7 +239,7 @@ fn withdraw_unregistered_asset() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let owner = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((
             TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
