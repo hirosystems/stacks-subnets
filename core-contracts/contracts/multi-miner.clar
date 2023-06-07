@@ -22,9 +22,9 @@
 
 ;; Minimun version of subnet contract required
 (define-constant SUBNET_CONTRACT_VERSION_MIN {
-    major: 2,
-    minor: 0,
-    patch: 0,
+    major: u2,
+    minor: u0,
+    patch: u0,
 })
 
 ;; Return error if subnet contract version not supported
