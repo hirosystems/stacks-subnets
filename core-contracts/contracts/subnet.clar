@@ -54,7 +54,7 @@
 ;; Use trait declarations
 (use-trait nft-trait 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)
 (use-trait ft-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
-(use-trait mint-from-subnet-trait .subnet-traits.mint-from-subnet-trait)
+(use-trait mint-from-subnet-trait .subnet-traits-v1.mint-from-subnet-trait)
 
 ;; Get the version of this contract
 ;; Returns a tuple containing the 5 Semver fields: major, minor, patch, prerelease, and metadata
