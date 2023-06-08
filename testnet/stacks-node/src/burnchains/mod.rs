@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use self::commitment::Error as CommitmentError;
+use clarity::vm::errors::Error as ClarityError;
 use reqwest::Error as ReqwestError;
 use stacks::burnchains;
 use stacks::burnchains::indexer::BurnchainChannel;
@@ -41,8 +42,11 @@ mod tests;
 #[derive(Debug)]
 pub enum Error {
     UnsupportedBurnchain(String),
-    /// Problem with contract deployed on burnchain
-    UnsupportedBurnchainContract(String),
+    /// Was not able to check burnchain contract version
+    BurnchainContractCheck(String),
+    /// Was able to check burnchain contract version and is unsupported
+    BurnchainContractVersion(String),
+    Clarity(ClarityError),
     CoordinatorClosed,
     IndexerError(burnchains::Error),
     RPCError(String),
@@ -55,14 +59,24 @@ impl fmt::Display for Error {
             Error::UnsupportedBurnchain(ref chain_name) => {
                 write!(f, "Burnchain is not supported: {chain_name:?}")
             }
-            Error::UnsupportedBurnchainContract(ref msg) => {
-                write!(f, "Burnchain contract is not supported: {msg}")
+            Error::BurnchainContractCheck(ref e) => {
+                write!(f, "Burnchain contract check failed: {e}")
             }
+            Error::BurnchainContractVersion(ref e) => {
+                write!(f, "Burnchain contract unsupported version: {e}")
+            }
+            Error::Clarity(ref e) => write!(f, "Clarity Error: {e}"),
             Error::CoordinatorClosed => write!(f, "ChainsCoordinator closed"),
             Error::IndexerError(ref e) => write!(f, "Indexer error: {e:?}"),
             Error::RPCError(ref e) => write!(f, "ControllerError(RPCError: {e})"),
             Error::BadCommitment(ref e) => write!(f, "ControllerError(BadCommitment: {e}))"),
         }
+    }
+}
+
+impl From<ClarityError> for Error {
+    fn from(e: ClarityError) -> Self {
+        Error::Clarity(e)
     }
 }
 

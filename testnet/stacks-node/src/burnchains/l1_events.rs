@@ -1,7 +1,13 @@
+use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use clarity::vm::errors::{Error as ClarityError, RuntimeErrorType as ClarityRuntimeError};
+use clarity::vm::types::{
+    SequenceSubtype, StringSubtype, StringUTF8Length, TupleTypeSignature, TypeSignature,
+    Value as ClarityValue,
+};
 use stacks::burnchains::db::BurnchainDB;
 use stacks::burnchains::events::NewBlock;
 use stacks::burnchains::indexer::BurnchainIndexer;
@@ -55,11 +61,53 @@ pub struct L1Controller {
 /// Semver version of a Clarity contract
 #[derive(Deserialize, Serialize)]
 pub struct ContractVersion {
-    major: u32,
-    minor: u32,
-    patch: u32,
+    major: u128,
+    minor: u128,
+    patch: u128,
     prerelease: Option<String>,
     metadata: Option<String>,
+}
+
+impl fmt::Display for ContractVersion {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)?;
+        if let Some(pre) = &self.prerelease {
+            write!(f, "-{pre}")?;
+        }
+        if let Some(meta) = &self.metadata {
+            write!(f, "+{meta}")?;
+        }
+        Ok(())
+    }
+}
+
+impl TryFrom<ClarityValue> for ContractVersion {
+    type Error = ClarityError;
+
+    fn try_from(value: ClarityValue) -> Result<Self, Self::Error> {
+        // FIXME: Clean up this mess. This shouldn't `panic!()` ever!
+        match value {
+            ClarityValue::Tuple(t) => Ok(ContractVersion {
+                major: t.get("major")?.clone().expect_u128(),
+                minor: t.get("minor")?.clone().expect_u128(),
+                patch: t.get("patch")?.clone().expect_u128(),
+                prerelease: t
+                    .get("prerelease")?
+                    .clone()
+                    .expect_optional()
+                    .map(|v| v.expect_ascii()),
+                metadata: t
+                    .get("metadata")?
+                    .clone()
+                    .expect_optional()
+                    .map(|v| v.expect_ascii()),
+            }),
+            _ => Err(ClarityError::Runtime(
+                ClarityRuntimeError::ParseError("Expected Tuple".into()),
+                None,
+            )),
+        }
+    }
 }
 
 /// Response from read-only function
@@ -67,7 +115,7 @@ pub struct ContractVersion {
 pub struct GetVersionResponse {
     okay: bool,
     /// Response will contain `result` on success
-    result: Option<ContractVersion>,
+    result: Option<String>,
     /// Response will contain `cause` on failure
     cause: Option<String>,
 }
@@ -275,8 +323,7 @@ impl L1Controller {
             .json(&body)
             .send()?
             .error_for_status()?
-            .json::<GetVersionResponse>()
-            .map_err(Error::from)?;
+            .json::<GetVersionResponse>()?;
 
         if !response.okay {
             let message = response
@@ -285,53 +332,85 @@ impl L1Controller {
             return Err(Error::RPCError(message));
         }
 
-        match response.result {
-            Some(r) => Ok(r),
-            None => Err(Error::RPCError("Empty result".to_string())),
-        }
+        let result = response
+            .result
+            .ok_or(Error::RPCError("Empty result".to_string()))?
+            .strip_prefix("0x")
+            .unwrap() // FIXME
+            .to_string();
+
+        let typesig = TypeSignature::TupleType(
+            TupleTypeSignature::try_from(vec![
+                ("major".into(), TypeSignature::UIntType),
+                ("minor".into(), TypeSignature::UIntType),
+                ("patch".into(), TypeSignature::UIntType),
+                (
+                    "prerelease".into(),
+                    TypeSignature::OptionalType(Box::new(TypeSignature::SequenceType(
+                        SequenceSubtype::StringType(StringSubtype::UTF8(
+                            StringUTF8Length::try_from(64usize).unwrap(),
+                        )),
+                    ))),
+                ),
+                (
+                    "metadata".into(),
+                    TypeSignature::OptionalType(Box::new(TypeSignature::SequenceType(
+                        SequenceSubtype::StringType(StringSubtype::UTF8(
+                            StringUTF8Length::try_from(64usize).unwrap(),
+                        )),
+                    ))),
+                ),
+            ])
+            .unwrap(),
+        );
+
+        let value = ClarityValue::deserialize(&result, &typesig);
+        ContractVersion::try_from(value).map_err(Error::from)
     }
 
     /// Check that the version of `subnet.clar` the node is configured to use is supported
-    fn check_l1_contract_version(&self) -> Result<(), Error> {
-        const EXACT_MAJOR_VERSION: u32 = 2;
-        const MINIMUM_MINOR_VERSION: u32 = 0;
-        const MINIMUM_PATCH_VERSION: u32 = 0;
+    fn get_validated_l1_contract_version(&self) -> Result<ContractVersion, Error> {
+        const EXACT_MAJOR_VERSION: u128 = 2;
+        const MINIMUM_MINOR_VERSION: u128 = 0;
+        const MINIMUM_PATCH_VERSION: u128 = 0;
+        let version = self.get_l1_contract_version()?;
         let ContractVersion {
             major,
             minor,
             patch,
             ..
-        } = self.get_l1_contract_version()?;
+        } = version;
 
         if major != EXACT_MAJOR_VERSION {
             let msg = format!("Major version must be {EXACT_MAJOR_VERSION} (found {major})");
-            return Err(Error::UnsupportedBurnchainContract(msg));
+            return Err(Error::BurnchainContractVersion(msg));
         };
         if minor < MINIMUM_MINOR_VERSION {
             let msg =
                 format!("Minor version must be at least {MINIMUM_MINOR_VERSION} (found {minor})");
-            return Err(Error::UnsupportedBurnchainContract(msg));
+            return Err(Error::BurnchainContractVersion(msg));
         };
         if minor == MINIMUM_MINOR_VERSION && patch < MINIMUM_PATCH_VERSION {
             let msg =
                 format!("Patch version must be at least {MINIMUM_PATCH_VERSION} (found {patch})");
-            return Err(Error::UnsupportedBurnchainContract(msg));
+            return Err(Error::BurnchainContractVersion(msg));
         };
-        Ok(())
+        Ok(version)
     }
 
     /// Check that the version of `subnet.clar` the node is configured to use is supported
     fn l1_contract_ok(&mut self) -> Result<(), Error> {
         match self.l1_contract_check_passed {
             true => Ok(()),
-            false => match self.check_l1_contract_version() {
+            false => match self.get_validated_l1_contract_version() {
                 // This error is fatal. We can't continue with wrong contract version
-                Err(Error::UnsupportedBurnchainContract(e)) => {
-                    panic!("Unsupported burnchain contract version: {e}")
-                }
-                // Error, but not fatal
-                Err(e) => Err(e),
-                Ok(_) => {
+                Err(e @ Error::BurnchainContractVersion(_)) => panic!("{e}"),
+                // Error checking version, not fatal
+                Err(e @ Error::BurnchainContractCheck(_)) => Err(e),
+                // Error, transform into `Error::BurnchainContractCheck`
+                Err(e) => Err(Error::BurnchainContractCheck(e.to_string())),
+                Ok(version) => {
+                    info!("Found supported L1 contract version: {version}");
                     self.l1_contract_check_passed = true;
                     Ok(())
                 }
