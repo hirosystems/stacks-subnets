@@ -362,6 +362,10 @@ pub struct PoxConstants {
     /// also defines the burn height at which PoX reward sets are calculated using
     /// PoX v2 rather than v1
     pub v1_unlock_height: u32,
+    /// The auto unlock height for PoX v2 lockups during Epoch 2.2
+    pub v2_unlock_height: u32,
+    /// After this burn height, reward cycles use pox-3 for reward set data
+    pub pox_3_activation_height: u32,
     /// fraction of liquid STX that must vote to reject PoX for
     /// it to revert to PoB in the next reward cycle
     pub pox_rejection_fraction: u64,
@@ -376,6 +380,8 @@ impl PoxConstants {
             reward_cycle_length,
             prepare_length: 0,
             v1_unlock_height: 0,
+            v2_unlock_height: 0,
+            pox_3_activation_height: 0,
             pox_rejection_fraction: 0,
         }
     }

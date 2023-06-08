@@ -13,7 +13,6 @@ use crate::{neon, Config};
 use clarity::boot_util::{boot_code_addr, boot_code_id};
 use clarity::types::chainstate::StacksAddress;
 use clarity::util::hash::{MerklePathOrder, MerkleTree, Sha512Trunc256Sum};
-use clarity::vm::database::ClaritySerializable;
 use clarity::vm::events::SmartContractEventData;
 use clarity::vm::events::StacksTransactionEvent;
 use clarity::vm::representations::ContractName;
@@ -37,6 +36,7 @@ use stacks::util::hash::hex_bytes;
 use stacks::vm::costs::ExecutionCost;
 use stacks::vm::types::{QualifiedContractIdentifier, TupleData};
 use stacks::vm::ClarityName;
+use stacks_common::types::StacksEpochId;
 use std::convert::{TryFrom, TryInto};
 use std::env;
 use std::io::{BufRead, BufReader};
@@ -102,6 +102,10 @@ pub fn call_read_only(
         .unwrap();
 
     read_info
+}
+
+pub fn deserialize_value(hex: &str, expected: &TypeSignature) -> Value {
+    Value::try_deserialize_hex(hex, expected, false).expect("failed to deserialize value")
 }
 
 impl StacksL1Controller {
@@ -666,7 +670,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -676,7 +680,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -688,7 +692,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-nft",
         "get-token-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -698,7 +702,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let addr = Value::deserialize(
+    let addr = deserialize_value(
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
@@ -751,7 +755,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -761,7 +765,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -773,7 +777,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-nft",
         "get-token-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -783,7 +787,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let addr = Value::deserialize(
+    let addr = deserialize_value(
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
@@ -798,7 +802,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -808,7 +812,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -820,7 +824,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-nft",
         "get-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -830,7 +834,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((
             TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
@@ -896,7 +900,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -906,7 +910,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -918,7 +922,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-nft",
         "get-token-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -928,7 +932,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let addr = Value::deserialize(
+    let addr = deserialize_value(
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
@@ -940,7 +944,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -950,7 +954,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -962,7 +966,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-nft",
         "get-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -972,7 +976,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((
             TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
@@ -1190,8 +1194,9 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     let root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
     let nft_leaf_hash_val = Value::buff_from(nft_withdrawal_leaf_hash.clone()).unwrap();
     let ft_leaf_hash_val = Value::buff_from(ft_withdrawal_leaf_hash.clone()).unwrap();
-    let nft_siblings_val = Value::list_from(nft_sib_data.clone()).unwrap();
-    let ft_siblings_val = Value::list_from(ft_sib_data.clone()).unwrap();
+    let nft_siblings_val =
+        Value::cons_list(nft_sib_data.clone(), &StacksEpochId::latest()).unwrap();
+    let ft_siblings_val = Value::cons_list(ft_sib_data.clone(), &StacksEpochId::latest()).unwrap();
 
     assert_eq!(
         &root_hash_val, &nft_withdrawal_entry.root_hash,
@@ -1242,7 +1247,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
             .unwrap(),
             Value::buff_from(root_hash.clone()).unwrap(),
             Value::buff_from(ft_withdrawal_leaf_hash).unwrap(),
-            Value::list_from(ft_sib_data).unwrap(),
+            Value::cons_list(ft_sib_data, &StacksEpochId::latest()).unwrap(),
         ],
     );
     l1_nonce += 1;
@@ -1266,7 +1271,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
             .unwrap(),
             Value::buff_from(root_hash).unwrap(),
             Value::buff_from(nft_withdrawal_leaf_hash).unwrap(),
-            Value::list_from(nft_sib_data).unwrap(),
+            Value::cons_list(nft_sib_data, &StacksEpochId::latest()).unwrap(),
         ],
     );
 
@@ -1284,7 +1289,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -1294,7 +1299,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -1306,7 +1311,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         &user_addr,
         "simple-nft",
         "get-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -1316,7 +1321,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((
             TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
@@ -1673,7 +1678,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
 
     let root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
     let leaf_hash_val = Value::buff_from(stx_withdrawal_leaf_hash).unwrap();
-    let siblings_val = Value::list_from(stx_sib_data).unwrap();
+    let siblings_val = Value::cons_list(stx_sib_data, &StacksEpochId::latest()).unwrap();
 
     assert_eq!(
         &root_hash_val, &withdrawal_entry.root_hash,
@@ -2035,7 +2040,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-nft",
         "get-token-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2045,7 +2050,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let addr = Value::deserialize(
+    let addr = deserialize_value(
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
@@ -2080,7 +2085,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-nft",
         "get-token-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2090,7 +2095,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let addr = Value::deserialize(
+    let addr = deserialize_value(
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
@@ -2105,7 +2110,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-nft",
         "get-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2115,7 +2120,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let owner = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((
             TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
@@ -2140,7 +2145,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-nft",
         "get-owner",
-        vec![Value::UInt(5).serialize()],
+        vec![Value::UInt(5).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2150,7 +2155,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let owner = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((
             TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
@@ -2208,7 +2213,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-nft",
         "get-token-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2218,7 +2223,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let addr = Value::deserialize(
+    let addr = deserialize_value(
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
@@ -2229,7 +2234,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-nft",
         "get-token-owner",
-        vec![Value::UInt(5).serialize()],
+        vec![Value::UInt(5).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2239,7 +2244,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let addr = Value::deserialize(
+    let addr = deserialize_value(
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
@@ -2251,7 +2256,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-nft",
         "get-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2261,7 +2266,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let owner = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((
             TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
@@ -2286,7 +2291,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-nft",
         "get-owner",
-        vec![Value::UInt(5).serialize()],
+        vec![Value::UInt(5).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2296,7 +2301,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let owner = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((
             TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
@@ -2472,7 +2477,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     let l1_native_root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
     let l1_native_leaf_hash_val =
         Value::buff_from(l1_native_nft_withdrawal_leaf_hash.clone()).unwrap();
-    let l1_native_siblings_val = Value::list_from(l1_native_nft_sib_data.clone()).unwrap();
+    let l1_native_siblings_val =
+        Value::cons_list(l1_native_nft_sib_data.clone(), &StacksEpochId::latest()).unwrap();
 
     assert_eq!(
         &l1_native_root_hash_val, &l1_native_nft_withdrawal_entry.root_hash,
@@ -2517,7 +2523,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     let subnet_native_root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
     let subnet_native_leaf_hash_val =
         Value::buff_from(subnet_native_nft_withdrawal_leaf_hash.clone()).unwrap();
-    let subnet_native_siblings_val = Value::list_from(subnet_native_nft_sib_data.clone()).unwrap();
+    let subnet_native_siblings_val =
+        Value::cons_list(subnet_native_nft_sib_data.clone(), &StacksEpochId::latest()).unwrap();
 
     assert_eq!(
         &subnet_native_root_hash_val, &subnet_native_nft_withdrawal_entry.root_hash,
@@ -2554,7 +2561,7 @@ fn nft_deposit_and_withdraw_integration_test() {
             .unwrap(),
             Value::buff_from(root_hash.clone()).unwrap(),
             Value::buff_from(l1_native_nft_withdrawal_leaf_hash).unwrap(),
-            Value::list_from(l1_native_nft_sib_data).unwrap(),
+            Value::cons_list(l1_native_nft_sib_data, &StacksEpochId::latest()).unwrap(),
         ],
     );
     l1_nonce += 1;
@@ -2578,7 +2585,7 @@ fn nft_deposit_and_withdraw_integration_test() {
             .unwrap(),
             Value::buff_from(root_hash).unwrap(),
             Value::buff_from(subnet_native_nft_withdrawal_leaf_hash).unwrap(),
-            Value::list_from(subnet_native_nft_sib_data).unwrap(),
+            Value::cons_list(subnet_native_nft_sib_data, &StacksEpochId::latest()).unwrap(),
         ],
     );
     l1_nonce += 1;
@@ -2596,7 +2603,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-nft",
         "get-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2606,7 +2613,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let owner = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((
             TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
@@ -2623,7 +2630,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-nft",
         "get-owner",
-        vec![Value::UInt(5).serialize()],
+        vec![Value::UInt(5).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2633,7 +2640,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let owner = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((
             TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
@@ -2841,7 +2848,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
         &user_addr,
         "simple-nft",
         "get-token-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2851,7 +2858,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let addr = Value::deserialize(
+    let addr = deserialize_value(
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
@@ -2886,7 +2893,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
         &user_addr,
         "simple-nft",
         "get-token-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2896,7 +2903,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let addr = Value::deserialize(
+    let addr = deserialize_value(
         &result,
         &TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
     );
@@ -2908,7 +2915,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
         &user_addr,
         "simple-nft",
         "get-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -2918,7 +2925,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let owner = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((
             TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
@@ -3072,7 +3079,8 @@ fn nft_deposit_failure_and_refund_integration_test() {
     let l1_native_root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
     let l1_native_leaf_hash_val =
         Value::buff_from(l1_native_nft_withdrawal_leaf_hash.clone()).unwrap();
-    let l1_native_siblings_val = Value::list_from(l1_native_nft_sib_data.clone()).unwrap();
+    let l1_native_siblings_val =
+        Value::cons_list(l1_native_nft_sib_data.clone(), &StacksEpochId::latest()).unwrap();
 
     assert_eq!(
         &l1_native_root_hash_val, &l1_native_nft_withdrawal_entry.root_hash,
@@ -3109,7 +3117,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
             .unwrap(),
             Value::buff_from(root_hash.clone()).unwrap(),
             Value::buff_from(l1_native_nft_withdrawal_leaf_hash).unwrap(),
-            Value::list_from(l1_native_nft_sib_data).unwrap(),
+            Value::cons_list(l1_native_nft_sib_data, &StacksEpochId::latest()).unwrap(),
         ],
     );
     l1_nonce += 1;
@@ -3126,7 +3134,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
         &user_addr,
         "simple-nft",
         "get-owner",
-        vec![Value::UInt(1).serialize()],
+        vec![Value::UInt(1).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3136,7 +3144,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let owner = Value::deserialize(
+    let owner = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((
             TypeSignature::OptionalType(Box::new(TypeSignature::PrincipalType)),
@@ -3345,7 +3353,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3355,7 +3363,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -3391,7 +3399,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3401,7 +3409,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -3413,7 +3421,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3423,7 +3431,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -3438,7 +3446,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![subnet_contract_principal.serialize()],
+        vec![subnet_contract_principal.serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3448,7 +3456,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -3487,7 +3495,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3497,7 +3505,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -3509,7 +3517,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3519,7 +3527,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -3649,7 +3657,7 @@ fn ft_deposit_and_withdraw_integration_test() {
 
     let root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
     let leaf_hash_val = Value::buff_from(ft_withdrawal_leaf_hash.clone()).unwrap();
-    let siblings_val = Value::list_from(ft_sib_data.clone()).unwrap();
+    let siblings_val = Value::cons_list(ft_sib_data.clone(), &StacksEpochId::latest()).unwrap();
 
     assert_eq!(
         &root_hash_val, &ft_withdrawal_entry.root_hash,
@@ -3687,7 +3695,7 @@ fn ft_deposit_and_withdraw_integration_test() {
             .unwrap(),
             Value::buff_from(root_hash.clone()).unwrap(),
             Value::buff_from(ft_withdrawal_leaf_hash).unwrap(),
-            Value::list_from(ft_sib_data).unwrap(),
+            Value::cons_list(ft_sib_data, &StacksEpochId::latest()).unwrap(),
         ],
     );
     l1_nonce += 1;
@@ -3705,7 +3713,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3715,7 +3723,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -3728,7 +3736,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![subnet_contract_principal.serialize()],
+        vec![subnet_contract_principal.serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3738,7 +3746,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -3763,7 +3771,6 @@ fn ft_deposit_failure_and_refund_integration_test() {
     // Start Stacks L1.
     let l1_toml_file = "../../contrib/conf/stacks-l1-mocknet.toml";
     let l1_rpc_origin = "http://127.0.0.1:20443";
-    let trait_standards_contract_name = "trait-standards";
 
     // Start the L2 run loop.
     let mut config = super::new_test_conf();
@@ -3928,7 +3935,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3938,7 +3945,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -3974,7 +3981,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -3984,7 +3991,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -3996,7 +4003,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -4006,7 +4013,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -4021,7 +4028,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![subnet_contract_principal.serialize()],
+        vec![subnet_contract_principal.serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -4031,7 +4038,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -4163,7 +4170,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
 
     let root_hash_val = Value::buff_from(root_hash.clone()).unwrap();
     let leaf_hash_val = Value::buff_from(ft_withdrawal_leaf_hash.clone()).unwrap();
-    let siblings_val = Value::list_from(ft_sib_data.clone()).unwrap();
+    let siblings_val = Value::cons_list(ft_sib_data.clone(), &StacksEpochId::latest()).unwrap();
 
     assert_eq!(
         &root_hash_val, &ft_withdrawal_entry.root_hash,
@@ -4201,7 +4208,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
             .unwrap(),
             Value::buff_from(root_hash.clone()).unwrap(),
             Value::buff_from(ft_withdrawal_leaf_hash).unwrap(),
-            Value::list_from(ft_sib_data).unwrap(),
+            Value::cons_list(ft_sib_data, &StacksEpochId::latest()).unwrap(),
         ],
     );
     l1_nonce += 1;
@@ -4219,7 +4226,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![Value::Principal(user_addr.into()).serialize()],
+        vec![Value::Principal(user_addr.into()).serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -4229,7 +4236,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );
@@ -4242,7 +4249,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         &user_addr,
         "simple-ft",
         "get-balance",
-        vec![subnet_contract_principal.serialize()],
+        vec![subnet_contract_principal.serialize_to_hex()],
     );
     assert!(res.get("cause").is_none());
     assert!(res["okay"].as_bool().unwrap());
@@ -4252,7 +4259,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         .strip_prefix("0x")
         .unwrap()
         .to_string();
-    let amount = Value::deserialize(
+    let amount = deserialize_value(
         &result,
         &TypeSignature::ResponseType(Box::new((TypeSignature::UIntType, TypeSignature::UIntType))),
     );

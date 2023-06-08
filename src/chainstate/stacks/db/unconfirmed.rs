@@ -1094,7 +1094,7 @@ mod test {
             epoch_id: StacksEpochId::Epoch20,
             start_height: 0,
             end_height: (i64::MAX) as u64,
-            block_limit: BLOCK_LIMIT_MAINNET_20,
+            block_limit: SUBNET_BLOCK_LIMIT,
             network_epoch: PEER_VERSION_EPOCH_2_0,
         }]);
 

@@ -192,10 +192,20 @@ pub struct DBConfig {
 impl DBConfig {
     pub fn supports_epoch(&self, epoch_id: StacksEpochId) -> bool {
         match epoch_id {
-            StacksEpochId::Epoch10 => false,
-            StacksEpochId::Epoch20 => self.version == "1" || self.version == "2",
-            StacksEpochId::Epoch2_05 => self.version == "2",
-            StacksEpochId::Epoch21 => self.version == "2",
+            StacksEpochId::Epoch10 => true,
+            StacksEpochId::Epoch20 => {
+                self.version == "1"
+                    || self.version == "2"
+                    || self.version == "3"
+                    || self.version == "4"
+            }
+            StacksEpochId::Epoch2_05 => {
+                self.version == "2" || self.version == "3" || self.version == "4"
+            }
+            StacksEpochId::Epoch21 => self.version == "3" || self.version == "4",
+            StacksEpochId::Epoch22 => self.version == "3" || self.version == "4",
+            StacksEpochId::Epoch23 => self.version == "3" || self.version == "4",
+            StacksEpochId::Epoch24 => self.version == "3" || self.version == "4",
         }
     }
 }
@@ -1218,16 +1228,18 @@ impl StacksChainState {
                     }
 
                     let lockup_contract_id = boot_code_id("lockup", mainnet);
+                    let epoch = clarity.get_epoch();
                     clarity
                         .with_clarity_db(|db| {
                             for (block_height, schedule) in lockups_per_block.into_iter() {
                                 let key = Value::UInt(block_height.into());
-                                let value = Value::list_from(schedule).unwrap();
+                                let value = Value::cons_list(schedule, &epoch).unwrap();
                                 db.insert_entry_unknown_descriptor(
                                     &lockup_contract_id,
                                     "lockups",
                                     key,
                                     value,
+                                    &epoch,
                                 )?;
                             }
                             Ok(())
@@ -1239,6 +1251,7 @@ impl StacksChainState {
                 let bns_contract_id = boot_code_id("bns", mainnet);
                 if let Some(get_namespaces) = boot_data.get_bulk_initial_namespaces.take() {
                     info!("Initializing chain with namespaces");
+                    let epoch = clarity.get_epoch();
                     clarity
                         .with_clarity_db(|db| {
                             let initial_namespaces = get_namespaces();
@@ -1277,7 +1290,10 @@ impl StacksChainState {
                                     assert_eq!(buckets.len(), 16);
 
                                     TupleData::from_data(vec![
-                                        ("buckets".into(), Value::list_from(buckets).unwrap()),
+                                        (
+                                            "buckets".into(),
+                                            Value::cons_list(buckets, &epoch).unwrap(),
+                                        ),
                                         ("base".into(), base),
                                         ("coeff".into(), coeff),
                                         ("nonalpha-discount".into(), nonalpha_discount),
@@ -1303,6 +1319,7 @@ impl StacksChainState {
                                     "namespaces",
                                     namespace,
                                     namespace_props,
+                                    &epoch,
                                 )?;
                             }
                             Ok(())
@@ -1313,6 +1330,7 @@ impl StacksChainState {
                 // BNS Names
                 if let Some(get_names) = boot_data.get_bulk_initial_names.take() {
                     info!("Initializing chain with names");
+                    let epoch = clarity.get_epoch();
                     clarity
                         .with_clarity_db(|db| {
                             let initial_names = get_names();
@@ -1368,6 +1386,7 @@ impl StacksChainState {
                                     &fqn,
                                     &owner_address,
                                     &expected_asset_type,
+                                    &epoch,
                                 )?;
 
                                 let registered_at = Value::UInt(0);
@@ -1389,6 +1408,7 @@ impl StacksChainState {
                                     "name-properties",
                                     fqn.clone(),
                                     name_props,
+                                    &epoch,
                                 )?;
 
                                 db.insert_entry_unknown_descriptor(
@@ -1396,6 +1416,7 @@ impl StacksChainState {
                                     "owner-name",
                                     Value::Principal(owner_address),
                                     fqn,
+                                    &epoch,
                                 )?;
                             }
                             Ok(())

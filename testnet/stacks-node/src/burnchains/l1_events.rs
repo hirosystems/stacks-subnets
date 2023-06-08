@@ -364,7 +364,8 @@ impl L1Controller {
             .unwrap(),
         );
 
-        let value = ClarityValue::deserialize(&result, &typesig);
+        let value = ClarityValue::try_deserialize_hex(&result, &typesig, false)
+            .map_err(|e| Error::BurnchainContractCheck(e.to_string()))?;
         ContractVersion::try_from(value).map_err(Error::from)
     }
 

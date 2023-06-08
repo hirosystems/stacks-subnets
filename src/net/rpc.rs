@@ -1192,7 +1192,7 @@ impl ConversationHttp {
             })
             .collect();
 
-        let sibling_hashes = match Value::list_from(tuple_vec) {
+        let sibling_hashes = match Value::cons_list(tuple_vec, &StacksEpochId::latest()) {
             Ok(list) => list,
             Err(_) => {
                 error!("Failed to construct a valid Clarity list type out of withdrawal merkle path";
@@ -1212,9 +1212,9 @@ impl ConversationHttp {
         );
 
         let response = WithdrawalResponse {
-            withdrawal_root: format!("0x{}", withdrawal_root.serialize()),
-            withdrawal_leaf_hash: format!("0x{}", withdrawal_leaf_hash.serialize()),
-            sibling_hashes: format!("0x{}", sibling_hashes.serialize()),
+            withdrawal_root: format!("0x{}", withdrawal_root.serialize_to_hex()),
+            withdrawal_leaf_hash: format!("0x{}", withdrawal_leaf_hash.serialize_to_hex()),
+            sibling_hashes: format!("0x{}", sibling_hashes.serialize_to_hex()),
         };
 
         HttpResponseType::GetWithdrawal(response_metadata, response)
@@ -1242,6 +1242,8 @@ impl ConversationHttp {
                 clarity_tx.with_clarity_db_readonly(|clarity_db| {
                     let key = ClarityDatabase::make_key_for_account_balance(&account);
                     let burn_block_height = clarity_db.get_current_burnchain_block_height() as u64;
+                    let v1_unlock_height = clarity_db.get_v1_unlock_height();
+                    let v2_unlock_height = clarity_db.get_v2_unlock_height();
                     let (balance, balance_proof) = if with_proof {
                         clarity_db
                             .get_with_proof::<STXBalance>(&key)
@@ -1267,14 +1269,15 @@ impl ConversationHttp {
                             .unwrap_or_else(|| (0, None))
                     };
 
-                    let dummy_v1_unlock_height = 0;
                     let unlocked = balance.get_available_balance_at_burn_block(
                         burn_block_height,
-                        dummy_v1_unlock_height,
+                        v1_unlock_height,
+                        v2_unlock_height,
                     );
                     let (locked, unlock_height) = balance.get_locked_balance_at_burn_block(
                         burn_block_height,
-                        dummy_v1_unlock_height,
+                        v1_unlock_height,
+                        v2_unlock_height,
                     );
 
                     let balance = format!("0x{}", to_hex(&unlocked.to_be_bytes()));
@@ -1328,15 +1331,15 @@ impl ConversationHttp {
                         var_name,
                     );
 
-                    let (value, marf_proof) = if with_proof {
+                    let (value_hex, marf_proof): (String, _) = if with_proof {
                         clarity_db
-                            .get_with_proof::<Value>(&key)
+                            .get_with_proof(&key)
                             .map(|(a, b)| (a, Some(format!("0x{}", to_hex(&b)))))?
                     } else {
-                        clarity_db.get::<Value>(&key).map(|a| (a, None))?
+                        clarity_db.get(&key).map(|a| (a, None))?
                     };
 
-                    let data = format!("0x{}", value.serialize());
+                    let data = format!("0x{}", value_hex);
                     Some(DataVarResponse { data, marf_proof })
                 })
             }) {
@@ -1381,25 +1384,22 @@ impl ConversationHttp {
                         map_name,
                         key,
                     );
-                    let (value, marf_proof) = if with_proof {
+                    let (value_hex, marf_proof): (String, _) = if with_proof {
                         clarity_db
-                            .get_with_proof::<Value>(&key)
+                            .get_with_proof(&key)
                             .map(|(a, b)| (a, Some(format!("0x{}", to_hex(&b)))))
                             .unwrap_or_else(|| {
                                 test_debug!("No value for '{}' in {}", &key, tip);
-                                (Value::none(), Some("".into()))
+                                (Value::none().serialize_to_hex(), Some("".into()))
                             })
                     } else {
-                        clarity_db
-                            .get::<Value>(&key)
-                            .map(|a| (a, None))
-                            .unwrap_or_else(|| {
-                                test_debug!("No value for '{}' in {}", &key, tip);
-                                (Value::none(), None)
-                            })
+                        clarity_db.get(&key).map(|a| (a, None)).unwrap_or_else(|| {
+                            test_debug!("No value for '{}' in {}", &key, tip);
+                            (Value::none().serialize_to_hex(), None)
+                        })
                     };
 
-                    let data = format!("0x{}", value.serialize());
+                    let data = format!("0x{}", value_hex);
                     MapEntryResponse { data, marf_proof }
                 })
             }) {
@@ -1493,7 +1493,7 @@ impl ConversationHttp {
                 response_metadata,
                 CallReadOnlyResponse {
                     okay: true,
-                    result: Some(format!("0x{}", data.serialize())),
+                    result: Some(format!("0x{}", data.serialize_to_hex())),
                     cause: None,
                 },
             ),

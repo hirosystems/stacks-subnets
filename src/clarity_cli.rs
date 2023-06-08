@@ -33,6 +33,7 @@ use rusqlite::Transaction;
 use rusqlite::{Connection, OpenFlags, NO_PARAMS};
 
 use crate::chainstate::stacks::index::{storage::TrieFileStorage, MarfTrieId};
+use crate::core::SUBNET_BLOCK_LIMIT;
 use crate::util_lib::db::sqlite_open;
 use crate::util_lib::db::FromColumn;
 use stacks_common::address::c32::c32_address;
@@ -75,8 +76,7 @@ use crate::util_lib::boot::{boot_code_addr, boot_code_id};
 
 use crate::burnchains::Address;
 use crate::chainstate::stacks::index::ClarityMarfTrieId;
-use crate::core::HELIUM_BLOCK_LIMIT_20;
-use crate::core::{BLOCK_LIMIT_MAINNET_205, SUBNETS_CLARITY_VERSION};
+use crate::core::SUBNETS_CLARITY_VERSION;
 
 use crate::util_lib::strings::StacksString;
 use serde::Serialize;
@@ -260,11 +260,7 @@ fn run_analysis<C: ClarityStorage>(
     let cost_track = LimitedCostTracker::new(
         mainnet,
         default_chain_id(mainnet),
-        if mainnet {
-            BLOCK_LIMIT_MAINNET_205.clone()
-        } else {
-            HELIUM_BLOCK_LIMIT_20.clone()
-        },
+        SUBNET_BLOCK_LIMIT,
         &mut marf_kv.get_clarity_db(header_db, &NULL_BURN_STATE_DB),
         DEFAULT_CLI_EPOCH,
     )
@@ -447,11 +443,7 @@ where
     let cost_track = LimitedCostTracker::new(
         mainnet,
         default_chain_id(mainnet),
-        if mainnet {
-            BLOCK_LIMIT_MAINNET_205.clone()
-        } else {
-            HELIUM_BLOCK_LIMIT_20.clone()
-        },
+        SUBNET_BLOCK_LIMIT,
         &mut db,
         DEFAULT_CLI_EPOCH,
     )

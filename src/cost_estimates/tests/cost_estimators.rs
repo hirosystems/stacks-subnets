@@ -23,8 +23,7 @@ use crate::chainstate::stacks::{
     CoinbasePayload, StacksTransaction, TokenTransferMemo, TransactionAuth,
     TransactionContractCall, TransactionPayload, TransactionSpendingCondition, TransactionVersion,
 };
-use crate::core::StacksEpochId;
-use crate::core::BLOCK_LIMIT_MAINNET_20;
+use crate::core::{StacksEpochId, SUBNET_BLOCK_LIMIT};
 use crate::cost_estimates::fee_scalar::ScalarFeeRateEstimator;
 use crate::cost_estimates::tests::common::*;
 use crate::cost_estimates::CostEstimator;
@@ -159,7 +158,7 @@ fn test_cost_estimator_notify_block() {
             },
         ),
     ];
-    estimator.notify_block(&block, &BLOCK_LIMIT_MAINNET_20, &StacksEpochId::Epoch20);
+    estimator.notify_block(&block, &SUBNET_BLOCK_LIMIT, &StacksEpochId::Epoch20);
 
     assert_eq!(
         estimator
@@ -197,7 +196,7 @@ fn test_pessimistic_cost_estimator_declining_average() {
                 read_count: 10,
                 runtime: 10,
             },
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -228,7 +227,7 @@ fn test_pessimistic_cost_estimator_declining_average() {
                 read_count: 1,
                 runtime: 1,
             },
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -281,7 +280,7 @@ fn pessimistic_estimator_contract_owner_separation() {
                 read_count: 1,
                 runtime: 1,
             },
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -314,7 +313,7 @@ fn pessimistic_estimator_contract_owner_separation() {
                 read_count: 5,
                 runtime: 5,
             },
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -366,7 +365,7 @@ fn test_pessimistic_cost_estimator() {
                 read_count: 1,
                 runtime: 1,
             },
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -399,7 +398,7 @@ fn test_pessimistic_cost_estimator() {
         .notify_event(
             &make_dummy_cc_payload("contract-1", "func1"),
             &repeated_cost,
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -424,7 +423,7 @@ fn test_pessimistic_cost_estimator() {
         .notify_event(
             &make_dummy_cc_payload("contract-1", "func1"),
             &repeated_cost,
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -453,7 +452,7 @@ fn test_pessimistic_cost_estimator() {
         .notify_event(
             &make_dummy_cc_payload("contract-1", "func1"),
             &repeated_cost,
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -482,7 +481,7 @@ fn test_pessimistic_cost_estimator() {
         .notify_event(
             &make_dummy_cc_payload("contract-1", "func1"),
             &repeated_cost,
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -511,7 +510,7 @@ fn test_pessimistic_cost_estimator() {
         .notify_event(
             &make_dummy_cc_payload("contract-1", "func1"),
             &repeated_cost,
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -540,7 +539,7 @@ fn test_pessimistic_cost_estimator() {
         .notify_event(
             &make_dummy_cc_payload("contract-1", "func1"),
             &repeated_cost,
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -569,7 +568,7 @@ fn test_pessimistic_cost_estimator() {
         .notify_event(
             &make_dummy_cc_payload("contract-1", "func1"),
             &repeated_cost,
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -598,7 +597,7 @@ fn test_pessimistic_cost_estimator() {
         .notify_event(
             &make_dummy_cc_payload("contract-1", "func1"),
             &repeated_cost,
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -627,7 +626,7 @@ fn test_pessimistic_cost_estimator() {
         .notify_event(
             &make_dummy_cc_payload("contract-1", "func1"),
             &repeated_cost,
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -659,7 +658,7 @@ fn test_pessimistic_cost_estimator() {
         .notify_event(
             &make_dummy_cc_payload("contract-1", "func1"),
             &repeated_cost,
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -691,7 +690,7 @@ fn test_pessimistic_cost_estimator() {
                 read_count: 1,
                 runtime: 1,
             },
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             &StacksEpochId::Epoch20,
         )
         .expect("Should be able to process event");
@@ -731,7 +730,7 @@ fn test_cost_estimator_forget_previous() {
             runtime: 10,
         },
     )];
-    estimator.notify_block(&block, &BLOCK_LIMIT_MAINNET_20, &StacksEpochId::Epoch20);
+    estimator.notify_block(&block, &SUBNET_BLOCK_LIMIT, &StacksEpochId::Epoch20);
 
     // Test 1: We should get *non-zero* estimates back when we test in Epoch20.
     assert_eq!(
@@ -778,7 +777,7 @@ fn test_cost_estimator_dont_affect_previous() {
             runtime: 10,
         },
     )];
-    estimator.notify_block(&block, &BLOCK_LIMIT_MAINNET_20, &StacksEpochId::Epoch2_05);
+    estimator.notify_block(&block, &SUBNET_BLOCK_LIMIT, &StacksEpochId::Epoch2_05);
 
     // Test 1: We should get *non-zero* estimates back when we test in Epoch2_05.
     assert_eq!(
@@ -837,7 +836,7 @@ fn test_cost_estimator_epochs_independent() {
             &func_name,
             cost_200.clone(),
         )],
-        &BLOCK_LIMIT_MAINNET_20,
+        &SUBNET_BLOCK_LIMIT,
         &StacksEpochId::Epoch20,
     );
 
@@ -849,7 +848,7 @@ fn test_cost_estimator_epochs_independent() {
             make_dummy_transfer_tx(),
             make_dummy_cc_tx(&contract_name, &func_name, cost_205.clone()),
         ],
-        &BLOCK_LIMIT_MAINNET_20,
+        &SUBNET_BLOCK_LIMIT,
         &StacksEpochId::Epoch2_05,
     );
 

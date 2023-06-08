@@ -553,7 +553,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     }
 
     fn get_stacks_epochs(&self) -> Vec<StacksEpoch> {
-        stacks::core::STACKS_EPOCHS_REGTEST.to_vec()
+        stacks::core::SUBNET_EPOCHS.to_vec()
     }
 
     fn get_headers_path(&self) -> String {

@@ -14,6 +14,7 @@ use stacks::vm::types::{QualifiedContractIdentifier, TupleData};
 use stacks::vm::ClarityName;
 use stacks::vm::Value as ClarityValue;
 use stacks_common::types::chainstate::{BlockHeaderHash, BurnchainHeaderHash, StacksAddress};
+use stacks_common::types::StacksEpochId;
 use stacks_common::util::hash::{to_hex, Sha512Trunc256Sum};
 
 use crate::config::BurnchainConfig;
@@ -254,7 +255,7 @@ impl MultiPartyCommitter {
             .map_err(|_| Error::BadCommitment)?;
         let withdrawal_root_val = ClarityValue::buff_from(withdrawal_root.as_bytes().to_vec())
             .map_err(|_| Error::BadCommitment)?;
-        let signatures_val = ClarityValue::list_from(
+        let signatures_val = ClarityValue::cons_list(
             signatures
                 .into_iter()
                 .map(|s| {
@@ -262,6 +263,7 @@ impl MultiPartyCommitter {
                         .expect("Failed to construct length 65 buffer")
                 })
                 .collect(),
+            &StacksEpochId::latest(),
         )
         .map_err(|_| Error::BadCommitment)?;
 
