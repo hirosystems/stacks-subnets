@@ -1,5 +1,5 @@
 use crate::chainstate::stacks::MAX_BLOCK_LEN;
-use crate::core::BLOCK_LIMIT_MAINNET_20;
+use crate::core::SUBNET_BLOCK_LIMIT;
 use crate::cost_estimates::metrics::{CostMetric, ProportionalDotProduct};
 use clarity::vm::costs::ExecutionCost;
 
@@ -129,7 +129,7 @@ fn test_proportional_dot_product_with_mainnet_lims() {
                 read_count: 7_750,
                 runtime: 5_000_000_000,
             },
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             2 * 1024 * 1024
         ),
         60_000
@@ -145,7 +145,7 @@ fn test_proportional_dot_product_with_mainnet_lims() {
                 read_count: 775,
                 runtime: 5_000_000,
             },
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             1024
         ),
         3024
@@ -161,7 +161,7 @@ fn test_proportional_dot_product_with_mainnet_lims() {
                 read_count: 7_751,
                 runtime: 50_000_000_000,
             },
-            &BLOCK_LIMIT_MAINNET_20,
+            &SUBNET_BLOCK_LIMIT,
             2 * 1024 * 1024 + 1
         ),
         60_000

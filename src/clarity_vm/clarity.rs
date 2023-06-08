@@ -2031,6 +2031,12 @@ mod tests {
             fn get_v1_unlock_height(&self) -> u32 {
                 todo!()
             }
+            fn get_v2_unlock_height(&self) -> u32 {
+                todo!()
+            }
+            fn get_pox_3_activation_height(&self) -> u32 {
+                todo!()
+            }
             fn get_burn_start_height(&self) -> u32 {
                 todo!()
             }

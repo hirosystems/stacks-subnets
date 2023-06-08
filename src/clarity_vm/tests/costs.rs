@@ -1195,6 +1195,7 @@ fn test_cost_contract_short_circuits(use_mainnet: bool, clarity_version: Clarity
             "confirmed-proposals",
             execute_on_network("{ confirmed-id: u0 }", use_mainnet),
             execute_on_network(&value, use_mainnet),
+            &StacksEpochId::latest(),
         )
         .unwrap();
         db.commit();
@@ -1509,6 +1510,7 @@ fn test_cost_voting_integration(use_mainnet: bool, clarity_version: ClarityVersi
                 "confirmed-proposals",
                 execute(&format!("{{ confirmed-id: u{} }}", ix)),
                 execute(&value),
+                &StacksEpochId::latest(),
             )
             .unwrap();
         }
@@ -1607,6 +1609,7 @@ fn test_cost_voting_integration(use_mainnet: bool, clarity_version: ClarityVersi
                 "confirmed-proposals",
                 execute(&format!("{{ confirmed-id: u{} }}", ix + bad_proposals)),
                 execute(&value),
+                &StacksEpochId::latest(),
             )
             .unwrap();
         }
