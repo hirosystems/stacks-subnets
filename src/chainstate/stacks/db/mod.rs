@@ -193,19 +193,12 @@ impl DBConfig {
     pub fn supports_epoch(&self, epoch_id: StacksEpochId) -> bool {
         match epoch_id {
             StacksEpochId::Epoch10 => true,
-            StacksEpochId::Epoch20 => {
-                self.version == "1"
-                    || self.version == "2"
-                    || self.version == "3"
-                    || self.version == "4"
-            }
-            StacksEpochId::Epoch2_05 => {
-                self.version == "2" || self.version == "3" || self.version == "4"
-            }
-            StacksEpochId::Epoch21 => self.version == "3" || self.version == "4",
-            StacksEpochId::Epoch22 => self.version == "3" || self.version == "4",
-            StacksEpochId::Epoch23 => self.version == "3" || self.version == "4",
-            StacksEpochId::Epoch24 => self.version == "3" || self.version == "4",
+            StacksEpochId::Epoch20 => self.version == "1" || self.version == "2",
+            StacksEpochId::Epoch2_05 => self.version == "2",
+            StacksEpochId::Epoch21 => self.version == "2",
+            StacksEpochId::Epoch22 => self.version == "2",
+            StacksEpochId::Epoch23 => self.version == "2",
+            StacksEpochId::Epoch24 => self.version == "2",
         }
     }
 }
@@ -965,13 +958,6 @@ impl StacksChainState {
                         }
                     }
                     "2" => {
-                        // migrate to 3
-                        info!("Migrating chainstate schema from version 2 to 3");
-                        for cmd in CHAINSTATE_SCHEMA_3.iter() {
-                            tx.execute_batch(cmd)?;
-                        }
-                    }
-                    "3" => {
                         // done
                         break;
                     }
