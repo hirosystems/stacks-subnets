@@ -964,6 +964,17 @@ impl StacksChainState {
                             tx.execute_batch(cmd)?;
                         }
                     }
+                    "2" => {
+                        // migrate to 3
+                        info!("Migrating chainstate schema from version 2 to 3");
+                        for cmd in CHAINSTATE_SCHEMA_3.iter() {
+                            tx.execute_batch(cmd)?;
+                        }
+                    }
+                    "3" => {
+                        // done
+                        break;
+                    }
                     _ => {
                         error!(
                             "Invalid chain state database: expected version = {}, got {}",
