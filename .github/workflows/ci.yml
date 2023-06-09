@@ -48,9 +48,9 @@ jobs:
           DOCKER_BUILDKIT: 1
         run: |
             rm .dockerignore
-            docker build -f ./Dockerfile.stretch -t stacks-blockchain:2.1-stretch .
+            docker build -t stacks-blockchain:2.1 .
       - name: Export docker image as tarball
-        run: docker save -o stacks-node-image.tar stacks-blockchain:2.1-stretch
+        run: docker save -o stacks-node-image.tar stacks-blockchain:2.1
       - name: Upload built docker image
         uses: actions/upload-artifact@v2
         with:
