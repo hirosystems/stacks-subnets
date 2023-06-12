@@ -1,7 +1,7 @@
 (define-constant ERR_NOT_AUTHORIZED (err u1001))
 
 (impl-trait .sip-traits.ft-trait)
-(impl-trait .subnet-traits.mint-from-subnet-trait)
+(impl-trait .subnet-traits-v1.mint-from-subnet-trait)
 
 (define-fungible-token ft-token)
 

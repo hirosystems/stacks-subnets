@@ -4,7 +4,7 @@
 (define-constant ERR_NOT_AUTHORIZED (err u1001))
 
 (impl-trait .sip-traits.nft-trait)
-(impl-trait .subnet-traits.mint-from-subnet-trait)
+(impl-trait .subnet-traits-v1.mint-from-subnet-trait)
 
 (define-data-var lastId uint u0)
 (define-map CFG_BASE_URI bool (string-ascii 256))
