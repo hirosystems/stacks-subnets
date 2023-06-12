@@ -5,18 +5,13 @@ title: Getting Started
 
 # Getting Started
 
-You understand subnets from the
-[overview](https://docs.hiro.so/subnets/overview)—now you can test one out in
-action. Hiro's Clarinet can serve a local subnet with
-[`clarinet integrate`](https://docs.hiro.so/clarinet/how-to-guides/how-to-run-integration-environment)
-as one of the networks in your Stacks development environment.
+You understand subnets from the [overview](https://docs.hiro.so/subnets/overview)—now you can test one out in
+action. Hiro's Clarinet can serve a local subnet with [`clarinet integrate`](https://docs.hiro.so/clarinet/how-to-guides/how-to-run-integration-environment) as one of the networks in your Stacks development environment.
 
 ## What to expect
 
-This guide walks a user through a **subnet demonstration**: minting and
-transferring NFTs between a main chain (local devnet) and a subnet to showcase
-subnet's high throughput and low latency functionality. By the end of this
-guide, the user will
+This guide walks a user through a **subnet demonstration**: minting and transferring NFTs between a main chain (local devnet) and a subnet to showcase subnet's high throughput and low latency functionality. By the end of this
+guide, the user will:
 
 - Deploy the layer-1 contract that governs the interface to your subnet
 - Deploy the layer-2 subnet contract that runs our example application—an NFT
@@ -25,30 +20,15 @@ guide, the user will
   scripts that will allow us to interact with our subnet and its contract
   application
 
-:::note
-
-A subnet was previously referred to as a hyperchain. While the process of
-updating the content is ongoing, there may still be some references to a
-hyperchain instead of a subnet.
-
-:::
+Hiro has a [Subnet demo app](https://github.com/hirosystems/subnet-demo-app) demonstrating subnets' capabilities through a simple hypothetical NFT marketplace where minting, listing, and offers happen on L2. You can follow the steps by watching [this youtube presentation](https://www.youtube.com/watch?v=FHKf-9C0LoI).
 
 ## Run a local subnet with Clarinet
 
-Clarinet provides a tool to set up a complete local development environment,
-known as a "devnet", which uses Docker to spin up a Bitcoin node, a Stacks node,
-a Stacks API node, a Stacks Explorer, and now, a subnet node and subnet API
-node. This allows developers to configure a subnet and develop and test
-applications locally on a system that matches the production environment.
+Clarinet provides a tool to set up a complete local development environment, known as a "devnet", which uses Docker to spin up a Bitcoin node, a Stacks node, a Stacks API node, a Stacks Explorer, and now, a subnet node and subnet API node. This allows developers to configure a subnet and develop and test applications locally on a system that matches the production environment.
 
-In this section, we will explain how to launch and interact with the devnet's
-subnet node using a simple NFT example project.
+In this section, we will explain how to launch and interact with the devnet's subnet node using a simple NFT example project.
 
-Ensure you have `clarinet` installed and the version is 1.5.3 or above. If you
-do not already have clarinet installed, please refer to the clarinet
-installation instructions
-[here](https://docs.hiro.so/smart-contracts/clarinet#installing-clarinet) for
-installation procedures.
+Ensure you have `clarinet` installed and the version is 1.5.3 or above. If you do not already have clarinet installed, please refer to the clarinet installation instructions [here](https://docs.hiro.so/smart-contracts/clarinet#installing-clarinet) for installation procedures.
 
 ### Create a new project with Clarinet
 
@@ -59,33 +39,24 @@ clarinet new subnet-nft-example
 cd subnet-nft-example
 ```
 
-This command creates a new directory with a clarinet project already
-initialized, and then switches into that directory.
+This command creates a new directory with a clarinet project already initialized, and then switches into that directory.
 
 ### Create the contracts
 
-While this guide does involve writing and publishing a Clarity contract to your
-local subnet, Clarinet does not yet support contract deployment to subnets
-directly. Instead, we will manually deploy the contract through a Stacks.js
+While this guide does involve writing and publishing a Clarity contract to your local subnet, Clarinet does not yet support contract deployment to subnets directly. Instead, we will manually deploy the contract through a Stacks.js
 script in a later step.
 
 #### Creating the Stacks (L1) contract
 
-Our first contract will be the L1 contract that serves as an interface with the
-subnet node, in this instance allowing us to mint and transfer NFTs between the
-layers. Our L1 NFT contract is going to implement the
-[SIP-009 NFT trait](https://github.com/stacksgov/sips/blob/main/sips/sip-009/sip-009-nft-standard.md#trait).
+Our first contract will be the L1 contract that serves as an interface with thesubnet node, in this instance allowing us to mint and transfer NFTs between the layers. Our L1 NFT contract is going to implement the [SIP-009 NFT trait](https://github.com/stacksgov/sips/blob/main/sips/sip-009/sip-009-nft-standard.md#trait).
 
-We will add this to our project as a requirement so that Clarinet will deploy it
-for us.
+We will add this to our project as a requirement so that Clarinet will deploy it for us.
 
 ```sh
 clarinet requirements add ST1NXBK3K5YYMD6FD41MVNP3JS1GABZ8TRVX023PT.nft-trait
 ```
 
-We'll also use a new trait defined for the subnet, `mint-from-subnet-trait`,
-that allows the subnet to mint a new asset on the Stacks chain if it was
-originally minted on the subnet and then withdrawn. We will add a requirement
+We'll also use a new trait defined for the subnet, `mint-from-subnet-trait`, that allows the subnet to mint a new asset on the Stacks chain if it was originally minted on the subnet and then withdrawn. We will add a requirement
 for this contract as well:
 
 ```sh
@@ -98,8 +69,7 @@ Now, we will use Clarinet to create our L1 contract:
 clarinet contract new simple-nft-l1
 ```
 
-This creates the file, _./contracts/simple-nft-l1.clar_, which will include the
-following Clarity code:
+This creates the file, _./contracts/simple-nft-l1.clar_, which will include the following Clarity code:
 
 ```clarity
 (define-constant CONTRACT_OWNER tx-sender)
