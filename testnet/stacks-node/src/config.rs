@@ -1130,7 +1130,7 @@ impl NodeConfig {
         rng.fill_bytes(&mut buf);
 
         let now = get_epoch_time_ms();
-        let testnet_id = format!("subnet-node-{}", now);
+        let testnet_id = format!("subnet-node-{now}");
 
         let rpc_port = 20443;
         let p2p_port = 20444;
