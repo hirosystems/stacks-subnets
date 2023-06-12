@@ -21,7 +21,7 @@ build-release: (build "--features" "monitoring_prom,slog_json" "--release")
 
 # Build docker image
 docker-build:
-    docker build -t {{docker_image}} .
+    DOCKER_BUILDKIT=1 docker build -t {{docker_image}} .
     
 # Build and push docker image
 docker-push: docker-build

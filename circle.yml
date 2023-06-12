@@ -2,12 +2,12 @@ version: 2.1
 executors:
   docker-publisher:
     docker:
-      - image: circleci/buildpack-deps:stretch
+      - image: circleci/buildpack-deps:bullseye
 jobs:
   test_demo:
     working_directory: /test
     docker:
-      - image: rust:1.45-stretch
+      - image: rust:1.45-bullseye
     steps:
       - checkout
       - run:
@@ -41,7 +41,7 @@ jobs:
             bash <(curl -s https://codecov.io/bash)
   unit_tests:
     docker:
-      - image: rust:1.40-stretch
+      - image: rust:1.40-bullseye
     working_directory: ~/blockstack
     steps:
       - checkout
@@ -51,7 +51,7 @@ jobs:
             cargo test -j 1 --workspace --exclude clarity
   all_tests:
     docker:
-      - image: rust:1.40-stretch
+      - image: rust:1.40-bullseye
     working_directory: ~/blockstack
     steps:
       - checkout
