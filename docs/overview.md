@@ -28,9 +28,11 @@ This diagram outlines the interaction between a subnet and the Stacks layer-1 ch
 
 A subnet is designed to temporarily hold Stacks assets. Users can deposit assets from the Stacks chain, take advantage of faster transactions and lower fees while on the subnet, and withdraw them when finished. While a user's assets are in a subnet, the asset is locked in the subnet contract on the Stacks chain, and representations of those assets are created—appearing in a user's Hiro Wallet—and handled by applications on the subnet.
 
-> **_NOTE:_**
->
-> The current subnet implementation relies on either a single block producer or a fully-trusted federation of block producers. Users of a subnet should be aware that they are sacrificing decentralization and security for the speed provided in the subnet, and therefore should only deposit assets into trusted subnets.
+:::note
+
+_The current subnet implementation relies on either a single block producer or a fully-trusted federation of block producers. Users of a subnet should be aware that they are sacrificing decentralization and security for the speed provided in the subnet, and therefore should only deposit assets into trusted subnets._
+
+:::
 
 Listed below are some of the features of a subnet:
 

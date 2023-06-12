@@ -44,7 +44,7 @@ While this guide does involve writing and publishing a Clarity contract to your 
 
 #### Creating the Stacks (L1) contract
 
-Our first contract will be the L1 contract that serves as an interface with thesubnet node, in this instance allowing us to mint and transfer NFTs between the layers. Our L1 NFT contract is going to implement the [SIP-009 NFT trait](https://github.com/stacksgov/sips/blob/main/sips/sip-009/sip-009-nft-standard.md#trait).
+Our first contract will be the L1 contract that serves as an interface with the subnet node, in this instance allowing us to mint and transfer NFTs between the layers. Our L1 NFT contract is going to implement the [SIP-009 NFT trait](https://github.com/stacksgov/sips/blob/main/sips/sip-009/sip-009-nft-standard.md#trait).
 
 We will add this to our project as a requirement so that Clarinet will deploy it for us.
 
@@ -124,7 +124,11 @@ This creates the file, _./contracts/simple-nft-l1.clar_, which will include the 
 )
 ```
 
-Note that this contract implements the `mint-from-subnet-trait` and the SIP-009 `nft-trait.` When `mint-from-subnet-trait` is implemented, it allows an NFT to be minted on the subnet, then later withdrawn to the L1.
+:::note
+
+_This contract implements the `mint-from-subnet-trait` and the SIP-009 `nft-trait.` When `mint-from-subnet-trait` is implemented, it allows an NFT to be minted on the subnet, then later withdrawn to the L1._
+
+:::
 
 #### Creating the subnet (L2) contract
 
@@ -216,7 +220,7 @@ This contract implements the `nft-trait` and the `subnet-asset` trait. The `nft-
 
 The settings for the devnet are found in _./settings/Devnet.toml_. In order to launch a subnet in the devnet, we need to tell Clarinet to enable a subnet node and a corresponding API node.
 
-Uncomment, or add, the following line under `[devnet]`:
+Uncomment or add the following line under `[devnet]`:
 
 ```toml
 enable_subnet_node = true
@@ -815,7 +819,7 @@ First, we will deposit 5 STX into the subnet for each of our users:
 node ./deposit-stx.js
 ```
 
-Since this is an L1 transaction, we can see it in Clarinet's terminal interface, or look for it in the Stacks explorer, at http://localhost:8000. Once this transaction has been confirmed in the L1, it will also trigger a STX transfer in the L2. To see that, we can add the subnet to the Explorer as a new network. To switch to the subnet, select "Network" in the top right, then "Add a network." In the popup, choose a name, e.g. "Devnet Subnet", and then for the URL, use "http://localhost:13999". Once we see a STX transfer of 5.00 STX, we'll know that the deposit was successful.
+Since this is an L1 transaction, we can see it in Clarinet's terminal interface, or look for it in the Stacks Explorer, at http://localhost:8000. Once this transaction has been confirmed in the L1, it will also trigger a STX transfer in the L2. To see that, we can add the subnet to the Explorer as a new network. To switch to the subnet, select "Network" in the top right, then "Add a network." In the popup, choose a name, e.g. "Devnet Subnet", and then for the URL, use "http://localhost:13999". Once we see a STX transfer of 5.00 STX, we'll know that the deposit was successful.
 
 ![STX deposit successful](images/deposit-stx.png)
 
@@ -868,7 +872,7 @@ Once the mint has been processed, we can deposit it into the subnet:
 node ./deposit.js 2
 ```
 
-We can see this transaction either on the Clarinet interface or in the Devnet network on the explorer. Similar to the initial STX deposit that we performed, this deposit will trigger a transfer on the L2, which we can see in the subnet explorer as well. On the subnet, we should see a call to
+We can see this transaction either on the Clarinet interface or in the Devnet network on the Explorer. Similar to the initial STX deposit that we performed, this deposit will trigger a transfer on the L2, which we can see in the subnet explorer as well. On the subnet, we should see a call to
 `deposit-from-burnchain`.
 
 We can verify that the NFT is now owned by the subnet contract (`ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet-v1-2`) on the L1 using:
@@ -889,7 +893,7 @@ Now that the NFT is inside the subnet, we can transfer it from one address to an
 node ./transfer.js 1
 ```
 
-We can see this transaction in the "Devnet Subnet" network in our explorer.
+We can see this transaction in the "Devnet Subnet" network in our Explorer.
 
 If we call the `verify.js` script again, we should now see that the NFT is owned. by `ST2REHHS5J3CERCRBEPMGH7921Q6PYKAADT7JP2VB`.
 
@@ -903,7 +907,7 @@ We can confirm that this transaction is successful in the L2 explorer.
 
 :::note
 
-In the explorer, note the block height that this withdrawal transaction is included in. Fill in this block height for `$height` in the next step.
+_In the explorer, note the block height that this withdrawal transaction is included in. Fill in this block height for `$height` in the next step._
 
 :::
 

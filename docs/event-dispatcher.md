@@ -324,9 +324,11 @@ The `burnchain_op` field contains an "externally tagged" object. These example b
 }
 ```
 
-> **_NOTE:_**
-> 
-> The withdraw operations and block commit operations on the layer-1 do not impact the subnet's transaction state, so these burnchain ops will not appear in transaction receipts.
+:::note
+
+_The withdraw operations and block commit operations on the layer-1 do not impact the subnet's transaction state, so these burnchain ops will not appear in transaction receipts._
+
+:::
 
 ### `POST /new_burn_block`
 
