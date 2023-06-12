@@ -1111,7 +1111,7 @@ fn spawn_miner_relayer(
                         burn_tenure_snapshot,
                         &mut keychain,
                         &mut relayer,
-                        &mut *burnchaincoin_controller,
+                        &mut *burnchain_controller,
                         &event_dispatcher,
                         &current_microblocks,
                         &mut microblock_miner_state,

@@ -1805,8 +1805,7 @@ impl StacksBlockBuilder {
                                     self.header.parent_block)
         );
 
-        if let Some((ref _miner_payout, ref _user_payouts, ref _parent_reward)) = self.miner_payouts
-        {
+        if let Some((_miner_payout, _user_payouts, _parent_reward)) = &self.miner_payouts {
             test_debug!(
                 "Miner payout to process: {:?}; user payouts: {:?}; parent payout: {:?}",
                 _miner_payout,
@@ -1816,7 +1815,12 @@ impl StacksBlockBuilder {
         }
 
         let burn_tip_info = SortitionDB::get_canonical_burn_chain_tip(burn_dbconn.conn())?;
-        let burn_tip_height = burn_tip_info.block_height as u32;
+        let burn_tip_height = u32::try_from(burn_tip_info.block_height).map_err(|_| {
+            Error::InvalidStacksBlock(format!(
+                "block height {} exceeds u32::MAX",
+                burn_tip_info.block_height
+            ))
+        })?;
         let burn_tip = burn_tip_info.burn_header_hash;
         let parent_microblocks = vec![];
         self.set_parent_microblock(&EMPTY_MICROBLOCK_PARENT_HASH, 0);
@@ -2398,8 +2402,7 @@ impl StacksBlockBuilder {
         );
 
         debug!(
-            "Build anchored block off of {}/{} height {}",
-            &tip_consensus_hash, &tip_block_hash, tip_height
+            "Build anchored block off of {tip_consensus_hash}/{tip_block_hash} height {tip_height}",
         );
 
         let (mut chainstate, _) = chainstate_handle.reopen()?;
