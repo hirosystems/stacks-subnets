@@ -41,7 +41,7 @@ path = 'contracts/helper/simple-nft-no-mint.clar'
 clarity_version = 2
 epoch = 2.1
 
-[contracts.subnet]
+[contracts.subnet-v2-0-0]
 path = 'contracts/subnet.clar'
 clarity_version = 2
 epoch = 2.1
@@ -51,7 +51,7 @@ path = 'contracts/helper/test-helpers.clar'
 clarity_version = 2
 epoch = 2.1
 
-[contracts.subnet-traits]
+[contracts.subnet-traits-v1]
 path = 'contracts/helper/subnet-traits.clar'
 clarity_version = 2
 epoch = 2.1

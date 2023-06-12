@@ -83,7 +83,7 @@ Clarinet.test({
     //  and set alice and signatory as miners in the multi-miner contract
     let initialize = chain.mineBlock([
       Tx.contractCall(
-        "subnet",
+        "subnet-v2-0-0",
         "update-miner",
         [types.principal(multi_miner_contract)],
         deployer.address
@@ -251,7 +251,7 @@ Clarinet.test({
     //  and set signatory1 and signatory2 as miners in the multi-miner contract
     let initialize = chain.mineBlock([
       Tx.contractCall(
-        "subnet",
+        "subnet-v2-0-0",
         "update-miner",
         [types.principal(multi_miner_contract)],
         deployer.address
