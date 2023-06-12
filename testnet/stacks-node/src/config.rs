@@ -13,7 +13,7 @@ use stacks::chainstate::stacks::StacksPrivateKey;
 use stacks::chainstate::stacks::TransactionAnchorMode;
 use stacks::chainstate::stacks::MAX_BLOCK_LEN;
 use stacks::core::mempool::MemPoolWalkSettings;
-use stacks::core::{StacksEpoch, NETWORK_ID_TESTNET};
+use stacks::core::{StacksEpoch, NETWORK_ID_TESTNET, SUBNET_CHAIN_ID};
 use stacks::core::{
     LAYER_1_CHAIN_ID_MAINNET, LAYER_1_CHAIN_ID_TESTNET, PEER_VERSION_MAINNET, PEER_VERSION_TESTNET,
 };
@@ -120,8 +120,15 @@ impl Config {
         let (mut node, bootstrap_node, deny_nodes) = match config_file.node {
             Some(node) => {
                 let rpc_bind = node.rpc_bind.unwrap_or(default_node_config.rpc_bind);
+                if let Some(chain_id) = node.chain_id {
+                    if chain_id == LAYER_1_CHAIN_ID_MAINNET || chain_id == LAYER_1_CHAIN_ID_TESTNET
+                    {
+                        panic!("Cannot use layer 1 chain id in node config");
+                    }
+                }
                 let node_config = NodeConfig {
                     name: node.name.unwrap_or(default_node_config.name),
+                    chain_id: node.chain_id.unwrap_or(default_node_config.chain_id),
                     seed: match node.seed {
                         Some(seed) => {
                             hex_bytes(&seed).expect("Seed should be a hex encoded string")
@@ -1129,7 +1136,7 @@ impl NodeConfig {
         rng.fill_bytes(&mut buf);
 
         let now = get_epoch_time_ms();
-        let testnet_id = format!("stacks-node-{}", now);
+        let testnet_id = format!("subnet-node-{now}");
 
         let rpc_port = 20443;
         let p2p_port = 20444;
@@ -1140,10 +1147,10 @@ impl NodeConfig {
         let mut seed = [0u8; 32];
         rng.fill_bytes(&mut seed);
 
-        let name = "helium-node";
+        let name = "subnet-node";
         NodeConfig {
             name: name.to_string(),
-            chain_id: LAYER_1_CHAIN_ID_TESTNET,
+            chain_id: SUBNET_CHAIN_ID,
             seed: seed.to_vec(),
             working_dir: format!("/tmp/{}", testnet_id),
             rpc_bind: format!("0.0.0.0:{}", rpc_port),
@@ -1328,6 +1335,7 @@ pub struct ConnectionOptionsFile {
 #[derive(Clone, Deserialize, Default)]
 pub struct NodeConfigFile {
     pub name: Option<String>,
+    pub chain_id: Option<u32>,
     pub seed: Option<String>,
     pub deny_nodes: Option<String>,
     pub working_dir: Option<String>,
