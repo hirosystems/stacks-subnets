@@ -120,6 +120,12 @@ impl Config {
         let (mut node, bootstrap_node, deny_nodes) = match config_file.node {
             Some(node) => {
                 let rpc_bind = node.rpc_bind.unwrap_or(default_node_config.rpc_bind);
+                if let Some(chain_id) = node.chain_id {
+                    if chain_id == LAYER_1_CHAIN_ID_MAINNET || chain_id == LAYER_1_CHAIN_ID_TESTNET
+                    {
+                        panic!("Cannot use layer 1 chain id in node config");
+                    }
+                }
                 let node_config = NodeConfig {
                     name: node.name.unwrap_or(default_node_config.name),
                     chain_id: node.chain_id.unwrap_or(default_node_config.chain_id),
