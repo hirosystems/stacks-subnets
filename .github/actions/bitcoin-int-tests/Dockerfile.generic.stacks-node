@@ -1,4 +1,4 @@
-FROM stacks-blockchain:2.1-stretch as stacks-node
+FROM stacks-blockchain:2.1 as stacks-node
 
 FROM rust:bullseye AS test
 
