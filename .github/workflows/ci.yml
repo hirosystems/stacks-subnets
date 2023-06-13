@@ -35,40 +35,11 @@ jobs:
           files: ./coverage-output/lcov.info
           name: unit_tests
           fail_ci_if_error: false
-  # Build Stacks 2.1 for tests that require stacks-node
-  build-stacks-2_1:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          repository: stacks-network/stacks-blockchain
-          ref: next
-      - name: Build stacks-node 2.1
-        env:
-          DOCKER_BUILDKIT: 1
-        run: |
-            rm .dockerignore
-            docker build -t stacks-blockchain:2.1 .
-      - name: Export docker image as tarball
-        run: docker save -o stacks-node-image.tar stacks-blockchain:2.1
-      - name: Upload built docker image
-        uses: actions/upload-artifact@v2
-        with:
-          name: stacks-node-image.tar
-          path: stacks-node-image.tar
   # Build subnets image for tests that require stacks-node
   build-layer-1-tests:
     runs-on: ubuntu-latest
-    needs:
-      - build-stacks-2_1
     steps:
       - uses: actions/checkout@v2
-      - name: Download Stacks 2.1 image
-        uses: actions/download-artifact@v2
-        with:
-          name: stacks-node-image.tar
-      - name: Load Stacks 2.1 image
-        run: docker load -i stacks-node-image.tar && rm stacks-node-image.tar
       - name: Build layer-1 integration testing image
         env:
           DOCKER_BUILDKIT: 1
