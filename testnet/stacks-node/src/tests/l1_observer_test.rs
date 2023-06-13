@@ -267,7 +267,7 @@ pub fn publish_subnet_contracts_to_l1(
     admin: PrincipalData,
 ) -> u64 {
     // Publish the subnet traits contract
-    let trait_standard_contract_name = "subnet-traits";
+    let trait_standard_contract_name = "subnet-traits-v1";
     let l1_rpc_origin = config.burnchain.get_rpc_url();
     // Publish the trait contract
     let trait_content =
