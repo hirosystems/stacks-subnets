@@ -267,7 +267,7 @@ pub fn publish_subnet_contracts_to_l1(
     admin: PrincipalData,
 ) -> u64 {
     // Publish the subnet traits contract
-    let trait_standard_contract_name = "subnet-traits";
+    let trait_standard_contract_name = "subnet-traits-v1";
     let l1_rpc_origin = config.burnchain.get_rpc_url();
     // Publish the trait contract
     let trait_content =
@@ -300,16 +300,10 @@ pub fn publish_subnet_contracts_to_l1(
     let contract_content = include_str!("../../../../core-contracts/contracts/subnet.clar")
         .replace(
             "(define-data-var miner principal tx-sender)",
-            &format!(
-                "(define-data-var miner principal '{})",
-                &miner
-                ),
+            &format!("(define-data-var miner principal '{miner})"),
         ).replace(
             "(define-data-var admin principal tx-sender)",
-            &format!(
-                "(define-data-var admin principal '{})",
-                &admin
-            ),
+            &format!("(define-data-var admin principal '{admin})"),
         ).replace(
                 "(use-trait nft-trait 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)",
             "(use-trait nft-trait .sip-traits.nft-trait)"

@@ -26,3 +26,7 @@ docker-build:
 # Build and push docker image
 docker-push: docker-build
     docker push {{docker_image}}
+
+# Run `clarinet test` on our contracts
+clarinet-test:
+    clarinet test --coverage --manifest-path=./core-contracts/Clarinet.toml --import-map=./core-contracts/import_map.json --allow-net 
