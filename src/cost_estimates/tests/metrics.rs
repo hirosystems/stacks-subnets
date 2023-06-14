@@ -123,11 +123,11 @@ fn test_proportional_dot_product_with_mainnet_lims() {
     assert_eq!(
         metric.from_cost_and_len(
             &ExecutionCost {
-                write_length: 15_000_000,
-                write_count: 7_750,
-                read_length: 100_000_000,
-                read_count: 7_750,
-                runtime: 5_000_000_000,
+                write_length: 150_000_000,
+                write_count: 50_000,
+                read_length: 1_000_000_000,
+                read_count: 50_000,
+                runtime: 100_000_000_000,
             },
             &SUBNET_BLOCK_LIMIT,
             2 * 1024 * 1024
@@ -139,11 +139,11 @@ fn test_proportional_dot_product_with_mainnet_lims() {
     assert_eq!(
         metric.from_cost_and_len(
             &ExecutionCost {
-                write_length: 1_500_000,
-                write_count: 775,
-                read_length: 100_000,
-                read_count: 775,
-                runtime: 5_000_000,
+                write_length: 15_000_000,
+                write_count: 5_000,
+                read_length: 1_000_000,
+                read_count: 5_000,
+                runtime: 100_000_000,
             },
             &SUBNET_BLOCK_LIMIT,
             1024
@@ -155,11 +155,11 @@ fn test_proportional_dot_product_with_mainnet_lims() {
     assert_eq!(
         metric.from_cost_and_len(
             &ExecutionCost {
-                write_length: 35_000_000,
-                write_count: 8_750,
-                read_length: 100_000_001,
-                read_count: 7_751,
-                runtime: 50_000_000_000,
+                write_length: 350_000_000,
+                write_count: 80_000,
+                read_length: 1_000_000_001,
+                read_count: 50_001,
+                runtime: 500_000_000_000,
             },
             &SUBNET_BLOCK_LIMIT,
             2 * 1024 * 1024 + 1
