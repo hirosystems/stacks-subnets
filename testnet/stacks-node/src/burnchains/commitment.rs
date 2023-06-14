@@ -43,6 +43,7 @@ pub trait Layer1Committer {
         committed_block_hash: BlockHeaderHash,
         committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
+        target_height: u64,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
         attempt: u64,
@@ -235,6 +236,7 @@ impl MultiPartyCommitter {
         commit_to: BlockHeaderHash,
         committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
+        target_height: u64,
         withdrawal_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
     ) -> Result<StacksTransaction, Error> {
@@ -253,6 +255,7 @@ impl MultiPartyCommitter {
         let height_val = ClarityValue::UInt(committed_block_height.into());
         let target_tip_val = ClarityValue::buff_from(target_tip.as_bytes().to_vec())
             .map_err(|_| Error::BadCommitment)?;
+        let target_height_val = ClarityValue::UInt(target_height.into());
         let withdrawal_root_val = ClarityValue::buff_from(withdrawal_root.as_bytes().to_vec())
             .map_err(|_| Error::BadCommitment)?;
         let signatures_val = ClarityValue::cons_list(
@@ -272,6 +275,7 @@ impl MultiPartyCommitter {
             ("subnet-block-height".into(), height_val),
             ("withdrawal-root".into(), withdrawal_root_val),
             ("target-tip".into(), target_tip_val),
+            ("target-height".into(), target_height_val),
         ])
         .map_err(|_| Error::BadCommitment)?;
 
@@ -308,6 +312,7 @@ impl MultiPartyCommitter {
         committed_block_hash: BlockHeaderHash,
         committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
+        target_height: u64,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
         attempt: u64,
@@ -334,6 +339,7 @@ impl MultiPartyCommitter {
                 committed_block_hash,
                 committed_block_height,
                 target_tip,
+                target_height,
                 withdrawal_merkle_root,
                 signatures.clone(),
             )
@@ -357,6 +363,7 @@ impl MultiPartyCommitter {
             committed_block_hash,
             committed_block_height,
             target_tip,
+            target_height,
             withdrawal_merkle_root,
             signatures,
         )
@@ -438,6 +445,7 @@ impl Layer1Committer for MultiPartyCommitter {
         committed_block_hash: BlockHeaderHash,
         committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
+        target_height: u64,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
         attempt: u64,
@@ -447,6 +455,7 @@ impl Layer1Committer for MultiPartyCommitter {
             committed_block_hash,
             committed_block_height,
             target_tip,
+            target_height,
             withdrawal_merkle_root,
             signatures,
             attempt,
@@ -465,6 +474,7 @@ impl Layer1Committer for DirectCommitter {
         committed_block_hash: BlockHeaderHash,
         committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
+        target_height: u64,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         _signatures: Vec<ClaritySignature>,
         attempt: u64,
@@ -474,6 +484,7 @@ impl Layer1Committer for DirectCommitter {
             committed_block_hash,
             committed_block_height,
             target_tip,
+            target_height,
             withdrawal_merkle_root,
             attempt,
             op_signer,
@@ -498,6 +509,7 @@ impl DirectCommitter {
         commit_to: BlockHeaderHash,
         committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
+        target_height: u64,
         withdrawal_root: Sha512Trunc256Sum,
     ) -> Result<StacksTransaction, Error> {
         let QualifiedContractIdentifier {
@@ -520,6 +532,7 @@ impl DirectCommitter {
                 ClarityValue::buff_from(committed_block).map_err(|_| Error::BadCommitment)?,
                 ClarityValue::UInt(committed_block_height.into()),
                 ClarityValue::buff_from(target_tip_bytes).map_err(|_| Error::BadCommitment)?,
+                ClarityValue::UInt(target_height.into()),
                 ClarityValue::buff_from(withdrawal_root_bytes).map_err(|_| Error::BadCommitment)?,
             ],
         };
@@ -550,6 +563,7 @@ impl DirectCommitter {
         committed_block_hash: BlockHeaderHash,
         committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
+        target_height: u64,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         attempt: u64,
         op_signer: &mut BurnchainOpSigner,
@@ -575,6 +589,7 @@ impl DirectCommitter {
                 committed_block_hash,
                 committed_block_height,
                 target_tip,
+                target_height,
                 withdrawal_merkle_root,
             )
             .map_err(|e| {
@@ -597,6 +612,7 @@ impl DirectCommitter {
             committed_block_hash,
             committed_block_height,
             target_tip,
+            target_height,
             withdrawal_merkle_root,
         )
         .map_err(|e| {
