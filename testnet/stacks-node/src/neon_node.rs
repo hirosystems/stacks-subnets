@@ -1898,6 +1898,7 @@ impl StacksNode {
         // collect required contents for commit
         let committed_block_hash = anchored_block.block_hash();
         let target_burn_hash = burn_block.burn_header_hash.clone();
+        let target_burn_height = burn_block.block_height;
         let withdrawal_merkle_root = anchored_block.header.withdrawal_merkle_root;
 
         let mut op_signer = keychain.generate_op_signer();
@@ -2005,6 +2006,7 @@ impl StacksNode {
             committed_block_hash,
             block_height,
             target_burn_hash,
+            target_burn_height,
             withdrawal_merkle_root,
             signatures,
             &mut op_signer,
