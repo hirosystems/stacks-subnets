@@ -733,7 +733,11 @@ impl NeighborBlockStats {
                             );
                             self.status = NodeStatus::Broken;
                         } else {
-                            debug!("Got BlocksInv response from {:?} at reward cycle {} at ({},{}): {:?}", &self.nk, self.target_block_reward_cycle, message.preamble.burn_block_height, message.preamble.burn_stable_block_height, &blocks_inv_data);
+                            debug!("Got BlocksInv response from {:?} at reward cycle {} at ({},{}): {:?}",
+                                   &self.nk,
+                                   self.target_block_reward_cycle,
+                                   message.preamble.burn_block_height,
+                                   message.preamble.burn_stable_block_height, &blocks_inv_data);
                             self.blocks_inv = Some(blocks_inv_data);
                         }
                     }
@@ -1224,7 +1228,8 @@ impl PeerNetwork {
     /// *inclusive* of this current cycle.
     pub fn num_inventory_reward_cycles(&self) -> u64 {
         let tip_block_height = self.burnchain_tip.block_height;
-        self.burnchain
+        1 + self
+            .burnchain
             .block_height_to_reward_cycle(tip_block_height)
             .unwrap_or(0)
     }
