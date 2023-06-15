@@ -875,7 +875,8 @@ fn spawn_miner_relayer(
     )
     .map_err(|e| NetError::ChainstateError(e.to_string()))?;
 
-    let mut current_microblocks = Vec::new();
+    let mut current_microblocks: HashMap<BurnchainHeaderHash, Vec<StacksMicroblock>> =
+        HashMap::new();
     let mut last_mined_blocks: HashMap<
         BurnchainHeaderHash,
         Vec<(AssembledAnchorBlock, Secp256k1PrivateKey)>,
@@ -1096,6 +1097,9 @@ fn spawn_miner_relayer(
                         .remove(&burn_header_hash)
                         .unwrap_or_default();
 
+                    let parent_bhh = burn_tenure_snapshot.parent_burn_header_hash.clone();
+                    let microblocks = current_microblocks.entry(parent_bhh.clone()).or_insert(vec![]);
+
                     info!(
                         "Relayer: Run tenure";
                         "height" => burn_tenure_snapshot.block_height,
@@ -1113,7 +1117,7 @@ fn spawn_miner_relayer(
                         &mut relayer,
                         &mut *burnchain_controller,
                         &event_dispatcher,
-                        &current_microblocks,
+                        microblocks,
                         &mut microblock_miner_state,
                     );
                     if let Some((last_mined_block, microblock_privkey)) = last_mined_block_opt {
@@ -1169,7 +1173,14 @@ fn spawn_miner_relayer(
                             &counters,
                             &event_dispatcher,
                         ) {
-                            current_microblocks.push(microblock);
+                            match current_microblocks.get_mut(&burnchain_tip.burn_header_hash) {
+                                Some(microblocks) => {
+                                    microblocks.push(microblock);
+                                }
+                                None => {
+                                    current_microblocks.insert(burnchain_tip.burn_header_hash.clone(), vec![microblock]);
+                                }
+                            }
                         }
 
                         // synchronize unconfirmed tx index to p2p thread
@@ -1779,7 +1790,7 @@ impl StacksNode {
                 microblocks.last().clone().map(|blk| blk.header.clone());
         }
 
-        let built_info = match StacksBlockBuilder::build_anchored_block_from_microblocks(
+        let built_info = match StacksBlockBuilder::build_empty_anchored_block(
             chain_state,
             &burn_db.index_conn(),
             &stacks_parent_header,
@@ -1788,7 +1799,6 @@ impl StacksNode {
             mblock_pubkey_hash,
             &coinbase_tx,
             Some(event_dispatcher),
-            microblocks,
         ) {
             Ok(block) => block,
             Err(e) => {

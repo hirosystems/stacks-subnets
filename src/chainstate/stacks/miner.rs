@@ -1687,16 +1687,14 @@ impl StacksBlockBuilder {
         }
     }
 
-    #[cfg(test)]
-    /// This function should be called before `epoch_begin` in tests that require anchor blocks
-    /// to confirm microblocks.
+    /// This function should be called before `epoch_begin`.
     /// It loads the parent microblock stream, sets the parent microblock, and returns
     /// data necessary for `epoch_begin`.
     /// Returns chainstate transaction, clarity instance, burnchain header hash
     /// of the burn tip, burn tip height + 1, the parent microblock stream,
     /// the parent consensus hash, the parent header hash, and a bool
     /// representing whether the network is mainnet or not.
-    pub fn microblock_confirming_pre_epoch_begin<'a>(
+    pub fn pre_epoch_begin<'a>(
         &mut self,
         chainstate: &'a mut StacksChainState,
         burn_dbconn: &'a SortitionDBConn,
@@ -1773,57 +1771,6 @@ impl StacksBlockBuilder {
             self.set_parent_microblock(&last_mblock_hdr.block_hash(), last_mblock_hdr.sequence);
         };
 
-        let mainnet = chainstate.config().mainnet;
-
-        let (chainstate_tx, clarity_instance) = chainstate.chainstate_tx_begin()?;
-
-        Ok(MinerEpochInfo {
-            chainstate_tx,
-            clarity_instance,
-            burn_tip,
-            burn_tip_height: burn_tip_height + 1,
-            parent_microblocks,
-            mainnet,
-        })
-    }
-
-    /// This function should be called before `epoch_begin`.
-    /// It returns data necessary for `epoch_begin`.
-    /// Returns chainstate transaction, clarity instance, burnchain header hash
-    /// of the burn tip, burn tip height + 1, the parent consensus hash, the
-    /// parent header hash, and a bool representing whether the network is
-    /// mainnet or not.
-    pub fn pre_epoch_begin<'a>(
-        &mut self,
-        chainstate: &'a mut StacksChainState,
-        burn_dbconn: &'a SortitionDBConn,
-    ) -> Result<MinerEpochInfo<'a>, Error> {
-        debug!(
-            "Miner epoch begin";
-            "miner" => %self.miner_id,
-            "chain_tip" => %format!("{}/{}", self.chain_tip.consensus_hash,
-                                    self.header.parent_block)
-        );
-
-        if let Some((_miner_payout, _user_payouts, _parent_reward)) = &self.miner_payouts {
-            test_debug!(
-                "Miner payout to process: {:?}; user payouts: {:?}; parent payout: {:?}",
-                _miner_payout,
-                _user_payouts,
-                _parent_reward
-            );
-        }
-
-        let burn_tip_info = SortitionDB::get_canonical_burn_chain_tip(burn_dbconn.conn())?;
-        let burn_tip_height = u32::try_from(burn_tip_info.block_height).map_err(|_| {
-            Error::InvalidStacksBlock(format!(
-                "block height {} exceeds u32::MAX",
-                burn_tip_info.block_height
-            ))
-        })?;
-        let burn_tip = burn_tip_info.burn_header_hash;
-        let parent_microblocks = vec![];
-        self.set_parent_microblock(&EMPTY_MICROBLOCK_PARENT_HASH, 0);
         let mainnet = chainstate.config().mainnet;
 
         let (chainstate_tx, clarity_instance) = chainstate.chainstate_tx_begin()?;
@@ -1919,8 +1866,7 @@ impl StacksBlockBuilder {
     ) -> Result<(StacksBlock, u64, ExecutionCost), Error> {
         debug!("Build anchored block from {} transactions", txs.len());
         let (mut chainstate, _) = chainstate_handle.reopen()?;
-        let mut miner_epoch_info =
-            builder.microblock_confirming_pre_epoch_begin(&mut chainstate, burn_dbconn)?;
+        let mut miner_epoch_info = builder.pre_epoch_begin(&mut chainstate, burn_dbconn)?;
         let (mut epoch_tx, _) = builder.epoch_begin(burn_dbconn, &mut miner_epoch_info)?;
         for tx in txs.drain(..) {
             match builder.try_mine_tx(&mut epoch_tx, &tx) {
@@ -2130,8 +2076,7 @@ impl StacksBlockBuilder {
 
         let ts_start = get_epoch_time_ms();
 
-        let mut miner_epoch_info =
-            builder.microblock_confirming_pre_epoch_begin(&mut chainstate, burn_dbconn)?;
+        let mut miner_epoch_info = builder.pre_epoch_begin(&mut chainstate, burn_dbconn)?;
 
         let (mut epoch_tx, confirmed_mblock_cost) =
             builder.epoch_begin(burn_dbconn, &mut miner_epoch_info)?;
@@ -2384,7 +2329,7 @@ impl StacksBlockBuilder {
         })
     }
 
-    pub fn build_anchored_block_from_microblocks(
+    pub fn build_empty_anchored_block(
         chainstate_handle: &StacksChainState, // not directly used; used as a handle to open other chainstates
         burn_dbconn: &SortitionDBConn,
         parent_stacks_header: &StacksHeaderInfo, // Stacks header we're building off of
@@ -2393,7 +2338,6 @@ impl StacksBlockBuilder {
         pubkey_hash: Hash160,
         coinbase_tx: &StacksTransaction,
         event_observer: Option<&dyn MemPoolEventDispatcher>,
-        microblocks: &Vec<StacksMicroblock>,
     ) -> Result<AssembledBlockInfo, Error> {
         let (tip_consensus_hash, tip_block_hash, tip_height) = (
             parent_stacks_header.consensus_hash.clone(),
@@ -2429,15 +2373,6 @@ impl StacksBlockBuilder {
                 .try_mine_tx(&mut epoch_tx, coinbase_tx)?
                 .convert_to_event(),
         );
-
-        // Include all of the transactions from the microblocks in this anchor block.
-        for mblock in microblocks {
-            for tx in &mblock.txs {
-                tx_events.push(builder.try_mine_tx(&mut epoch_tx, tx)?.convert_to_event());
-            }
-
-            // TODO: Generate an event to confirm the microblock
-        }
 
         // save the block so we can build microblocks off of it
         let block = builder.mine_anchored_block(&mut epoch_tx);
@@ -3813,7 +3748,7 @@ pub mod test {
 
                     let sort_iconn = sortdb.index_conn();
                     let mut miner_epoch_info = builder
-                        .microblock_confirming_pre_epoch_begin(&mut miner_chainstate, &sort_iconn)
+                        .pre_epoch_begin(&mut miner_chainstate, &sort_iconn)
                         .unwrap();
                     let mut epoch = builder
                         .epoch_begin(&sort_iconn, &mut miner_epoch_info)
