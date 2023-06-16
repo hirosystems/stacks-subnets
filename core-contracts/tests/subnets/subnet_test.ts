@@ -137,6 +137,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash1,
+          types.uint(chain.blockHeight - 1),
           types.buff(new Uint8Array([0, 1, 1, 1, 2])),
         ],
         alice.address
@@ -149,6 +150,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
           types.uint(1),
           id_header_hash1,
+          types.uint(chain.blockHeight - 1),
           types.buff(new Uint8Array([0, 2, 2, 2, 3])),
         ],
         alice.address
@@ -174,6 +176,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
           types.uint(1),
           id_header_hash2,
+          types.uint(chain.blockHeight - 1),
           types.buff(new Uint8Array([0, 2, 2, 2, 3])),
         ],
         bob.address
@@ -186,6 +189,20 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 2, 2, 2, 1])),
           types.uint(1),
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
+          types.uint(chain.blockHeight - 1),
+          types.buff(new Uint8Array([0, 2, 2, 2, 3])),
+        ],
+        alice.address
+      ),
+      // Try and fail to commit a block to non-existent `target-chain-height`
+      Tx.contractCall(
+        SUBNET_CONTRACT,
+        "commit-block",
+        [
+          types.buff(new Uint8Array([0, 2, 2, 2, 1])),
+          types.uint(1),
+          types.buff(new Uint8Array([0, 2, 2, 2, 2])),
+          types.uint(123),
           types.buff(new Uint8Array([0, 2, 2, 2, 3])),
         ],
         alice.address
@@ -195,6 +212,8 @@ Clarinet.test({
     block.receipts[0].result.expectErr().expectInt(2);
     // should return (err ERR_INVALID_CHAIN_TIP)
     block.receipts[1].result.expectErr().expectInt(11);
+    // should return (err ERR_INVALID_CHAIN_HEIGHT)
+    block.receipts[2].result.expectErr().expectInt(12);
 
     // Successfully commit block at height 1 with valid miner.
     const id_header_hash3 = chain
@@ -209,6 +228,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
           types.uint(1),
           id_header_hash3,
+          types.uint(chain.blockHeight - 1),
           types.buff(new Uint8Array([0, 2, 2, 2, 3])),
         ],
         alice.address
@@ -529,6 +549,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -719,6 +740,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -1108,6 +1130,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -1304,6 +1327,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -1632,6 +1656,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -1930,6 +1955,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -2222,6 +2248,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -2332,6 +2359,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -2466,6 +2494,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         miner.address
@@ -2601,6 +2630,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         miner.address
@@ -2753,6 +2783,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         miner.address

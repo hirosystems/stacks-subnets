@@ -115,6 +115,7 @@ Clarinet.test({
       "subnet-block-height": types.uint(0),
       "withdrawal-root": buffFromHex(withdrawal_root_1.slice(2)),
       "target-tip": id_header_hash_1,
+      "target-height": types.uint(chain.blockHeight - 1),
     });
     const message_hash_1 = chain
       .callReadOnlyFn(
@@ -153,6 +154,7 @@ Clarinet.test({
       "subnet-block-height": types.uint(1),
       "withdrawal-root": buffFromHex(withdrawal_root_1.slice(2)),
       "target-tip": id_header_hash_2,
+      "target-height": types.uint(chain.blockHeight - 1),
     });
     const message_hash_2 = chain
       .callReadOnlyFn(
@@ -283,6 +285,7 @@ Clarinet.test({
       "subnet-block-height": types.uint(0),
       "withdrawal-root": buffFromHex(withdrawal_root_1.slice(2)),
       "target-tip": id_header_hash_1,
+      "target-height": types.uint(chain.blockHeight - 1),
     });
     const message_hash_1 = chain
       .callReadOnlyFn(
@@ -323,6 +326,7 @@ Clarinet.test({
       "subnet-block-height": types.uint(0),
       "withdrawal-root": buffFromHex(withdrawal_root_1.slice(2)),
       "target-tip": id_header_hash_2,
+      "target-height": types.uint(chain.blockHeight - 1),
     });
     const message_hash_2 = chain
       .callReadOnlyFn(
@@ -364,6 +368,7 @@ Clarinet.test({
       "subnet-block-height": types.uint(0),
       "withdrawal-root": buffFromHex(withdrawal_root_1.slice(2)),
       "target-tip": id_header_hash_3,
+      "target-height": types.uint(chain.blockHeight - 1),
     });
     const message_hash_3 = chain
       .callReadOnlyFn(
