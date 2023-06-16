@@ -697,18 +697,6 @@ impl<'a> StacksMicroblockBuilder<'a> {
         bytes_so_far: u64,
         limit_behavior: &BlockLimitFunction,
     ) -> Result<TransactionResult, Error> {
-        if tx.anchor_mode != TransactionAnchorMode::OffChainOnly
-            && tx.anchor_mode != TransactionAnchorMode::Any
-        {
-            return Ok(TransactionResult::skipped_due_to_error(
-                &tx,
-                Error::InvalidStacksTransaction(
-                    "Invalid transaction anchor mode for streamed data".to_string(),
-                    false,
-                ),
-            ));
-        }
-
         if bytes_so_far + tx_len >= MAX_EPOCH_SIZE.into() {
             info!(
                 "Adding microblock tx {} would exceed epoch data size",
