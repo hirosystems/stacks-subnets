@@ -76,6 +76,7 @@ struct MicroblockMinerState {
     last_mined: u128,
     quantity: u64,
     cost_so_far: ExecutionCost,
+    unconfirmed_microblocks: Vec<StacksMicroblock>,
     settings: BlockBuilderSettings,
 }
 
@@ -337,6 +338,10 @@ fn mine_one_microblock_from_prev(
         let txs_and_lens: Vec<(StacksTransaction, u64)> = prev_microblocks
             .iter()
             .flat_map(|mb| {
+                info!(
+                    "Migrating orphaned microblock to next block: {}",
+                    mb.block_hash()
+                );
                 mb.txs.iter().map(|tx| {
                     let tx_len = {
                         let mut bytes = vec![];
@@ -418,7 +423,8 @@ fn try_mine_microblock(
                     frequency: config.node.microblock_frequency,
                     last_mined: 0,
                     quantity: 0,
-                    cost_so_far: cost_so_far,
+                    cost_so_far,
+                    unconfirmed_microblocks: vec![],
                     settings: config.make_block_builder_settings(0, true),
                 });
             }
@@ -875,8 +881,6 @@ fn spawn_miner_relayer(
     )
     .map_err(|e| NetError::ChainstateError(e.to_string()))?;
 
-    let mut current_microblocks: HashMap<BurnchainHeaderHash, Vec<StacksMicroblock>> =
-        HashMap::new();
     let mut last_mined_blocks: HashMap<
         BurnchainHeaderHash,
         Vec<(AssembledAnchorBlock, Secp256k1PrivateKey)>,
@@ -1051,6 +1055,15 @@ fn spawn_miner_relayer(
                                         &parent_index_hash,
                                     ).expect("BUG: failed to load anchored cost of parent block")
                                     .ok_or(NetError::NotFoundError).expect("BUG: failed to load anchored cost of parent block");
+
+                                    // Before updating the miner state, we need to grab the unconfirmed microblocks from the parent
+                                    // block, to be packaged into a microblock for this new anchor block.
+                                    let prev_microblocks = if let Some(miner_state) = microblock_miner_state {
+                                        miner_state.unconfirmed_microblocks
+                                    } else {
+                                        vec![]
+                                    };
+
                                     microblock_miner_state = Some(MicroblockMinerState {
                                         parent_consensus_hash: ch.clone(),
                                         parent_block_hash: bh.clone(),
@@ -1058,12 +1071,73 @@ fn spawn_miner_relayer(
                                         frequency: config.node.microblock_frequency,
                                         last_mined: 0,
                                         quantity: 0,
-                                        cost_so_far: cost_so_far,
+                                        cost_so_far,
+                                        unconfirmed_microblocks: vec![],
                                         settings: config.make_block_builder_settings(0, true),
                                     });
 
                                     Relayer::refresh_unconfirmed(&mut chainstate, &mut sortdb);
                                     send_unconfirmed_txs(&chainstate, unconfirmed_txs.clone());
+
+                                    if prev_microblocks.len() > 0 {
+                                        // There are microblocks to replicate. Build a microblock off
+                                        // of the new block that replicates the microblocks that we'll
+                                        // be confirming in this anchor block.
+                                        let microblock_miner = microblock_miner_state.as_mut().unwrap();
+                                        match mine_one_microblock_from_prev(
+                                            microblock_miner,
+                                            &sortdb,
+                                            &mut chainstate,
+                                            &prev_microblocks,
+                                        ) {
+                                            Ok(next_microblock) => {
+                                                info!(
+                                                    "mined microblock from unconfirmed blocks: {}",
+                                                    next_microblock.block_hash()
+                                                );
+                                                microblock_miner.last_mined = get_epoch_time_ms();
+
+                                                // apply it
+                                                let microblock_hash = next_microblock.block_hash();
+
+                                                let processed_unconfirmed_state =
+                                                    Relayer::refresh_unconfirmed(&mut chainstate, &mut sortdb);
+                                                let num_mblocks = chainstate
+                                                    .unconfirmed_state
+                                                    .as_ref()
+                                                    .map(|ref unconfirmed| unconfirmed.num_microblocks())
+                                                    .unwrap_or(0);
+                                                debug!(
+                                                    "Mined one microblock: {} seq {} (total processed: {})",
+                                                    &microblock_hash, next_microblock.header.sequence, num_mblocks
+                                                );
+
+                                                let parent_index_block_hash = StacksBlockHeader::make_index_block_hash(
+                                                    &microblock_miner.parent_consensus_hash,
+                                                    &microblock_miner.parent_block_hash,
+                                                );
+                                                event_dispatcher.process_new_microblocks(
+                                                    parent_index_block_hash,
+                                                    processed_unconfirmed_state,
+                                                );
+
+                                                // send it off
+                                                if let Err(e) = relayer.broadcast_microblock(
+                                                    &microblock_miner.parent_consensus_hash,
+                                                    &microblock_miner.parent_block_hash,
+                                                    next_microblock.clone(),
+                                                ) {
+                                                    error!(
+                                                        "Failure trying to broadcast microblock {}: {}",
+                                                        microblock_hash, e
+                                                    );
+                                                }
+                                            }
+                                            Err(e) => {
+                                                error!("Failed to mine microblock: {}", e);
+                                            }
+                                        };
+                                    }
                                 }
                             } else {
                                 debug!("Did not win sortition, my blocks [burn_hash= {}, block_hash= {}], their blocks [parent_consenus_hash= {}, burn_hash= {}, block_hash ={}]",
@@ -1098,7 +1172,6 @@ fn spawn_miner_relayer(
                         .unwrap_or_default();
 
                     let parent_bhh = burn_tenure_snapshot.parent_burn_header_hash.clone();
-                    let microblocks = current_microblocks.entry(parent_bhh.clone()).or_insert(vec![]);
 
                     info!(
                         "Relayer: Run tenure";
@@ -1106,6 +1179,7 @@ fn spawn_miner_relayer(
                         "burn_header_hash" => %burn_chain_tip,
                         "last_burn_header_hash" => %burn_header_hash,
                         "last_mined_blocks_vec.len()" => last_mined_blocks_vec.len(),
+                        "parent_bhh" => %parent_bhh,
                     );
 
                     let last_mined_block_opt = StacksNode::relayer_run_tenure(
@@ -1114,14 +1188,11 @@ fn spawn_miner_relayer(
                         &mut sortdb,
                         burn_tenure_snapshot,
                         &mut keychain,
-                        &mut relayer,
                         &mut *burnchain_controller,
                         &event_dispatcher,
-                        microblocks,
-                        &mut microblock_miner_state,
                     );
                     if let Some((last_mined_block, microblock_privkey)) = last_mined_block_opt {
-                        // microblock_miner_state = None;
+                        microblock_miner_state = None;
                         if last_mined_blocks_vec.len() == 0 {
                             counters.bump_blocks_processed();
                         }
@@ -1153,11 +1224,11 @@ fn spawn_miner_relayer(
                         if let Some(miner_state) = microblock_miner_state.take() {
                             if miner_state.parent_consensus_hash == ch || miner_state.parent_block_hash == bh {
                                 // preserve -- chaintip is unchanged
-                                // microblock_miner_state = Some(miner_state);
+                                microblock_miner_state = Some(miner_state);
                             }
                             else {
                                 debug!("Relayer: reset microblock miner state");
-                                // microblock_miner_state = None;
+                                microblock_miner_state = None;
                                 counters.set_microblocks_processed(0);
                             }
                         }
@@ -1173,13 +1244,8 @@ fn spawn_miner_relayer(
                             &counters,
                             &event_dispatcher,
                         ) {
-                            match current_microblocks.get_mut(&burnchain_tip.burn_header_hash) {
-                                Some(microblocks) => {
-                                    microblocks.push(microblock);
-                                }
-                                None => {
-                                    current_microblocks.insert(burnchain_tip.burn_header_hash.clone(), vec![microblock]);
-                                }
+                            if let Some(miner_state) = &mut microblock_miner_state {
+                                miner_state.unconfirmed_microblocks.push(microblock);
                             }
                         }
 
@@ -1190,7 +1256,7 @@ fn spawn_miner_relayer(
                     else {
                         debug!("Relayer: reset unconfirmed state to 0 microblocks");
                         counters.set_microblocks_processed(0);
-                        // microblock_miner_state = None;
+                        microblock_miner_state = None;
                     }
                 }
                 RelayerDirective::Exit => break
@@ -1616,11 +1682,8 @@ impl StacksNode {
         burn_db: &mut SortitionDB,
         burn_block: BlockSnapshot,
         keychain: &mut Keychain,
-        relayer: &mut Relayer,
         burnchain_controller: &mut (dyn BurnchainController + Send),
         event_dispatcher: &EventDispatcher,
-        microblocks: &Vec<StacksMicroblock>,
-        microblock_miner_state: &mut Option<MicroblockMinerState>,
     ) -> Option<(AssembledAnchorBlock, Secp256k1PrivateKey)> {
         let MiningTenureInformation {
             mut stacks_parent_header,
@@ -1663,67 +1726,6 @@ impl StacksNode {
                 coinbase_nonce: 0,
             }
         };
-
-        // First, append a microblock to the newly confirmed anchor block with
-        // the same transactions that we will be including in this anchor block.
-        // This allows us to mine off of that microblock stream before this new
-        // anchor block is confirmed.
-        if let Some(microblock_miner) = microblock_miner_state {
-            if microblocks.len() > 0 {
-                // There are microblocks to replicate. Build a microblock off
-                // of the new block that replicates the microblocks that we'll
-                // be confirming in this anchor block.
-                match mine_one_microblock_from_prev(
-                    microblock_miner,
-                    burn_db,
-                    chain_state,
-                    microblocks,
-                ) {
-                    Ok(next_microblock) => {
-                        microblock_miner.last_mined = get_epoch_time_ms();
-
-                        // apply it
-                        let microblock_hash = next_microblock.block_hash();
-
-                        let processed_unconfirmed_state =
-                            Relayer::refresh_unconfirmed(chain_state, burn_db);
-                        let num_mblocks = chain_state
-                            .unconfirmed_state
-                            .as_ref()
-                            .map(|ref unconfirmed| unconfirmed.num_microblocks())
-                            .unwrap_or(0);
-                        debug!(
-                            "Mined one microblock: {} seq {} (total processed: {})",
-                            &microblock_hash, next_microblock.header.sequence, num_mblocks
-                        );
-
-                        let parent_index_block_hash = StacksBlockHeader::make_index_block_hash(
-                            &microblock_miner.parent_consensus_hash,
-                            &microblock_miner.parent_block_hash,
-                        );
-                        event_dispatcher.process_new_microblocks(
-                            parent_index_block_hash,
-                            processed_unconfirmed_state,
-                        );
-
-                        // send it off
-                        if let Err(e) = relayer.broadcast_microblock(
-                            &microblock_miner.parent_consensus_hash,
-                            &microblock_miner.parent_block_hash,
-                            next_microblock.clone(),
-                        ) {
-                            error!(
-                                "Failure trying to broadcast microblock {}: {}",
-                                microblock_hash, e
-                            );
-                        }
-                    }
-                    Err(e) => {
-                        error!("Failed to mine microblock: {}", e);
-                    }
-                };
-            }
-        }
 
         debug!(
             "Relayer will try to mine off of {}/{}",
