@@ -4,6 +4,14 @@ name: CI
 #   - PRs are opened
 #   - the workflow is started from the UI
 on:
+  push:
+    branches:
+      - master
+    tags-ignore:
+      - '**'
+    paths-ignore:
+      - '**/CHANGELOG.md'
+      - '**/.releaserc'
   pull_request:
   workflow_dispatch:
 
