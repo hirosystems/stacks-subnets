@@ -25,7 +25,7 @@ Clarinet provides a tool to set up a complete local development environment, kno
 
 In this section, we will explain how to launch and interact with the devnet's subnet node using a simple NFT example project.
 
-Ensure you have `clarinet` installed and the version is 1.5.3 or above. If you do not already have clarinet installed, please refer to the clarinet installation instructions [here](https://docs.hiro.so/smart-contracts/clarinet#installing-clarinet) for installation procedures.
+Ensure you have `clarinet` installed and the version is 1.6.0 or above. If you do not already have Clarinet installed, please refer to the Clarinet installation instructions [here](https://docs.hiro.so/smart-contracts/clarinet#installing-clarinet) for installation procedures.
 
 ### Create a new project with Clarinet
 
@@ -36,7 +36,7 @@ clarinet new subnet-nft-example
 cd subnet-nft-example
 ```
 
-This command creates a new directory with a clarinet project already initialized, and then switches into that directory.
+This command creates a new directory with a Clarinet project already initialized, and then switches into that directory.
 
 ### Create the contracts
 
@@ -64,7 +64,7 @@ Now, we will use Clarinet to create our L1 contract:
 clarinet contract new simple-nft-l1
 ```
 
-This creates the file, _./contracts/simple-nft-l1.clar_, which will include the following Clarity code:
+This creates the file, _./contracts/simple-nft-l1.clar_. Open the file and add the following content:
 
 ```clarity
 (define-constant CONTRACT_OWNER tx-sender)
@@ -216,30 +216,36 @@ Open the new file and add the following content:
 This contract implements the `nft-trait` and the `subnet-asset` trait. The `nft-trait` is the same as the SIP-009 trait on the Stacks network.
 `subnet-asset` defines the functions required for deposit and withdrawal. `deposit-from-burnchain` is invoked by the subnet node's consensus logic whenever a deposit is made in layer-1. `burn-for-withdrawal` is invoked by the `nft-withdraw?` or `ft-withdraw?` functions of the subnet contract, that a user calls when they wish to withdraw their asset from the subnet back to the layer-1.
 
-### Start the devnet
+### Configuring the Devnet
 
 The settings for the devnet are found in _./settings/Devnet.toml_. In order to launch a subnet in the devnet, we need to tell Clarinet to enable a subnet node and a corresponding API node.
 
-Uncomment or add the following line under `[devnet]`:
+#### Required Changes
+
+Uncomment or add the following lines under `[devnet]`:
 
 ```toml
+# By default, subnets are off
 enable_subnet_node = true
+# Currently required to use subnets with API
+stacks_api_env_vars = ["STACKS_CHAIN_ID=2147483648", "CUSTOM_CHAIN_IDS=testnet=0x55005500"]
 ```
 
-### Optional Settings
+#### Version Changes
 
-Also, in that file, we can see a few default settings that `clarinet` will be using for our subnet. It is not necessary to modify any of these settings, but doing so allows you to customize your test environment. `subnet_contract_id` specifies the L1 contract with which the subnet will be interacting. This will be automatically downloaded from the network and deployed by `clarinet` but you can take a look at it [here](https://explorer.hiro.so/txid/0x3287662b1326656a30b7cbd1ce42c515e0e89b0a0ba5629984dd74a50d59f899?chain=testnet) if interested.
-
-```toml
-subnet_contract_id = "ST13F481SBR0R7Z6NMMH8YV2FJJYXA5JPA0AD3HP9.subnet-v1-2"
-```
-
-`subnet_node_image_url` and `subnet_api_image_url` specify the docker images that will be used for the subnet node and the subnet API node, respectively. Make sure your settings match the ones below:
+Depending on your version of Clarinet, you may need to override the default configuration to use newer software.
+If your defaults are older then the following versions, you will need to set them to newer versions:
 
 ```toml
-subnet_node_image_url = "hirosystems/stacks-subnets:0.5.0"
+# L1 Subnet contract which the subnet will attempt to communicate with
+subnet_contract_id = "ST13F481SBR0R7Z6NMMH8YV2FJJYXA5JPA0AD3HP9.subnet-v2-0-0"
+# Docker image of subnet node
+subnet_node_image_url = "hirosystems/stacks-subnets:0.6.2"
+# Docker image of subnet API
 subnet_api_image_url = "hirosystems/stacks-blockchain-api:7.2.0-beta.3"
 ```
+
+### Launching the Devnet
 
 Once the configuration is complete, run the following command to start the devnet environment:
 
@@ -310,6 +316,7 @@ export ALT_USER_ADDR=ST2REHHS5J3CERCRBEPMGH7921Q6PYKAADT7JP2VB
 export ALT_USER_KEY=3eccc5dac8056590432db6a35d52b9896876a3d5cbdea53b72400bc9c2099fe801
 
 export SUBNET_URL="http://localhost:30443"
+export SUBNET_CHAIN_ID=1426085120
 ```
 
 #### Deposit STX script
@@ -335,7 +342,7 @@ async function main() {
 
   let txOptions = {
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet-v1-2",
+    contractName: "subnet-v2-0-0",
     functionName: "deposit-stx",
     functionArgs: [
       uintCV(5000000), // amount
@@ -358,7 +365,7 @@ async function main() {
 
   txOptions = {
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet-v1-2",
+    contractName: "subnet-v2-0-0",
     functionName: "deposit-stx",
     functionArgs: [
       uintCV(5000000), // amount
@@ -409,8 +416,16 @@ async function main() {
   const networkLayer = parseInt(process.argv[4]);
   const nonce = parseInt(process.argv[5]);
   const senderKey = process.env.USER_KEY;
-  const networkUrl =
-    networkLayer == 2 ? process.env.SUBNET_URL : HIRO_MOCKNET_DEFAULT;
+  let network = null;
+  if (networkLayer == 1) {
+    network = new StacksTestnet({ url: HIRO_MOCKNET_DEFAULT });
+  } else if (networkLayer == 2) {
+    network = new StacksTestnet({ url: process.env.SUBNET_URL });
+    network.chainId = process.env.SUBNET_CHAIN_ID;
+  } else {
+    console.log(`Invalid networkLayer: ${networkLayer}`)
+    return 1;
+  }
 
   const codeBody = readFileSync(contractFilename, { encoding: "utf-8" });
 
@@ -418,7 +433,7 @@ async function main() {
     codeBody,
     contractName,
     senderKey,
-    network: new StacksTestnet({ url: networkUrl }),
+    network,
     anchorMode: AnchorMode.Any,
     fee: 10000,
     nonce,
@@ -426,7 +441,7 @@ async function main() {
 
   const txid = await broadcastTransaction(
     transaction,
-    new StacksTestnet({ url: networkUrl })
+    network
   );
 
   console.log(txid);
@@ -462,7 +477,7 @@ async function main() {
 
   const txOptions = {
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet-v1-2",
+    contractName: "subnet-v2-0-0",
     functionName: "register-new-nft-contract",
     functionArgs: [
       contractPrincipalCV(deployerAddr, "simple-nft-l1"),
@@ -559,7 +574,7 @@ async function main() {
 
   const txOptions = {
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet-v1-2",
+    contractName: "subnet-v2-0-0",
     functionName: "deposit-nft-asset",
     functionArgs: [
       contractPrincipalCV(deployerAddr, "simple-nft-l1"), // contract ID of nft contract on L1
@@ -603,7 +618,8 @@ import {
 import { StacksTestnet } from "@stacks/network";
 
 async function main() {
-  const network = new StacksTestnet({ url: process.env.SUBNET_URL });
+  let network = new StacksTestnet({ url: process.env.SUBNET_URL });
+  network.chainId = process.env.SUBNET_CHAIN_ID;
   const senderKey = process.env.USER_KEY;
   const addr = process.env.USER_ADDR;
   const alt_addr = process.env.ALT_USER_ADDR;
@@ -656,7 +672,8 @@ import {
 import { StacksTestnet } from "@stacks/network";
 
 async function main() {
-  const network = new StacksTestnet({ url: process.env.SUBNET_URL });
+  let network = new StacksTestnet({ url: process.env.SUBNET_URL });
+  network.chainId = process.env.SUBNET_CHAIN_ID;
   const senderKey = process.env.ALT_USER_KEY;
   const contractAddr = process.env.USER_ADDR;
   const addr = process.env.ALT_USER_ADDR;
@@ -737,7 +754,7 @@ async function main() {
     network,
     anchorMode: AnchorMode.Any,
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet-v1-2",
+    contractName: "subnet-v2-0-0",
     functionName: "withdraw-nft-asset",
     functionArgs: [
       contractPrincipalCV(l1ContractAddr, "simple-nft-l1"), // nft-contract
@@ -778,12 +795,23 @@ import { StacksTestnet, HIRO_MOCKNET_DEFAULT } from "@stacks/network";
 async function main() {
   const networkLayer = parseInt(process.argv[2]);
   const senderAddress = process.env.ALT_USER_ADDR;
-  const contractAddress =
-    networkLayer == 2 ? process.env.USER_ADDR : process.env.DEPLOYER_ADDR;
-  const networkUrl =
-    networkLayer == 2 ? process.env.SUBNET_URL : HIRO_MOCKNET_DEFAULT;
-  const network = new StacksTestnet({ url: networkUrl });
-  const contractName = networkLayer == 2 ? "simple-nft-l2" : "simple-nft-l1";
+  let contractAddress = null;
+  let contractName = null;
+  let network = null;
+
+  if (networkLayer == 1) {
+    contractName = "simple-nft-l1";
+    contractAddress = process.env.DEPLOYER_ADDR;
+    network = new StacksTestnet({ url: HIRO_MOCKNET_DEFAULT });
+  } else if (networkLayer == 2) {
+    contractName = "simple-nft-l2";
+    contractAddress = process.env.USER_ADDR;
+    network = new StacksTestnet({ url: process.env.SUBNET_URL });
+    network.chainId = process.env.SUBNET_CHAIN_ID;
+  } else {
+    console.log(`Invalid networkLayer: ${networkLayer}`)
+    return 1;
+  }
 
   const txOptions = {
     contractAddress,
@@ -875,7 +903,7 @@ node ./deposit.js 2
 We can see this transaction either on the Clarinet interface or in the Devnet network on the Explorer. Similar to the initial STX deposit that we performed, this deposit will trigger a transfer on the L2, which we can see in the subnet explorer as well. On the subnet, we should see a call to
 `deposit-from-burnchain`.
 
-We can verify that the NFT is now owned by the subnet contract (`ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet-v1-2`) on the L1 using:
+We can verify that the NFT is now owned by the subnet contract (`ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet-v2-0-0`) on the L1 using:
 
 ```js
 node ./verify.js 1
