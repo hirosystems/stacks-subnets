@@ -1828,7 +1828,7 @@ fn l2_simple_contract_calls() {
 
     // Check for two calls to "return-one".
     let small_contract_calls =
-        select_transactions_where(&test_observer::get_microblocks(), |transaction| {
+        select_transactions_where(&test_observer::get_blocks(), |transaction| {
             match &transaction.payload {
                 TransactionPayload::ContractCall(contract) => {
                     contract.contract_name == ContractName::try_from("small-contract").unwrap()
