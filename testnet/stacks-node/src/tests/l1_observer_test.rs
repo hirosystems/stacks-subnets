@@ -887,6 +887,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
 
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
+    wait_for_next_stacks_block(&sortition_db);
 
     // Check that user no longer owns the fungible token on L2 chain.
     let res = call_read_only(
@@ -1134,7 +1135,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         tx_index: 0,
     };
     let mut receipts = vec![withdrawal_receipt];
-    let withdrawal_tree = create_withdrawal_merkle_tree(&mut receipts, withdrawal_height);
+    let withdrawal_tree = create_withdrawal_merkle_tree(receipts.iter_mut(), withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     let ft_withdrawal_key =
@@ -1516,12 +1517,11 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     // withdraw stx from L2
     submit_tx(&l2_rpc_origin, &l2_withdraw_stx_tx);
 
-    // Wait to give the run loop time to mine a block
+    // Wait to give the run loop time to mine an anchor block
+    wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
     wait_for_next_stacks_block(&sortition_db);
 
-    // TODO: here, read the withdrawal events to get the withdrawal ID, and figure out the
-    //       block height to query.
     let block_data = test_observer::get_blocks();
     let mut withdraw_events = filter_map_events(&block_data, |height, event| {
         let ev_type = event.get("type").unwrap().as_str().unwrap();
@@ -1644,7 +1644,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     let mut receipts = vec![withdrawal_receipt];
 
     // okay to pass a zero block height in tests: the block height parameter is only used for logging
-    let withdrawal_tree = create_withdrawal_merkle_tree(&mut receipts, withdrawal_height);
+    let withdrawal_tree = create_withdrawal_merkle_tree(receipts.iter_mut(), withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     // okay to pass a zero block height in tests: the block height parameter is only used for logging
@@ -1827,16 +1827,16 @@ fn l2_simple_contract_calls() {
     wait_for_next_stacks_block(&sortition_db);
 
     // Check for two calls to "return-one".
-    let small_contract_calls = select_transactions_where(
-        &test_observer::get_blocks(),
-        |transaction| match &transaction.payload {
-            TransactionPayload::ContractCall(contract) => {
-                contract.contract_name == ContractName::try_from("small-contract").unwrap()
-                    && contract.function_name == ClarityName::try_from("return-one").unwrap()
+    let small_contract_calls =
+        select_transactions_where(&test_observer::get_microblocks(), |transaction| {
+            match &transaction.payload {
+                TransactionPayload::ContractCall(contract) => {
+                    contract.contract_name == ContractName::try_from("small-contract").unwrap()
+                        && contract.function_name == ClarityName::try_from("return-one").unwrap()
+                }
+                _ => false,
             }
-            _ => false,
-        },
-    );
+        });
     assert_eq!(small_contract_calls.len(), 2);
     termination_switch.store(false, Ordering::SeqCst);
     stacks_l1_controller.kill_process();
@@ -2439,7 +2439,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         tx_index: 0,
     };
     let withdrawal_tree =
-        create_withdrawal_merkle_tree(&mut vec![withdrawal_receipt], withdrawal_height);
+        create_withdrawal_merkle_tree(vec![withdrawal_receipt].iter_mut(), withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     let l1_native_nft_withdrawal_key =
@@ -3041,7 +3041,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
         tx_index: 0,
     };
     let withdrawal_tree =
-        create_withdrawal_merkle_tree(&mut vec![withdrawal_receipt], withdrawal_height);
+        create_withdrawal_merkle_tree(vec![withdrawal_receipt].iter_mut(), withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     let l1_native_nft_withdrawal_key =
@@ -3624,7 +3624,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         tx_index: 0,
     };
     let withdrawal_tree =
-        create_withdrawal_merkle_tree(&mut vec![withdrawal_receipt], withdrawal_height);
+        create_withdrawal_merkle_tree(vec![withdrawal_receipt].iter_mut(), withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     let ft_withdrawal_key =
@@ -4137,7 +4137,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         tx_index: 0,
     };
     let withdrawal_tree =
-        create_withdrawal_merkle_tree(&mut vec![withdrawal_receipt], withdrawal_height);
+        create_withdrawal_merkle_tree(vec![withdrawal_receipt].iter_mut(), withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     let ft_withdrawal_key =

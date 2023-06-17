@@ -1533,8 +1533,12 @@ impl StacksBlockBuilder {
         self.header.tx_merkle_root = tx_merkle_root;
         self.header.state_index_root = state_root_hash;
 
+        let all_receipts_iter = self
+            .microblock_tx_receipts
+            .iter_mut()
+            .chain(self.tx_receipts.iter_mut());
         let withdrawal_tree =
-            create_withdrawal_merkle_tree(&mut self.tx_receipts, self.header.total_work.work);
+            create_withdrawal_merkle_tree(all_receipts_iter, self.header.total_work.work);
         let withdrawal_merkle_root = withdrawal_tree.root();
         self.header.withdrawal_merkle_root = withdrawal_merkle_root;
 
