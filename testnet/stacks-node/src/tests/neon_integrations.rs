@@ -1615,6 +1615,9 @@ fn transactions_microblocks_then_block() {
     // We should have three micro-blocks with one `small-contract` tx each.
     assert!(test_observer::get_microblocks().len() >= 3);
 
+    // In the subnet node, all transactions are in microblocks, and microblock transactions are
+    // rolled up into a new microblock before being confirmed in an anchor block, so we should
+    // see twice as many transactions as we might expect (5 * 2 = 10).
     info!("calling select_transactions_where for micro-blocks");
     let small_contract_mb_calls =
         select_transactions_where(&test_observer::get_microblocks(), |transaction| {
@@ -1626,7 +1629,7 @@ fn transactions_microblocks_then_block() {
                 _ => false,
             }
         });
-    assert_eq!(3, small_contract_mb_calls.len());
+    assert_eq!(10, small_contract_mb_calls.len());
 
     // The transaction was copied in 3 micro-blocks plus 2 blocks. These all get counted here so
     // expect 5 total.
