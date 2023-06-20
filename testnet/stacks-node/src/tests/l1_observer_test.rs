@@ -1827,16 +1827,16 @@ fn l2_simple_contract_calls() {
     wait_for_next_stacks_block(&sortition_db);
 
     // Check for two calls to "return-one".
-    let small_contract_calls =
-        select_transactions_where(&test_observer::get_blocks(), |transaction| {
-            match &transaction.payload {
-                TransactionPayload::ContractCall(contract) => {
-                    contract.contract_name == ContractName::try_from("small-contract").unwrap()
-                        && contract.function_name == ClarityName::try_from("return-one").unwrap()
-                }
-                _ => false,
+    let small_contract_calls = select_transactions_where(
+        &test_observer::get_blocks(),
+        |transaction| match &transaction.payload {
+            TransactionPayload::ContractCall(contract) => {
+                contract.contract_name == ContractName::try_from("small-contract").unwrap()
+                    && contract.function_name == ClarityName::try_from("return-one").unwrap()
             }
-        });
+            _ => false,
+        },
+    );
     assert_eq!(small_contract_calls.len(), 2);
     termination_switch.store(false, Ordering::SeqCst);
     stacks_l1_controller.kill_process();
