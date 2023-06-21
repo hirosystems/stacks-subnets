@@ -3942,6 +3942,7 @@ mod test {
                                 (tx_unconfirmed_contract_signed, tx_unconfirmed_contract_len),
                             ],
                             &microblock_privkey,
+                            None,
                         )
                         .unwrap();
                     microblock

@@ -460,7 +460,7 @@ fn make_microblock(
     // NOTE: we intentionally do not check the block's microblock pubkey hash against the private
     // key, because we may need to test that microblocks get rejected due to bad signatures.
     let microblock = microblock_builder
-        .mine_next_microblock_from_txs(mempool_txs, privk)
+        .mine_next_microblock_from_txs(mempool_txs, privk, None)
         .unwrap();
     microblock
 }

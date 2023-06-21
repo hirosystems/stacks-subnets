@@ -295,11 +295,12 @@ fn mine_one_microblock(
 }
 
 /// Mine and broadcast a single microblock, unconditionally.
-fn mine_one_microblock_from_prev(
+fn mine_coalesced_microblock(
     microblock_state: &mut MicroblockMinerState,
     sortdb: &SortitionDB,
     chainstate: &mut StacksChainState,
     prev_microblocks: &Vec<StacksMicroblock>,
+    event_dispatcher: &EventDispatcher,
 ) -> Result<StacksMicroblock, ChainstateError> {
     debug!(
         "Mine microblock off of {}/{} (total: {}) from previous state",
@@ -352,8 +353,11 @@ fn mine_one_microblock_from_prev(
                 })
             })
             .collect();
-        let mblock = microblock_miner
-            .mine_next_microblock_from_txs(txs_and_lens, &microblock_state.miner_key)?;
+        let mblock = microblock_miner.mine_next_microblock_from_txs(
+            txs_and_lens,
+            &microblock_state.miner_key,
+            Some(event_dispatcher),
+        )?;
         let new_cost_so_far = microblock_miner.get_cost_so_far().expect("BUG: cannot read cost so far from miner -- indicates that the underlying Clarity Tx is somehow in use still.");
         let t2 = get_epoch_time_ms();
         info!(
@@ -1084,11 +1088,12 @@ fn spawn_miner_relayer(
                                         // of the new block that replicates the microblocks that we'll
                                         // be confirming in this anchor block.
                                         let microblock_miner = microblock_miner_state.as_mut().unwrap();
-                                        match mine_one_microblock_from_prev(
+                                        match mine_coalesced_microblock(
                                             microblock_miner,
                                             &sortdb,
                                             &mut chainstate,
                                             &prev_microblocks,
+                                            &event_dispatcher,
                                         ) {
                                             Ok(next_microblock) => {
                                                 info!(

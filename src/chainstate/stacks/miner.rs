@@ -784,6 +784,7 @@ impl<'a> StacksMicroblockBuilder<'a> {
         &mut self,
         txs_and_lens: Vec<(StacksTransaction, u64)>,
         miner_key: &Secp256k1PrivateKey,
+        event_dispatcher: Option<&dyn MemPoolEventDispatcher>,
     ) -> Result<StacksMicroblock, Error> {
         let mut txs_included = vec![];
 
@@ -883,7 +884,7 @@ impl<'a> StacksMicroblockBuilder<'a> {
             _ => {}
         }
 
-        return self.make_next_microblock(txs_included, miner_key, tx_events, None);
+        return self.make_next_microblock(txs_included, miner_key, tx_events, event_dispatcher);
     }
 
     pub fn mine_next_microblock(
@@ -5623,6 +5624,7 @@ pub mod test {
                                 .mine_next_microblock_from_txs(
                                     vec![(mblock_tx, mblock_tx_len)],
                                     &parent_microblock_privkey,
+                                    None,
                                 )
                                 .unwrap();
                             microblocks.push(mblock);
@@ -5884,6 +5886,7 @@ pub mod test {
                                 .mine_next_microblock_from_txs(
                                     vec![(mblock_tx, mblock_tx_len)],
                                     &parent_microblock_privkey,
+                                    None,
                                 )
                                 .unwrap();
                             microblocks.push(mblock);
