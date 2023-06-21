@@ -212,14 +212,19 @@ fn inner_generate_coinbase_tx(
     tx_signer.get_tx().unwrap()
 }
 
-/// Mine and broadcast a single microblock, unconditionally.
-fn mine_one_microblock(
+/// Mine and broadcast a single microblock using the provided function.
+fn mine_microblock_with_fn<F>(
     microblock_state: &mut MicroblockMinerState,
     sortdb: &SortitionDB,
     chainstate: &mut StacksChainState,
-    mempool: &mut MemPoolDB,
-    event_dispatcher: &EventDispatcher,
-) -> Result<StacksMicroblock, ChainstateError> {
+    mine_fn: F,
+) -> Result<StacksMicroblock, ChainstateError>
+where
+    F: FnOnce(
+        &mut StacksMicroblockBuilder,
+        &Secp256k1PrivateKey,
+    ) -> Result<StacksMicroblock, ChainstateError>,
+{
     debug!(
         "Try to mine one microblock off of {}/{} (total: {})",
         &microblock_state.parent_consensus_hash,
@@ -254,11 +259,7 @@ fn mine_one_microblock(
 
         let t1 = get_epoch_time_ms();
 
-        let mblock = microblock_miner.mine_next_microblock(
-            mempool,
-            &microblock_state.miner_key,
-            event_dispatcher,
-        )?;
+        let mblock = mine_fn(&mut microblock_miner, &microblock_state.miner_key)?;
         let new_cost_so_far = microblock_miner.get_cost_so_far().expect("BUG: cannot read cost so far from miner -- indicates that the underlying Clarity Tx is somehow in use still.");
         let t2 = get_epoch_time_ms();
 
@@ -295,6 +296,22 @@ fn mine_one_microblock(
 }
 
 /// Mine and broadcast a single microblock, unconditionally.
+fn mine_one_microblock(
+    microblock_state: &mut MicroblockMinerState,
+    sortdb: &SortitionDB,
+    chainstate: &mut StacksChainState,
+    mempool: &mut MemPoolDB,
+    event_dispatcher: &EventDispatcher,
+) -> Result<StacksMicroblock, ChainstateError> {
+    let mine_fn = |miner: &mut StacksMicroblockBuilder,
+                   key: &Secp256k1PrivateKey|
+     -> Result<StacksMicroblock, ChainstateError> {
+        miner.mine_next_microblock(mempool, key, event_dispatcher)
+    };
+    mine_microblock_with_fn(microblock_state, sortdb, chainstate, mine_fn)
+}
+
+/// Mine and broadcast a single microblock, from the previous microblocks.
 fn mine_coalesced_microblock(
     microblock_state: &mut MicroblockMinerState,
     sortdb: &SortitionDB,
@@ -302,40 +319,9 @@ fn mine_coalesced_microblock(
     prev_microblocks: &Vec<StacksMicroblock>,
     event_dispatcher: &EventDispatcher,
 ) -> Result<StacksMicroblock, ChainstateError> {
-    debug!(
-        "Mine microblock off of {}/{} (total: {}) from previous state",
-        &microblock_state.parent_consensus_hash,
-        &microblock_state.parent_block_hash,
-        chainstate
-            .unconfirmed_state
-            .as_ref()
-            .map(|us| us.num_microblocks())
-            .unwrap_or(0)
-    );
-
-    let mint_result = {
-        let ic = sortdb.index_conn();
-        let mut microblock_miner = match StacksMicroblockBuilder::resume_unconfirmed(
-            chainstate,
-            &ic,
-            &microblock_state.cost_so_far,
-            microblock_state.settings.clone(),
-        ) {
-            Ok(x) => x,
-            Err(e) => {
-                let msg = format!(
-                    "Failed to create a microblock miner at chaintip {}/{}: {:?}",
-                    &microblock_state.parent_consensus_hash,
-                    &microblock_state.parent_block_hash,
-                    &e
-                );
-                error!("{}", msg);
-                return Err(e);
-            }
-        };
-
-        let t1 = get_epoch_time_ms();
-
+    let mine_fn = |miner: &mut StacksMicroblockBuilder,
+                   key: &Secp256k1PrivateKey|
+     -> Result<StacksMicroblock, ChainstateError> {
         let txs_and_lens: Vec<(StacksTransaction, u64)> = prev_microblocks
             .iter()
             .flat_map(|mb| {
@@ -353,43 +339,9 @@ fn mine_coalesced_microblock(
                 })
             })
             .collect();
-        let mblock = microblock_miner.mine_next_microblock_from_txs(
-            txs_and_lens,
-            &microblock_state.miner_key,
-            Some(event_dispatcher),
-        )?;
-        let new_cost_so_far = microblock_miner.get_cost_so_far().expect("BUG: cannot read cost so far from miner -- indicates that the underlying Clarity Tx is somehow in use still.");
-        let t2 = get_epoch_time_ms();
-        info!(
-            "Mined microblock {} ({}) with {} transactions in {}ms",
-            mblock.block_hash(),
-            mblock.header.sequence,
-            mblock.txs.len(),
-            t2.saturating_sub(t1)
-        );
-
-        Ok((mblock, new_cost_so_far))
+        miner.mine_next_microblock_from_txs(txs_and_lens, key, Some(event_dispatcher))
     };
-
-    let (mined_microblock, new_cost) = match mint_result {
-        Ok(x) => x,
-        Err(e) => {
-            warn!("Failed to mine microblock: {}", e);
-            return Err(e);
-        }
-    };
-
-    // preprocess the microblock locally
-    chainstate.preprocess_streamed_microblock(
-        &microblock_state.parent_consensus_hash,
-        &microblock_state.parent_block_hash,
-        &mined_microblock,
-    )?;
-
-    // update unconfirmed state cost
-    microblock_state.cost_so_far = new_cost;
-    microblock_state.quantity += 1;
-    return Ok(mined_microblock);
+    mine_microblock_with_fn(microblock_state, sortdb, chainstate, mine_fn)
 }
 
 fn try_mine_microblock(
