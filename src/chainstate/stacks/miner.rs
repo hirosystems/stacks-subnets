@@ -2432,6 +2432,7 @@ impl Proposal {
                 .expect("Failed to form Clarity buffer from withdrawal root");
         let target_tip = Value::buff_from(self.burn_tip.0.to_vec())
             .expect("Failed to form Clarity buffer from target burnchain tip");
+        let target_height = Value::UInt((self.burn_tip_height - 1).into());
         let signing_contract = Value::Principal(PrincipalData::Contract(signing_contract));
 
         let data_tuple = Value::Tuple(
@@ -2440,6 +2441,7 @@ impl Proposal {
                 ("subnet-block-height".into(), subnet_block_height),
                 ("withdrawal-root".into(), withdrawal_root_buff),
                 ("target-tip".into(), target_tip),
+                ("target-height".into(), target_height),
                 ("multi-contract".into(), signing_contract),
             ])
             .expect("Failed to construct data tuple for block proposal"),
