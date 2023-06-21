@@ -964,6 +964,7 @@ fn faucet_test() {
     );
     let _publish_txid = submit_tx(&http_origin, &publish_tx);
 
+    sleep_for_reason(Duration::from_secs(15), "wait for microblock");
     next_block_and_wait(
         &mut btc_regtest_controller,
         None,
@@ -1002,6 +1003,7 @@ fn faucet_test() {
     );
     let _contract_call_txid = submit_tx(&http_origin, &contract_call_tx);
 
+    sleep_for_reason(Duration::from_secs(15), "wait for microblock");
     next_block_and_wait(
         &mut btc_regtest_controller,
         None,
@@ -1276,8 +1278,8 @@ fn transactions_in_block_and_microblock() {
         &sortition_db,
     );
 
-    // We should have 1 anchored block with a "return-one" transaction, and one micro-block with
-    // a "return-one" transaction.
+    // We should have 1 anchored block with a "return-one" transaction, and four microblocks with
+    // a "return-one" transaction (two copies of each).
     {
         let small_contract_calls = select_transactions_where(
             &test_observer::get_blocks(),
@@ -1303,7 +1305,8 @@ fn transactions_in_block_and_microblock() {
                     _ => false,
                 }
             });
-        assert_eq!(1, small_contract_calls.len());
+        // Each transaction should have appeared in two microblocks
+        assert_eq!(4, small_contract_calls.len());
     }
 
     channel.stop_chains_coordinator();
