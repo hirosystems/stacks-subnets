@@ -1014,11 +1014,9 @@ fn spawn_miner_relayer(
 
                                     // Before updating the miner state, we need to grab the unconfirmed microblocks from the parent
                                     // block, to be packaged into a microblock for this new anchor block.
-                                    let prev_microblocks = if let Some(miner_state) = microblock_miner_state {
-                                        miner_state.unconfirmed_microblocks
-                                    } else {
-                                        vec![]
-                                    };
+                                    let prev_microblocks = microblock_miner_state
+                                        .map(|state| state.unconfirmed_microblocks)
+                                        .unwrap_or_default();
 
                                     microblock_miner_state = Some(MicroblockMinerState {
                                         parent_consensus_hash: ch.clone(),
@@ -1085,13 +1083,12 @@ fn spawn_miner_relayer(
                                                     next_microblock.clone(),
                                                 ) {
                                                     error!(
-                                                        "Failure trying to broadcast microblock {}: {}",
-                                                        microblock_hash, e
+                                                        "Failure trying to broadcast microblock {microblock_hash}: {e}"                                                   
                                                     );
                                                 }
                                             }
                                             Err(e) => {
-                                                error!("Failed to mine microblock: {}", e);
+                                                error!("Failed to mine microblock: {e}");
                                             }
                                         };
                                     }
