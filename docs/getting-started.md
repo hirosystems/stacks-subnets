@@ -25,7 +25,7 @@ Clarinet provides a tool to set up a complete local development environment, kno
 
 In this section, we will explain how to launch and interact with the devnet's subnet node using a simple NFT example project.
 
-Ensure you have `clarinet` installed and the version is 1.6.0 or above. If you do not already have Clarinet installed, please refer to the Clarinet installation instructions [here](https://docs.hiro.so/smart-contracts/clarinet#installing-clarinet) for installation procedures.
+Ensure you have `clarinet` installed and the version is 1.7.1 or above. If you do not already have Clarinet installed, please refer to the Clarinet installation instructions [here](https://docs.hiro.so/smart-contracts/clarinet#installing-clarinet) for installation procedures.
 
 ### Create a new project with Clarinet
 
@@ -219,30 +219,21 @@ This contract implements the `nft-trait` and the `subnet-asset` trait. The `nft-
 ### Configuring the Devnet
 
 The settings for the devnet are found in _./settings/Devnet.toml_. In order to launch a subnet in the devnet, we need to tell Clarinet to enable a subnet node and a corresponding API node.
-
-#### Required Changes
-
-Uncomment or add the following lines under `[devnet]`:
+Open the file and uncomment or add the following lines under `[devnet]`:
 
 ```toml
-# By default, subnets are off
 enable_subnet_node = true
-# Currently required to use subnets with API
-stacks_api_env_vars = ["STACKS_CHAIN_ID=2147483648", "CUSTOM_CHAIN_IDS=testnet=0x55005500"]
 ```
 
-#### Version Changes
-
-Depending on your version of Clarinet, you may need to override the default configuration to use newer software.
-If your defaults are older then the following versions, you will need to set them to newer versions:
+Also, we can see a few default settings that `clarinet` will be using for our subnet. It is not necessary to modify any of these settings, but doing so allows you to customize your test environment.
 
 ```toml
 # L1 Subnet contract which the subnet will attempt to communicate with
-subnet_contract_id = "ST13F481SBR0R7Z6NMMH8YV2FJJYXA5JPA0AD3HP9.subnet-v2-0-0"
+subnet_contract_id = "ST2BV6879EYSC3FC5MZWBDQJ72FY7VMSKCE6BTC22.subnet-v2-0-0"
 # Docker image of subnet node
 subnet_node_image_url = "hirosystems/stacks-subnets:0.6.2"
 # Docker image of subnet API
-subnet_api_image_url = "hirosystems/stacks-blockchain-api:7.2.0-beta.3"
+subnet_api_image_url = "hirosystems/stacks-blockchain-api:7.2.0-beta.4"
 ```
 
 ### Launching the Devnet
