@@ -262,13 +262,13 @@ pub fn convert_withdrawal_key_to_bytes(key: &Value) -> Vec<u8> {
 /// The order of withdrawal events in the transaction receipts will determine the withdrawal IDs
 /// that correspond to each event. These IDs are used to generate the withdrawal key that is
 /// ultimately inserted in the withdrawal Merkle tree.
-pub fn generate_withdrawal_keys(
-    tx_receipts: &mut [StacksTransactionReceipt],
+pub fn generate_withdrawal_keys<'a>(
+    tx_receipts: impl Iterator<Item = &'a mut StacksTransactionReceipt>,
     block_height: u64,
 ) -> Vec<Vec<u8>> {
     let mut items = Vec::new();
     let mut withdrawal_id = 0;
-    for receipt in tx_receipts.iter_mut() {
+    for receipt in tx_receipts {
         for event in receipt.events.iter_mut() {
             if let Some(key) = generate_key_from_event(event, withdrawal_id, block_height) {
                 withdrawal_id += 1;
@@ -284,8 +284,8 @@ pub fn generate_withdrawal_keys(
 /// The order of the transaction receipts will affect the final tree.
 /// The generated withdrawal IDs are inserted into the supplied withdraw events
 /// (this is why the receipts are supplied as a mutable argument).
-pub fn create_withdrawal_merkle_tree(
-    tx_receipts: &mut [StacksTransactionReceipt],
+pub fn create_withdrawal_merkle_tree<'a>(
+    tx_receipts: impl Iterator<Item = &'a mut StacksTransactionReceipt>,
     block_height: u64,
 ) -> MerkleTree<Sha512Trunc256Sum> {
     // The specific keys generated is dependent on the order of the provided transaction receipts
@@ -433,7 +433,7 @@ mod test {
 
         let mut receipts = vec![withdrawal_receipt];
         // supplying block height = 0 is okay in tests, because block height is only used for logging
-        let withdrawal_tree = create_withdrawal_merkle_tree(receipts.as_mut(), 0);
+        let withdrawal_tree = create_withdrawal_merkle_tree(receipts.iter_mut(), 0);
         let root_hash = withdrawal_tree.root();
 
         // manually construct the expected Merkle tree

@@ -15,7 +15,7 @@ function fromHex(input: string) {
   return decHex(hexBytes);
 }
 
-const SUBNET_CONTRACT = "subnet-v2-0-0";
+const SUBNET_CONTRACT = "subnet-v3-0-0";
 
 Clarinet.test({
   name: "Unit test the withdrawal leaf hash calculations using test vectors",
@@ -111,17 +111,8 @@ Clarinet.test({
         [types.principal(alice.address)],
         deployer.address
       ),
-      // Try to set alice as a miner again, should fail
-      Tx.contractCall(
-        SUBNET_CONTRACT,
-        "update-miner",
-        [types.principal(alice.address)],
-        deployer.address
-      ),
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
-    // should return (err ERR_INVALID_MINER)
-    block.receipts[1].result.expectErr().expectInt(2);
 
     const id_header_hash1 = chain
       .callReadOnlyFn("test-helpers", "get-id-header-hash", [], alice.address)
@@ -137,6 +128,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash1,
+          types.uint(chain.blockHeight - 1),
           types.buff(new Uint8Array([0, 1, 1, 1, 2])),
         ],
         alice.address
@@ -149,6 +141,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
           types.uint(1),
           id_header_hash1,
+          types.uint(chain.blockHeight - 1),
           types.buff(new Uint8Array([0, 2, 2, 2, 3])),
         ],
         alice.address
@@ -174,6 +167,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
           types.uint(1),
           id_header_hash2,
+          types.uint(chain.blockHeight - 1),
           types.buff(new Uint8Array([0, 2, 2, 2, 3])),
         ],
         bob.address
@@ -186,6 +180,20 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 2, 2, 2, 1])),
           types.uint(1),
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
+          types.uint(chain.blockHeight - 1),
+          types.buff(new Uint8Array([0, 2, 2, 2, 3])),
+        ],
+        alice.address
+      ),
+      // Try and fail to commit a block to non-existent `target-chain-height`
+      Tx.contractCall(
+        SUBNET_CONTRACT,
+        "commit-block",
+        [
+          types.buff(new Uint8Array([0, 2, 2, 2, 1])),
+          types.uint(1),
+          types.buff(new Uint8Array([0, 2, 2, 2, 2])),
+          types.uint(123),
           types.buff(new Uint8Array([0, 2, 2, 2, 3])),
         ],
         alice.address
@@ -195,6 +203,8 @@ Clarinet.test({
     block.receipts[0].result.expectErr().expectInt(2);
     // should return (err ERR_INVALID_CHAIN_TIP)
     block.receipts[1].result.expectErr().expectInt(11);
+    // should return (err ERR_INVALID_CHAIN_HEIGHT)
+    block.receipts[2].result.expectErr().expectInt(12);
 
     // Successfully commit block at height 1 with valid miner.
     const id_header_hash3 = chain
@@ -209,6 +219,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
           types.uint(1),
           id_header_hash3,
+          types.uint(chain.blockHeight - 1),
           types.buff(new Uint8Array([0, 2, 2, 2, 3])),
         ],
         alice.address
@@ -262,7 +273,7 @@ Clarinet.test({
     ]);
     block.receipts[0].result.expectOk().expectBool(true);
 
-    // Invalid miner can't register contracts
+    // Invalid admin can't register contracts
     block = chain.mineBlock([
       Tx.contractCall(
         SUBNET_CONTRACT,
@@ -274,8 +285,8 @@ Clarinet.test({
         bob.address
       ),
     ]);
-    // should return (err ERR_INVALID_MINER)
-    block.receipts[0].result.expectErr().expectInt(2);
+    // should return (err ERR_UNAUTHORIZED)
+    block.receipts[0].result.expectErr().expectInt(17);
 
     // Deployer can set up allowed assets
     block = chain.mineBlock([
@@ -372,6 +383,85 @@ Clarinet.test({
 });
 
 Clarinet.test({
+  name: "Ensure that admin can be updated successfully",
+  fn(
+    chain: Chain,
+    accounts: Map<string, Account>,
+    contracts: Map<string, Contract>
+  ) {
+    // contract deployer and default admin
+    const deployer = accounts.get("deployer")!;
+    // updated admin
+    const alice = accounts.get("wallet_1")!;
+    // invalid admin
+    const bob = accounts.get("wallet_2")!;
+
+    // contract ids
+    const simple_ft_contract = contracts.get(
+      "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.simple-ft"
+    )!;
+    const simple_nft_contract = contracts.get(
+      "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.simple-nft"
+    )!;
+    const simple_nft_no_mint_contract = contracts.get(
+      "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.simple-nft-no-mint"
+    )!;
+    const second_nft_contract = contracts.get(
+      "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.second-simple-nft"
+    )!;
+    const second_ft_contract = contracts.get(
+      "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.second-simple-ft"
+    )!;
+
+    // set alice as the admin
+    let block = chain.mineBlock([
+      Tx.contractCall(
+        SUBNET_CONTRACT,
+        "update-admin",
+        [types.principal(alice.address)],
+        deployer.address
+      ),
+    ]);
+    block.receipts[0].result.expectOk().expectBool(true);
+
+    // Invalid admin can't change the admin
+    block = chain.mineBlock([
+      Tx.contractCall(
+        SUBNET_CONTRACT,
+        "update-admin",
+        [types.principal(alice.address)],
+        deployer.address
+      ),
+    ]);
+    // should return (err ERR_UNAUTHORIZED)
+    block.receipts[0].result.expectErr().expectInt(17);
+
+    // admin can update the miner
+    block = chain.mineBlock([
+      Tx.contractCall(
+        SUBNET_CONTRACT,
+        "update-miner",
+        [types.principal(alice.address)],
+        alice.address
+      ),
+    ]);
+    block.receipts[0].result.expectOk().expectBool(true);
+
+    // Invalid admin can't update the miner
+    block = chain.mineBlock([
+      Tx.contractCall(
+        SUBNET_CONTRACT,
+        "update-miner",
+        [types.principal(bob.address)],
+        deployer.address
+      ),
+    ]);
+    // should return (err ERR_UNAUTHORIZED)
+    block.receipts[0].result.expectErr().expectInt(17);
+  },
+});
+
+Clarinet.test({
   name: "Ensure that user can deposit NFT & miner can withdraw it",
   fn(
     chain: Chain,
@@ -437,7 +527,7 @@ Clarinet.test({
     // should return (err ERR_DISALLOWED_ASSET)
     block.receipts[0].result.expectErr().expectInt(5);
 
-    // Invalid miner can't register contracts
+    // Invalid admin can't register contracts
     block = chain.mineBlock([
       Tx.contractCall(
         SUBNET_CONTRACT,
@@ -449,8 +539,8 @@ Clarinet.test({
         bob.address
       ),
     ]);
-    // should return (err ERR_INVALID_MINER)
-    block.receipts[0].result.expectErr().expectInt(2);
+    // should return (err ERR_UNAUTHORIZED)
+    block.receipts[0].result.expectErr().expectInt(17);
 
     // Deployer sets up allowed assets
     block = chain.mineBlock([
@@ -529,6 +619,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -719,6 +810,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -1004,7 +1096,7 @@ Clarinet.test({
     // should return (err ERR_DISALLOWED_ASSET)
     block.receipts[0].result.expectErr().expectInt(5);
 
-    // Invalid miner can't register new contracts
+    // Invalid admin can't register new contracts
     block = chain.mineBlock([
       Tx.contractCall(
         SUBNET_CONTRACT,
@@ -1016,8 +1108,8 @@ Clarinet.test({
         bob.address
       ),
     ]);
-    // should return (err ERR_INVALID_MINER)
-    block.receipts[0].result.expectErr().expectInt(2);
+    // should return (err ERR_UNAUTHORIZED)
+    block.receipts[0].result.expectErr().expectInt(17);
 
     // Deployer sets up allowed assets
     block = chain.mineBlock([
@@ -1108,6 +1200,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -1304,6 +1397,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -1632,6 +1726,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -1930,6 +2025,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -2222,6 +2318,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -2332,6 +2429,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         alice.address
@@ -2466,6 +2564,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         miner.address
@@ -2601,6 +2700,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         miner.address
@@ -2753,6 +2853,7 @@ Clarinet.test({
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
           types.uint(0),
           id_header_hash,
+          types.uint(chain.blockHeight - 1),
           types.buff(root_hash),
         ],
         miner.address

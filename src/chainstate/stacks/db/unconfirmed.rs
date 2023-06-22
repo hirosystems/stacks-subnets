@@ -781,6 +781,7 @@ mod test {
                         .mine_next_microblock_from_txs(
                             vec![(signed_tx, signed_tx_len)],
                             &microblock_privkey,
+                            None,
                         )
                         .unwrap();
                     microblock
@@ -1012,7 +1013,11 @@ mod test {
                         .collect();
 
                     let microblock = microblock_builder
-                        .mine_next_microblock_from_txs(signed_mempool_txs, &microblock_privkey)
+                        .mine_next_microblock_from_txs(
+                            signed_mempool_txs,
+                            &microblock_privkey,
+                            None,
+                        )
                         .unwrap();
                     microblocks.push(microblock);
                 }

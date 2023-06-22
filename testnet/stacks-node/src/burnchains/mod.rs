@@ -115,10 +115,10 @@ pub trait BurnchainController {
         committed_block_hash: BlockHeaderHash,
         committed_block_height: u64,
         target_burn_chain: BurnchainHeaderHash,
+        target_burn_block_height: u64,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<ClaritySignature>,
         op_signer: &mut BurnchainOpSigner,
-        attempt: u64,
     ) -> Result<Txid, Error>;
 
     /// Returns the number of signatures necessary to provide
@@ -224,10 +224,10 @@ impl BurnchainController for PanicController {
         _committed_block_hash: BlockHeaderHash,
         _committed_block_height: u64,
         _target_block: BurnchainHeaderHash,
+        _target_block_height: u64,
         _withdrawal_merkle_root: Sha512Trunc256Sum,
         _signatures: Vec<ClaritySignature>,
         _op_signer: &mut BurnchainOpSigner,
-        _attempt: u64,
     ) -> Result<Txid, Error> {
         panic!()
     }

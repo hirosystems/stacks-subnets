@@ -244,7 +244,7 @@ pub fn new_l1_test_conf(
     config.node.p2p_bind = "127.0.0.1:30444".into();
 
     config.burnchain.contract_identifier =
-        QualifiedContractIdentifier::new(to_addr(&broadcast_key).into(), "subnet-v2-0-0".into());
+        QualifiedContractIdentifier::new(to_addr(&broadcast_key).into(), "subnet-v3-0-0".into());
 
     config.node.miner = true;
 
@@ -460,7 +460,7 @@ fn make_microblock(
     // NOTE: we intentionally do not check the block's microblock pubkey hash against the private
     // key, because we may need to test that microblocks get rejected due to bad signatures.
     let microblock = microblock_builder
-        .mine_next_microblock_from_txs(mempool_txs, privk)
+        .mine_next_microblock_from_txs(mempool_txs, privk, None)
         .unwrap();
     microblock
 }

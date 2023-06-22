@@ -43,6 +43,8 @@ use rusqlite::Connection;
 use rusqlite::OpenFlags;
 use subnet_lib::burnchains::BLOCKSTACK_MAGIC_MAINNET;
 use subnet_lib::clarity_cli;
+use subnet_lib::core::mempool::MemPoolEventDispatcher;
+use subnet_lib::core::mempool::MemPoolWalkSettings;
 use subnet_lib::cost_estimates::UnitEstimator;
 use subnet_lib::types::PrivateKey;
 use subnet_lib::util::secp256k1::secp256k1_recover;
@@ -650,7 +652,7 @@ simulating a miner.
         let sort_db = SortitionDB::open(&sort_db_path, false)
             .expect(&format!("Failed to open {}", &sort_db_path));
         let chain_id = LAYER_1_CHAIN_ID_MAINNET;
-        let (chain_state, _) = StacksChainState::open(true, chain_id, &chain_state_path, None)
+        let (mut chain_state, _) = StacksChainState::open(true, chain_id, &chain_state_path, None)
             .expect("Failed to open stacks chain state");
         let chain_tip = SortitionDB::get_canonical_burn_chain_tip(sort_db.conn())
             .expect("Failed to get sortition chain tip");
@@ -690,29 +692,32 @@ simulating a miner.
         settings.max_miner_time_ms = max_time;
         settings.mempool_settings.min_tx_fee = min_fee;
 
-        let result = StacksBlockBuilder::build_anchored_block(
-            &chain_state,
-            &sort_db.index_conn(),
-            &mut mempool_db,
-            &parent_header,
-            chain_tip.total_burn,
-            VRFProof::empty(),
-            Hash160([0; 20]),
-            &coinbase_tx,
-            settings,
-            None,
-        );
+        let burn_db = sort_db.index_conn();
+        let mut microblock_miner = StacksMicroblockBuilder::new(
+            stacks_block.anchored_block_hash,
+            stacks_block.consensus_hash,
+            &mut chain_state,
+            &burn_db,
+            BlockBuilderSettings {
+                max_miner_time_ms: 15000,
+                mempool_settings: MemPoolWalkSettings::default(),
+            },
+        )
+        .expect("Failed to instantiate microblock miner");
+
+        let event_dispatcher = DummyMemPoolEventDispatcher {};
+        let result = microblock_miner.mine_next_microblock(&mut mempool_db, &sk, &event_dispatcher);
 
         let stop = get_epoch_time_ms();
 
         println!(
-            "{} mined block @ height = {} off of {} ({}/{}) in {}ms. Min-fee: {}, Max-time: {}",
+            "{} microblock @ height = {} off of {} ({}/{}) in {}ms. Min-fee: {}, Max-time: {}",
             if result.is_ok() {
-                "Successfully"
+                "Successfully mined"
             } else {
-                "Failed to"
+                "Failed to mine"
             },
-            parent_header.stacks_block_height + 1,
+            parent_header.stacks_block_height,
             StacksBlockHeader::make_index_block_hash(
                 &parent_header.consensus_hash,
                 &parent_header.anchored_header.block_hash()
@@ -724,7 +729,7 @@ simulating a miner.
             max_time
         );
 
-        if let Ok((block, execution_cost, size)) = result {
+        if let Ok(block) = result {
             let mut total_fees = 0;
             for tx in block.txs.iter() {
                 total_fees += tx.get_tx_fee();
@@ -733,8 +738,8 @@ simulating a miner.
                 "Block {}: {} uSTX, {} bytes, cost {:?}",
                 block.block_hash(),
                 total_fees,
-                size,
-                &execution_cost
+                microblock_miner.get_bytes_so_far(),
+                microblock_miner.get_cost_so_far(),
             );
         }
 
@@ -936,5 +941,30 @@ simulating a miner.
     if argv.len() < 4 {
         eprintln!("Usage: {} blockchain network working_dir", argv[0]);
         process::exit(1);
+    }
+}
+
+struct DummyMemPoolEventDispatcher {}
+impl MemPoolEventDispatcher for DummyMemPoolEventDispatcher {
+    fn mempool_txs_dropped(&self, txids: Vec<Txid>, reason: mempool::MemPoolDropReason) {}
+
+    fn mined_block_event(
+        &self,
+        target_burn_height: u64,
+        block: &StacksBlock,
+        block_size_bytes: u64,
+        consumed: &ExecutionCost,
+        confirmed_microblock_cost: &ExecutionCost,
+        tx_results: Vec<TransactionEvent>,
+    ) {
+    }
+
+    fn mined_microblock_event(
+        &self,
+        microblock: &StacksMicroblock,
+        tx_results: Vec<TransactionEvent>,
+        anchor_block_consensus_hash: ConsensusHash,
+        anchor_block: BlockHeaderHash,
+    ) {
     }
 }

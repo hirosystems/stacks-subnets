@@ -964,6 +964,7 @@ fn faucet_test() {
     );
     let _publish_txid = submit_tx(&http_origin, &publish_tx);
 
+    sleep_for_reason(Duration::from_secs(15), "wait for microblock");
     next_block_and_wait(
         &mut btc_regtest_controller,
         None,
@@ -1002,6 +1003,7 @@ fn faucet_test() {
     );
     let _contract_call_txid = submit_tx(&http_origin, &contract_call_tx);
 
+    sleep_for_reason(Duration::from_secs(15), "wait for microblock");
     next_block_and_wait(
         &mut btc_regtest_controller,
         None,
@@ -1276,8 +1278,8 @@ fn transactions_in_block_and_microblock() {
         &sortition_db,
     );
 
-    // We should have 1 anchored block with a "return-one" transaction, and one micro-block with
-    // a "return-one" transaction.
+    // We should have 1 anchored block with a "return-one" transaction, and four microblocks with
+    // a "return-one" transaction (two copies of each).
     {
         let small_contract_calls = select_transactions_where(
             &test_observer::get_blocks(),
@@ -1303,7 +1305,8 @@ fn transactions_in_block_and_microblock() {
                     _ => false,
                 }
             });
-        assert_eq!(1, small_contract_calls.len());
+        // Each transaction should have appeared in two microblocks
+        assert_eq!(4, small_contract_calls.len());
     }
 
     channel.stop_chains_coordinator();
@@ -1615,6 +1618,9 @@ fn transactions_microblocks_then_block() {
     // We should have three micro-blocks with one `small-contract` tx each.
     assert!(test_observer::get_microblocks().len() >= 3);
 
+    // In the subnet node, all transactions are in microblocks, and microblock transactions are
+    // rolled up into a new microblock before being confirmed in an anchor block, so we should
+    // see twice as many transactions as we might expect (5 * 2 = 10).
     info!("calling select_transactions_where for micro-blocks");
     let small_contract_mb_calls =
         select_transactions_where(&test_observer::get_microblocks(), |transaction| {
@@ -1626,7 +1632,7 @@ fn transactions_microblocks_then_block() {
                 _ => false,
             }
         });
-    assert_eq!(3, small_contract_mb_calls.len());
+    assert_eq!(10, small_contract_mb_calls.len());
 
     // The transaction was copied in 3 micro-blocks plus 2 blocks. These all get counted here so
     // expect 5 total.

@@ -90,7 +90,7 @@ use crate::util_lib::db::table_exists;
 
 // maximum number of confirmations a transaction can have before it's garbage-collected
 pub const MEMPOOL_MAX_TRANSACTION_AGE: u64 = 256;
-pub const MAXIMUM_MEMPOOL_TX_CHAINING: u64 = 25;
+pub const MAXIMUM_MEMPOOL_TX_CHAINING: u64 = 600;
 
 // name of table for storing the counting bloom filter
 pub const BLOOM_COUNTER_TABLE: &'static str = "txid_bloom_counter";

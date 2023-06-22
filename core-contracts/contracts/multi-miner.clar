@@ -22,7 +22,7 @@
 
 ;; Minimun version of subnet contract required
 (define-constant SUBNET_CONTRACT_VERSION_MIN {
-    major: u2,
+    major: u3,
     minor: u0,
     patch: u0,
 })
@@ -30,7 +30,7 @@
 ;; Return error if subnet contract version not supported
 (define-read-only (check-subnet-contract-version) (
     let (
-        (subnet-contract-version (contract-call? .subnet-v2-0-0 get-version))
+        (subnet-contract-version (contract-call? .subnet-v3-0-0 get-version))
     )
 
     ;; Check subnet contract version is greater than min supported version
@@ -83,7 +83,7 @@
          (asserts! (>= (len provided-checked) signers-required) (err ERR_NOT_ENOUGH_SIGNERS))
          (ok true)))
 
-(define-read-only (make-block-commit-hash (block-data { block: (buff 32), subnet-block-height: uint, withdrawal-root: (buff 32), target-tip: (buff 32) }))
+(define-read-only (make-block-commit-hash (block-data { block: (buff 32), subnet-block-height: uint, withdrawal-root: (buff 32), target-tip: (buff 32), target-height: uint }))
     (let ((data-buff (unwrap-panic (to-consensus-buff? (merge block-data { multi-contract: CONTRACT_ADDRESS }))))
           (data-hash (sha256 data-buff))
         ;; in 2.0, this is a constant: 0xe2f4d0b1eca5f1b4eb853cd7f1c843540cfb21de8bfdaa59c504a6775cd2cfe9
@@ -102,8 +102,10 @@
                               signers: (unwrap-panic (as-max-len? (append (get signers prior-okay) curr-signer) u9)) }))
         prior-err (err prior-err)))
 
-(define-public (commit-block  (block-data { block: (buff 32), subnet-block-height: uint, withdrawal-root: (buff 32), target-tip: (buff 32) })
-                              (signatures (list 9 (buff 65))))
+(define-public (commit-block
+        (block-data { block: (buff 32), subnet-block-height: uint, withdrawal-root: (buff 32), target-tip: (buff 32), target-height: uint })
+        (signatures (list 9 (buff 65)))
+    )
     (let ((block-data-hash (make-block-commit-hash block-data))
           (signer-principals (try! (fold verify-sign-helper signatures (ok { block-hash: block-data-hash, signers: (list) })))))
          ;; check that the caller is a direct caller!
@@ -111,6 +113,16 @@
          ;; check that we have enough signatures
          (try! (check-miners (append (get signers signer-principals) tx-sender)))
          ;; execute the block commit
-         (as-contract (contract-call? .subnet-v2-0-0 commit-block (get block block-data) (get subnet-block-height block-data) (get target-tip block-data) (get withdrawal-root block-data)))
+         (as-contract
+            (contract-call?
+                .subnet-v3-0-0
+                commit-block
+                (get block block-data)
+                (get subnet-block-height block-data)
+                (get target-tip block-data)
+                (get target-height block-data)
+                (get withdrawal-root block-data)
+            )
+        )
     )
 )

@@ -293,15 +293,6 @@ impl StacksMessageCodec for StacksBlock {
             ));
         }
 
-        // all transactions must have anchor mode either OnChainOnly or Any
-        // (no OffChainOnly allowed)
-        if !StacksBlock::validate_anchor_mode(&txs, true) {
-            warn!("Invalid block: Found offchain-only transaction");
-            return Err(codec_error::DeserializeError(
-                "Invalid block: Found offchain-only transaction".to_string(),
-            ));
-        }
-
         // all transactions are unique
         if !StacksBlock::validate_transactions_unique(&txs) {
             warn!("Invalid block: Found duplicate transaction");
@@ -466,30 +457,6 @@ impl StacksBlock {
         return true;
     }
 
-    /// verify anchor modes
-    pub fn validate_anchor_mode(txs: &Vec<StacksTransaction>, anchored: bool) -> bool {
-        for tx in txs {
-            match (anchored, tx.anchor_mode) {
-                (true, TransactionAnchorMode::OffChainOnly) => {
-                    warn!(
-                        "Tx {} is off-chain-only; expected on-chain-only or any",
-                        tx.txid()
-                    );
-                    return false;
-                }
-                (false, TransactionAnchorMode::OnChainOnly) => {
-                    warn!(
-                        "Tx {} is on-chain-only; expected off-chain-only or any",
-                        tx.txid()
-                    );
-                    return false;
-                }
-                (_, _) => {}
-            }
-        }
-        return true;
-    }
-
     /// verify that a coinbase is present and is on-chain only, or is absent
     pub fn validate_coinbase(txs: &Vec<StacksTransaction>, check_present: bool) -> bool {
         let mut found_coinbase = false;
@@ -550,9 +517,6 @@ impl StacksBlock {
             return false;
         }
         if !StacksBlock::validate_transactions_chain_id(&self.txs, chain_id) {
-            return false;
-        }
-        if !StacksBlock::validate_anchor_mode(&self.txs, true) {
             return false;
         }
         if !StacksBlock::validate_coinbase(&self.txs, true) {
@@ -774,13 +738,6 @@ impl StacksMessageCodec for StacksMicroblock {
             ));
         }
 
-        if !StacksBlock::validate_anchor_mode(&txs, false) {
-            warn!("Invalid microblock: found on-chain-only transaction");
-            return Err(codec_error::DeserializeError(
-                "Invalid microblock: found on-chain-only transaction".to_string(),
-            ));
-        }
-
         // header and transactions must be consistent
         let txid_vecs = txs.iter().map(|tx| tx.txid().as_bytes().to_vec()).collect();
 
@@ -867,9 +824,6 @@ impl StacksMicroblock {
             return false;
         }
         if !StacksBlock::validate_transactions_chain_id(&self.txs, chain_id) {
-            return false;
-        }
-        if !StacksBlock::validate_anchor_mode(&self.txs, false) {
             return false;
         }
         if !StacksBlock::validate_coinbase(&self.txs, false) {
@@ -1427,9 +1381,6 @@ mod test {
         let mut block_header_invalid_coinbase = header.clone();
         block_header_invalid_coinbase.tx_merkle_root = get_tx_root(&txs_bad_coinbase);
 
-        let mut block_header_invalid_anchor = header.clone();
-        block_header_invalid_anchor.tx_merkle_root = get_tx_root(&txs_bad_anchor);
-
         let mut block_header_dup_tx = header.clone();
         block_header_dup_tx.tx_merkle_root = get_tx_root(&txs_dup);
 
@@ -1450,13 +1401,6 @@ mod test {
                     txs: txs_multiple_coinbases,
                 },
                 "multiple coinbases found",
-            ),
-            (
-                StacksBlock {
-                    header: block_header_invalid_anchor,
-                    txs: txs_bad_anchor,
-                },
-                "Found offchain-only transaction",
             ),
             (
                 StacksBlock {
@@ -1551,9 +1495,6 @@ mod test {
         let mut block_header_offchain_coinbase = header.clone();
         block_header_offchain_coinbase.tx_merkle_root = get_tx_root(&txs_coinbase);
 
-        let mut block_header_invalid_anchor = header.clone();
-        block_header_invalid_anchor.tx_merkle_root = get_tx_root(&txs_bad_anchor);
-
         let mut block_header_dup_tx = header.clone();
         block_header_dup_tx.tx_merkle_root = get_tx_root(&txs_dup);
 
@@ -1567,20 +1508,6 @@ mod test {
                     txs: txs_offchain_coinbase,
                 },
                 "invalid anchor mode for Coinbase",
-            ),
-            (
-                StacksMicroblock {
-                    header: block_header_coinbase,
-                    txs: txs_coinbase,
-                },
-                "found on-chain-only transaction",
-            ),
-            (
-                StacksMicroblock {
-                    header: block_header_invalid_anchor,
-                    txs: txs_bad_anchor,
-                },
-                "found on-chain-only transaction",
             ),
             (
                 StacksMicroblock {
