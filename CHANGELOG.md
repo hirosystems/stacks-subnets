@@ -1,3 +1,10 @@
+## [0.6.3](https://github.com/hirosystems/stacks-subnets/compare/v0.6.2...v0.6.3) (2023-06-21)
+
+
+### Bug Fixes
+
+* Update values so that unit test `metrics::test_proportional_dot_product_with_mainnet_lims` passes ([0d6bae2](https://github.com/hirosystems/stacks-subnets/commit/0d6bae2f3f5cbfb790f2b233593b90262caf5dcf))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
