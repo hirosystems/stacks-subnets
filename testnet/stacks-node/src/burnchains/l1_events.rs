@@ -456,10 +456,10 @@ impl BurnchainController for L1Controller {
         committed_block_hash: BlockHeaderHash,
         committed_block_height: u64,
         target_tip: BurnchainHeaderHash,
+        target_height: u64,
         withdrawal_merkle_root: Sha512Trunc256Sum,
         signatures: Vec<super::ClaritySignature>,
         op_signer: &mut BurnchainOpSigner,
-        attempt: u64,
     ) -> Result<Txid, Error> {
         self.l1_contract_ok()?;
 
@@ -467,9 +467,9 @@ impl BurnchainController for L1Controller {
             committed_block_hash,
             committed_block_height,
             target_tip,
+            target_height,
             withdrawal_merkle_root,
             signatures,
-            attempt,
             op_signer,
         )?;
 

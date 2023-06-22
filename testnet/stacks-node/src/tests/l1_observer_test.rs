@@ -190,6 +190,17 @@ fn get_stacks_tip_height(sortition_db: &SortitionDB) -> i64 {
     tip_snapshot.canonical_stacks_tip_height.try_into().unwrap()
 }
 
+/// Wait enough to ensure that a transaction submitted to the subnet has been
+/// confirmed in a block. Microblocks are mined every 15s, so first we wait for
+/// one microblock to be mined. This microblock will be confirmed in the next
+/// anchor block, but the current anchor block is already in flight, so we'll
+/// wait for two anchor blocks.
+pub fn wait_to_confirm_subnet_transactions(sortition_db: &SortitionDB) -> bool {
+    thread::sleep(Duration::from_secs(15));
+    wait_for_next_stacks_block(sortition_db);
+    wait_for_next_stacks_block(sortition_db)
+}
+
 /// Wait for the *height* of the stacks chain tip to increment.
 pub fn wait_for_next_stacks_block(sortition_db: &SortitionDB) -> bool {
     let current = get_stacks_tip_height(sortition_db);
@@ -620,6 +631,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     submit_tx(&l2_rpc_origin, &subnet_nft_publish);
     submit_tx(l1_rpc_origin, &l1_mint_ft_tx);
     submit_tx(l1_rpc_origin, &l1_mint_nft_tx);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Register the contract
     let subnet_setup_ft_tx = make_contract_call(
@@ -884,9 +896,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     submit_tx(&l2_rpc_origin, &l2_withdraw_ft_tx);
     // Withdraw nft-token from subnet contract on L2
     submit_tx(&l2_rpc_origin, &l2_withdraw_nft_tx);
-
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Check that user no longer owns the fungible token on L2 chain.
     let res = call_read_only(
@@ -1134,7 +1144,7 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         tx_index: 0,
     };
     let mut receipts = vec![withdrawal_receipt];
-    let withdrawal_tree = create_withdrawal_merkle_tree(&mut receipts, withdrawal_height);
+    let withdrawal_tree = create_withdrawal_merkle_tree(receipts.iter_mut(), withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     let ft_withdrawal_key =
@@ -1426,9 +1436,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     l2_nonce += 1;
 
     submit_tx(&l2_rpc_origin, &subnet_stx_publish);
-
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Check that the user does not own any additional STX on the subnet now
     let account = get_account(&l2_rpc_origin, &user_addr);
@@ -1489,9 +1497,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     );
     // withdraw stx from L2
     submit_tx(&l2_rpc_origin, &l2_withdraw_stx_tx_unauth);
-
-    // Wait to give the run loop time to mine a block
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Check that the user still owns STX on the subnet now (withdraw attempt should fail)
     let account = get_account(&l2_rpc_origin, &user_addr);
@@ -1515,13 +1521,8 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
 
     // withdraw stx from L2
     submit_tx(&l2_rpc_origin, &l2_withdraw_stx_tx);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
-    // Wait to give the run loop time to mine a block
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
-
-    // TODO: here, read the withdrawal events to get the withdrawal ID, and figure out the
-    //       block height to query.
     let block_data = test_observer::get_blocks();
     let mut withdraw_events = filter_map_events(&block_data, |height, event| {
         let ev_type = event.get("type").unwrap().as_str().unwrap();
@@ -1644,7 +1645,7 @@ fn l1_deposit_and_withdraw_stx_integration_test() {
     let mut receipts = vec![withdrawal_receipt];
 
     // okay to pass a zero block height in tests: the block height parameter is only used for logging
-    let withdrawal_tree = create_withdrawal_merkle_tree(&mut receipts, withdrawal_height);
+    let withdrawal_tree = create_withdrawal_merkle_tree(receipts.iter_mut(), withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     // okay to pass a zero block height in tests: the block height parameter is only used for logging
@@ -1803,8 +1804,7 @@ fn l2_simple_contract_calls() {
         l2_nonce += 1;
         submit_tx(&l2_rpc_origin, &subnet_small_contract_publish);
     }
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Make two contract calls to "return-one".
     for _ in 0..2 {
@@ -1820,11 +1820,8 @@ fn l2_simple_contract_calls() {
         );
         l2_nonce += 1;
         submit_tx(&l2_rpc_origin, &small_contract_call1);
-        wait_for_next_stacks_block(&sortition_db);
+        wait_to_confirm_subnet_transactions(&sortition_db);
     }
-    // Wait extra blocks to avoid flakes.
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
 
     // Check for two calls to "return-one".
     let small_contract_calls = select_transactions_where(
@@ -1990,10 +1987,7 @@ fn nft_deposit_and_withdraw_integration_test() {
 
     submit_tx(&l2_rpc_origin, &subnet_nft_publish);
     submit_tx(l1_rpc_origin, &subnet_setup_nft_tx);
-
-    // Sleep to give the run loop time to mine a block
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Mint a nft-token for user on L1 chain (ID = 1)
     let l1_mint_nft_tx = make_contract_call(
@@ -2023,10 +2017,7 @@ fn nft_deposit_and_withdraw_integration_test() {
 
     submit_tx(&l2_rpc_origin, &l2_mint_nft_tx);
     submit_tx(l1_rpc_origin, &l1_mint_nft_tx);
-
-    // Sleep to give the run loop time to mine a block
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Check that the user does not own the L1 native NFT on the subnet now
     let res = call_read_only(
@@ -2196,10 +2187,7 @@ fn nft_deposit_and_withdraw_integration_test() {
     // Submit withdrawal function calls
     submit_tx(&l2_rpc_origin, &l2_withdraw_nft_tx);
     submit_tx(&l2_rpc_origin, &l2_withdraw_native_nft_tx);
-
-    // Sleep to give the run loop time to mine a block
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Check that user no longer owns the l1 native NFT on L2 chain.
     let res = call_read_only(
@@ -2439,7 +2427,7 @@ fn nft_deposit_and_withdraw_integration_test() {
         tx_index: 0,
     };
     let withdrawal_tree =
-        create_withdrawal_merkle_tree(&mut vec![withdrawal_receipt], withdrawal_height);
+        create_withdrawal_merkle_tree(vec![withdrawal_receipt].iter_mut(), withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     let l1_native_nft_withdrawal_key =
@@ -2798,10 +2786,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
 
     submit_tx(&l2_rpc_origin, &subnet_nft_publish);
     submit_tx(l1_rpc_origin, &subnet_setup_nft_tx);
-
-    // Sleep to give the run loop time to mine a block
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Mint a nft-token for user on L1 chain (ID = 1)
     let l1_mint_nft_tx = make_contract_call(
@@ -2831,10 +2816,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
 
     submit_tx(&l2_rpc_origin, &l2_mint_nft_tx);
     submit_tx(l1_rpc_origin, &l1_mint_nft_tx);
-
-    // Sleep to give the run loop time to mine a block
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Check that the user does not own the L1 native NFT on the subnet now
     let res = call_read_only(
@@ -3041,7 +3023,7 @@ fn nft_deposit_failure_and_refund_integration_test() {
         tx_index: 0,
     };
     let withdrawal_tree =
-        create_withdrawal_merkle_tree(&mut vec![withdrawal_receipt], withdrawal_height);
+        create_withdrawal_merkle_tree(vec![withdrawal_receipt].iter_mut(), withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     let l1_native_nft_withdrawal_key =
@@ -3285,10 +3267,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft"));
 
     submit_tx(&l2_rpc_origin, &subnet_ft_publish);
-
-    // Sleep to give the run loop time to mine a block
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Register the contract with the subnet
     let subnet_setup_ft_tx = make_contract_call(
@@ -3336,10 +3315,7 @@ fn ft_deposit_and_withdraw_integration_test() {
 
     submit_tx(&l2_rpc_origin, &l2_mint_ft_tx);
     submit_tx(l1_rpc_origin, &l1_mint_ft_tx);
-
-    // Sleep to give the run loop time to mine a block
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Check that the user does not own the L1 native ft on the subnet now
     let res = call_read_only(
@@ -3478,10 +3454,7 @@ fn ft_deposit_and_withdraw_integration_test() {
 
     // Submit withdrawal function call
     submit_tx(&l2_rpc_origin, &l2_withdraw_ft_tx);
-
-    // Sleep to give the run loop time to mine a block
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Check that user owns the remainder of the tokens on the subnet
     let res = call_read_only(
@@ -3624,7 +3597,7 @@ fn ft_deposit_and_withdraw_integration_test() {
         tx_index: 0,
     };
     let withdrawal_tree =
-        create_withdrawal_merkle_tree(&mut vec![withdrawal_receipt], withdrawal_height);
+        create_withdrawal_merkle_tree(vec![withdrawal_receipt].iter_mut(), withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     let ft_withdrawal_key =
@@ -3881,10 +3854,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft"));
 
     submit_tx(&l2_rpc_origin, &subnet_ft_publish);
-
-    // Sleep to give the run loop time to mine a block
-    wait_for_next_stacks_block(&sortition_db);
-    wait_for_next_stacks_block(&sortition_db);
+    wait_to_confirm_subnet_transactions(&sortition_db);
 
     // Register the contract with the subnet
     let subnet_setup_ft_tx = make_contract_call(
@@ -4137,7 +4107,7 @@ fn ft_deposit_failure_and_refund_integration_test() {
         tx_index: 0,
     };
     let withdrawal_tree =
-        create_withdrawal_merkle_tree(&mut vec![withdrawal_receipt], withdrawal_height);
+        create_withdrawal_merkle_tree(vec![withdrawal_receipt].iter_mut(), withdrawal_height);
     let root_hash = withdrawal_tree.root().as_bytes().to_vec();
 
     let ft_withdrawal_key =

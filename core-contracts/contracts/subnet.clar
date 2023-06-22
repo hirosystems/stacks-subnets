@@ -27,8 +27,8 @@
 (define-constant ERR_VALIDATION_FAILED 10)
 ;;; The value supplied for `target-chain-tip` does not match the current chain tip.
 (define-constant ERR_INVALID_CHAIN_TIP 11)
-;;; The contract was called before reaching this-chain height reaches 1.
-(define-constant ERR_CALLED_TOO_EARLY 12)
+;;; The target block height is beyond the current chain tip.
+(define-constant ERR_INVALID_CHAIN_HEIGHT 12)
 (define-constant ERR_MINT_FAILED 13)
 (define-constant ERR_ATTEMPT_TO_TRANSFER_ZERO_AMOUNT 14)
 (define-constant ERR_IN_COMPUTATION 15)
@@ -127,15 +127,19 @@
 ;; Helper function: determines whether the commit-block operation satisfies pre-conditions
 ;; listed in `commit-block`.
 ;; Returns response<bool, int>
-(define-private (can-commit-block? (l1-block-height uint)  (target-chain-tip (buff 32)))
+(define-private (can-commit-block?
+        (l1-block-height uint)
+        (target-chain-tip (buff 32))
+        (target-chain-height uint)
+    )
     (begin
         ;; check no block has been committed at this height
         (asserts! (is-none (map-get? block-commits l1-block-height)) (err ERR_BLOCK_ALREADY_COMMITTED))
 
-        ;; check that `target-chain-tip` matches the burn chain tip
+        ;; check that `target-chain-tip` matches the block at the specified height
         (asserts! (is-eq
             target-chain-tip
-            (unwrap! (get-block-info? id-header-hash (- block-height u1)) (err ERR_CALLED_TOO_EARLY)) )
+            (unwrap! (get-block-info? id-header-hash target-chain-height) (err ERR_INVALID_CHAIN_HEIGHT)))
             (err ERR_INVALID_CHAIN_TIP))
 
         ;; check that the tx sender is one of the miners
@@ -183,10 +187,11 @@
         (block (buff 32))
         (subnet-block-height uint)
         (target-chain-tip (buff 32))
+        (target-chain-height uint)
         (withdrawal-root (buff 32))
     )
     (let ((l1-block-height block-height))
-        (try! (can-commit-block? l1-block-height target-chain-tip))
+        (try! (can-commit-block? l1-block-height target-chain-tip target-chain-height))
         (inner-commit-block block subnet-block-height l1-block-height withdrawal-root)
     )
 )

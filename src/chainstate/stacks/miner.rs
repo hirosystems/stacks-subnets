@@ -697,18 +697,6 @@ impl<'a> StacksMicroblockBuilder<'a> {
         bytes_so_far: u64,
         limit_behavior: &BlockLimitFunction,
     ) -> Result<TransactionResult, Error> {
-        if tx.anchor_mode != TransactionAnchorMode::OffChainOnly
-            && tx.anchor_mode != TransactionAnchorMode::Any
-        {
-            return Ok(TransactionResult::skipped_due_to_error(
-                &tx,
-                Error::InvalidStacksTransaction(
-                    "Invalid transaction anchor mode for streamed data".to_string(),
-                    false,
-                ),
-            ));
-        }
-
         if bytes_so_far + tx_len >= MAX_EPOCH_SIZE.into() {
             info!(
                 "Adding microblock tx {} would exceed epoch data size",
@@ -791,11 +779,12 @@ impl<'a> StacksMicroblockBuilder<'a> {
         }
     }
 
-    /// NOTE: this is only used in integration tests.
+    /// Mine a microblock with the specified transactions.
     pub fn mine_next_microblock_from_txs(
         &mut self,
         txs_and_lens: Vec<(StacksTransaction, u64)>,
         miner_key: &Secp256k1PrivateKey,
+        event_dispatcher: Option<&dyn MemPoolEventDispatcher>,
     ) -> Result<StacksMicroblock, Error> {
         let mut txs_included = vec![];
 
@@ -895,7 +884,7 @@ impl<'a> StacksMicroblockBuilder<'a> {
             _ => {}
         }
 
-        return self.make_next_microblock(txs_included, miner_key, tx_events, None);
+        return self.make_next_microblock(txs_included, miner_key, tx_events, event_dispatcher);
     }
 
     pub fn mine_next_microblock(
@@ -1545,8 +1534,12 @@ impl StacksBlockBuilder {
         self.header.tx_merkle_root = tx_merkle_root;
         self.header.state_index_root = state_root_hash;
 
+        let all_receipts_iter = self
+            .microblock_tx_receipts
+            .iter_mut()
+            .chain(self.tx_receipts.iter_mut());
         let withdrawal_tree =
-            create_withdrawal_merkle_tree(&mut self.tx_receipts, self.header.total_work.work);
+            create_withdrawal_merkle_tree(all_receipts_iter, self.header.total_work.work);
         let withdrawal_merkle_root = withdrawal_tree.root();
         self.header.withdrawal_merkle_root = withdrawal_merkle_root;
 
@@ -1998,6 +1991,8 @@ impl StacksBlockBuilder {
         Ok(builder)
     }
 
+    #[cfg(test)]
+    /// Used only for testing. Standard anchor blocks only confirm transactions from previous microblocks.
     /// Given access to the mempool, mine an anchored block with no more than the given execution cost.
     ///   returns the assembled block, the consumed execution budget, and the block size.
     pub fn build_anchored_block(
@@ -2027,6 +2022,7 @@ impl StacksBlockBuilder {
         .map(|r| (r.block, r.block_execution_cost, r.block_size))
     }
 
+    #[cfg(test)]
     pub fn build_anchored_block_full_info(
         chainstate_handle: &StacksChainState, // not directly used; used as a handle to open other chainstates
         burn_dbconn: &SortitionDBConn,
@@ -2325,6 +2321,95 @@ impl StacksBlockBuilder {
             burn_tip_height: miner_epoch_info.burn_tip_height,
         })
     }
+
+    pub fn build_empty_anchored_block(
+        chainstate_handle: &StacksChainState, // not directly used; used as a handle to open other chainstates
+        burn_dbconn: &SortitionDBConn,
+        parent_stacks_header: &StacksHeaderInfo, // Stacks header we're building off of
+        total_burn: u64, // the burn so far on the burnchain (i.e. from the last burnchain block)
+        proof: VRFProof, // proof over the burnchain's last seed
+        pubkey_hash: Hash160,
+        coinbase_tx: &StacksTransaction,
+        event_observer: Option<&dyn MemPoolEventDispatcher>,
+    ) -> Result<AssembledBlockInfo, Error> {
+        let (tip_consensus_hash, tip_block_hash, tip_height) = (
+            parent_stacks_header.consensus_hash.clone(),
+            parent_stacks_header.anchored_header.block_hash(),
+            parent_stacks_header.stacks_block_height,
+        );
+
+        debug!(
+            "Build anchored block off of {tip_consensus_hash}/{tip_block_hash} height {tip_height}",
+        );
+
+        let (mut chainstate, _) = chainstate_handle.reopen()?;
+
+        let mut builder = StacksBlockBuilder::make_block_builder(
+            chainstate.mainnet,
+            parent_stacks_header,
+            proof,
+            total_burn,
+            pubkey_hash,
+            &MessageSignatureList::empty(),
+        )?;
+
+        let ts_start = get_epoch_time_ms();
+
+        let mut miner_epoch_info = builder.pre_epoch_begin(&mut chainstate, burn_dbconn)?;
+
+        let (mut epoch_tx, confirmed_mblock_cost) =
+            builder.epoch_begin(burn_dbconn, &mut miner_epoch_info)?;
+
+        let mut tx_events = Vec::new();
+        tx_events.push(
+            builder
+                .try_mine_tx(&mut epoch_tx, coinbase_tx)?
+                .convert_to_event(),
+        );
+
+        // save the block so we can build microblocks off of it
+        let block = builder.mine_anchored_block(&mut epoch_tx);
+        let size = builder.bytes_so_far;
+        let consumed = builder.epoch_finish(epoch_tx);
+
+        let ts_end = get_epoch_time_ms();
+
+        if let Some(observer) = event_observer {
+            observer.mined_block_event(
+                SortitionDB::get_canonical_burn_chain_tip(burn_dbconn.conn())?.block_height + 1,
+                &block,
+                size,
+                &consumed,
+                &confirmed_mblock_cost,
+                tx_events,
+            );
+        }
+
+        info!(
+            "Miner: mined anchored block";
+            "block_hash" => %block.block_hash(),
+            "height" => block.header.total_work.work,
+            "tx_count" => block.txs.len(),
+            "parent_stacks_block_hash" => %block.header.parent_block,
+            "parent_stacks_microblock" => %block.header.parent_microblock,
+            "parent_stacks_microblock_seq" => block.header.parent_microblock_sequence,
+            "block_size" => size,
+            "execution_consumed" => %consumed,
+            "assembly_time_ms" => ts_end.saturating_sub(ts_start),
+            "tx_fees_microstacks" => block.txs.iter().fold(0, |agg: u64, tx| {
+                agg.saturating_add(tx.get_tx_fee())
+            })
+        );
+
+        Ok(AssembledBlockInfo {
+            block,
+            block_execution_cost: consumed,
+            block_size: size,
+            mblocks_confirmed: miner_epoch_info.parent_microblocks,
+            burn_tip: miner_epoch_info.burn_tip,
+            burn_tip_height: miner_epoch_info.burn_tip_height,
+        })
+    }
 }
 
 impl Proposal {
@@ -2348,6 +2433,7 @@ impl Proposal {
                 .expect("Failed to form Clarity buffer from withdrawal root");
         let target_tip = Value::buff_from(self.burn_tip.0.to_vec())
             .expect("Failed to form Clarity buffer from target burnchain tip");
+        let target_height = Value::UInt((self.burn_tip_height - 1).into());
         let signing_contract = Value::Principal(PrincipalData::Contract(signing_contract));
 
         let data_tuple = Value::Tuple(
@@ -2356,6 +2442,7 @@ impl Proposal {
                 ("subnet-block-height".into(), subnet_block_height),
                 ("withdrawal-root".into(), withdrawal_root_buff),
                 ("target-tip".into(), target_tip),
+                ("target-height".into(), target_height),
                 ("multi-contract".into(), signing_contract),
             ])
             .expect("Failed to construct data tuple for block proposal"),
@@ -5537,6 +5624,7 @@ pub mod test {
                                 .mine_next_microblock_from_txs(
                                     vec![(mblock_tx, mblock_tx_len)],
                                     &parent_microblock_privkey,
+                                    None,
                                 )
                                 .unwrap();
                             microblocks.push(mblock);
@@ -5798,6 +5886,7 @@ pub mod test {
                                 .mine_next_microblock_from_txs(
                                     vec![(mblock_tx, mblock_tx_len)],
                                     &parent_microblock_privkey,
+                                    None,
                                 )
                                 .unwrap();
                             microblocks.push(mblock);
