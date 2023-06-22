@@ -34,6 +34,7 @@
 (define-constant ERR_IN_COMPUTATION 15)
 ;; The contract does not own this NFT to withdraw it.
 (define-constant ERR_NFT_NOT_OWNED_BY_CONTRACT 16)
+(define-constant ERR_UNAUTHORIZED 17)
 (define-constant ERR_VALIDATION_LEAF_FAILED 30)
 
 ;; Map from Stacks block height to block commit
@@ -65,8 +66,16 @@
 ;; Update the miner for this contract.
 (define-public (update-miner (new-miner principal))
     (begin
-        (asserts! (is-eq tx-sender (var-get miner)) (err ERR_INVALID_MINER))
+        (asserts! (is-admin tx-sender) (err ERR_UNAUTHORIZED))
         (ok (var-set miner new-miner))
+    )
+)
+
+;; Update the admin for this contract.
+(define-public (update-admin (new-admin principal))
+    (begin
+        (asserts! (is-admin tx-sender) (err ERR_UNAUTHORIZED))
+        (ok (var-set admin new-admin))
     )
 )
 
@@ -74,7 +83,7 @@
 (define-public (register-new-ft-contract (ft-contract <ft-trait>) (l2-contract principal))
     (begin
         ;; Verify that tx-sender is an authorized admin
-        (asserts! (is-admin tx-sender) (err ERR_INVALID_MINER))
+        (asserts! (is-admin tx-sender) (err ERR_UNAUTHORIZED))
 
         ;; Set up the assets that the contract is allowed to transfer
         (asserts! (map-insert allowed-contracts (contract-of ft-contract) l2-contract)
@@ -95,7 +104,7 @@
 (define-public (register-new-nft-contract (nft-contract <nft-trait>) (l2-contract principal))
     (begin
         ;; Verify that tx-sender is an authorized admin
-        (asserts! (is-admin tx-sender) (err ERR_INVALID_MINER))
+        (asserts! (is-admin tx-sender) (err ERR_UNAUTHORIZED))
 
         ;; Set up the assets that the contract is allowed to transfer
         (asserts! (map-insert allowed-contracts (contract-of nft-contract) l2-contract)
