@@ -7,7 +7,7 @@
 ;; NOTE: Versioning was added as of `2.0.0`
 ;; NOTE: Contract should be deployed with name matching version here
 (define-constant VERSION {
-    major: u2,
+    major: u3,
     minor: u0,
     patch: u0,
     prerelease: none,

@@ -15,7 +15,7 @@ function fromHex(input: string) {
   return decHex(hexBytes);
 }
 
-const SUBNET_CONTRACT = "subnet-v2-0-0";
+const SUBNET_CONTRACT = "subnet-v3-0-0";
 
 Clarinet.test({
   name: "Unit test the withdrawal leaf hash calculations using test vectors",

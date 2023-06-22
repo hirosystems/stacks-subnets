@@ -22,7 +22,7 @@
 
 ;; Minimun version of subnet contract required
 (define-constant SUBNET_CONTRACT_VERSION_MIN {
-    major: u2,
+    major: u3,
     minor: u0,
     patch: u0,
 })
@@ -30,7 +30,7 @@
 ;; Return error if subnet contract version not supported
 (define-read-only (check-subnet-contract-version) (
     let (
-        (subnet-contract-version (contract-call? .subnet-v2-0-0 get-version))
+        (subnet-contract-version (contract-call? .subnet-v3-0-0 get-version))
     )
 
     ;; Check subnet contract version is greater than min supported version
@@ -115,7 +115,7 @@
          ;; execute the block commit
          (as-contract
             (contract-call?
-                .subnet-v2-0-0
+                .subnet-v3-0-0
                 commit-block
                 (get block block-data)
                 (get subnet-block-height block-data)
