@@ -10,9 +10,19 @@
 
 ;; SIP-018 Constants
 (define-constant sip18-prefix 0x534950303138)
-;; (define-constant (sha256 (unwrap-panic (to-consensus-buff { name: "subnet-multi-miner", version: "1.0.0", chain-id: u1 }))))
+;; (define-constant sip18-domain-hash
+;;     (sha256 (unwrap-panic (to-consensus-buff? {
+;;         name: "subnet-multi-miner",
+;;         version: "1.0.0",
+;;         chain-id: u1
+;;     }))))
 (define-constant sip18-domain-hash 0x81c24181e24119f609a28023c4943d3a41592656eb90560c15ee02b8e1ce19b8)
 (define-constant sip18-data-prefix (concat sip18-prefix sip18-domain-hash))
+
+;; Use trait declarations
+(use-trait nft-trait 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)
+(use-trait ft-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
+(use-trait mint-from-subnet-trait .subnet-traits.mint-from-subnet-trait)
 
 ;; Required number of signers
 (define-constant signers-required u2)
@@ -50,7 +60,7 @@
 (define-private (get-miners)
     (unwrap-panic (var-get miners)))
 
-;; Set the subnet miners for this contract. Can be called by *anyone*
+;; Set the miners for this contract. Can be called by *anyone*
 ;;  before the miner is set. This is an unsafe way to initialize the
 ;;  contract, because a re-org could allow someone to reinitialize
 ;;  this field. Instead, authors should initialize the variable
@@ -86,19 +96,18 @@
 (define-read-only (make-block-commit-hash (block-data { block: (buff 32), subnet-block-height: uint, withdrawal-root: (buff 32), target-tip: (buff 32), target-height: uint }))
     (let ((data-buff (unwrap-panic (to-consensus-buff? (merge block-data { multi-contract: CONTRACT_ADDRESS }))))
           (data-hash (sha256 data-buff))
-        ;; in 2.0, this is a constant: 0xe2f4d0b1eca5f1b4eb853cd7f1c843540cfb21de8bfdaa59c504a6775cd2cfe9
         (structured-hash (sha256 (concat sip18-data-prefix data-hash))))
         structured-hash
     )
 )
 
 (define-private (verify-sign-helper (curr-signature (buff 65))
-                                    (accum (response { block-hash: (buff 32), signers: (list 9 principal) } int)))
+                                    (accum (response { hash: (buff 32), signers: (list 9 principal) } int)))
     (match accum
-        prior-okay (let ((curr-signer-pk (unwrap! (secp256k1-recover? (get block-hash prior-okay) curr-signature)
+        prior-okay (let ((curr-signer-pk (unwrap! (secp256k1-recover? (get hash prior-okay) curr-signature)
                                                 (err ERR_INVALID_SIGNATURE)))
                          (curr-signer (unwrap! (principal-of? curr-signer-pk) (err ERR_INVALID_SIGNATURE))))
-                        (ok { block-hash: (get block-hash prior-okay),
+                        (ok { hash: (get hash prior-okay),
                               signers: (unwrap-panic (as-max-len? (append (get signers prior-okay) curr-signer) u9)) }))
         prior-err (err prior-err)))
 
@@ -107,7 +116,7 @@
         (signatures (list 9 (buff 65)))
     )
     (let ((block-data-hash (make-block-commit-hash block-data))
-          (signer-principals (try! (fold verify-sign-helper signatures (ok { block-hash: block-data-hash, signers: (list) })))))
+          (signer-principals (try! (fold verify-sign-helper signatures (ok { hash: block-data-hash, signers: (list) })))))
          ;; check that the caller is a direct caller!
          (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
          ;; check that we have enough signatures
@@ -124,5 +133,121 @@
                 (get withdrawal-root block-data)
             )
         )
+    )
+)
+
+;; miner needs to pass in the block height at the time the proposal was created
+;; the id-header-hash for that block height (on the current fork) will verify that the signatures
+;; are for the function by that name on this fork
+(define-private (check-registration
+        (signatures (list 9 (buff 65)))
+        (data {
+            l1-contract: principal,
+            l2-contract: principal,
+            height: uint
+        })
+    )
+    (let ((registration-hash (make-registration-hash data))
+          (signer-principals (try! (fold verify-sign-helper signatures (ok { hash: registration-hash, signers: (list) }))))
+        )
+        ;; TODO: perform checks on height?
+        ;; TODO: should we pass around the block-id as well to provide a meaningful error?
+        ;; check that the caller is a direct caller!
+        (asserts! (is-eq tx-sender contract-caller) (err ERR_UNAUTHORIZED_CONTRACT_CALLER))
+        ;; check that we have enough signatures
+        (check-miners (append (get signers signer-principals) tx-sender))
+    )
+)
+
+;; TODO: this needs to be ensure that the miner can't call it directly with an earlier height
+;; so it either needs to be private or we could check that the height is recent
+(define-private (make-registration-hash
+        (data {
+            l1-contract: principal,
+            l2-contract: principal,
+            height: uint
+        })
+    )
+    (let (
+            (block-id (get-block-info? id-header-hash (get height data)))
+            (data-buff (unwrap-panic (to-consensus-buff? (merge data { block-id: block-id, multi-contract: CONTRACT_ADDRESS }))))
+            (data-hash (sha256 data-buff))
+            (structured-hash (sha256 (concat sip18-data-prefix data-hash)))
+        )
+        structured-hash
+    )
+)
+
+(define-read-only (make-ft-registration-hash (ft-contract <ft-trait>) (l2-contract principal))
+    (let (
+            (contract_principal (contract-of ft-contract))
+            (structured-hash (make-registration-hash
+                {
+                    l1-contract: (contract-of ft-contract),
+                    l2-contract: l2-contract,
+                    height: block-height
+                }))
+        )
+        { height: block-height, hash: structured-hash }
+    )
+)
+
+(define-read-only (make-nft-registration-hash (nft-contract <nft-trait>) (l2-contract principal))
+    (let (
+            (contract_principal (contract-of nft-contract))
+            (structured-hash (make-registration-hash
+                {
+                    l1-contract: (contract-of nft-contract),
+                    l2-contract: l2-contract,
+                    height: block-height
+                }))
+        )
+        { height: block-height, hash: structured-hash }
+    )
+)
+
+;; height is the block-height when the hash was created that was signed
+;; the purpose of this is to ensure that this is the same fork
+;; nft-contract is on the L1
+;; l2-contract is on the L2
+(define-public (register-new-ft-contract
+        (ft-contract <ft-trait>)
+        (l2-contract principal)
+        (height uint)
+        (signatures (list 9 (buff 65)))
+    )
+    (begin
+        (try! (check-registration signatures
+            {
+                l1-contract: (contract-of ft-contract),
+                l2-contract: l2-contract,
+                height: height
+            }
+        ))
+        ;; execute the registration
+        (as-contract (contract-call? .subnet register-new-ft-contract ft-contract l2-contract))
+    )
+)
+
+;; height is the block-height when the hash was created that was signed
+;; the purpose of this is to ensure that this is the same fork
+;; nft-contract is on the L1
+;; l2-contract is on the L2
+(define-public (register-new-nft-contract
+        (nft-contract <nft-trait>)
+        (l2-contract principal)
+        (height uint)
+        (signatures (list 9 (buff 65)))
+    )
+    (begin
+        (try! (check-registration signatures
+            {
+                l1-contract: (contract-of nft-contract),
+                l2-contract: l2-contract,
+                height: height
+            }
+        ))
+        ;; execute the registration
+        (as-contract (contract-call? .subnet register-new-nft-contract nft-contract l2-contract))
     )
 )
