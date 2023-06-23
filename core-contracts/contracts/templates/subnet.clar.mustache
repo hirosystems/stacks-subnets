@@ -7,11 +7,11 @@
 ;; NOTE: Versioning was added as of `2.0.0`
 ;; NOTE: Contract should be deployed with name matching version here
 (define-constant VERSION {
-    major: u2,
-    minor: u0,
-    patch: u0,
-    prerelease: none,
-    metadata: none
+    major: {{{subnet_version_major}}},
+    minor: {{{subnet_version_minor}}},
+    patch: {{{subnet_version_patch}}},
+    prerelease: {{{subnet_version_prerelease}}},
+    metadata: {{{subnet_version_metadata}}}
 })
 
 ;; Error codes
@@ -53,9 +53,9 @@
 (define-map allowed-contracts principal principal)
 
 ;; Use trait declarations
-(use-trait nft-trait 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait.nft-trait)
-(use-trait ft-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
-(use-trait mint-from-subnet-trait .subnet-traits-v1.mint-from-subnet-trait)
+(use-trait nft-trait {{{nft_trait}}})
+(use-trait ft-trait {{{ft_trait}}})
+(use-trait mint-from-subnet-trait {{{mint_from_subnet_trait}}})
 
 ;; Get the version of this contract
 ;; Returns a tuple containing the 5 Semver fields: major, minor, patch, prerelease, and metadata

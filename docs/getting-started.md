@@ -229,7 +229,7 @@ Also, we can see a few default settings that `clarinet` will be using for our su
 
 ```toml
 # L1 Subnet contract which the subnet will attempt to communicate with
-subnet_contract_id = "ST2BV6879EYSC3FC5MZWBDQJ72FY7VMSKCE6BTC22.subnet-v2-0-0"
+subnet_contract_id = "ST2BV6879EYSC3FC5MZWBDQJ72FY7VMSKCE6BTC22.subnet-v3-0-0"
 # Docker image of subnet node
 subnet_node_image_url = "hirosystems/stacks-subnets:0.6.2"
 # Docker image of subnet API
@@ -333,7 +333,7 @@ async function main() {
 
   let txOptions = {
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet-v2-0-0",
+    contractName: "subnet-v3-0-0",
     functionName: "deposit-stx",
     functionArgs: [
       uintCV(5000000), // amount
@@ -356,7 +356,7 @@ async function main() {
 
   txOptions = {
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet-v2-0-0",
+    contractName: "subnet-v3-0-0",
     functionName: "deposit-stx",
     functionArgs: [
       uintCV(5000000), // amount
@@ -468,7 +468,7 @@ async function main() {
 
   const txOptions = {
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet-v2-0-0",
+    contractName: "subnet-v3-0-0",
     functionName: "register-new-nft-contract",
     functionArgs: [
       contractPrincipalCV(deployerAddr, "simple-nft-l1"),
@@ -565,7 +565,7 @@ async function main() {
 
   const txOptions = {
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet-v2-0-0",
+    contractName: "subnet-v3-0-0",
     functionName: "deposit-nft-asset",
     functionArgs: [
       contractPrincipalCV(deployerAddr, "simple-nft-l1"), // contract ID of nft contract on L1
@@ -745,7 +745,7 @@ async function main() {
     network,
     anchorMode: AnchorMode.Any,
     contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
-    contractName: "subnet-v2-0-0",
+    contractName: "subnet-v3-0-0",
     functionName: "withdraw-nft-asset",
     functionArgs: [
       contractPrincipalCV(l1ContractAddr, "simple-nft-l1"), // nft-contract
@@ -894,7 +894,7 @@ node ./deposit.js 2
 We can see this transaction either on the Clarinet interface or in the Devnet network on the Explorer. Similar to the initial STX deposit that we performed, this deposit will trigger a transfer on the L2, which we can see in the subnet explorer as well. On the subnet, we should see a call to
 `deposit-from-burnchain`.
 
-We can verify that the NFT is now owned by the subnet contract (`ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet-v2-0-0`) on the L1 using:
+We can verify that the NFT is now owned by the subnet contract (`ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet-v3-0-0`) on the L1 using:
 
 ```js
 node ./verify.js 1

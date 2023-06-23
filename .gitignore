@@ -84,3 +84,6 @@ net-test/mnt/archive/*
 lcov.info
 coverage.lcov
 core-contracts/.cache
+
+# Generated files from templates
+core-contracts/contracts/output

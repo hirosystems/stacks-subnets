@@ -13,6 +13,10 @@ import {
   encode as encHex,
 } from "https://deno.land/std@0.149.0/encoding/hex.ts";
 import * as secp from "https://deno.land/x/secp256k1@1.6.3/mod.ts";
+import { YamlLoader } from "https://deno.land/x/yaml_loader/mod.ts";
+
+const yamlLoader = new YamlLoader();
+const config = await yamlLoader.parseFile("./contracts/config/common.yaml");
 
 const ERR_SIGNER_APPEARS_TWICE = 101;
 const ERR_NOT_ENOUGH_SIGNERS = 102;
@@ -83,7 +87,7 @@ Clarinet.test({
     //  and set alice and signatory as miners in the multi-miner contract
     let initialize = chain.mineBlock([
       Tx.contractCall(
-        "subnet-v2-0-0",
+        config.subnet_contract,
         "update-miner",
         [types.principal(multi_miner_contract)],
         deployer.address
@@ -253,7 +257,7 @@ Clarinet.test({
     //  and set signatory1 and signatory2 as miners in the multi-miner contract
     let initialize = chain.mineBlock([
       Tx.contractCall(
-        "subnet-v2-0-0",
+        config.subnet_contract,
         "update-miner",
         [types.principal(multi_miner_contract)],
         deployer.address
