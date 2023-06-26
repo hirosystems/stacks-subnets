@@ -161,6 +161,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Install Ubuntu packages
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: ruby-mustache
+          version: 1.0
+
+      - name: Install `just`
+        uses: extractions/setup-just@v1
+
+      - name: Process templates
+        run: just process-templates
+
       - name: Execute unit tests
         uses: docker://hirosystems/clarinet:1.7
         with:
