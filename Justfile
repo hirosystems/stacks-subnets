@@ -24,6 +24,10 @@ build *args:
     pushd testnet/stacks-node
     cargo build {{args}}
 
+# Wrapper around `cargo test`
+test *args:
+    cargo test {{args}}
+
 # Build release version subnets node
 build-release: (build "--features" "monitoring_prom,slog_json" "--release")
 
@@ -50,7 +54,7 @@ clarinet-test: (process-template "mocknet")
     #!/usr/bin/env bash
     set -euo pipefail
     pushd core-contracts
-    clarinet test --coverage --manifest-path=./Clarinet.toml --import-map=./import_map.json --allow-net
+    clarinet test --coverage --manifest-path=./Clarinet.toml --import-map=./import_map.json --allow-net --allow-read
 
 # Run `clarinet check` on our contracts
 clarinet-check: (process-template "mocknet")

@@ -174,9 +174,9 @@ jobs:
         run: just process-templates
 
       - name: Execute unit tests
-        uses: docker://hirosystems/clarinet:1.7
+        uses: docker://hirosystems/clarinet:develop # TODO: Replace with version tag once a release containing PR #1060 is made
         with:
-          args: test --coverage --manifest-path=./core-contracts/Clarinet.toml --import-map=./core-contracts/import_map.json --allow-net
+          args: test --coverage --manifest-path=./core-contracts/Clarinet.toml --import-map=./core-contracts/import_map.json --allow-net --allow-read
 
       - name: Export code coverage
         uses: codecov/codecov-action@v3
