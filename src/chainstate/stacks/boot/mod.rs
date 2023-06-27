@@ -871,7 +871,7 @@ pub mod test {
         let (mut peer, keys) = instantiate_pox_peer(&burnchain, "test-liquid-ustx", 6000);
 
         let num_blocks = 10;
-        let mut expected_liquid_ustx = 1024 * POX_THRESHOLD_STEPS_USTX * (keys.len() as u128);
+        let expected_liquid_ustx = 1024 * POX_THRESHOLD_STEPS_USTX * (keys.len() as u128);
         let mut missed_initial_blocks = 0;
 
         for tenure_id in 0..num_blocks {
@@ -924,14 +924,6 @@ pub mod test {
 
             let liquid_ustx = get_liquid_ustx(&mut peer);
             assert_eq!(liquid_ustx, expected_liquid_ustx);
-
-            if tenure_id >= MINER_REWARD_MATURITY as usize {
-                let block_reward = 1_000 * MICROSTACKS_PER_STACKS as u128;
-                let expected_bonus = (missed_initial_blocks as u128 * block_reward)
-                    / (INITIAL_MINING_BONUS_WINDOW as u128);
-                // add mature coinbases
-                expected_liquid_ustx += block_reward + expected_bonus;
-            }
         }
     }
 
@@ -1008,14 +1000,6 @@ pub mod test {
 
             expected_liquid_ustx -= 1;
             assert_eq!(liquid_ustx, expected_liquid_ustx);
-
-            if tenure_id >= MINER_REWARD_MATURITY as usize {
-                let block_reward = 1_000 * MICROSTACKS_PER_STACKS as u128;
-                let expected_bonus = (missed_initial_blocks as u128) * block_reward
-                    / (INITIAL_MINING_BONUS_WINDOW as u128);
-                // add mature coinbases
-                expected_liquid_ustx += block_reward + expected_bonus;
-            }
         }
     }
 

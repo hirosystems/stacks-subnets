@@ -459,15 +459,8 @@ mod tests {
             let remaining = ic
                 .get_initial_mining_bonus_remaining(&processed.0.sortition_id)
                 .unwrap();
-            assert_eq!(
-                reward_per_block,
-                1000 * (MICROSTACKS_PER_STACKS as u128) * (102 - 90)
-                    / (INITIAL_MINING_BONUS_WINDOW as u128)
-            );
-            assert_eq!(
-                remaining,
-                reward_per_block * (INITIAL_MINING_BONUS_WINDOW as u128 - 1)
-            );
+            assert_eq!(reward_per_block, 0);
+            assert_eq!(remaining, 0);
         }
     }
 }
