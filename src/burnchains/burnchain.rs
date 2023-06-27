@@ -124,6 +124,8 @@ impl BurnchainStateTransition {
             };
         }
 
+        accepted_ops.sort_by_key(|op: &BlockstackOperationType| op.txid());
+
         Ok(BurnchainStateTransition { accepted_ops })
     }
 }
@@ -496,18 +498,6 @@ impl Burnchain {
                 },
             },
         }
-    }
-
-    /// Sanity check -- a list of checked ops is sorted and all vtxindexes are unique
-    pub fn ops_are_sorted(ops: &Vec<BlockstackOperationType>) -> bool {
-        if ops.len() > 1 {
-            for i in 0..ops.len() - 1 {
-                if ops[i].vtxindex() >= ops[i + 1].vtxindex() {
-                    return false;
-                }
-            }
-        }
-        true
     }
 
     /// Top-level entry point to check and process a block.
