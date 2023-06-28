@@ -1,3 +1,10 @@
+## [0.7.1](https://github.com/hirosystems/stacks-subnets/compare/v0.7.0...v0.7.1) (2023-06-28)
+
+
+### Bug Fixes
+
+* sort L1 accepted_ops by txid in order to get consistent consensus hash and stored op order ([f95f869](https://github.com/hirosystems/stacks-subnets/commit/f95f86937e57164ab660d33c067311d192482ad1))
+
 ## [0.7.0](https://github.com/hirosystems/stacks-subnets/compare/v0.6.3...v0.7.0) (2023-06-22)
 
 
