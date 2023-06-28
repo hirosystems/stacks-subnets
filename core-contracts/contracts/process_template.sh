@@ -18,7 +18,7 @@ yaml_files=("$@")
 shift $#
 
 # Create tmpfile for YAML, and remove it when script exits
-yaml_tmp=$(mktemp --suffix .yaml)
+yaml_tmp=$(mktemp /tmp/mustache-template.XXXXXXXX.yaml)
 trap 'rm -f -- "$yaml_tmp"' INT TERM HUP EXIT
 
 # Combine all YAML
@@ -26,7 +26,7 @@ echo "Using YAML files: ${yaml_files[*]}"
 cat "${yaml_files[@]}" > "$yaml_tmp"
 
 # Get list of files, null separated
-file_list=$(find "$in_dir" -type f -printf '%P\n')
+file_list=$(find "$in_dir" -type f | sed "s|^$in_dir/||")
 
 # Copy in_dir to out_dir, while processing template files
 for file in $file_list; do
