@@ -16,7 +16,9 @@ import * as secp from "https://deno.land/x/secp256k1@1.6.3/mod.ts";
 import { YamlLoader } from "https://deno.land/x/yaml_loader/mod.ts";
 
 const yamlLoader = new YamlLoader();
-const config = await yamlLoader.parseFile("./contracts/config/common.yaml");
+// File read will be relative to directory where clarinet was invoked
+// MUST RUN FROM REPOSITORY ROOT FOR THIS TO WORK!
+const config = await yamlLoader.parseFile("./core-contracts/contracts/config/common.yaml");
 
 const ERR_SIGNER_APPEARS_TWICE = 101;
 const ERR_NOT_ENOUGH_SIGNERS = 102;

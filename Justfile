@@ -51,18 +51,12 @@ process-templates: (process-template "mocknet") (process-template "devnet") (pro
 
 # Run `clarinet test` on our contracts
 clarinet-test: (process-template "mocknet")
-    #!/usr/bin/env bash
-    set -euo pipefail
-    pushd core-contracts
-    clarinet test --coverage --manifest-path=./Clarinet.toml --import-map=./import_map.json --allow-net --allow-read
+    clarinet test --coverage --manifest-path=./core-contracts/Clarinet.toml --import-map=./core-contracts/import_map.json --allow-net --allow-read
 
 # Run `clarinet test` using Clarinet from DockerHub
 clarinet-test-docker: (process-template "mocknet")
-    #!/usr/bin/env bash
-    set -euo pipefail
-    pushd core-contracts
     docker run --workdir /src --rm -v "$PWD:/src" hirosystems/clarinet:develop \
-        test --coverage --manifest-path=./Clarinet.toml --import-map=./import_map.json --allow-net --allow-read
+        test --coverage --manifest-path=core-contracts/Clarinet.toml --import-map=core-contracts/import_map.json --allow-net --allow-read
 
 # Run `clarinet check` on our contracts
 clarinet-check: (process-template "mocknet")

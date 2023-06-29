@@ -11,7 +11,9 @@ import { decode as decHex } from "https://deno.land/std@0.149.0/encoding/hex.ts"
 import { YamlLoader } from "https://deno.land/x/yaml_loader/mod.ts";
 
 const yamlLoader = new YamlLoader();
-const config = await yamlLoader.parseFile("./contracts/config/common.yaml");
+// File read will be relative to directory where clarinet was invoked
+// MUST RUN FROM REPOSITORY ROOT FOR THIS TO WORK!
+const config = await yamlLoader.parseFile("./core-contracts/contracts/config/common.yaml");
 
 function fromHex(input: string) {
   const hexBytes = new TextEncoder().encode(input);
