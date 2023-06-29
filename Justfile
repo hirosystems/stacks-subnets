@@ -18,14 +18,14 @@ bash-completions:
     just --completions bash > "$dir/just"
 
 # Build subnets node
-build *args:
+build *args: (process-template "mocknet")
     #!/usr/bin/env bash
     set -euo pipefail
     pushd testnet/stacks-node
     cargo build {{args}}
 
 # Wrapper around `cargo test`
-test *args:
+test *args: (process-template "mocknet")
     cargo test {{args}}
 
 # Build release version subnets node
@@ -56,9 +56,25 @@ clarinet-test: (process-template "mocknet")
     pushd core-contracts
     clarinet test --coverage --manifest-path=./Clarinet.toml --import-map=./import_map.json --allow-net --allow-read
 
+# Run `clarinet test` using Clarinet from DockerHub
+clarinet-test-docker: (process-template "mocknet")
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pushd core-contracts
+    docker run --workdir /src --rm -v "$PWD:/src" hirosystems/clarinet:develop \
+        test --coverage --manifest-path=./Clarinet.toml --import-map=./import_map.json --allow-net --allow-read
+
 # Run `clarinet check` on our contracts
 clarinet-check: (process-template "mocknet")
     #!/usr/bin/env bash
     set -euo pipefail
     pushd core-contracts
     clarinet check
+
+# Run `clarinet check` using Clarinet from DockerHub
+clarinet-check-docker: (process-template "mocknet")
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pushd core-contracts
+    docker run --workdir /src --rm -v "$PWD:/src" hirosystems/clarinet:develop \
+        check
