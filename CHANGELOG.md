@@ -1,3 +1,38 @@
+## [0.7.1](https://github.com/hirosystems/stacks-subnets/compare/v0.7.0...v0.7.1) (2023-06-28)
+
+
+### Bug Fixes
+
+* sort L1 accepted_ops by txid in order to get consistent consensus hash and stored op order ([f95f869](https://github.com/hirosystems/stacks-subnets/commit/f95f86937e57164ab660d33c067311d192482ad1))
+
+## [0.7.0](https://github.com/hirosystems/stacks-subnets/compare/v0.6.3...v0.7.0) (2023-06-22)
+
+
+### Features
+
+* add `target-chain-height` to `commit-block` ([b702561](https://github.com/hirosystems/stacks-subnets/commit/b702561785a654580b107b38f126c61b80e4a5b2))
+* add event dispatcher to `mine_next_microblock_from_txs` ([9f8d544](https://github.com/hirosystems/stacks-subnets/commit/9f8d544bbd8b66ecd8094aa7362c558f491449a4))
+* add function to update the `admin` ([2654055](https://github.com/hirosystems/stacks-subnets/commit/26540557e8dcdd529e4dec90a5af5ec99b5c6145))
+* change microblock mining strategy ([dcbc0b5](https://github.com/hirosystems/stacks-subnets/commit/dcbc0b56c09fb48a73b49aa1e20d385fe2c372f1))
+* move microblock tracking into `microblock_miner_state` ([b9fb9ad](https://github.com/hirosystems/stacks-subnets/commit/b9fb9adb4d167c5268d1a1907375495113bc03b2))
+* **ublocks:** mining functional ([0286b22](https://github.com/hirosystems/stacks-subnets/commit/0286b22a7ac85779dda934b4f3179ec54e83532f))
+* use map for storing microblocks ([02a151f](https://github.com/hirosystems/stacks-subnets/commit/02a151ffbea1f5ef0518cfe0d51f46297f5d0751))
+
+
+### Bug Fixes
+
+* ignore anchor mode on a subnet ([0c7b9d7](https://github.com/hirosystems/stacks-subnets/commit/0c7b9d768a060e0be2844aa3081f0d21e4fe6df5))
+* include `target-height` in signed tuple ([2a27e41](https://github.com/hirosystems/stacks-subnets/commit/2a27e410b1a9950d84d410a1e4a0165bc3428493))
+* process microblock receipts with anchor block ([02a390c](https://github.com/hirosystems/stacks-subnets/commit/02a390cf05475c405000c98f9c24fa3cf384d999))
+* update multi-miner contract to use block height ([7b0f09a](https://github.com/hirosystems/stacks-subnets/commit/7b0f09af630f5ab143ae9a718062c199e701a624))
+
+## [0.6.3](https://github.com/hirosystems/stacks-subnets/compare/v0.6.2...v0.6.3) (2023-06-21)
+
+
+### Bug Fixes
+
+* Update values so that unit test `metrics::test_proportional_dot_product_with_mainnet_lims` passes ([0d6bae2](https://github.com/hirosystems/stacks-subnets/commit/0d6bae2f3f5cbfb790f2b233593b90262caf5dcf))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

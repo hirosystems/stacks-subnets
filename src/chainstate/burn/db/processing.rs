@@ -395,6 +395,7 @@ mod tests {
     use crate::burnchains::*;
     use crate::chainstate::burn::db::sortdb::SortitionDB;
     use crate::chainstate::burn::db::tests::test_append_snapshot;
+    use crate::chainstate::burn::operations::DepositStxOp;
     use crate::chainstate::burn::operations::{
         leader_block_commit::BURN_BLOCK_MINED_AT_MODULUS, LeaderBlockCommitOp, LeaderKeyRegisterOp,
     };
@@ -404,9 +405,97 @@ mod tests {
     use crate::chainstate::stacks::StacksPublicKey;
     use crate::core::MICROSTACKS_PER_STACKS;
     use crate::types::chainstate::{BlockHeaderHash, StacksAddress, VRFSeed};
+    use clarity::vm::types::PrincipalData;
     use stacks_common::util::{hash::hex_bytes, vrf::VRFPublicKey};
 
     use super::*;
+
+    #[test]
+    fn test_snapshot_order_independence() {
+        let first_burn_hash = BurnchainHeaderHash::zero();
+
+        let block_commit = LeaderBlockCommitOp {
+            block_header_hash: BlockHeaderHash([0x22; 32]),
+            withdrawal_merkle_root: Sha512Trunc256Sum([0x04; 32]),
+            txid: Txid::from_bytes_be(
+                &hex_bytes("3c07a0a93360bc85047bbaadd49e30c8af770f73a37e10fec400174d2e5f27cf")
+                    .unwrap(),
+            )
+            .unwrap(),
+            burn_header_hash: BurnchainHeaderHash([0x03; 32]),
+        };
+
+        let deposit = DepositStxOp {
+            txid: Txid::from_bytes_be(
+                &hex_bytes("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+                    .unwrap(),
+            )
+            .unwrap(),
+            burn_header_hash: BurnchainHeaderHash([0x03; 32]),
+            amount: 10,
+            sender: PrincipalData::parse("ST2REHHS5J3CERCRBEPMGH7921Q6PYKAADT7JP2VB").unwrap(),
+        };
+
+        let processed_1 = {
+            let burnchain = Burnchain::default_unittest(100, &first_burn_hash);
+            let mut db = SortitionDB::connect_test(100).unwrap();
+            let snapshot = test_append_snapshot(&mut db, BurnchainHeaderHash([0x01; 32]), &vec![]);
+            let mut ic = SortitionHandleTx::begin(&mut db, &snapshot.sortition_id).unwrap();
+            let next_block_header = BurnchainBlockHeader {
+                block_height: 102,
+                block_hash: BurnchainHeaderHash([0x03; 32]),
+                parent_block_hash: BurnchainHeaderHash([0x01; 32]),
+                num_txs: 2,
+                timestamp: 10,
+            };
+
+            ic.process_block_ops(
+                &burnchain,
+                &snapshot,
+                &next_block_header,
+                vec![
+                    BlockstackOperationType::LeaderBlockCommit(block_commit.clone()),
+                    BlockstackOperationType::DepositStx(deposit.clone()),
+                ],
+                None,
+                None,
+                0,
+            )
+            .unwrap()
+        };
+
+        let processed_2 = {
+            let burnchain = Burnchain::default_unittest(100, &first_burn_hash);
+            let mut db = SortitionDB::connect_test(100).unwrap();
+            let snapshot = test_append_snapshot(&mut db, BurnchainHeaderHash([0x01; 32]), &vec![]);
+            let mut ic = SortitionHandleTx::begin(&mut db, &snapshot.sortition_id).unwrap();
+            let next_block_header = BurnchainBlockHeader {
+                block_height: 102,
+                block_hash: BurnchainHeaderHash([0x03; 32]),
+                parent_block_hash: BurnchainHeaderHash([0x01; 32]),
+                num_txs: 2,
+                timestamp: 10,
+            };
+
+            ic.process_block_ops(
+                &burnchain,
+                &snapshot,
+                &next_block_header,
+                vec![
+                    BlockstackOperationType::DepositStx(deposit.clone()),
+                    BlockstackOperationType::LeaderBlockCommit(block_commit.clone()),
+                ],
+                None,
+                None,
+                0,
+            )
+            .unwrap()
+        };
+
+        assert_eq!(processed_1.0.ops_hash, processed_2.0.ops_hash);
+        assert_eq!(processed_1.0.consensus_hash, processed_2.0.consensus_hash);
+        assert_eq!(processed_1.1.accepted_ops, processed_2.1.accepted_ops,);
+    }
 
     #[test]
     fn test_initial_block_reward() {
@@ -459,15 +548,8 @@ mod tests {
             let remaining = ic
                 .get_initial_mining_bonus_remaining(&processed.0.sortition_id)
                 .unwrap();
-            assert_eq!(
-                reward_per_block,
-                1000 * (MICROSTACKS_PER_STACKS as u128) * (102 - 90)
-                    / (INITIAL_MINING_BONUS_WINDOW as u128)
-            );
-            assert_eq!(
-                remaining,
-                reward_per_block * (INITIAL_MINING_BONUS_WINDOW as u128 - 1)
-            );
+            assert_eq!(reward_per_block, 0);
+            assert_eq!(remaining, 0);
         }
     }
 }

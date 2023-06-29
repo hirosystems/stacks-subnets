@@ -5,13 +5,11 @@ title: Getting Started
 
 # Getting Started
 
-You understand subnets from the [overview](https://docs.hiro.so/subnets/overview)—now you can test one out in
-action. Hiro's Clarinet can serve a local subnet with [`clarinet integrate`](https://docs.hiro.so/clarinet/how-to-guides/how-to-run-integration-environment) as one of the networks in your Stacks development environment.
+You understand subnets from the [overview](https://docs.hiro.so/subnets/overview)—now you can test one out in action. Hiro's Clarinet can serve a local subnet with [`clarinet integrate`](https://docs.hiro.so/clarinet/how-to-guides/how-to-run-integration-environment) as one of the networks in your Stacks development environment.
 
 ## What to expect
 
-This guide walks a user through a **subnet demonstration**: minting and transferring NFTs between a main chain (local devnet) and a subnet to showcase subnet's high throughput and low latency functionality. By the end of this
-guide, the user will:
+This guide walks a user through a **subnet demonstration**: minting and transferring NFTs between a main chain (local devnet) and a subnet to showcase subnet's high throughput and low latency functionality. By the end of this guide, the user will:
 
 - Deploy the layer-1 contract that governs the interface to your subnet
 - Deploy the layer-2 subnet contract that runs our example application—an NFT contract
@@ -213,13 +211,11 @@ Open the new file and add the following content:
 )
 ```
 
-This contract implements the `nft-trait` and the `subnet-asset` trait. The `nft-trait` is the same as the SIP-009 trait on the Stacks network.
-`subnet-asset` defines the functions required for deposit and withdrawal. `deposit-from-burnchain` is invoked by the subnet node's consensus logic whenever a deposit is made in layer-1. `burn-for-withdrawal` is invoked by the `nft-withdraw?` or `ft-withdraw?` functions of the subnet contract, that a user calls when they wish to withdraw their asset from the subnet back to the layer-1.
+This contract implements the `nft-trait` and the `subnet-asset` trait. The `nft-trait` is the same as the SIP-009 trait on the Stacks network. `subnet-asset` defines the functions required for deposit and withdrawal. `deposit-from-burnchain` is invoked by the subnet node's consensus logic whenever a deposit is made in layer-1. `burn-for-withdrawal` is invoked by the `nft-withdraw?` or `ft-withdraw?` functions of the subnet contract, that a user calls when they wish to withdraw their asset from the subnet back to the layer-1.
 
 ### Configuring the Devnet
 
-The settings for the devnet are found in _./settings/Devnet.toml_. In order to launch a subnet in the devnet, we need to tell Clarinet to enable a subnet node and a corresponding API node.
-Open the file and uncomment or add the following lines under `[devnet]`:
+The settings for the devnet are found in _./settings/Devnet.toml_. In order to launch a subnet in the devnet, we need to tell Clarinet to enable a subnet node and a corresponding API node. Open the file and uncomment or add the following lines under `[devnet]`:
 
 ```toml
 enable_subnet_node = true
@@ -229,9 +225,9 @@ Also, we can see a few default settings that `clarinet` will be using for our su
 
 ```toml
 # L1 Subnet contract which the subnet will attempt to communicate with
-subnet_contract_id = "ST2BV6879EYSC3FC5MZWBDQJ72FY7VMSKCE6BTC22.subnet-v3-0-0"
+subnet_contract_id = "ST167FDXCJGS54J1T0J42VTX46G0QQQFRJGBK28RN.subnet-v3-0-0"
 # Docker image of subnet node
-subnet_node_image_url = "hirosystems/stacks-subnets:0.6.2"
+subnet_node_image_url = "hirosystems/stacks-subnets:0.7.0"
 # Docker image of subnet API
 subnet_api_image_url = "hirosystems/stacks-blockchain-api:7.2.0-beta.4"
 ```
@@ -260,16 +256,12 @@ By the end of this section, we will have these several scripts that correspond t
 
 - _deposit-stx.js_ - deposit STX into the subnet
 - _publish.js_ - publish a smart contract
-- _register.js_ - register an NFT with the subnet so it can be deposited and
-  withdrawn
+- _register.js_ - register an NFT with the subnet so it can be deposited and withdrawn
 - _mint.js_ - mint a new NFT on the L1 (devnet)
-- _deposit.js_ - deposit the NFT into the subnet by by calling the
-  `deposit-nft-asset` function on the L1 subnet contract
+- _deposit.js_ - deposit the NFT into the subnet by by calling the `deposit-nft-asset` function on the L1 subnet contract
 - _transfer.js_ - transfer the NFT from one user to another in the subnet
-- _withdraw-l2.js_ - the two-step withdrawal process starts with withdrawing an
-  asset from the L2 (subnet)
-- _withdraw-l1.js_ - the second step to withdrawal is a call to
-  `withdraw-nft-asset` on the L1 subnet contract
+- _withdraw-l2.js_ - the two-step withdrawal process starts with withdrawing an asset from the L2 (subnet)
+- _withdraw-l1.js_ - the second step to withdrawal is a call to `withdraw-nft-asset` on the L1 subnet contract
 - _verify.js_ - querying the current owner of an NFT
 
 We will save these scripts in a new directory, _./scripts/_.
@@ -293,8 +285,7 @@ In the generated `package.json` file, add the following into the `json` to enabl
   "type": "module",
 ```
 
-To simplify our scripts, we will define some environment variables in our terminal that will be used to hold the signing keys for various subnet
-transactions.
+To simplify our scripts, we will define some environment variables in our terminal that will be used to hold the signing keys for various subnet transactions.
 
 ```sh
 export DEPLOYER_ADDR=ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
@@ -414,7 +405,7 @@ async function main() {
     network = new StacksTestnet({ url: process.env.SUBNET_URL });
     network.chainId = process.env.SUBNET_CHAIN_ID;
   } else {
-    console.log(`Invalid networkLayer: ${networkLayer}`)
+    console.log(`Invalid networkLayer: ${networkLayer}`);
     return 1;
   }
 
@@ -430,10 +421,7 @@ async function main() {
     nonce,
   });
 
-  const txid = await broadcastTransaction(
-    transaction,
-    network
-  );
+  const txid = await broadcastTransaction(transaction, network);
 
   console.log(txid);
 }
@@ -800,7 +788,7 @@ async function main() {
     network = new StacksTestnet({ url: process.env.SUBNET_URL });
     network.chainId = process.env.SUBNET_CHAIN_ID;
   } else {
-    console.log(`Invalid networkLayer: ${networkLayer}`)
+    console.log(`Invalid networkLayer: ${networkLayer}`);
     return 1;
   }
 
@@ -891,8 +879,7 @@ Once the mint has been processed, we can deposit it into the subnet:
 node ./deposit.js 2
 ```
 
-We can see this transaction either on the Clarinet interface or in the Devnet network on the Explorer. Similar to the initial STX deposit that we performed, this deposit will trigger a transfer on the L2, which we can see in the subnet explorer as well. On the subnet, we should see a call to
-`deposit-from-burnchain`.
+We can see this transaction either on the Clarinet interface or in the Devnet network on the Explorer. Similar to the initial STX deposit that we performed, this deposit will trigger a transfer on the L2, which we can see in the subnet explorer as well. On the subnet, we should see a call to `deposit-from-burnchain`.
 
 We can verify that the NFT is now owned by the subnet contract (`ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.subnet-v3-0-0`) on the L1 using:
 

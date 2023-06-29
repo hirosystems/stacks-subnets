@@ -371,7 +371,7 @@ impl L1Controller {
 
     /// Check that the version of `subnet.clar` the node is configured to use is supported
     fn get_validated_l1_contract_version(&self) -> Result<ContractVersion, Error> {
-        const EXACT_MAJOR_VERSION: u128 = 2;
+        const EXACT_MAJOR_VERSION: u128 = 3;
         const MINIMUM_MINOR_VERSION: u128 = 0;
         const MINIMUM_PATCH_VERSION: u128 = 0;
         let version = self.get_l1_contract_version()?;
