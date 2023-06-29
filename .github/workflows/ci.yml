@@ -71,6 +71,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Install Ubuntu packages
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: ruby-mustache
+          version: 1.0
+
+      - name: Install `just`
+        uses: extractions/setup-just@v1
+
+      - name: Process templates
+        run: just process-templates
+
       - id: set-matrix
         run: |
           cargo test --workspace --bin=subnet-node -- l --list --format=terse | sed -e 's/: test//g' | jq -ncR '{"test-name": [inputs]}' > test_names.json
