@@ -6373,29 +6373,63 @@ impl StacksChainState {
 
         match res {
             Ok(x) => Ok(x),
-            Err(MemPoolRejection::BadNonces(mismatch_error)) => {
-                // try again, but against the _unconfirmed_ chain tip, if we
-                // (a) have one, and (b) the expected nonce is less than the given one.
-                if self.unconfirmed_state.is_some()
-                    && mismatch_error.expected < mismatch_error.actual
-                {
-                    debug!("Transaction {} is unminable in the confirmed chain tip due to nonce {} != {}; trying the unconfirmed chain tip",
-                           &tx.txid(), mismatch_error.expected, mismatch_error.actual);
+            Err(e) => match e {
+                MemPoolRejection::BadNonces(mismatch_error) => {
+                    // try again, but against the _unconfirmed_ chain tip, if we
+                    // (a) have one, and (b) the expected nonce is less than the given one.
+                    if self.unconfirmed_state.is_some()
+                        && mismatch_error.expected < mismatch_error.actual
+                    {
+                        debug!("Transaction {} is unminable in the confirmed chain tip due to nonce {} != {}; trying the unconfirmed chain tip",
+                            &tx.txid(), mismatch_error.expected, mismatch_error.actual);
+                        self.with_read_only_unconfirmed_clarity_tx(&NULL_BURN_STATE_DB, |conn| {
+                            StacksChainState::can_include_tx(conn, &conf, true, tx, tx_size)
+                        })
+                        .map_err(|_| {
+                            MemPoolRejection::NoSuchChainTip(
+                                current_consensus_hash.clone(),
+                                current_block.clone(),
+                            )
+                        })?
+                        .expect("BUG: do not have unconfirmed state, despite being Some(..)")
+                    } else {
+                        Err(MemPoolRejection::BadNonces(mismatch_error))
+                    }
+                }
+                // Error cases where retrying against `unconfirmed_state` may succeed
+                MemPoolRejection::FeeTooLow(_, _) |
+                MemPoolRejection::NotEnoughFunds(_, _) |
+                MemPoolRejection::NoSuchContract |
+                MemPoolRejection::NoSuchPublicFunction |
+                MemPoolRejection::PoisonMicroblocksDoNotConflict |
+                MemPoolRejection::InvalidMicroblocks |
+                MemPoolRejection::NoAnchorBlockWithPubkeyHash(_) |
+                MemPoolRejection::NoAnchorBlockWithPubkeyHashes(_) |
+                MemPoolRejection::NoSuchChainTip(_, _) |
+                MemPoolRejection::DBError(_) |
+                MemPoolRejection::EstimatorError(_) |
+                MemPoolRejection::Other(_) => {
+                    debug!("Retry transaction {} against unconfirmed state", tx.txid());
                     self.with_read_only_unconfirmed_clarity_tx(&NULL_BURN_STATE_DB, |conn| {
                         StacksChainState::can_include_tx(conn, &conf, true, tx, tx_size)
                     })
-                    .map_err(|_| {
-                        MemPoolRejection::NoSuchChainTip(
-                            current_consensus_hash.clone(),
-                            current_block.clone(),
-                        )
-                    })?
+                    .map_err(|_| e)?
                     .expect("BUG: do not have unconfirmed state, despite being Some(..)")
-                } else {
-                    Err(MemPoolRejection::BadNonces(mismatch_error))
                 }
+                // Error cases where we should not retry against `unconfirmed_state`
+                MemPoolRejection::SerializationFailure(_) |
+                MemPoolRejection::DeserializationFailure(_) |
+                MemPoolRejection::FailedToValidate(_) |
+                MemPoolRejection::BadFunctionArgument(_) |
+                MemPoolRejection::ContractAlreadyExists(_) |
+                MemPoolRejection::BadAddressVersionByte |
+                MemPoolRejection::NoCoinbaseViaMempool |
+                MemPoolRejection::TooMuchChaining { .. } |
+                MemPoolRejection::ConflictingNonceInMempool |
+                MemPoolRejection::BadTransactionVersion |
+                MemPoolRejection::TransferAmountMustBePositive |
+                MemPoolRejection::TransferRecipientIsSender(_) => Err(e)
             }
-            Err(e) => Err(e),
         }
     }
 
