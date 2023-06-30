@@ -1939,7 +1939,7 @@ impl StacksChainState {
     where
         F: FnOnce(&mut ClarityReadOnlyConnection) -> R,
     {
-        let unconfirmed = if let Some(ref unconfirmed_state) = self.unconfirmed_state {
+        let unconfirmed = if let Some(unconfirmed_state) = &self.unconfirmed_state {
             *parent_tip == unconfirmed_state.unconfirmed_chain_tip
                 && unconfirmed_state.is_readable()
         } else {
