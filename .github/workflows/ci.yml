@@ -84,8 +84,9 @@ jobs:
         run: just process-templates
 
       - id: set-matrix
+        shell: bash
         run: |
-          cargo test --workspace --bin=subnet-node -- l --list --format=terse | sed -e 's/: test//g' | jq -ncR '{"test-name": [inputs]}' > test_names.json
+          set -o pipefail; cargo test --workspace --bin=subnet-node -- l --list --format=terse | sed -e 's/: test//g' | jq -ncR '{"test-name": [inputs]}' > test_names.json
           echo "::set-output name=matrix::$(cat test_names.json)"
 
   # Run the tests that require stacks-node
