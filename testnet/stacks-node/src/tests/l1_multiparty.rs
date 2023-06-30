@@ -51,18 +51,18 @@ pub fn publish_multiparty_contract_to_l1(
     let miners_list_str = format!("(list {})", miners_str.join(" "));
 
     // Publish the multi-miner control contract on the L1 chain
-    let contract_content = include_str!("../../../../core-contracts/contracts/multi-miner.clar")
-        .replace(
-            "(define-constant signers-required u2)",
-            &format!("(define-constant signers-required u{})", required_signers),
-        )
-        .replace(
-            "(define-data-var miners (optional (list 10 principal)) none)",
-            &format!(
-                "(define-data-var miners (optional (list 10 principal)) (some {}))",
-                miners_list_str
-            ),
-        );
+    let contract_content =
+        include_str!("../../../../core-contracts/contracts/output/mocknet/multi-miner.clar")
+            .replace(
+                "(define-constant signers-required u2)",
+                &format!("(define-constant signers-required u{required_signers})"),
+            )
+            .replace(
+                "(define-data-var miners (optional (list 10 principal)) none)",
+                &format!(
+            "(define-data-var miners (optional (list 10 principal)) (some {miners_list_str}))"
+        ),
+            );
     let l1_rpc_origin = config.burnchain.get_rpc_url();
 
     assert_eq!(

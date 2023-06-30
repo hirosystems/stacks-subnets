@@ -1,0 +1,6 @@
+subnet_version_major: u3
+subnet_version_minor: u0
+subnet_version_patch: u0
+subnet_version_prerelease: none
+subnet_version_metadata: none
+subnet_contract: "subnet-v3-0-0"

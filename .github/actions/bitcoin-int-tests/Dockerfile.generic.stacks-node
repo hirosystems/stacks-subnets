@@ -4,8 +4,12 @@ FROM rust:bullseye AS test
 
 WORKDIR /build
 
-RUN rustup component add llvm-tools-preview && \
-    cargo install grcov
+RUN apt-get update && \
+    apt-get install -y ruby-mustache && \
+    rustup component add llvm-tools-preview && \
+    cargo install \
+      grcov \
+      just
 
 ENV RUSTFLAGS="-Cinstrument-coverage" \
     LLVM_PROFILE_FILE="stacks-blockchain-%p-%m.profraw" \
@@ -15,6 +19,7 @@ COPY --from=stacks-node /bin/stacks-node /bin/
 
 COPY . .
 
-RUN cargo build --workspace && \
+RUN just process-templates && \
+    cargo build --workspace && \
     cargo test --workspace --bin=subnet-node --no-run
 

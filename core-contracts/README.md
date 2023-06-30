@@ -7,10 +7,17 @@ This directory contains the contracts published to the Stacks L1 to implement a 
 
 ## Running Tests
 
-To run the tests and generate a code coverage report:
+To run the tests and generate a code coverage report, run this from the repository root:
 
 ```sh
-clarinet test --coverage --import-map=./import_map.json --allow-net
+clarinet test --coverage --manifest-path=./core-contracts/Clarinet.toml --import-map=./core-contracts/import_map.json --allow-net --allow-read
+```
+
+Or if you have `just` installed:
+
+```sh
+just clarinet-test # Run tests with locally installed Clarinet
+just clarinet-test-docker # Run tests with latest development build from DockerHub
 ```
 
 To generate HTML from the code coverage report and view it:

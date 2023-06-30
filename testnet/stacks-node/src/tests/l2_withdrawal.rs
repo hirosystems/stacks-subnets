@@ -99,7 +99,8 @@ fn withdraw_unregistered_asset() {
     );
 
     // Publish a simple NFT onto L1
-    let nft_content = include_str!("../../../../core-contracts/contracts/helper/simple-nft.clar");
+    let nft_content =
+        include_str!("../../../../core-contracts/contracts/output/mocknet/helper/simple-nft.clar");
     let nft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -133,8 +134,9 @@ fn withdraw_unregistered_asset() {
     );
 
     // Publish subnet contract for nft-token, but do not register it with the subnet!
-    let subnet_nft_content =
-        include_str!("../../../../core-contracts/contracts/helper/simple-nft-l2.clar");
+    let subnet_nft_content = include_str!(
+        "../../../../core-contracts/contracts/output/mocknet/helper/simple-nft-l2.clar"
+    );
     let subnet_nft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,

@@ -281,8 +281,9 @@ pub fn publish_subnet_contracts_to_l1(
     let trait_standard_contract_name = "subnet-traits-v1";
     let l1_rpc_origin = config.burnchain.get_rpc_url();
     // Publish the trait contract
-    let trait_content =
-        include_str!("../../../../core-contracts/contracts/helper/subnet-traits.clar");
+    let trait_content = include_str!(
+        "../../../../core-contracts/contracts/output/mocknet/helper/subnet-traits.clar"
+    );
     let trait_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -296,7 +297,7 @@ pub fn publish_subnet_contracts_to_l1(
     // Publish the SIP traits contract
     let sip_traits_contract_name = "sip-traits";
     let sip_traits_content =
-        include_str!("../../../../core-contracts/contracts/helper/sip-traits.clar");
+        include_str!("../../../../core-contracts/contracts/output/mocknet/helper/sip-traits.clar");
     let sip_traits_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -308,7 +309,7 @@ pub fn publish_subnet_contracts_to_l1(
     l1_nonce += 1;
 
     // Publish the default subnet contract on the L1 chain
-    let contract_content = include_str!("../../../../core-contracts/contracts/subnet.clar")
+    let contract_content = include_str!("../../../../core-contracts/contracts/output/mocknet/subnet.clar")
         .replace(
             "(define-data-var miner principal tx-sender)",
             &format!("(define-data-var miner principal '{miner})"),
@@ -522,7 +523,8 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     );
 
     // Publish a simple FT and NFT
-    let ft_content = include_str!("../../../../core-contracts/contracts/helper/simple-ft.clar");
+    let ft_content =
+        include_str!("../../../../core-contracts/contracts/output/mocknet/helper/simple-ft.clar");
     let ft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -535,7 +537,8 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     let ft_contract_name = ContractName::from("simple-ft");
     let ft_contract_id = QualifiedContractIdentifier::new(user_addr.into(), ft_contract_name);
 
-    let nft_content = include_str!("../../../../core-contracts/contracts/helper/simple-nft.clar");
+    let nft_content =
+        include_str!("../../../../core-contracts/contracts/output/mocknet/helper/simple-nft.clar");
     let nft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -573,8 +576,9 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
     );
 
     // Publish subnet contract for ft-token
-    let subnet_ft_content =
-        include_str!("../../../../core-contracts/contracts/helper/simple-ft-l2.clar");
+    let subnet_ft_content = include_str!(
+        "../../../../core-contracts/contracts/output/mocknet/helper/simple-ft-l2.clar"
+    );
     let subnet_ft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,
@@ -588,8 +592,9 @@ fn l1_deposit_and_withdraw_asset_integration_test() {
         QualifiedContractIdentifier::new(user_addr.into(), ContractName::from("simple-ft"));
 
     // Publish subnet contract for nft-token
-    let subnet_nft_content =
-        include_str!("../../../../core-contracts/contracts/helper/simple-nft-l2.clar");
+    let subnet_nft_content = include_str!(
+        "../../../../core-contracts/contracts/output/mocknet/helper/simple-nft-l2.clar"
+    );
     let subnet_nft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,
@@ -1916,7 +1921,8 @@ fn nft_deposit_and_withdraw_integration_test() {
     );
 
     // Publish a simple NFT onto L1
-    let nft_content = include_str!("../../../../core-contracts/contracts/helper/simple-nft.clar");
+    let nft_content =
+        include_str!("../../../../core-contracts/contracts/output/mocknet/helper/simple-nft.clar");
     let nft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -1955,8 +1961,9 @@ fn nft_deposit_and_withdraw_integration_test() {
     );
 
     // Publish subnet contract for nft-token
-    let subnet_nft_content =
-        include_str!("../../../../core-contracts/contracts/helper/simple-nft-l2.clar");
+    let subnet_nft_content = include_str!(
+        "../../../../core-contracts/contracts/output/mocknet/helper/simple-nft-l2.clar"
+    );
     let subnet_nft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,
@@ -2714,7 +2721,8 @@ fn nft_deposit_failure_and_refund_integration_test() {
     );
 
     // Publish a simple NFT onto L1
-    let nft_content = include_str!("../../../../core-contracts/contracts/helper/simple-nft.clar");
+    let nft_content =
+        include_str!("../../../../core-contracts/contracts/output/mocknet/helper/simple-nft.clar");
     let nft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -2754,8 +2762,9 @@ fn nft_deposit_failure_and_refund_integration_test() {
 
     // Publish subnet contract for nft-token
     // This contract is modified so that deposits to subnet always fail
-    let subnet_nft_content =
-        include_str!("../../../../core-contracts/contracts/helper/simple-nft-l2-no-deposit.clar");
+    let subnet_nft_content = include_str!(
+        "../../../../core-contracts/contracts/output/mocknet/helper/simple-nft-l2-no-deposit.clar"
+    );
     let subnet_nft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,
@@ -3213,7 +3222,8 @@ fn ft_deposit_and_withdraw_integration_test() {
     );
 
     // Publish a simple ft onto L1
-    let ft_content = include_str!("../../../../core-contracts/contracts/helper/simple-ft.clar");
+    let ft_content =
+        include_str!("../../../../core-contracts/contracts/output/mocknet/helper/simple-ft.clar");
     let ft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -3252,8 +3262,9 @@ fn ft_deposit_and_withdraw_integration_test() {
     );
 
     // Publish subnet contract for ft-token
-    let subnet_simple_ft =
-        include_str!("../../../../core-contracts/contracts/helper/simple-ft-l2.clar");
+    let subnet_simple_ft = include_str!(
+        "../../../../core-contracts/contracts/output/mocknet/helper/simple-ft-l2.clar"
+    );
     let subnet_ft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,
@@ -3799,7 +3810,8 @@ fn ft_deposit_failure_and_refund_integration_test() {
     );
 
     // Publish a simple ft onto L1
-    let ft_content = include_str!("../../../../core-contracts/contracts/helper/simple-ft.clar");
+    let ft_content =
+        include_str!("../../../../core-contracts/contracts/output/mocknet/helper/simple-ft.clar");
     let ft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         LAYER_1_CHAIN_ID_TESTNET,
@@ -3839,8 +3851,9 @@ fn ft_deposit_failure_and_refund_integration_test() {
 
     // Publish subnet contract for ft-token
     // This contract is modified so that deposits to subnet always fail
-    let subnet_simple_ft =
-        include_str!("../../../../core-contracts/contracts/helper/simple-ft-l2-no-deposit.clar");
+    let subnet_simple_ft = include_str!(
+        "../../../../core-contracts/contracts/output/mocknet/helper/simple-ft-l2-no-deposit.clar"
+    );
     let subnet_ft_publish = make_contract_publish(
         &MOCKNET_PRIVATE_KEY_1,
         config.node.chain_id,
