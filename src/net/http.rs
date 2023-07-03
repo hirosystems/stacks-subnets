@@ -7234,13 +7234,20 @@ mod test {
         let query_txt_bad = "tip=bad";
         assert_eq!(
             HttpRequestType::get_chain_tip_query(Some(query_txt_bad)),
-            TipRequest::UseLatestAnchoredTip
+            TipRequest::UseLatestUnconfirmedTip
         );
 
         // tip can be skipped
-        let query_txt_none = "tip=bad";
+        let query_txt_none = "tip=";
         assert_eq!(
             HttpRequestType::get_chain_tip_query(Some(query_txt_none)),
+            TipRequest::UseLatestUnconfirmedTip
+        );
+
+        // Return latest anchored tip
+        let query_anchored = "tip=anchored";
+        assert_eq!(
+            HttpRequestType::get_chain_tip_query(Some(query_anchored)),
             TipRequest::UseLatestAnchoredTip
         );
     }
