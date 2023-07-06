@@ -135,8 +135,6 @@ struct MiningTenureInformation {
     stacks_parent_header: StacksHeaderInfo,
     /// the consensus hash of the sortition that selected the Stacks block parent
     parent_consensus_hash: ConsensusHash,
-    /// the burn block height of the sortition that selected the Stacks block parent
-    parent_block_burn_height: u64,
     /// the total amount burned in the sortition that selected the Stacks block parent
     parent_block_total_burn: u64,
     coinbase_nonce: u64,
@@ -1622,7 +1620,6 @@ impl StacksNode {
         Ok(MiningTenureInformation {
             stacks_parent_header: stacks_tip_header,
             parent_consensus_hash: mine_tip_ch.clone(),
-            parent_block_burn_height: parent_block.block_height,
             parent_block_total_burn: parent_block.total_burn,
             coinbase_nonce,
         })
@@ -1675,7 +1672,6 @@ impl StacksNode {
             MiningTenureInformation {
                 stacks_parent_header: chain_tip.metadata,
                 parent_consensus_hash: FIRST_BURNCHAIN_CONSENSUS_HASH.clone(),
-                parent_block_burn_height: 0,
                 parent_block_total_burn: 0,
                 coinbase_nonce: 0,
             }
