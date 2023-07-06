@@ -9,12 +9,13 @@ ARG GIT_COMMIT='No Commit Info'
 
 WORKDIR /src
 
-COPY --link . .
-
 RUN apt-get update && \
     apt-get install -y ruby-mustache && \
     rustup component add llvm-tools-preview && \
     cargo install just
+
+# Do after package install so we don't invalidate the cache
+COPY --link . .
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target,sharing=private \

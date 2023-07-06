@@ -1463,10 +1463,9 @@ impl ConversationHttp {
                         analysis_db.get_clarity_version(&contract_identifier)
                     })
                     .map_err(|_| {
-                        ClarityRuntimeError::from(CheckErrors::NoSuchContract(format!(
-                            "{}",
-                            &contract_identifier
-                        )))
+                        ClarityRuntimeError::from(CheckErrors::NoSuchContract(
+                            contract_identifier.to_string(),
+                        ))
                     })?;
 
                 clarity_tx.with_readonly_clarity_env(

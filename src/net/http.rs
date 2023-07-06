@@ -1772,15 +1772,17 @@ impl HttpRequestType {
 
                     if value == "latest" {
                         return TipRequest::UseLatestUnconfirmedTip;
+                    } else if value == "anchored" {
+                        return TipRequest::UseLatestAnchoredTip;
                     }
                     if let Ok(tip) = StacksBlockId::from_hex(&value) {
                         return TipRequest::SpecificTip(tip);
                     }
                 }
-                return TipRequest::UseLatestAnchoredTip;
+                return TipRequest::UseLatestUnconfirmedTip;
             }
             None => {
-                return TipRequest::UseLatestAnchoredTip;
+                return TipRequest::UseLatestUnconfirmedTip;
             }
         }
     }
@@ -2844,41 +2846,41 @@ impl HttpRequestType {
     }
 
     pub fn metadata(&self) -> &HttpRequestMetadata {
-        match *self {
-            HttpRequestType::GetInfo(ref md) => md,
-            HttpRequestType::GetNeighbors(ref md) => md,
-            HttpRequestType::GetHeaders(ref md, ..) => md,
-            HttpRequestType::GetBlock(ref md, _) => md,
-            HttpRequestType::GetMicroblocksIndexed(ref md, _) => md,
-            HttpRequestType::GetMicroblocksConfirmed(ref md, _) => md,
-            HttpRequestType::GetMicroblocksUnconfirmed(ref md, _, _) => md,
-            HttpRequestType::GetTransactionUnconfirmed(ref md, _) => md,
-            HttpRequestType::PostTransaction(ref md, _, _) => md,
-            HttpRequestType::PostBlock(ref md, ..) => md,
-            HttpRequestType::PostMicroblock(ref md, ..) => md,
-            HttpRequestType::GetAccount(ref md, ..) => md,
-            HttpRequestType::GetDataVar(ref md, ..) => md,
-            HttpRequestType::GetMapEntry(ref md, ..) => md,
-            HttpRequestType::GetTransferCost(ref md) => md,
-            HttpRequestType::GetContractABI(ref md, ..) => md,
-            HttpRequestType::GetContractSrc(ref md, ..) => md,
-            HttpRequestType::GetIsTraitImplemented(ref md, ..) => md,
-            HttpRequestType::CallReadOnlyFunction(ref md, ..) => md,
-            HttpRequestType::OptionsPreflight(ref md, ..) => md,
-            HttpRequestType::GetAttachmentsInv(ref md, ..) => md,
-            HttpRequestType::GetAttachment(ref md, ..) => md,
-            HttpRequestType::MemPoolQuery(ref md, ..) => md,
-            HttpRequestType::FeeRateEstimate(ref md, _, _) => md,
-            HttpRequestType::ClientError(ref md, ..) => md,
-            HttpRequestType::GetWithdrawalStx { ref metadata, .. } => metadata,
-            HttpRequestType::BlockProposal(ref metadata, ..) => metadata,
-            HttpRequestType::GetWithdrawalFt { ref metadata, .. } => metadata,
-            HttpRequestType::GetWithdrawalNft { ref metadata, .. } => metadata,
+        match self {
+            HttpRequestType::GetInfo(md) => md,
+            HttpRequestType::GetNeighbors(md) => md,
+            HttpRequestType::GetHeaders(md, ..) => md,
+            HttpRequestType::GetBlock(md, _) => md,
+            HttpRequestType::GetMicroblocksIndexed(md, _) => md,
+            HttpRequestType::GetMicroblocksConfirmed(md, _) => md,
+            HttpRequestType::GetMicroblocksUnconfirmed(md, _, _) => md,
+            HttpRequestType::GetTransactionUnconfirmed(md, _) => md,
+            HttpRequestType::PostTransaction(md, _, _) => md,
+            HttpRequestType::PostBlock(md, ..) => md,
+            HttpRequestType::PostMicroblock(md, ..) => md,
+            HttpRequestType::GetAccount(md, ..) => md,
+            HttpRequestType::GetDataVar(md, ..) => md,
+            HttpRequestType::GetMapEntry(md, ..) => md,
+            HttpRequestType::GetTransferCost(md) => md,
+            HttpRequestType::GetContractABI(md, ..) => md,
+            HttpRequestType::GetContractSrc(md, ..) => md,
+            HttpRequestType::GetIsTraitImplemented(md, ..) => md,
+            HttpRequestType::CallReadOnlyFunction(md, ..) => md,
+            HttpRequestType::OptionsPreflight(md, ..) => md,
+            HttpRequestType::GetAttachmentsInv(md, ..) => md,
+            HttpRequestType::GetAttachment(md, ..) => md,
+            HttpRequestType::MemPoolQuery(md, ..) => md,
+            HttpRequestType::FeeRateEstimate(md, _, _) => md,
+            HttpRequestType::ClientError(md, ..) => md,
+            HttpRequestType::GetWithdrawalStx { metadata, .. } => metadata,
+            HttpRequestType::BlockProposal(metadata, ..) => metadata,
+            HttpRequestType::GetWithdrawalFt { metadata, .. } => metadata,
+            HttpRequestType::GetWithdrawalNft { metadata, .. } => metadata,
         }
     }
 
     pub fn metadata_mut(&mut self) -> &mut HttpRequestMetadata {
-        match *self {
+        match self {
             HttpRequestType::GetInfo(ref mut md) => md,
             HttpRequestType::GetNeighbors(ref mut md) => md,
             HttpRequestType::GetHeaders(ref mut md, ..) => md,
@@ -3196,8 +3198,7 @@ impl HttpRequestType {
                         serde_json::to_writer(&mut request_body_bytes, &request_body).map_err(
                             |e| {
                                 net_error::SerializeError(format!(
-                                    "Failed to serialize read-only call to JSON: {:?}",
-                                    &e
+                                    "Failed to serialize read-only call to JSON: {e:?}"
                                 ))
                             },
                         )?;
@@ -3305,8 +3306,7 @@ impl HttpRequestType {
                 let mut request_body_bytes = vec![];
                 serde_json::to_writer(&mut request_body_bytes, &request_body).map_err(|e| {
                     net_error::SerializeError(format!(
-                        "Failed to serialize read-only call to JSON: {:?}",
-                        &e
+                        "Failed to serialize read-only call to JSON: {e:?}"
                     ))
                 })?;
 
@@ -4217,47 +4217,47 @@ impl HttpResponseType {
     }
 
     pub fn metadata(&self) -> &HttpResponseMetadata {
-        match *self {
-            HttpResponseType::PeerInfo(ref md, _) => md,
-            HttpResponseType::PoxInfo(ref md, _) => md,
-            HttpResponseType::Neighbors(ref md, _) => md,
-            HttpResponseType::HeaderStream(ref md) => md,
-            HttpResponseType::Headers(ref md, _) => md,
-            HttpResponseType::Block(ref md, _) => md,
-            HttpResponseType::BlockStream(ref md) => md,
-            HttpResponseType::Microblocks(ref md, _) => md,
-            HttpResponseType::MicroblockStream(ref md) => md,
-            HttpResponseType::TransactionID(ref md, _) => md,
-            HttpResponseType::StacksBlockAccepted(ref md, ..) => md,
-            HttpResponseType::MicroblockHash(ref md, _) => md,
-            HttpResponseType::TokenTransferCost(ref md, _) => md,
-            HttpResponseType::GetDataVar(ref md, _) => md,
-            HttpResponseType::GetMapEntry(ref md, _) => md,
-            HttpResponseType::GetAccount(ref md, _) => md,
-            HttpResponseType::GetContractABI(ref md, _) => md,
-            HttpResponseType::GetContractSrc(ref md, _) => md,
-            HttpResponseType::GetIsTraitImplemented(ref md, _) => md,
-            HttpResponseType::CallReadOnlyFunction(ref md, _) => md,
-            HttpResponseType::UnconfirmedTransaction(ref md, _) => md,
-            HttpResponseType::GetAttachment(ref md, _) => md,
-            HttpResponseType::GetAttachmentsInv(ref md, _) => md,
-            HttpResponseType::MemPoolTxStream(ref md) => md,
-            HttpResponseType::MemPoolTxs(ref md, ..) => md,
-            HttpResponseType::OptionsPreflight(ref md) => md,
-            HttpResponseType::TransactionFeeEstimation(ref md, _) => md,
-            HttpResponseType::GetWithdrawal(ref md, _) => md,
+        match self {
+            HttpResponseType::PeerInfo(md, _) => md,
+            HttpResponseType::PoxInfo(md, _) => md,
+            HttpResponseType::Neighbors(md, _) => md,
+            HttpResponseType::HeaderStream(md) => md,
+            HttpResponseType::Headers(md, _) => md,
+            HttpResponseType::Block(md, _) => md,
+            HttpResponseType::BlockStream(md) => md,
+            HttpResponseType::Microblocks(md, _) => md,
+            HttpResponseType::MicroblockStream(md) => md,
+            HttpResponseType::TransactionID(md, _) => md,
+            HttpResponseType::StacksBlockAccepted(md, ..) => md,
+            HttpResponseType::MicroblockHash(md, _) => md,
+            HttpResponseType::TokenTransferCost(md, _) => md,
+            HttpResponseType::GetDataVar(md, _) => md,
+            HttpResponseType::GetMapEntry(md, _) => md,
+            HttpResponseType::GetAccount(md, _) => md,
+            HttpResponseType::GetContractABI(md, _) => md,
+            HttpResponseType::GetContractSrc(md, _) => md,
+            HttpResponseType::GetIsTraitImplemented(md, _) => md,
+            HttpResponseType::CallReadOnlyFunction(md, _) => md,
+            HttpResponseType::UnconfirmedTransaction(md, _) => md,
+            HttpResponseType::GetAttachment(md, _) => md,
+            HttpResponseType::GetAttachmentsInv(md, _) => md,
+            HttpResponseType::MemPoolTxStream(md) => md,
+            HttpResponseType::MemPoolTxs(md, ..) => md,
+            HttpResponseType::OptionsPreflight(md) => md,
+            HttpResponseType::TransactionFeeEstimation(md, _) => md,
+            HttpResponseType::GetWithdrawal(md, _) => md,
             // errors
-            HttpResponseType::BadRequestJSON(ref md, _) => md,
-            HttpResponseType::BadRequest(ref md, _) => md,
-            HttpResponseType::Unauthorized(ref md, _) => md,
-            HttpResponseType::PaymentRequired(ref md, _) => md,
-            HttpResponseType::Forbidden(ref md, _) => md,
-            HttpResponseType::NotFound(ref md, _) => md,
-            HttpResponseType::ServerError(ref md, _) => md,
-            HttpResponseType::ServiceUnavailable(ref md, _) => md,
-            HttpResponseType::Error(ref md, _, _) => md,
-            HttpResponseType::BlockProposalValid { ref metadata, .. } => metadata,
-            HttpResponseType::BlockProposalInvalid { ref metadata, .. } => metadata,
+            HttpResponseType::BadRequestJSON(md, _) => md,
+            HttpResponseType::BadRequest(md, _) => md,
+            HttpResponseType::Unauthorized(md, _) => md,
+            HttpResponseType::PaymentRequired(md, _) => md,
+            HttpResponseType::Forbidden(md, _) => md,
+            HttpResponseType::NotFound(md, _) => md,
+            HttpResponseType::ServerError(md, _) => md,
+            HttpResponseType::ServiceUnavailable(md, _) => md,
+            HttpResponseType::Error(md, _, _) => md,
+            HttpResponseType::BlockProposalValid { metadata, .. } => metadata,
+            HttpResponseType::BlockProposalInvalid { metadata, .. } => metadata,
         }
     }
 
@@ -7234,13 +7234,20 @@ mod test {
         let query_txt_bad = "tip=bad";
         assert_eq!(
             HttpRequestType::get_chain_tip_query(Some(query_txt_bad)),
-            TipRequest::UseLatestAnchoredTip
+            TipRequest::UseLatestUnconfirmedTip
         );
 
         // tip can be skipped
-        let query_txt_none = "tip=bad";
+        let query_txt_none = "tip=";
         assert_eq!(
             HttpRequestType::get_chain_tip_query(Some(query_txt_none)),
+            TipRequest::UseLatestUnconfirmedTip
+        );
+
+        // Return latest anchored tip
+        let query_anchored = "tip=anchored";
+        assert_eq!(
+            HttpRequestType::get_chain_tip_query(Some(query_anchored)),
             TipRequest::UseLatestAnchoredTip
         );
     }
