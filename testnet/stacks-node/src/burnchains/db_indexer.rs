@@ -608,9 +608,7 @@ impl BurnchainIndexer for DBBurnchainIndexer {
             None => {}
         }
 
-        sql_tx
-            .commit()
-            .map_err(|e| BurnchainError::SQLiteError(e))?;
+        sql_tx.commit()?;
 
         result
     }
