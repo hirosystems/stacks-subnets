@@ -476,6 +476,8 @@ pub enum Error {
     TrySyncAgain,
     UnknownBlock(BurnchainHeaderHash),
     CoordinatorClosed,
+    /// SQLite error
+    SQLiteError(rusqlite::Error),
 }
 
 impl fmt::Display for Error {
@@ -495,6 +497,7 @@ impl fmt::Display for Error {
             Error::TrySyncAgain => write!(f, "Try synchronizing again"),
             Error::UnknownBlock(block) => write!(f, "Unknown burnchain block {}", block),
             Error::CoordinatorClosed => write!(f, "ChainsCoordinator channel hung up"),
+            Error::SQLiteError(e) => write!(f, "SQLite error: {}", e),
         }
     }
 }
@@ -516,6 +519,7 @@ impl error::Error for Error {
             Error::TrySyncAgain => None,
             Error::UnknownBlock(_) => None,
             Error::CoordinatorClosed => None,
+            Error::SQLiteError(_) => None,
         }
     }
 }

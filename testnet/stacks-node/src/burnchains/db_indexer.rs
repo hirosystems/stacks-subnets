@@ -62,6 +62,10 @@ pub fn get_header_for_hash(
     }
 }
 
+pub fn get_highest_header_height(connection: &DBConn) -> Result<Option<u64>, BurnchainError> {
+    Ok(get_canonical_chain_tip(connection)?.map(|x| x.height))
+}
+
 /// Retrieves the "canonical chain tip" from the last time `set_last_canonical_chain_tip` was called.
 pub fn get_last_canonical_chain_tip(
     connection: &DBConn,
@@ -566,43 +570,47 @@ impl BurnchainIndexer for DBBurnchainIndexer {
     }
 
     fn get_highest_header_height(&self) -> Result<u64, BurnchainError> {
-        match get_canonical_chain_tip(&self.connection)? {
-            Some(row) => Ok(row.height),
-            None => Ok(self.get_first_block_height()),
-        }
+        Ok(get_highest_header_height(&self.connection)?
+            .unwrap_or_else(|| self.get_first_block_height()))
     }
 
     fn find_chain_reorg(&mut self) -> Result<u64, BurnchainError> {
         // This is the canonical tip the last time we ran this function, or None.
-        let last_canonical_tip = get_last_canonical_chain_tip(&self.connection)?;
+        let first_block_height = self.get_first_block_height();
+        let sql_tx = self.connection.transaction()?;
+        let last_canonical_tip = get_last_canonical_chain_tip(&sql_tx)?;
 
         // If there was no previous canonical tip, then we don't have a fork.
         let result = match last_canonical_tip {
             Some(last_canonical_tip) => {
-                let still_canonical = is_canonical(&self.connection, &last_canonical_tip)?;
+                let still_canonical = is_canonical(&sql_tx, &last_canonical_tip)?;
                 if still_canonical {
                     // No re-org, so return highest height.
-                    self.get_highest_header_height()
+                    Ok(get_highest_header_height(&sql_tx)?.unwrap_or(first_block_height))
                 } else {
-                    find_first_canonical_ancestor(&self.connection, &last_canonical_tip)
+                    find_first_canonical_ancestor(&sql_tx, &last_canonical_tip)
                 }
             }
-            None => self.get_highest_header_height(),
+            None => Ok(get_highest_header_height(&sql_tx)?.unwrap_or(first_block_height)),
         };
 
         // Update the "last canonical tip" if we have a canonical tip now.
-        let current_canonical = get_canonical_chain_tip(&self.connection)?;
+        let current_canonical = get_canonical_chain_tip(&sql_tx)?;
         match current_canonical {
             Some(current_tip) => {
                 // Update the cursor the next call to this function.
                 set_last_canonical_chain_tip(
-                    &self.connection,
+                    &sql_tx,
                     &BurnchainHeaderHash(current_tip.header_hash()),
                     &last_canonical_tip,
                 )?;
             }
             None => {}
         }
+
+        sql_tx
+            .commit()
+            .map_err(|e| BurnchainError::SQLiteError(e))?;
 
         result
     }
