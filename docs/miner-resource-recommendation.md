@@ -1,10 +1,10 @@
 ---
-title: Specifications to set up Subnet on Mainnet
+title: Miner resource recommendation
 ---
 
-# Specifications to set up Subnet on Mainnet
+# Miner resource recommendation
 
-For Subnet to run on the mainnet, there is a higher requirement for throughput and low block confirmation times. You can achieve this by following the hardware specifications below. This document helps you with the specifications to set up Subnet on the mainnet and run as a miner.
+As a miner, you can set up Subnet on the mainnet by following the resource recommendations in this document.
 
 ## Features
 
@@ -38,7 +38,7 @@ We assume a [Debian](https://www.debian.org/) host with `x86_64` architecture fo
 
 ## Hardware Specifications
  
-The following are the hardware specifications for running a Subnet on the mainnet.
+The following are the hardware specifications for running a Subnet on the Mainnet.
 
 ### CPU
 
