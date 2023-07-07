@@ -1,3 +1,17 @@
+## [0.8.0](https://github.com/hirosystems/stacks-subnets/compare/v0.7.1...v0.8.0) (2023-07-07)
+
+
+### Features
+
+* API now responds with state from latest microblocks by default ([0b8a4ac](https://github.com/hirosystems/stacks-subnets/commit/0b8a4acff0db8841f369b4a271c6cab290ac3fef))
+* Retry certain failed transactions against latest microblocks ([b0dce01](https://github.com/hirosystems/stacks-subnets/commit/b0dce013db1c4a0342f6d74cd7f6c19f46e3dd12))
+
+
+### Bug Fixes
+
+* race condition when detecting a Stacks reorg ([2862b16](https://github.com/hirosystems/stacks-subnets/commit/2862b16b61efdcc0ec49deeffe36a11fd4fc5c7d))
+* remove coinbase reward ([56a7738](https://github.com/hirosystems/stacks-subnets/commit/56a77386af0c16d8a3dfb5c7df3ff1f4070f8b79))
+
 ## [0.7.1](https://github.com/hirosystems/stacks-subnets/compare/v0.7.0...v0.7.1) (2023-06-28)
 
 
