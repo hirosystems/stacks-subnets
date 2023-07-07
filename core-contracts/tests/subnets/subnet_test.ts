@@ -7,15 +7,18 @@ import {
   types,
 } from "https://deno.land/x/clarinet@v1.2.0/index.ts";
 import { assertEquals } from "https://deno.land/std@0.90.0/testing/asserts.ts";
-
 import { decode as decHex } from "https://deno.land/std@0.149.0/encoding/hex.ts";
+import { YamlLoader } from "https://deno.land/x/yaml_loader/mod.ts";
+
+const yamlLoader = new YamlLoader();
+// File read will be relative to directory where clarinet was invoked
+// MUST RUN FROM REPOSITORY ROOT FOR THIS TO WORK!
+const config = await yamlLoader.parseFile("./core-contracts/contracts/config/common.yaml");
 
 function fromHex(input: string) {
   const hexBytes = new TextEncoder().encode(input);
   return decHex(hexBytes);
 }
-
-const SUBNET_CONTRACT = "subnet-v3-0-0";
 
 Clarinet.test({
   name: "Unit test the withdrawal leaf hash calculations using test vectors",
@@ -30,7 +33,7 @@ Clarinet.test({
     const recipient = "ST18F1AHKW194BWQ3CEFDPWVRARA79RBGFEWSDQR8";
     const leaf_hash_1 = chain
       .callReadOnlyFn(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "leaf-hash-withdraw-stx",
         [
           types.uint(1),
@@ -51,7 +54,7 @@ Clarinet.test({
 
     const leaf_hash_2 = chain
       .callReadOnlyFn(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "leaf-hash-withdraw-ft",
         [
           types.principal(ft_contract),
@@ -70,7 +73,7 @@ Clarinet.test({
 
     const leaf_hash_3 = chain
       .callReadOnlyFn(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "leaf-hash-withdraw-nft",
         [
           types.principal(nft_contract),
@@ -106,7 +109,7 @@ Clarinet.test({
     let block = chain.mineBlock([
       // set alice as a miner
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(alice.address)],
         deployer.address
@@ -122,7 +125,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Successfully commit block at height 0 with alice.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
@@ -135,7 +138,7 @@ Clarinet.test({
       ),
       // Try and fail to commit a different block, but again at height 0.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
@@ -161,7 +164,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Try and fail to commit a block at height 1 with an invalid miner.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
@@ -174,7 +177,7 @@ Clarinet.test({
       ),
       // Try and fail to commit a block to non-existent `target-chain-tip`
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 2, 2, 2, 1])),
@@ -187,7 +190,7 @@ Clarinet.test({
       ),
       // Try and fail to commit a block to non-existent `target-chain-height`
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 2, 2, 2, 1])),
@@ -213,7 +216,7 @@ Clarinet.test({
       .toString();
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 2, 2, 2, 2])),
@@ -265,7 +268,7 @@ Clarinet.test({
     // set alice as a miner
     let block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(alice.address)],
         deployer.address
@@ -276,7 +279,7 @@ Clarinet.test({
     // Invalid admin can't register contracts
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-ft-contract",
         [
           types.principal(simple_ft_contract.contract_id),
@@ -291,7 +294,7 @@ Clarinet.test({
     // Deployer can set up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-ft-contract",
         [
           types.principal(simple_ft_contract.contract_id),
@@ -300,7 +303,7 @@ Clarinet.test({
         deployer.address
       ),
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(simple_nft_contract.contract_id),
@@ -309,7 +312,7 @@ Clarinet.test({
         deployer.address
       ),
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(simple_nft_no_mint_contract.contract_id),
@@ -325,7 +328,7 @@ Clarinet.test({
     // Deployer should be able to register a new allowed NFT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(second_nft_contract.contract_id),
@@ -339,7 +342,7 @@ Clarinet.test({
     // Deployer should be not able to register a previously allowed NFT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(second_nft_contract.contract_id),
@@ -354,7 +357,7 @@ Clarinet.test({
     // Deployer should be able to register a new allowed FT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-ft-contract",
         [
           types.principal(second_ft_contract.contract_id),
@@ -368,7 +371,7 @@ Clarinet.test({
     // Deployer should be not able to register a previously allowed FT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-ft-contract",
         [
           types.principal(second_ft_contract.contract_id),
@@ -416,7 +419,7 @@ Clarinet.test({
     // set alice as the admin
     let block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-admin",
         [types.principal(alice.address)],
         deployer.address
@@ -427,7 +430,7 @@ Clarinet.test({
     // Invalid admin can't change the admin
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-admin",
         [types.principal(alice.address)],
         deployer.address
@@ -439,7 +442,7 @@ Clarinet.test({
     // admin can update the miner
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(alice.address)],
         alice.address
@@ -450,7 +453,7 @@ Clarinet.test({
     // Invalid admin can't update the miner
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(bob.address)],
         deployer.address
@@ -480,7 +483,7 @@ Clarinet.test({
     // set alice as a miner
     let block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(alice.address)],
         deployer.address
@@ -493,7 +496,7 @@ Clarinet.test({
       "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.simple-nft"
     )!;
     const subnet_contract = contracts.get(
-      `ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.${SUBNET_CONTRACT}`
+      `ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.${config.subnet_contract}`
     )!;
 
     // User should be able to mint an NFT
@@ -514,7 +517,7 @@ Clarinet.test({
     // User should not be able to deposit NFT asset before miner allows the asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -530,7 +533,7 @@ Clarinet.test({
     // Invalid admin can't register contracts
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(nft_contract.contract_id),
@@ -546,7 +549,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Register contract
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(nft_contract.contract_id),
@@ -560,7 +563,7 @@ Clarinet.test({
     // User should be able to deposit NFT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -581,7 +584,7 @@ Clarinet.test({
     // User should not be able to deposit an NFT asset they don't own
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -613,7 +616,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Successfully commit block at height 0 with alice.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
@@ -632,7 +635,7 @@ Clarinet.test({
     // Miner should be able to withdraw NFT asset for user
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -663,7 +666,7 @@ Clarinet.test({
     // Miner should not be able to withdraw NFT asset a second time
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -708,7 +711,7 @@ Clarinet.test({
     // set alice as a miner
     let block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(alice.address)],
         deployer.address
@@ -721,7 +724,7 @@ Clarinet.test({
       "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.simple-nft"
     )!;
     const subnet_contract = contracts.get(
-      `ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.${SUBNET_CONTRACT}`
+      `ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.${config.subnet_contract}`
     )!;
 
     // User should be able to mint an NFT
@@ -743,7 +746,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Register contract
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(nft_contract.contract_id),
@@ -757,7 +760,7 @@ Clarinet.test({
     // User should be able to deposit NFT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -804,7 +807,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Successfully commit block at height 0 with alice.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
@@ -824,7 +827,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Invalid root hash
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -846,7 +849,7 @@ Clarinet.test({
       ),
       // Invalid leaf hash
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -868,7 +871,7 @@ Clarinet.test({
       ),
       // Invalid sibling hashes
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -890,7 +893,7 @@ Clarinet.test({
       ),
       // Invalid ID
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -912,7 +915,7 @@ Clarinet.test({
       ),
       // Invalid recipient
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -934,7 +937,7 @@ Clarinet.test({
       ),
       // Invalid block height
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -956,7 +959,7 @@ Clarinet.test({
       ),
       // Invalid withdrawal ID
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -995,7 +998,7 @@ Clarinet.test({
     // Miner should be able to withdraw NFT asset for user
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -1049,7 +1052,7 @@ Clarinet.test({
     // set alice as a miner
     let block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(alice.address)],
         deployer.address
@@ -1082,7 +1085,7 @@ Clarinet.test({
     // User should not be able to deposit FT assets if they are not allowed
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1099,7 +1102,7 @@ Clarinet.test({
     // Invalid admin can't register new contracts
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-ft-contract",
         [
           types.principal(ft_contract.contract_id),
@@ -1114,7 +1117,7 @@ Clarinet.test({
     // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-ft-contract",
         [
           types.principal(ft_contract.contract_id),
@@ -1128,7 +1131,7 @@ Clarinet.test({
     // User should not be able to deposit a larger quantity than they own
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1145,7 +1148,7 @@ Clarinet.test({
     // User should be able to deposit FT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1161,7 +1164,7 @@ Clarinet.test({
     // User should not be able to deposit an FT asset they don't own
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1194,7 +1197,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Successfully commit block at height 0 with alice.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
@@ -1213,7 +1216,7 @@ Clarinet.test({
     // Miner should be able to withdraw FT asset for user
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1245,7 +1248,7 @@ Clarinet.test({
     // Miner should not be able to withdraw FT asset a second time
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1295,7 +1298,7 @@ Clarinet.test({
     // set alice as a miner
     let block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(alice.address)],
         deployer.address
@@ -1335,7 +1338,7 @@ Clarinet.test({
     // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-ft-contract",
         [
           types.principal(ft_contract.contract_id),
@@ -1349,7 +1352,7 @@ Clarinet.test({
     // User should be able to deposit FT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1391,7 +1394,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Successfully commit block at height 0 with alice.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
@@ -1411,7 +1414,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Invalid root hash
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1434,7 +1437,7 @@ Clarinet.test({
       ),
       // Invalid leaf hash
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1457,7 +1460,7 @@ Clarinet.test({
       ),
       // Invalid sibling hashes
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1480,7 +1483,7 @@ Clarinet.test({
       ),
       // Amount too large
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1503,7 +1506,7 @@ Clarinet.test({
       ),
       // Invalid recipient
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1526,7 +1529,7 @@ Clarinet.test({
       ),
       // Invalid block height
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1549,7 +1552,7 @@ Clarinet.test({
       ),
       // Invalid withdrawal ID
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1589,7 +1592,7 @@ Clarinet.test({
     // Miner should be able to withdraw FT asset for user
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1642,7 +1645,7 @@ Clarinet.test({
     // set alice as a miner
     let block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(alice.address)],
         deployer.address
@@ -1669,7 +1672,7 @@ Clarinet.test({
     // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-ft-contract",
         [
           types.principal(ft_contract.contract_id),
@@ -1683,7 +1686,7 @@ Clarinet.test({
     // User should be able to deposit FT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1720,7 +1723,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Successfully commit block at height 0 with alice.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
@@ -1739,7 +1742,7 @@ Clarinet.test({
     // Miner should be able to withdraw FT asset for user
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1771,7 +1774,7 @@ Clarinet.test({
     // Miner should be not be able to withdraw FT asset with same hash
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1800,7 +1803,7 @@ Clarinet.test({
     // This test works since the amount is checked before the leaf hash is checked
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1856,7 +1859,7 @@ Clarinet.test({
     // set alice as a miner
     let block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(alice.address)],
         deployer.address
@@ -1898,7 +1901,7 @@ Clarinet.test({
     // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-ft-contract",
         [
           types.principal(ft_contract.contract_id),
@@ -1907,7 +1910,7 @@ Clarinet.test({
         deployer.address
       ),
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(nft_contract.contract_id),
@@ -1931,7 +1934,7 @@ Clarinet.test({
     // User should be able to deposit FT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -1947,7 +1950,7 @@ Clarinet.test({
     // User should be able to deposit STX
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-stx",
         [types.uint(5), types.principal(charlie.address)],
         charlie.address
@@ -1958,7 +1961,7 @@ Clarinet.test({
     // User should be able to deposit NFT
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -2019,7 +2022,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Successfully commit block at height 0 with alice.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
@@ -2038,7 +2041,7 @@ Clarinet.test({
     // Miner should be able to withdraw FT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -2070,7 +2073,7 @@ Clarinet.test({
 
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-stx",
         [
           types.uint(1),
@@ -2098,7 +2101,7 @@ Clarinet.test({
     // Miner should be able to withdraw NFT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -2141,7 +2144,7 @@ Clarinet.test({
     // For safety, check that miner can't withdraw FT asset a second time with same key
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-ft-asset",
         [
           types.principal(ft_contract.contract_id),
@@ -2173,7 +2176,7 @@ Clarinet.test({
     // For safety, check that miner can't withdraw STX asset a second time with same key
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-stx",
         [
           types.uint(1),
@@ -2202,7 +2205,7 @@ Clarinet.test({
     // For safety, check that miner can't withdraw NFT asset a second time with same key
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -2256,7 +2259,7 @@ Clarinet.test({
     // set alice as a miner
     let block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(alice.address)],
         deployer.address
@@ -2267,7 +2270,7 @@ Clarinet.test({
     // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(nft_contract.contract_id),
@@ -2312,7 +2315,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Successfully commit block at height 0 with alice.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
@@ -2331,7 +2334,7 @@ Clarinet.test({
     // Miner should be not able to withdraw NFT asset since it already exists on the L1
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -2379,7 +2382,7 @@ Clarinet.test({
     // set alice as a miner
     let block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(alice.address)],
         deployer.address
@@ -2390,7 +2393,7 @@ Clarinet.test({
     // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(nft_contract.contract_id),
@@ -2423,7 +2426,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Successfully commit block at height 0 with alice.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
@@ -2442,7 +2445,7 @@ Clarinet.test({
     // Miner should be able to withdraw NFT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -2472,7 +2475,7 @@ Clarinet.test({
     // Miner should not be able to withdraw NFT asset a second time
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -2514,7 +2517,7 @@ Clarinet.test({
 
     chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(miner.address)],
         deployer.address
@@ -2524,7 +2527,7 @@ Clarinet.test({
     // Deployer sets up allowed assets
     let block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(nft_contract.contract_id),
@@ -2558,7 +2561,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Successfully commit block at height 0.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
@@ -2577,7 +2580,7 @@ Clarinet.test({
     // Miner should *not* be able to withdraw NFT asset because the contract doesn't own it.
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -2620,7 +2623,7 @@ Clarinet.test({
 
     chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(miner.address)],
         deployer.address
@@ -2645,7 +2648,7 @@ Clarinet.test({
     // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(nft_contract.contract_id),
@@ -2659,7 +2662,7 @@ Clarinet.test({
     // User should be able to deposit NFT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -2694,7 +2697,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Successfully commit block at height 0.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
@@ -2713,7 +2716,7 @@ Clarinet.test({
     // Miner should be able to withdraw NFT asset to original user.
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -2764,7 +2767,7 @@ Clarinet.test({
 
     chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "update-miner",
         [types.principal(miner.address)],
         deployer.address
@@ -2795,7 +2798,7 @@ Clarinet.test({
     // Deployer sets up allowed assets
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "register-new-nft-contract",
         [
           types.principal(nft_contract.contract_id),
@@ -2809,7 +2812,7 @@ Clarinet.test({
     // User should be able to deposit NFT asset
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "deposit-nft-asset",
         [
           types.principal(nft_contract.contract_id),
@@ -2847,7 +2850,7 @@ Clarinet.test({
     block = chain.mineBlock([
       // Successfully commit block at height 0.
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "commit-block",
         [
           types.buff(new Uint8Array([0, 1, 1, 1, 1])),
@@ -2866,7 +2869,7 @@ Clarinet.test({
     // Miner should be able to withdraw NFT asset to other_user.
     block = chain.mineBlock([
       Tx.contractCall(
-        SUBNET_CONTRACT,
+        config.subnet_contract,
         "withdraw-nft-asset",
         [
           types.principal(nft_contract.contract_id),

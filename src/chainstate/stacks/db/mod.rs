@@ -1885,7 +1885,7 @@ impl StacksChainState {
                 return None;
             }
             Err(e) => {
-                warn!("Failed to query for {}: {:?}", parent_tip, &e);
+                warn!("Failed to query for {parent_tip}: {e:?}");
                 return None;
             }
         }
@@ -1903,14 +1903,14 @@ impl StacksChainState {
     where
         F: FnOnce(&mut ClarityReadOnlyConnection) -> R,
     {
-        if let Some(ref unconfirmed) = self.unconfirmed_state.as_ref() {
+        if let Some(unconfirmed) = &self.unconfirmed_state {
             if !unconfirmed.is_readable() {
                 return Ok(None);
             }
         }
 
         let mut unconfirmed_state_opt = self.unconfirmed_state.take();
-        let res = if let Some(ref mut unconfirmed_state) = unconfirmed_state_opt {
+        let res = if let Some(unconfirmed_state) = unconfirmed_state_opt.as_mut() {
             let mut conn = unconfirmed_state
                 .clarity_inst
                 .read_only_connection_checked(
@@ -1939,7 +1939,7 @@ impl StacksChainState {
     where
         F: FnOnce(&mut ClarityReadOnlyConnection) -> R,
     {
-        let unconfirmed = if let Some(ref unconfirmed_state) = self.unconfirmed_state {
+        let unconfirmed = if let Some(unconfirmed_state) = &self.unconfirmed_state {
             *parent_tip == unconfirmed_state.unconfirmed_chain_tip
                 && unconfirmed_state.is_readable()
         } else {

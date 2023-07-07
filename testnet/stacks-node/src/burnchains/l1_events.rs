@@ -373,7 +373,7 @@ impl L1Controller {
     fn get_validated_l1_contract_version(&self) -> Result<ContractVersion, Error> {
         const EXACT_MAJOR_VERSION: u128 = 3;
         const MINIMUM_MINOR_VERSION: u128 = 0;
-        const MINIMUM_PATCH_VERSION: u128 = 0;
+        const MINIMUM_PATCH_VERSION: u128 = 1;
         let version = self.get_l1_contract_version()?;
         let ContractVersion {
             major,

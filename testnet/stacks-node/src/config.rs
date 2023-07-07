@@ -698,7 +698,7 @@ impl std::default::Default for Config {
 pub enum CommitStrategy {
     /// Commit directly to the subnet contract
     Direct,
-    /// Commit through a multi-miner style contract (see `core-contracts/contracts/multi-miner.clar`)
+    /// Commit through a multi-miner style contract (see `core-contracts/contracts/output/mocknet/multi-miner.clar`)
     MultiMiner {
         required_signers: u8,
         contract: QualifiedContractIdentifier,

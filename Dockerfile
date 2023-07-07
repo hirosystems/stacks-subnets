@@ -9,15 +9,21 @@ ARG GIT_COMMIT='No Commit Info'
 
 WORKDIR /src
 
+RUN apt-get update && \
+    apt-get install -y ruby-mustache && \
+    rustup component add llvm-tools-preview && \
+    cargo install just
+
+# Do after package install so we don't invalidate the cache
 COPY --link . .
 
-RUN \
-    --mount=type=cache,target=/usr/local/cargo/registry \
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target,sharing=private \
-       mkdir -p /out /contracts \
-    && cd testnet/stacks-node \
-    && cargo build --features monitoring_prom,slog_json --release \
-    && cp /src/target/release/subnet-node /out
+    mkdir -p /out /contracts && \
+    just process-templates && \
+    cd testnet/stacks-node && \
+    cargo build --features monitoring_prom,slog_json --release && \
+    cp /src/target/release/subnet-node /out
 
 # Run image
 FROM debian:bullseye-backports

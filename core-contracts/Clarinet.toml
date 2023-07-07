@@ -12,52 +12,52 @@ contract_id = 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait'
 contract_id = 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard'
 
 [contracts.multi-miner]
-path = 'contracts/multi-miner.clar'
+path = 'contracts/output/mocknet/multi-miner.clar'
 clarity_version = 2
 epoch = 2.1
 
 [contracts.second-simple-ft]
-path = 'contracts/helper/simple-ft.clar'
+path = 'contracts/output/mocknet/helper/simple-ft.clar'
 clarity_version = 2
 epoch = 2.1
 
 [contracts.second-simple-nft]
-path = 'contracts/helper/simple-nft.clar'
+path = 'contracts/output/mocknet/helper/simple-nft.clar'
 clarity_version = 2
 epoch = 2.1
 
 [contracts.simple-ft]
-path = 'contracts/helper/simple-ft.clar'
+path = 'contracts/output/mocknet/helper/simple-ft.clar'
 clarity_version = 2
 epoch = 2.1
 
 [contracts.simple-nft]
-path = 'contracts/helper/simple-nft.clar'
+path = 'contracts/output/mocknet/helper/simple-nft.clar'
 clarity_version = 2
 epoch = 2.1
 
 [contracts.simple-nft-no-mint]
-path = 'contracts/helper/simple-nft-no-mint.clar'
+path = 'contracts/output/mocknet/helper/simple-nft-no-mint.clar'
 clarity_version = 2
 epoch = 2.1
 
-[contracts.subnet-v3-0-0]
-path = 'contracts/subnet.clar'
+[contracts.subnet-v3-0-1]
+path = 'contracts/output/mocknet/subnet.clar'
 clarity_version = 2
 epoch = 2.1
 
 [contracts.test-helpers]
-path = 'contracts/helper/test-helpers.clar'
+path = 'contracts/output/mocknet/helper/test-helpers.clar'
 clarity_version = 2
 epoch = 2.1
 
 [contracts.subnet-traits-v1]
-path = 'contracts/helper/subnet-traits.clar'
+path = 'contracts/output/mocknet/helper/subnet-traits.clar'
 clarity_version = 2
 epoch = 2.1
 
 [contracts.sip-traits]
-path = 'contracts/helper/sip-traits.clar'
+path = 'contracts/output/mocknet/helper/sip-traits.clar'
 clarity_version = 2
 epoch = 2.1
 
