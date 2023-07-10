@@ -4,13 +4,13 @@ title: Miner resource recommendation
 
 # Miner resource recommendation
 
-As a miner, you can set up Subnet on the mainnet by following the resource recommendations in this document.
+As a miner, you can set up subnet on the mainnet by following the resource recommendations in this document.
 
 ## Features
 
 - Higher CPU speed results in higher throughput and lower latency
 - Higher RAM will lead to faster transaction validation and faster blocks
-- An additional layer on Stacks warrants more disk space to accommodate the additional Subnets’ blocks and microblocks 
+- An additional layer on Stacks warrants more disk space to accommodate the additional subnets’ blocks and microblocks
 
 ## What problem does it solve?
 
@@ -25,7 +25,7 @@ We assume a [Debian](https://www.debian.org/) host with `x86_64` architecture fo
 
 ### Option 1
 
-- Run on GCE n2-standard-4 (4 vCPUs, greater than or equal to 16GB memory) instances with 2048GB SSD 
+- Run on GCE n2-standard-4 (4 vCPUs, greater than or equal to 16GB memory) instances with 2048GB SSD
 - Annual cost is approximately $1100 per year
 - Minimum CPU greater than or equal to 4 vCPUs
 - Minimum Memory greater than or equal to 16GB Memory
@@ -37,18 +37,18 @@ We assume a [Debian](https://www.debian.org/) host with `x86_64` architecture fo
 - Annual cost is approximately $10890 per year
 
 ## Hardware Specifications
- 
-The following are the hardware specifications for running a Subnet on the Mainnet.
+
+The following are the hardware specifications for running a subnet on the mainnet.
 
 ### CPU
 
-- Greathan or equal to 2.8 GHz
-- Greathan or equal to 12 Core, 24 Threads
+- Greater than or equal to 2.8 GHz
+- Greater than or equal to 12 Core, 24 Threads
 
 ### RAM
 
 - Preferred: greater than or equal to 128GB
-- Minimum 48GB
+- Minimum: 48GB
 - Motherboard greater than or equal to 256GB capacity
 
 ### Disk
@@ -61,4 +61,4 @@ The following are the hardware specifications for running a Subnet on the Mainne
 ### Networking
 
 - Preferred 1GBit/s
-- Minimum: 300Mbit/s symmetric, commercial
+- Minimum: 300MBit/s symmetric, commercial
