@@ -28,8 +28,8 @@ We assume a [Debian](https://www.debian.org/) host with `x86_64` architecture fo
 - Run on GCE n2-standard-4 (4 vCPUs, greater than or equal to 16GB memory) instances with 2048GB SSD
 - Annual cost is approximately $1100 per year
 - Minimum CPU greater than or equal to 4 vCPUs
-- Minimum Memory greater than or equal to 16GB Memory
-- Minimum Storage is 2TB Disk to allow chainstate growth
+- Minimum memory greater than or equal to 16GB Memory
+- Minimum storage is 2TB Disk to allow chainstate growth
 
 ### Option 2
 
@@ -42,18 +42,18 @@ The following are the hardware specifications for running a subnet on the mainne
 
 ### CPU
 
-- Greater than or equal to 2.8 GHz
-- Greater than or equal to 12 Core, 24 Threads
+- Processing speed greater than or equal to 2.8 GHz
+- CPU should be greater than or equal to 12 Core, 24 Threads
 
 ### RAM
 
-- Preferred: greater than or equal to 128GB
+- Preferred memory greater than or equal to 128GB
 - Minimum: 48GB
-- Motherboard greater than or equal to 256GB capacity
+- Motherboard capacity greater than or equal to 256GB
 
 ### Disk
 
-- NVMe-based SSD storage: You can use local SSDs through SCSI interfaces. For higher performance in production settings, we recommend upgrading to NVMe interfaces
+- NVMe-based Solid State Drive(SSD) storage: You can use local SSDs through Small Computer System Interface(SCSI) interfaces. For higher performance in production settings, we recommend upgrading to NVMe interfaces
 - High TBW (Total Bytes Written)
 - greater than or equal to 3.4GB per second sequential read and sequential write performance
 - greater than or equal to 1TB to allow for chainstate growth
