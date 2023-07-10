@@ -4,10 +4,10 @@ title: Subnet Participants
 
 ## Subnet Participants
 
-This document helps you understand the participant criteria to run a subnet. The participants are classified into two categories.
+This document helps you understand the participant criteria to run a subnet. The participants are classified into two categories:
 
-- The **primary participants** need to agree on trust parameters and incentives to launch a subnet.
-- The **secondary participants** are required to illustrate different parties involved when using/interacting with a subnet on Stacks.
+- The **primary participants** need to agree on trust parameters and incentives to launch a subnet
+- The **secondary participants** are required to illustrate different parties involved when using/interacting with a subnet on Stacks
 
 > [!NOTE]
 > Hiro does not intend to participate in running a subnet on Stacks.
@@ -18,15 +18,15 @@ This document helps you understand the participant criteria to run a subnet. The
 
 The following are the required entities to run a subnet:
 
-- The initial version of subnets uses a Byzantine Fault Tolerance (BFT) consensus mechanism, and the miners are a Federated pool of fully trusted miners.
-- Miners have arbitrary control over STX deposited on the subnets. A minimum of three miners will be required for the subnet’s BFT consensus to materialize and support a 2n/3 majority.
-- Miners are motivated by subnet transaction fees. The Supporting applications and the use case will set the subnet fees.
-- Miners will require specific hardware/ software to validate and process subnet transactions. Miners may include the supporting application, use case, and facilitator or none of these.
+- The initial version of subnets uses a Byzantine Fault Tolerance (BFT) consensus mechanism, and the miners are a Federated pool of fully trusted miners
+- Miners have arbitrary control over STX deposited on the subnets. A minimum of three miners will be required for the subnet’s BFT consensus to materialize and support a 2n/3 majority
+- Miners are motivated by subnet transaction fees. The Supporting applications and the use case will set the subnet fees
+- Miners will require specific hardware/software to validate and process subnet transactions. Miners may include the supporting application, use case, and facilitator or none of these
 
 **Key Activities**
 
-- Miners are responsible for approving and signing transactions and submitting them to the Stacks chain for finality.
-- Miners must agree to subnet parameters and incentives. Example: transaction fees, duration, performance requirements.
+- Miners are responsible for approving and signing transactions and submitting them to the Stacks chain for finality
+- Miners must agree to subnet parameters and incentives. Example: transaction fees, duration, performance requirements
 
 ### Supporting Application (Example: NFT Marketplace)
 
@@ -44,7 +44,7 @@ A supporting application supports subnets and owns the user experience. For an N
 
 **Key Activities**
 
-- Must agree to subnet parameters and incentives. Example: transaction fees, duration, and performance requirements.
+Must agree to subnet parameters and incentives. Example: transaction fees, duration, and performance requirements.
 
 ## Secondary participants
 
@@ -64,5 +64,5 @@ Users interact with applications using wallets, so subnet support is crucial.
 
 ### End Users
 
-- Users interact with subnets to experience faster throughput and lower latency for specific use cases (dEFI trades or purchasing or trading NFTs).
-- Users interact primarily with wallets and supporting applications to complete the specific use case (NFT mint).
+- Users interact with subnets to experience faster throughput and lower latency for specific use cases (DeFi trades or purchasing or trading NFTs)
+- Users interact primarily with wallets and supporting applications to complete the specific use case (NFT mint)
