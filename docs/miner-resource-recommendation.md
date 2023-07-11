@@ -20,8 +20,11 @@ The specifications below help you increase the transaction throughput by 4X time
 
 We assume a [Debian](https://www.debian.org/) host with `x86_64` architecture for the following example. Note that the commands may also work on any Debian-derived distribution. You can run your machine on Google Compute Engine(GCE) and choose the specifications below.
 
-> [!NOTE]
-> Bitcoin chainstate is approximately 529 GB, and Stacks chainstate is approximately 84 GB.
+:::note
+
+_Bitcoin chainstate is approximately 529 GB, and Stacks chainstate is approximately 84 GB._
+
+:::
 
 - Run on GCE n2-standard-4 (4 vCPUs, greater than or equal to 16 GB memory) instances with 2048 GB SSD
 - Annual cost is approximately $1100 per year
