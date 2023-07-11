@@ -839,6 +839,7 @@ fn spawn_miner_relayer(
         BurnchainHeaderHash,
         Vec<(AssembledAnchorBlock, Secp256k1PrivateKey)>,
     > = HashMap::new();
+    let mut unconfirmed_block: Option<BlockHeaderHash> = None;
 
     let mut burnchain_controller = config
         .make_burnchain_controller(coord_comms.clone())
@@ -922,6 +923,12 @@ fn spawn_miner_relayer(
                                       "stacks_header" => %block_header_hash,
                                       "burn_hash" => %mined_burn_hash,
                                 );
+
+                                if let Some(waiting_for_block) = unconfirmed_block {
+                                    if block_header_hash == waiting_for_block {
+                                        unconfirmed_block = None;
+                                    }
+                                }
 
                                 increment_stx_blocks_mined_counter();
 
@@ -1134,6 +1141,11 @@ fn spawn_miner_relayer(
                         "parent_bhh" => %parent_bhh,
                     );
 
+                    if let Some(unconfirmed_block) = unconfirmed_block {
+                        info!("Waiting for confirmation of block {}, skipping tenure", unconfirmed_block);
+                        continue;
+                    }
+
                     let last_mined_block_opt = StacksNode::relayer_run_tenure(
                         &config,
                         &mut chainstate,
@@ -1148,6 +1160,7 @@ fn spawn_miner_relayer(
                         if last_mined_blocks_vec.len() == 0 {
                             counters.bump_blocks_processed();
                         }
+                        unconfirmed_block = Some(last_mined_block.anchored_block.block_hash());
                         last_mined_blocks_vec.push((last_mined_block, microblock_privkey));
                     }
                     last_mined_blocks.insert(burn_header_hash, last_mined_blocks_vec);
