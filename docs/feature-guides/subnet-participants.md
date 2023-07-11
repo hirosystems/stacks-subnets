@@ -10,7 +10,6 @@ This guide outlines the potential participants required to run a subnet. The par
 :::note
 
 _Hiro does not intend to participate in running a subnet on Stacks mainnet._
-
 :::
 
 ## Primary Participants
@@ -24,7 +23,7 @@ The following are the required entities to run a subnet.
 - Miners are motivated by subnet transaction fees. The supporting applications and the use case will set the subnet fees
 - Miners will require specific hardware/software to validate and process subnet transactions. Miners may include the supporting application, use case, and facilitator or none of these
 
-To understand the resource recommendation for miner, refer to the [miner resource recommendation document](../miner-resource-recommendation.md).
+To understand the resource recommendation for miner, refer to the [miner resource recommendation document](https://github.com/hirosystems/stacks-subnets/blob/develop/docs/miner-resource-recommendation.md)
 
 **Key Activities**
 
