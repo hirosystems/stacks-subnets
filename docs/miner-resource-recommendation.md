@@ -1,10 +1,10 @@
 ---
-title: Miner resource recommendation
+title: Miner Resource Recommendation
 ---
 
-# Miner resource recommendation
+# Miner Resource Recommendation
 
-As a miner, you can set up subnet on the mainnet by following the resource recommendations in this document.
+These are our suggested miner resource requirements to spin up a Subnet Miner.
 
 ## Features
 
@@ -18,23 +18,16 @@ The specifications below help you increase the transaction throughput by 4X time
 
 ## Virtual Machine Specifications
 
-We assume a [Debian](https://www.debian.org/) host with `x86_64` architecture for the following example. Note that the commands may also work on any Debian-derived distribution. You can run your machine on Google Compute Engine(GCE) and choose between the options below.
+We assume a [Debian](https://www.debian.org/) host with `x86_64` architecture for the following example. Note that the commands may also work on any Debian-derived distribution. You can run your machine on Google Compute Engine(GCE) and choose the specifications below.
 
 > [!NOTE]
-> Bitcoin chainstate is approximately 529GB, and Stacks chainstate is approximately 84GB.
+> Bitcoin chainstate is approximately 529 GB, and Stacks chainstate is approximately 84 GB.
 
-### Option 1
-
-- Run on GCE n2-standard-4 (4 vCPUs, greater than or equal to 16GB memory) instances with 2048GB SSD
+- Run on GCE n2-standard-4 (4 vCPUs, greater than or equal to 16 GB memory) instances with 2048 GB SSD
 - Annual cost is approximately $1100 per year
 - Minimum CPU greater than or equal to 4 vCPUs
-- Minimum memory greater than or equal to 16GB Memory
-- Minimum storage is 2TB Disk to allow chainstate growth
-
-### Option 2
-
-- Run on GCE n2-standard-32(32 vCPUs, greater than or equal to 128GB memory) instances with 2048GB SSD
-- Annual cost is approximately $10890 per year
+- Minimum memory greater than or equal to 16 GB Memory
+- Minimum storage is 2 TB Disk to allow chainstate growth
 
 ## Hardware Specifications
 
@@ -43,22 +36,20 @@ The following are the hardware specifications for running a subnet on the mainne
 ### CPU
 
 - Processing speed greater than or equal to 2.8 GHz
-- CPU should be greater than or equal to 12 Core, 24 Threads
+- CPU greater than or equal to 4 vCPUs
 
 ### RAM
 
-- Preferred memory greater than or equal to 128GB
-- Minimum: 48GB
-- Motherboard capacity greater than or equal to 256GB
+The minimum size of the RAM is 16 GB.
 
 ### Disk
 
-- NVMe-based Solid State Drive(SSD) storage: You can use local SSDs through Small Computer System Interface(SCSI) interfaces. For higher performance in production settings, we recommend upgrading to NVMe interfaces
-- High TBW (Total Bytes Written)
-- greater than or equal to 3.4GB per second sequential read and sequential write performance
-- greater than or equal to 1TB to allow for chainstate growth
+- NVMe-based Solid State Drive(SSD) storage: You can use local SSDs through Small Computer System Interface(SCSI). For higher performance in production settings, we recommend upgrading to NVMe interfaces:
+- high TBW (Total Bytes Written)
+- greater than or equal to 3.4 GB per second sequential read and sequential write performance
+- greater than or equal to 1 TB to allow for chainstate growth
 
 ### Networking
 
-- Preferred 1GBit/s
-- Minimum: 300MBit/s symmetric, commercial
+- Preferred 1 GBit/s
+- Minimum: 300 MBit/s symmetric, commercial
