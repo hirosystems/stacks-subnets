@@ -48,7 +48,7 @@ This application supports subnets and owns the user experience. For an NFT use c
 
 Must agree to subnet parameters and incentives—for example, transaction fees, duration, and performance requirements.
 
-## Secondary participants
+## Secondary Participants
 
 These participants use a subnet and do not need to agree to the parameters and incentives of a subnet.
 
