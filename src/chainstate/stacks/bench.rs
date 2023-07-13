@@ -34,6 +34,24 @@ mod tests {
 
     #[test]
     #[ignore]
+    /// Give the miner an unlimited time to build a full block, then check how long it took
+    /// and how many transactions were included.
+    /// The transactions are a random mix of NFT mints, NFT transfers, and STX transfers.
+    /// The information we are looking for can be found in the logs, for example:
+    /// ```
+    /// Miner: mined anchored block, block_hash: 5c259637d326c86bac17900d07f4d0d38b8cf5b854b6898bdf51017c2cab6461,
+    ///   height: 2,   tx_count: 10567, parent_stacks_block_hash: 34553785fcaa07bb07cf3341e30c18ba390381591f10e502f27c346c50d00cf7,
+    ///   parent_stacks_microblock: 0000000000000000000000000000000000000000000000000000000000000000,
+    ///   parent_stacks_microblock_seq:    0, block_size: 2097103,
+    ///   execution_consumed: {"runtime": 22269784000, "write_len": 82452, "write_cnt": 12916, "read_len": 17205312, "read_cnt": 42972},
+    ///   assembly_time_ms: 99140, tx_fees_microstacks: 18138000
+    /// ```
+    /// where the interesting fields are "assembly_time_ms" and "tx_count".
+    ///
+    /// To run this test:
+    /// ```sh
+    /// cargo test --package stacks-subnets --lib -- chainstate::stacks::bench::tests::test_max_block --exact --nocapture --ignored
+    /// ```
     fn test_max_block() {
         let mut privks = vec![];
         let mut addrs = vec![];
@@ -243,6 +261,24 @@ mod tests {
 
     #[test]
     #[ignore]
+    /// Give the miner an unlimited time to build a full block, then check how long it took
+    /// and how many transactions were included.
+    /// The transactions are all STX transfers, so this is a best-case scenario.
+    /// The information we are looking for can be found in the logs, for example:
+    /// ```
+    /// Miner: mined anchored block, block_hash: 5c259637d326c86bac17900d07f4d0d38b8cf5b854b6898bdf51017c2cab6461,
+    ///   height: 2,   tx_count: 10567, parent_stacks_block_hash: 34553785fcaa07bb07cf3341e30c18ba390381591f10e502f27c346c50d00cf7,
+    ///   parent_stacks_microblock: 0000000000000000000000000000000000000000000000000000000000000000,
+    ///   parent_stacks_microblock_seq:    0, block_size: 2097103,
+    ///   execution_consumed: {"runtime": 22269784000, "write_len": 82452, "write_cnt": 12916, "read_len": 17205312, "read_cnt": 42972},
+    ///   assembly_time_ms: 99140, tx_fees_microstacks: 18138000
+    /// ```
+    /// where the interesting fields are "assembly_time_ms" and "tx_count".
+    ///
+    /// To run this test:
+    /// ```sh
+    /// cargo test --package stacks-subnets --lib -- chainstate::stacks::bench::tests::test_max_block_stx_transfers_only --exact --nocapture --ignored
+    /// ```
     fn test_max_block_stx_transfers_only() {
         let mut privks = vec![];
         let mut addrs = vec![];
@@ -427,6 +463,24 @@ mod tests {
 
     #[test]
     #[ignore]
+    /// Give the miner 15s to build a full block, then check how many transactions
+    /// it was able to include.
+    /// The transactions are a random mix of NFT mints, NFT transfers, and STX transfers.
+    /// The information we are looking for can be found in the logs, for example:
+    /// ```
+    /// Miner: mined anchored block, block_hash: 5c259637d326c86bac17900d07f4d0d38b8cf5b854b6898bdf51017c2cab6461,
+    ///   height: 2,   tx_count: 10567, parent_stacks_block_hash: 34553785fcaa07bb07cf3341e30c18ba390381591f10e502f27c346c50d00cf7,
+    ///   parent_stacks_microblock: 0000000000000000000000000000000000000000000000000000000000000000,
+    ///   parent_stacks_microblock_seq:    0, block_size: 2097103,
+    ///   execution_consumed: {"runtime": 22269784000, "write_len": 82452, "write_cnt": 12916, "read_len": 17205312, "read_cnt": 42972},
+    ///   assembly_time_ms: 99140, tx_fees_microstacks: 18138000
+    /// ```
+    /// where the interesting fields are "assembly_time_ms" and "tx_count".
+    ///
+    /// To run this test:
+    /// ```sh
+    /// cargo test --package stacks-subnets --lib -- chainstate::stacks::bench::tests::test_15s_block --exact --nocapture --ignored
+    /// ```
     fn test_15s_block() {
         let mut privks = vec![];
         let mut addrs = vec![];
@@ -639,6 +693,24 @@ mod tests {
 
     #[test]
     #[ignore]
+    /// Give the miner 15s to build a block, then check how many transactions
+    /// it was able to include.
+    /// The transactions are all STX transfers, so this is a best-case scenario.
+    /// The information we are looking for can be found in the logs, for example:
+    /// ```
+    /// Miner: mined anchored block, block_hash: 5c259637d326c86bac17900d07f4d0d38b8cf5b854b6898bdf51017c2cab6461,
+    ///   height: 2,   tx_count: 10567, parent_stacks_block_hash: 34553785fcaa07bb07cf3341e30c18ba390381591f10e502f27c346c50d00cf7,
+    ///   parent_stacks_microblock: 0000000000000000000000000000000000000000000000000000000000000000,
+    ///   parent_stacks_microblock_seq:    0, block_size: 2097103,
+    ///   execution_consumed: {"runtime": 22269784000, "write_len": 82452, "write_cnt": 12916, "read_len": 17205312, "read_cnt": 42972},
+    ///   assembly_time_ms: 99140, tx_fees_microstacks: 18138000
+    /// ```
+    /// where the interesting fields are "assembly_time_ms" and "tx_count".
+    ///
+    /// To run this test:
+    /// ```sh
+    /// cargo test --package stacks-subnets --lib -- chainstate::stacks::bench::tests::test_15s_block_stx_transfers_only --exact --nocapture --ignored
+    /// ```
     fn test_15s_block_stx_transfers_only() {
         let mut privks = vec![];
         let mut addrs = vec![];
