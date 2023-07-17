@@ -72,6 +72,9 @@ pub mod index;
 pub mod miner;
 pub mod transaction;
 
+#[cfg(test)]
+pub mod bench;
+
 pub use stacks_common::types::chainstate::{StacksPrivateKey, StacksPublicKey};
 
 use crate::chainstate::stacks::db::blocks::MessageSignatureList;

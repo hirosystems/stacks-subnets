@@ -227,9 +227,9 @@ Also, we can see a few default settings that `clarinet` will be using for our su
 # L1 Subnet contract which the subnet will attempt to communicate with
 subnet_contract_id = "ST167FDXCJGS54J1T0J42VTX46G0QQQFRJGBK28RN.subnet-v3-0-1"
 # Docker image of subnet node
-subnet_node_image_url = "hirosystems/stacks-subnets:0.7.0"
+subnet_node_image_url = "hirosystems/stacks-subnets:0.8.1"
 # Docker image of subnet API
-subnet_api_image_url = "hirosystems/stacks-blockchain-api:7.2.0-beta.4"
+subnet_api_image_url = "hirosystems/stacks-blockchain-api:latest"
 ```
 
 ### Launching the Devnet

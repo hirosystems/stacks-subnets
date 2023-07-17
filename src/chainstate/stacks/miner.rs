@@ -4863,6 +4863,25 @@ pub mod test {
         sign_standard_singlesig_tx(payload.into(), sender, nonce, tx_fee)
     }
 
+    pub fn make_user_contract_call(
+        sender: &StacksPrivateKey,
+        nonce: u64,
+        tx_fee: u64,
+        contract_address: StacksAddress,
+        contract_name: &str,
+        function_name: &str,
+        args: &[Value],
+    ) -> StacksTransaction {
+        let payload = TransactionContractCall {
+            address: contract_address,
+            contract_name: ContractName::from(contract_name),
+            function_name: ClarityName::try_from(function_name).unwrap(),
+            function_args: args.to_vec(),
+        };
+
+        sign_standard_singlesig_tx(payload.into(), sender, nonce, tx_fee)
+    }
+
     pub fn make_user_stacks_transfer(
         sender: &StacksPrivateKey,
         nonce: u64,
@@ -6878,7 +6897,7 @@ pub mod test {
         }
     }
 
-    fn get_stacks_account(peer: &mut TestPeer, addr: &PrincipalData) -> StacksAccount {
+    pub(crate) fn get_stacks_account(peer: &mut TestPeer, addr: &PrincipalData) -> StacksAccount {
         let account = peer
             .with_db_state(|ref mut sortdb, ref mut chainstate, _, _| {
                 let (consensus_hash, block_bhh) =
