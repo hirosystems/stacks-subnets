@@ -41,7 +41,7 @@ path = 'contracts/output/mocknet/helper/simple-nft-no-mint.clar'
 clarity_version = 2
 epoch = 2.1
 
-[contracts.subnet-v3-0-0]
+[contracts.subnet-v3-0-1]
 path = 'contracts/output/mocknet/subnet.clar'
 clarity_version = 2
 epoch = 2.1
