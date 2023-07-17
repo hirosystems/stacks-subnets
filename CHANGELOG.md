@@ -1,3 +1,10 @@
+## [0.8.1](https://github.com/hirosystems/stacks-subnets/compare/v0.8.0...v0.8.1) (2023-07-17)
+
+
+### Bug Fixes
+
+* update block handling for new model ([d06e152](https://github.com/hirosystems/stacks-subnets/commit/d06e15202cd5728d3535db0a12158a210a3a5eea))
+
 ## [0.8.0](https://github.com/hirosystems/stacks-subnets/compare/v0.7.1...v0.8.0) (2023-07-07)
 
 
